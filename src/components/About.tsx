@@ -1,65 +1,80 @@
-const skills = [
-  { category: "Development", items: ["React", "TypeScript", "Next.js", "Node.js"] },
-  { category: "Design", items: ["Figma", "Tailwind CSS"] },
-  { category: "Infrastructure", items: ["PostgreSQL", "AWS"] },
+const capabilities = [
+  "React / Next.js",
+  "TypeScript",
+  "Design Systems",
+  "Product Strategy",
+  "UI/UX Design",
+  "Figma",
 ]
 
 export function About() {
   return (
-    <section id="about" className="py-40 lg:py-56 border-t border-border/30">
+    <section id="about" className="py-40 lg:py-56 border-t border-border/20">
       <div className="container mx-auto px-6 md:px-12 lg:px-24">
-        {/* Big Statement */}
-        <blockquote className="mb-32 lg:mb-44">
-          <p className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-extralight leading-[1.2] tracking-[-0.02em] max-w-5xl text-balance">
-            <span className="text-foreground">I believe great software comes from the intersection of </span>
-            <span className="text-muted-foreground/50">thoughtful design and meticulous engineering.</span>
-          </p>
-        </blockquote>
-
-        {/* Two Column Layout */}
-        <div className="grid lg:grid-cols-12 gap-20 lg:gap-32">
-          {/* Left: Description */}
-          <div className="lg:col-span-6">
-            <h2 className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground/70 mb-10">
+        
+        {/* Editorial layout - asymmetric composition */}
+        <div className="grid lg:grid-cols-12 gap-16 lg:gap-8">
+          
+          {/* Left column - Label + large statement */}
+          <div className="lg:col-span-8">
+            <span className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground/50 block mb-16 lg:mb-24">
               About
-            </h2>
-            <div className="space-y-7 text-muted-foreground/70 text-[15px] leading-[1.8]">
-              <p>
-                {"I'm a creative developer focused on building digital experiences that are both beautiful and functional. With a background in both design and engineering, I approach each project with a holistic perspective."}
+            </span>
+            
+            {/* Main statement - broken into intentional lines */}
+            <div className="space-y-1 mb-20 lg:mb-32">
+              <p className="text-3xl md:text-4xl lg:text-5xl xl:text-[3.5rem] font-extralight leading-[1.15] tracking-[-0.02em]">
+                <span className="text-foreground">Creative developer</span>
               </p>
-              <p>
-                Currently, I work at the intersection of design and technology, helping companies bring their digital products to life. My process emphasizes clarity, simplicity, and attention to detail.
+              <p className="text-3xl md:text-4xl lg:text-5xl xl:text-[3.5rem] font-extralight leading-[1.15] tracking-[-0.02em]">
+                <span className="text-foreground">building at the edge of</span>
               </p>
-              <p>
-                {"When I'm not coding, you'll find me exploring new technologies, contributing to open source, or refining my craft through personal projects."}
+              <p className="text-3xl md:text-4xl lg:text-5xl xl:text-[3.5rem] font-extralight leading-[1.15] tracking-[-0.02em]">
+                <span className="text-muted-foreground/40">design and engineering.</span>
+              </p>
+            </div>
+
+            {/* Body text - offset from main statement */}
+            <div className="lg:ml-[20%] max-w-md">
+              <p className="text-[15px] text-muted-foreground/60 leading-[1.8] mb-6">
+                {"I'm focused on building digital experiences that feel both beautiful and inevitable. My approach combines the rigor of engineering with the intuition of design."}
+              </p>
+              <p className="text-[15px] text-muted-foreground/60 leading-[1.8]">
+                Currently available for select projects and collaborations.
               </p>
             </div>
           </div>
 
-          {/* Right: Skills */}
-          <div className="lg:col-span-5 lg:col-start-8">
-            <h2 className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground/70 mb-10">
-              Skills & Tools
-            </h2>
-            <div className="space-y-10">
-              {skills.map((group) => (
-                <div key={group.category}>
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/40 block mb-4">
-                    {group.category}
+          {/* Right column - Capabilities, pushed down */}
+          <div className="lg:col-span-3 lg:col-start-10 lg:pt-[30vh]">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/40 block mb-8">
+              Capabilities
+            </span>
+            <ul className="space-y-3">
+              {capabilities.map((item, index) => (
+                <li 
+                  key={item}
+                  className="text-sm text-foreground/70 flex items-baseline gap-4"
+                >
+                  <span className="text-[9px] text-muted-foreground/30">
+                    {String(index + 1).padStart(2, '0')}
                   </span>
-                  <div className="flex flex-wrap gap-x-6 gap-y-2">
-                    {group.items.map((skill) => (
-                      <span 
-                        key={skill}
-                        className="text-foreground/80 text-sm"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                  {item}
+                </li>
               ))}
-            </div>
+            </ul>
+          </div>
+        </div>
+
+        {/* Bottom element - creates vertical rhythm */}
+        <div className="mt-32 lg:mt-48 pt-16 border-t border-border/10">
+          <div className="flex flex-col lg:flex-row lg:items-baseline justify-between gap-6">
+            <p className="text-sm text-muted-foreground/40 max-w-sm">
+              I believe the best work comes from genuine collaboration and shared creative vision.
+            </p>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/30">
+              Based in Madrid
+            </span>
           </div>
         </div>
       </div>
