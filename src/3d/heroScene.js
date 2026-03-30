@@ -49,8 +49,17 @@ export function initHeroScene() {
  // Clock
  const clock = new THREE.Clock();
 
+ let scrollY = window.scrollY;
+
+ window.addEventListener("scroll", () => {
+  scrollY = window.scrollY;
+ });
+
  const tick = () => {
-  clock.getElapsedTime();
+  camera.position.y = -(scrollY / sizes.height) * 2;
+
+  mesh.rotation.y = scrollY * 0.001;
+  mesh.rotation.x = scrollY * 0.0005;
 
   controls.update();
   renderer.render(scene, camera);
