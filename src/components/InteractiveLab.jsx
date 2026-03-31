@@ -21,7 +21,7 @@ const secondaryProjects = [
     description:
       "Sistema de partículas y profundidad espacial para crear atmósferas más inmersivas.",
     type: "Particles / Shader Feel",
-    url: "https://threejs-water-shader.vercel.app",
+    url: "https://galaxy-three-js-puce.vercel.app/",
     previewId: "preview-galaxy",
   },
   {
@@ -30,7 +30,7 @@ const secondaryProjects = [
     description:
       "Pieza experimental donde el usuario puede rotar, inspeccionar y sentir el volumen del modelo.",
     type: "Realtime Interaction",
-    url: "https://threejs-water-shader.vercel.app",
+    url: "https://threejs-hdr-lighting-lab.vercel.app/",
     previewId: "preview-object",
   },
 ];
@@ -131,7 +131,6 @@ export function InteractiveLab() {
         <div className="grid gap-6 md:grid-cols-2">
           {secondaryProjects.map((project) => (
             <article
-              key={project.id}
               className="group overflow-hidden border border-white/10 bg-black/20 backdrop-blur-[2px] transition-all duration-500 hover:border-primary/20 hover:shadow-[0_0_35px_rgba(249,115,22,0.06)]"
             >
               <div className="grid gap-0 md:grid-cols-[0.9fr_1.1fr]">
@@ -152,9 +151,6 @@ export function InteractiveLab() {
 
                 <div className="flex flex-col justify-center p-6">
                   <div className="mb-3 flex items-center justify-between gap-4">
-                    <span className="text-[11px] tracking-[0.16em] text-primary/75">
-                      {project.id}
-                    </span>
                     <span className="text-[10px] uppercase tracking-[0.16em] text-text-muted/65">
                       {project.type}
                     </span>
