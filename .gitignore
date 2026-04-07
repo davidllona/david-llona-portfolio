@@ -12,6 +12,16 @@ dist
 dist-ssr
 *.local
 
+public/videos/*.mov
+public/videos/*.mp4
+public/modelos/*.zip
+public/modelos/**/*.zip
+public/modelos/**/*.blend
+public/modelos/**/*.fbx
+public/modelos/**/*.obj
+public/modelos/.DS_Store
+public/modelos/**/*.mtl
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,3 +32,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.vercel
+.env*.local

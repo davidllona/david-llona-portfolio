@@ -38,6 +38,7 @@ export function initHeroScene() {
  // Controls
  const controls = new OrbitControls(camera, canvas);
  controls.enableDamping = true;
+ controls.enableZoom = false; // desactiva hacer grande/pequeño con scroll
 
  // Renderer
  const renderer = new THREE.WebGLRenderer({
@@ -46,13 +47,21 @@ export function initHeroScene() {
  renderer.setSize(sizes.width, sizes.height);
  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
- // Clock
- const clock = new THREE.Clock();
-
  let scrollY = window.scrollY;
 
  window.addEventListener("scroll", () => {
   scrollY = window.scrollY;
+ });
+
+ window.addEventListener("resize", () => {
+  sizes.width = window.innerWidth;
+  sizes.height = window.innerHeight;
+
+  camera.aspect = sizes.width / sizes.height;
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(sizes.width, sizes.height);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
  });
 
  const tick = () => {

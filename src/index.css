@@ -4,22 +4,18 @@
 
 @layer base {
  :root {
-  /* Fondo */
   --color-bg: #0a0a0a;
   --color-surface: #111111;
 
-  /* Texto */
   --color-text: #ededed;
-  --color-text-muted: #9ca3af;
+  --color-text-muted: #a1a1aa;
 
-  /* Marca / acento */
-  --color-primary: #f97316;
-  --color-primary-soft: #fb923c;
+  --color-primary: #ff6b2c;
+  --color-primary-soft: #ff8b57;
+  --color-primary-rgb: 255, 107, 44;
 
-  /* Extras */
   --color-border: #1f1f1f;
  }
-
  * {
   @apply border-border;
  }
