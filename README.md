@@ -1,21 +1,104 @@
-# React + TypeScript + Vite
+# 🚀 React + TypeScript + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Este proyecto es una base moderna para construir aplicaciones con **React + TypeScript**, utilizando **Vite** como bundler para un desarrollo rápido y optimizado.
 
-While this project uses React, Vite supports many popular JS frameworks. [See all the supported frameworks](https://vitejs.dev/guide/#scaffolding-your-first-vite-project).
+Incluye:
+- ⚡ Hot Module Replacement (HMR)
+- 🧠 Tipado con TypeScript
+- 🧹 Reglas básicas de ESLint
+- 📦 Estructura limpia y escalable
 
-## Deploy Your Own
+---
 
-Deploy your own Vite project with Vercel.
+## 📦 Instalación
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/examples/tree/main/framework-boilerplates/vite-react&template=vite-react)
+Clona el repositorio y ejecuta:
 
-_Live Example: https://vite-react-example.vercel.app_
+~~~bash
+npm install
+~~~
 
-### Deploying From Your Terminal
+---
 
-You can deploy your new Vite project with a single command from your terminal using [Vercel CLI](https://vercel.com/download):
+## 🧪 Desarrollo
 
-```shell
-$ vercel
-```
+Inicia el entorno de desarrollo:
+
+~~~bash
+npm run dev
+~~~
+
+Esto levantará el proyecto en:
+~~~
+http://localhost:5173
+~~~
+
+---
+
+## 🏗️ Build
+
+Para generar la versión de producción:
+
+~~~bash
+npm run build
+~~~
+
+Los archivos finales se generarán en la carpeta:
+
+~~~
+/dist
+~~~
+
+---
+
+## 🔍 Preview de producción
+
+Puedes previsualizar el build localmente:
+
+~~~bash
+npm run preview
+~~~
+
+---
+
+## 🧰 Tecnologías utilizadas
+
+- React  
+- TypeScript  
+- Vite  
+- ESLint  
+
+---
+
+## 🌌 Sobre el proyecto
+
+Este proyecto forma parte de un **portfolio interactivo en Three.js**, donde la experiencia de usuario se construye como una escena 3D navegable.
+
+El objetivo no es solo mostrar proyectos, sino crear una experiencia inmersiva:
+- Escena espacial interactiva  
+- Navegación mediante scroll  
+- Elementos 3D como protagonistas (astronauta, entorno, etc.)  
+- Transiciones narrativas entre secciones  
+
+---
+
+## 🚀 Deploy
+
+Puedes desplegar fácilmente en Vercel:
+
+https://www.davidllona.com/
+
+### Deploy desde terminal
+
+~~~bash
+vercel
+~~~
+
+---
+
+
+---
+
+## 🧑‍🚀 Autor
+
+David Llona
