@@ -1,7 +1,17 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrthographicCamera, useGLTF } from "@react-three/drei";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+
+const ROBOT_MODEL_BY_SKILL = {
+  javascript: "/modelos/robot_js.glb",
+  html: "/modelos/robot_html.glb",
+  css: "/modelos/robot_css.glb",
+  typescript: "/modelos/robot_ts.glb",
+  aem: "/modelos/robot_aem.glb",
+};
+
+const DEFAULT_ROBOT_MODEL = "/modelos/robot_buscando.glb";
 
 function findFirstByNames(root, names) {
   for (const name of names) {
@@ -275,7 +285,9 @@ function Comet({ delay = 0, tint = "#ffffff" }) {
     if (t < c.bornAt) {
       if (headRef.current) headRef.current.material.opacity = 0;
       if (glowRef.current) glowRef.current.material.opacity = 0;
-      if (tailRef.current) tailRef.current.material.uniforms.uGlobalOpacity.value = 0;
+      if (tailRef.current) {
+        tailRef.current.material.uniforms.uGlobalOpacity.value = 0;
+      }
       return;
     }
 
@@ -416,12 +428,12 @@ function CometField() {
   );
 }
 
-function RobotModel() {
+function RobotModel({ modelPath }) {
   const group = useRef();
   const robotPivotRef = useRef();
   const robotInnerRef = useRef();
 
-  const { scene } = useGLTF("/modelos/robot_buscando.glb");
+  const { scene } = useGLTF(modelPath);
 
   const { clonedScene, modelOffset } = useMemo(() => {
     const clone = scene.clone(true);
@@ -463,24 +475,12 @@ function RobotModel() {
   useFrame((state) => {
     const t = state.clock.getElapsedTime();
 
-    /**
-     * MOVIMIENTO GENERAL DEL ROBOT
-     * - flotación vertical
-     * - micro oscilación lateral
-     * - leve inclinación
-     */
     if (group.current) {
       group.current.position.x = Math.sin(t * 0.6) * 0.03;
       group.current.position.y = -0.1 + Math.sin(t * 1.05) * 0.08;
       group.current.rotation.z = Math.sin(t * 0.9) * 0.02;
     }
 
-    /**
-     * CUERPO SIGUE AL RATÓN
-     * state.pointer va de -1 a 1
-     * x = horizontal
-     * y = vertical
-     */
     if (robotPivotRef.current) {
       const targetY = THREE.MathUtils.clamp(state.pointer.x * 0.45, -0.35, 0.35);
 
@@ -493,7 +493,11 @@ function RobotModel() {
 
     if (robotInnerRef.current) {
       const idleX = Math.sin(t * 0.8) * 0.03;
-      const targetX = THREE.MathUtils.clamp((-state.pointer.y * 0.22) + idleX, -0.18, 0.18);
+      const targetX = THREE.MathUtils.clamp(
+        -state.pointer.y * 0.22 + idleX,
+        -0.18,
+        0.18
+      );
 
       robotInnerRef.current.rotation.x = THREE.MathUtils.lerp(
         robotInnerRef.current.rotation.x,
@@ -510,9 +514,6 @@ function RobotModel() {
       );
     }
 
-    /**
-     * PARPADEO
-     */
     if (eyeRef.current && initialEyeScale.current) {
       const blinkCycle = t % 4.7;
       let blink = 1;
@@ -543,9 +544,16 @@ function RobotModel() {
   );
 }
 
+useGLTF.preload("/modelos/robot_js.glb");
+useGLTF.preload("/modelos/robot_html.glb");
+useGLTF.preload("/modelos/robot_css.glb");
+useGLTF.preload("/modelos/robot_ts.glb");
+useGLTF.preload("/modelos/robot_aem.glb");
 useGLTF.preload("/modelos/robot_buscando.glb");
 
-export function RobotPopupScene() {
+export function RobotPopupScene({ activeMainSkill }) {
+  const modelPath = ROBOT_MODEL_BY_SKILL[activeMainSkill] || DEFAULT_ROBOT_MODEL;
+
   return (
     <div className="h-[280px] w-full md:h-[360px]">
       <Canvas dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
@@ -600,7 +608,7 @@ export function RobotPopupScene() {
         />
 
         <CometField />
-        <RobotModel />
+        <RobotModel modelPath={modelPath} />
       </Canvas>
     </div>
   );

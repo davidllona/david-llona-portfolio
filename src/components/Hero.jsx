@@ -3,21 +3,20 @@ import { initHeroScene } from "../3d/heroScene";
 
 export function Hero() {
   useEffect(() => {
-    initHeroScene();
+    const cleanup = initHeroScene();
+
+    return () => {
+      if (cleanup) cleanup();
+    };
   }, []);
 
   return (
     <section className="relative h-screen w-full overflow-hidden bg-bg">
-      
-      <canvas
-        id="webgl"
-        className="absolute top-0 left-0 w-full h-full"
-      ></canvas>
+      <canvas id="webgl" className="absolute left-0 top-0 h-full w-full"></canvas>
 
-      <div className="absolute bottom-6 w-full text-center text-text-muted text-sm">
+      <div className="absolute bottom-6 w-full text-center text-sm text-text-muted">
         Scroll para empezar ↓
       </div>
-
     </section>
   );
 }
