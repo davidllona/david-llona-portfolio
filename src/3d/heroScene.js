@@ -93,7 +93,7 @@ export function initHeroScene() {
   }
 
   return {
-   camera: { x: 4.8, y: 2.6, z: 8.5 },
+   camera: { x: 4.8, y: 5.17, z: 8.5 },
    target: { x: 0.8, y: 2.0, z: 0.2 },
    fov: 45,
    scrollYFactor: 0.8,
@@ -151,8 +151,6 @@ export function initHeroScene() {
   */
  const planeGeometry14 = new THREE.PlaneGeometry(14, 14);
  const planeGeometryWall = new THREE.PlaneGeometry(14, 7);
- const deskGeometry = new THREE.BoxGeometry(5.8, 0.18, 2.2);
- const legGeometry = new THREE.BoxGeometry(0.14, 1.15, 0.14);
  const unitPlaneGeometry = new THREE.PlaneGeometry(1, 1);
  const unitBoxGeometry = new THREE.BoxGeometry(1, 1, 1);
  const moonGeometry = new THREE.SphereGeometry(0.95, quality.moonSegments, quality.moonSegments);
@@ -236,25 +234,226 @@ export function initHeroScene() {
   * DESK
   * =========================================================
   */
- const deskGroup = new THREE.Group();
- scene.add(deskGroup);
+ const deskLoader = new GLTFLoader();
 
- const desk = new THREE.Mesh(deskGeometry, deskMaterial);
- desk.position.set(1.5, 1.15, 0.8);
- deskGroup.add(desk);
+ let deskRoot = null;
+ let deskAnchor = null;
+ let deskYaw = null;
+ let deskFix = null;
+ let deskTopSupport = null;
 
- const legPositions = [
-  [-0.9, 0.575, 0.0],
-  [3.8, 0.575, 0.0],
-  [-0.9, 0.575, 1.8],
-  [3.8, 0.575, 1.8],
- ];
+ const deskSupportMeshes = [];
 
- legPositions.forEach((pos) => {
-  const leg = new THREE.Mesh(legGeometry, legMaterial);
-  leg.position.set(pos[0], pos[1], pos[2]);
-  deskGroup.add(leg);
- });
+ const deskParams = {
+  scale: 0.026,
+  x: 0.15,
+  y: 0,
+  z: 0.35,
+  rotY: 0.03,
+  brightness: 0.5,
+  wallGapLeft: 0.02,
+  wallGapBack: 0.02,
+
+  supportWidth: 3.0,
+  supportDepth: 1.2,
+  supportYOffset: 0.01,
+  showSupport: false,
+ };
+
+ // Corrección interna del GLB, igual filosofía que la silla
+ const deskFixParams = {
+  posX: 0,
+  posY: 0,
+  posZ: 0,
+  rotX: 0,
+  rotY: 0,
+  rotZ: 0,
+ };
+
+ deskLoader.load(
+  "/modelos/desk.glb",
+  (gltf) => {
+   deskRoot = gltf.scene;
+
+   // Jerarquía limpia:
+   // deskAnchor -> posición global
+   // deskYaw    -> rotación/escala de escena
+   // deskFix    -> corrección interna del GLB
+   // deskRoot   -> modelo real
+   deskAnchor = new THREE.Group();
+   deskYaw = new THREE.Group();
+   deskFix = new THREE.Group();
+
+   scene.add(deskAnchor);
+   deskAnchor.add(deskYaw);
+   deskYaw.add(deskFix);
+   deskFix.add(deskRoot);
+
+   let meshCount = 0;
+
+   deskRoot.traverse((child) => {
+    if (!child.isMesh) return;
+
+    meshCount++;
+    child.castShadow = false;
+    child.receiveShadow = false;
+
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+
+    materials.forEach((mat) => {
+     if (!mat) return;
+
+     if ("roughness" in mat) mat.roughness = Math.max(mat.roughness ?? 0.75, 0.75);
+     if ("metalness" in mat) mat.metalness = Math.min(mat.metalness ?? 0.05, 0.1);
+     if ("envMapIntensity" in mat) mat.envMapIntensity = 0.6;
+
+     if (mat.color) {
+      mat.userData.__baseColor = mat.color.clone();
+      mat.color.copy(mat.userData.__baseColor).multiplyScalar(deskParams.brightness);
+     }
+    });
+   });
+
+   if (meshCount === 0) {
+    console.warn("desk.glb se ha cargado pero no contiene meshes visibles");
+    return;
+   }
+
+   // -----------------------------------------------------
+   // Recentrado REAL del GLB una sola vez
+   // -----------------------------------------------------
+   deskAnchor.position.set(0, 0, 0);
+   deskYaw.position.set(0, 0, 0);
+   deskYaw.rotation.set(0, 0, 0);
+   deskYaw.scale.setScalar(1);
+   deskFix.rotation.set(0, 0, 0);
+   deskRoot.position.set(0, 0, 0);
+   deskRoot.rotation.set(0, 0, 0);
+
+   deskAnchor.updateMatrixWorld(true);
+   deskYaw.updateMatrixWorld(true);
+   deskFix.updateMatrixWorld(true);
+   deskRoot.updateMatrixWorld(true);
+
+   const rawBox = new THREE.Box3().setFromObject(deskRoot);
+   const rawCenter = rawBox.getCenter(new THREE.Vector3());
+
+   // Centramos X/Z y apoyamos base en Y=0
+   deskRoot.position.set(-rawCenter.x, -rawBox.min.y, -rawCenter.z);
+
+   deskRoot.updateMatrixWorld(true);
+
+   // -----------------------------------------------------
+   // Plano invisible superior
+   // -----------------------------------------------------
+   deskTopSupport = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({
+     color: "#00ffff",
+     transparent: true,
+     opacity: 0.2,
+     depthWrite: false,
+     side: THREE.DoubleSide,
+    }),
+   );
+
+   deskTopSupport.rotation.x = -Math.PI * 0.5;
+   deskTopSupport.visible = deskParams.showSupport;
+   deskAnchor.add(deskTopSupport);
+
+   deskSupportMeshes.length = 0;
+   deskSupportMeshes.push(deskTopSupport);
+
+   updateDesk();
+   updateChair();
+   requestRender();
+  },
+  undefined,
+  (error) => {
+   console.error("Error cargando desk.glb:", error);
+  },
+ );
+
+ function updateDesk() {
+  if (!deskRoot || !deskAnchor || !deskYaw || !deskFix || !deskTopSupport) return;
+
+  const LEFT_WALL_X = -5;
+  const BACK_WALL_Z = -4;
+
+  // 1) Transformación base
+  deskAnchor.position.set(0, 0, 0);
+  deskYaw.rotation.set(0, deskParams.rotY, 0);
+  deskYaw.scale.setScalar(deskParams.scale);
+
+  deskFix.position.set(deskFixParams.posX, deskFixParams.posY, deskFixParams.posZ);
+  deskFix.rotation.set(deskFixParams.rotX, deskFixParams.rotY, deskFixParams.rotZ);
+
+  deskAnchor.updateMatrixWorld(true);
+  deskYaw.updateMatrixWorld(true);
+  deskFix.updateMatrixWorld(true);
+  deskRoot.updateMatrixWorld(true);
+
+  // 2) Apoyo en suelo
+  const floorBox = new THREE.Box3().setFromObject(deskAnchor);
+  deskAnchor.position.y = deskParams.y - floorBox.min.y;
+
+  deskAnchor.updateMatrixWorld(true);
+  deskYaw.updateMatrixWorld(true);
+  deskFix.updateMatrixWorld(true);
+  deskRoot.updateMatrixWorld(true);
+
+  // 3) Caja ya apoyada
+  const wallSnapBox = new THREE.Box3().setFromObject(deskAnchor);
+
+  // 4) Snap contra pared izquierda y pared del fondo
+  const deltaX = LEFT_WALL_X + deskParams.wallGapLeft - wallSnapBox.min.x;
+  const deltaZ = BACK_WALL_Z + deskParams.wallGapBack - wallSnapBox.min.z;
+
+  deskAnchor.position.x += deltaX;
+  deskAnchor.position.z += deltaZ;
+
+  deskAnchor.updateMatrixWorld(true);
+  deskYaw.updateMatrixWorld(true);
+  deskFix.updateMatrixWorld(true);
+  deskRoot.updateMatrixWorld(true);
+
+  // 5) Caja final
+  const alignedBox = new THREE.Box3().setFromObject(deskAnchor);
+
+  // 6) Plano superior de apoyo
+  const supportWorldY = alignedBox.max.y + deskParams.supportYOffset;
+  const supportLocalY = supportWorldY - deskAnchor.position.y;
+
+  deskTopSupport.position.set(0, supportLocalY, 0);
+  deskTopSupport.rotation.set(-Math.PI * 0.5, 0, 0);
+  deskTopSupport.scale.set(deskParams.supportWidth, deskParams.supportDepth, 1);
+  deskTopSupport.visible = deskParams.showSupport;
+
+  deskTopSupport.updateMatrixWorld(true);
+
+  // 7) Brillo materiales
+  deskRoot.traverse((child) => {
+   if (!child.isMesh) return;
+
+   const applyBrightness = (mat) => {
+    if (!mat || !mat.color) return;
+
+    if (!mat.userData.__baseColor) {
+     mat.userData.__baseColor = mat.color.clone();
+    }
+
+    mat.color.copy(mat.userData.__baseColor).multiplyScalar(deskParams.brightness);
+   };
+
+   if (Array.isArray(child.material)) {
+    child.material.forEach(applyBrightness);
+   } else {
+    applyBrightness(child.material);
+   }
+  });
+
+  requestRender();
+ }
 
  /**
   * =========================================================
@@ -611,22 +810,50 @@ export function initHeroScene() {
   * =========================================================
   */
  const loader = new GLTFLoader();
+ const chairRaycaster = new THREE.Raycaster();
+
  let chair = null;
+ let chairAnchor = null;
+ let chairYaw = null;
+ let chairModelFix = null;
 
  const chairParams = {
-  scale: 0.92,
-  x: 0.4,
-  y: 0.0,
-  z: 2.05,
-  rotY: -0.75,
+  scale: 0.72,
+  x: 2.2,
+  y: -0.04,
+  z: 2.77,
+  rotY: -2.3,
   brightness: 1.15,
+  groundOffset: 0.005, // pequeño margen para que no atraviese ni parpadee
  };
+
+ // Corrección interna del GLB.
+ // Estos valores NO son de escena: son solo para dejar el modelo recto.
+ const chairFix = {
+  rotX: -0.2,
+  rotY: 0,
+  rotZ: 0,
+ };
+
+ // Superficies sobre las que la silla puede apoyarse.
+ // Si quieres que SOLO detecte el suelo, deja solo [floor]
 
  loader.load("/modelos/chair.glb", (gltf) => {
   chair = gltf.scene;
 
+  chairAnchor = new THREE.Group();
+  chairYaw = new THREE.Group();
+  chairModelFix = new THREE.Group();
+
+  chairAnchor.add(chairYaw);
+  chairYaw.add(chairModelFix);
+  chairModelFix.add(chair);
+
   chair.traverse((child) => {
    if (!child.isMesh) return;
+
+   child.castShadow = false;
+   child.receiveShadow = false;
 
    const materials = Array.isArray(child.material) ? child.material : [child.material];
 
@@ -644,21 +871,64 @@ export function initHeroScene() {
    });
   });
 
-  chair.scale.setScalar(chairParams.scale);
-  chair.position.set(chairParams.x, chairParams.y, chairParams.z);
-  chair.rotation.y = chairParams.rotY;
-
-  scene.add(chair);
-  requestRender();
+  scene.add(chairAnchor);
+  updateChair();
  });
 
+ function getChairSupportY(x, z) {
+  // Lanzamos el rayo desde bastante arriba
+  chairRaycaster.set(new THREE.Vector3(x, 20, z), new THREE.Vector3(0, -1, 0));
+
+  const hits = chairRaycaster.intersectObjects([floor, ...deskSupportMeshes], false);
+  if (hits.length > 0) {
+   return hits[0].point.y;
+  }
+
+  // Fallback: suelo base
+  return 0;
+ }
+
  function updateChair() {
-  if (!chair) return;
+  if (!chair || !chairAnchor || !chairYaw || !chairModelFix) return;
 
-  chair.scale.setScalar(chairParams.scale);
-  chair.position.set(chairParams.x, chairParams.y, chairParams.z);
-  chair.rotation.y = chairParams.rotY;
+  // 1) Colocación base en planta
+  chairAnchor.position.set(chairParams.x, 0, chairParams.z);
 
+  // 2) Dirección visual de la silla
+  chairYaw.rotation.set(0, chairParams.rotY, 0);
+
+  // 3) Corrección interna del modelo importado
+  chairModelFix.rotation.set(chairFix.rotX, chairFix.rotY, chairFix.rotZ);
+  chairModelFix.scale.setScalar(chairParams.scale);
+
+  // 4) El GLB queda centrado dentro del grupo corrector
+  chair.position.set(0, 0, 0);
+  chair.rotation.set(0, 0, 0);
+
+  // 5) Actualizamos matrices antes de medir
+  chairAnchor.updateMatrixWorld(true);
+  chairYaw.updateMatrixWorld(true);
+  chairModelFix.updateMatrixWorld(true);
+  chair.updateMatrixWorld(true);
+
+  // 6) Detectamos la superficie debajo
+  const supportY = getChairSupportY(chairParams.x, chairParams.z);
+
+  // 7) Medimos la silla COMPLETA ya transformada
+  const box = new THREE.Box3().setFromObject(chairAnchor);
+  const lowestPointY = box.min.y;
+
+  // 8) Altura final:
+  // apoyo automático + margen + offset manual del usuario
+  chairAnchor.position.y += supportY + chairParams.groundOffset - lowestPointY + chairParams.y;
+
+  // 9) Recalcular matrices después del ajuste final
+  chairAnchor.updateMatrixWorld(true);
+  chairYaw.updateMatrixWorld(true);
+  chairModelFix.updateMatrixWorld(true);
+  chair.updateMatrixWorld(true);
+
+  // 10) Brillo materiales
   chair.traverse((child) => {
    if (!child.isMesh) return;
 
@@ -842,9 +1112,63 @@ export function initHeroScene() {
   });
 
   const deskFolder = gui.addFolder("Desk");
-  deskFolder.add(desk.position, "x", -5, 5, 0.01).onChange(requestRender);
-  deskFolder.add(desk.position, "y", 0, 3, 0.01).onChange(requestRender);
-  deskFolder.add(desk.position, "z", -5, 5, 0.01).onChange(requestRender);
+  deskFolder.add(deskParams, "scale", 0.005, 0.1, 0.001).onChange(() => {
+   updateDesk();
+   updateChair();
+  });
+  deskFolder.add(deskParams, "x", -5, 5, 0.01).onChange(() => {
+   updateDesk();
+   updateChair();
+  });
+  deskFolder.add(deskParams, "y", -0.5, 2, 0.01).onChange(() => {
+   updateDesk();
+   updateChair();
+  });
+  deskFolder.add(deskParams, "z", -5, 5, 0.01).onChange(() => {
+   updateDesk();
+   updateChair();
+  });
+  deskFolder.add(deskParams, "rotY", -Math.PI, Math.PI, 0.01).onChange(() => {
+   updateDesk();
+   updateChair();
+  });
+  deskFolder.add(deskParams, "brightness", 0.5, 2, 0.01).onChange(updateDesk);
+
+  deskFolder
+   .add(deskParams, "supportWidth", 0.5, 5, 0.01)
+   .name("support width")
+   .onChange(() => {
+    updateDesk();
+    updateChair();
+   });
+
+  deskFolder
+   .add(deskParams, "supportDepth", 0.5, 3, 0.01)
+   .name("support depth")
+   .onChange(() => {
+    updateDesk();
+    updateChair();
+   });
+
+  deskFolder
+   .add(deskParams, "supportYOffset", -0.05, 0.05, 0.001)
+   .name("support y")
+   .onChange(() => {
+    updateDesk();
+    updateChair();
+   });
+
+  deskFolder.add(deskParams, "showSupport").name("show support").onChange(updateDesk);
+
+  // Corrección interna del GLB
+
+  deskFolder.add(deskFixParams, "posX", -10, 10, 0.01).name("fix posX").onChange(updateDesk);
+  deskFolder.add(deskFixParams, "posY", -10, 10, 0.01).name("fix posY").onChange(updateDesk);
+  deskFolder.add(deskFixParams, "posZ", -10, 10, 0.01).name("fix posZ").onChange(updateDesk);
+
+  deskFolder.add(deskFixParams, "rotX", -Math.PI, Math.PI, 0.01).name("fix rotX").onChange(updateDesk);
+  deskFolder.add(deskFixParams, "rotY", -Math.PI, Math.PI, 0.01).name("fix rotY").onChange(updateDesk);
+  deskFolder.add(deskFixParams, "rotZ", -Math.PI, Math.PI, 0.01).name("fix rotZ").onChange(updateDesk);
 
   const windowFolder = gui.addFolder("Window");
   windowFolder.add(windowParams, "x", -10, 0, 0.01).onChange(updateWindow);
@@ -903,10 +1227,16 @@ export function initHeroScene() {
   const chairFolder = gui.addFolder("Chair");
   chairFolder.add(chairParams, "scale", 0.2, 2, 0.01).onChange(updateChair);
   chairFolder.add(chairParams, "x", -5, 5, 0.01).onChange(updateChair);
-  chairFolder.add(chairParams, "y", -1, 3, 0.01).onChange(updateChair);
+  chairFolder.add(chairParams, "y", -2, 5, 0.01).onChange(updateChair);
   chairFolder.add(chairParams, "z", -2, 5, 0.01).onChange(updateChair);
   chairFolder.add(chairParams, "rotY", -Math.PI, Math.PI, 0.01).onChange(updateChair);
   chairFolder.add(chairParams, "brightness", 0.2, 2, 0.01).onChange(updateChair);
+  chairFolder.add(chairParams, "groundOffset", 0, 0.05, 0.001).onChange(updateChair);
+
+  // Debug fino del GLB
+  chairFolder.add(chairFix, "rotX", -Math.PI, Math.PI, 0.01).name("fix rotX").onChange(updateChair);
+  chairFolder.add(chairFix, "rotY", -Math.PI, Math.PI, 0.01).name("fix rotY").onChange(updateChair);
+  chairFolder.add(chairFix, "rotZ", -Math.PI, Math.PI, 0.01).name("fix rotZ").onChange(updateChair);
  }
 
  /**
@@ -1020,8 +1350,11 @@ export function initHeroScene() {
 
   controls.dispose();
 
+  if (chairAnchor) {
+   scene.remove(chairAnchor);
+  }
+
   if (chair) {
-   scene.remove(chair);
    chair.traverse((child) => {
     if (!child.isMesh) return;
     if (child.geometry) child.geometry.dispose();
@@ -1036,10 +1369,33 @@ export function initHeroScene() {
    });
   }
 
+  if (deskAnchor) {
+   scene.remove(deskAnchor);
+  }
+
+  if (deskRoot) {
+   deskRoot.traverse((child) => {
+    if (!child.isMesh) return;
+
+    if (child.geometry) child.geometry.dispose();
+
+    if (Array.isArray(child.material)) {
+     child.material.forEach((mat) => {
+      if (mat && mat.dispose) mat.dispose();
+     });
+    } else if (child.material) {
+     child.material.dispose();
+    }
+   });
+  }
+
+  if (deskTopSupport) {
+   if (deskTopSupport.geometry) deskTopSupport.geometry.dispose();
+   if (deskTopSupport.material) deskTopSupport.material.dispose();
+  }
+
   planeGeometry14.dispose();
   planeGeometryWall.dispose();
-  deskGeometry.dispose();
-  legGeometry.dispose();
   unitPlaneGeometry.dispose();
   unitBoxGeometry.dispose();
   moonGeometry.dispose();
