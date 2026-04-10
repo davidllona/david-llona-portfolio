@@ -94,8 +94,8 @@ export function initHeroScene() {
 
   return {
    camera: { x: 4.8, y: 5.17, z: 8.5 },
-   target: { x: 0.8, y: 2.0, z: 0.2 },
-   fov: 45,
+   target: { x: 0.8, y: 3.74, z: 0.2 },
+   fov: 35,
    scrollYFactor: 0.8,
    scrollZFactor: 0.35,
   };
@@ -235,6 +235,7 @@ export function initHeroScene() {
   * =========================================================
   */
  const deskLoader = new GLTFLoader();
+ const monitorLoader = new GLTFLoader();
 
  let deskRoot = null;
  let deskAnchor = null;
@@ -245,7 +246,7 @@ export function initHeroScene() {
  const deskSupportMeshes = [];
 
  const deskParams = {
-  scale: 0.026,
+  scale: 0.024,
   x: 0.15,
   y: 0,
   z: 0.35,
@@ -269,6 +270,200 @@ export function initHeroScene() {
   rotY: 0,
   rotZ: 0,
  };
+
+ /**
+  * =========================================================
+  * MONITORS
+  * =========================================================
+  */
+ let monitorLeftRoot = null;
+ let monitorRightRoot = null;
+
+ let monitorLeftAnchor = null;
+ let monitorRightAnchor = null;
+
+ let monitorLeftFix = null;
+ let monitorRightFix = null;
+
+ const monitorParams = {
+  scale: 0.42,
+  brightness: 0.95,
+
+  yOffset: 0.01,
+  zOffset: 0.02,
+
+  gap: 0.02,
+
+  leftX: -0.42,
+  rightX: 0.42,
+
+  rotY: 0,
+  rotX: 0,
+  rotZ: 0,
+
+  tiltLeftY: 0.12,
+  tiltRightY: -0.12,
+ };
+
+ const monitorFixParams = {
+  posX: 0,
+  posY: 0,
+  posZ: 0,
+  rotX: 0,
+  rotY: 0,
+  rotZ: 0,
+ };
+
+ function applyMonitorMaterialTweaks(root) {
+  if (!root) return;
+
+  root.traverse((child) => {
+   if (!child.isMesh) return;
+
+   child.castShadow = false;
+   child.receiveShadow = false;
+
+   const materials = Array.isArray(child.material) ? child.material : [child.material];
+
+   materials.forEach((mat) => {
+    if (!mat) return;
+
+    if ("roughness" in mat) mat.roughness = Math.max(mat.roughness ?? 0.75, 0.45);
+    if ("metalness" in mat) mat.metalness = Math.min(mat.metalness ?? 0.1, 0.25);
+    if ("envMapIntensity" in mat) mat.envMapIntensity = 0.8;
+
+    if (mat.color) {
+     mat.userData.__baseColor = mat.color.clone();
+     mat.color.copy(mat.userData.__baseColor).multiplyScalar(monitorParams.brightness);
+    }
+   });
+  });
+ }
+
+ function centerMonitorRoot(root) {
+  if (!root) return;
+
+  root.position.set(0, 0, 0);
+  root.rotation.set(0, 0, 0);
+  root.updateMatrixWorld(true);
+
+  const rawBox = new THREE.Box3().setFromObject(root);
+  const rawCenter = rawBox.getCenter(new THREE.Vector3());
+
+  root.position.set(-rawCenter.x, -rawBox.min.y, -rawCenter.z);
+  root.updateMatrixWorld(true);
+ }
+
+ function updateMonitorBrightness(root) {
+  if (!root) return;
+
+  root.traverse((child) => {
+   if (!child.isMesh) return;
+
+   const applyBrightness = (mat) => {
+    if (!mat || !mat.color) return;
+
+    if (!mat.userData.__baseColor) {
+     mat.userData.__baseColor = mat.color.clone();
+    }
+
+    mat.color.copy(mat.userData.__baseColor).multiplyScalar(monitorParams.brightness);
+   };
+
+   if (Array.isArray(child.material)) {
+    child.material.forEach(applyBrightness);
+   } else {
+    applyBrightness(child.material);
+   }
+  });
+ }
+
+ function ensureMonitorsLoaded() {
+  if (!deskAnchor) return;
+  if (monitorLeftAnchor || monitorRightAnchor) return;
+
+  monitorLoader.load(
+   "/modelos/monitor.glb",
+   (gltf) => {
+    monitorLeftRoot = gltf.scene;
+    monitorLeftAnchor = new THREE.Group();
+    monitorLeftFix = new THREE.Group();
+
+    monitorLeftAnchor.add(monitorLeftFix);
+    monitorLeftFix.add(monitorLeftRoot);
+    deskAnchor.add(monitorLeftAnchor);
+
+    applyMonitorMaterialTweaks(monitorLeftRoot);
+    centerMonitorRoot(monitorLeftRoot);
+
+    monitorLoader.load(
+     "/modelos/monitor.glb",
+     (gltf2) => {
+      monitorRightRoot = gltf2.scene;
+      monitorRightAnchor = new THREE.Group();
+      monitorRightFix = new THREE.Group();
+
+      monitorRightAnchor.add(monitorRightFix);
+      monitorRightFix.add(monitorRightRoot);
+      deskAnchor.add(monitorRightAnchor);
+
+      applyMonitorMaterialTweaks(monitorRightRoot);
+      centerMonitorRoot(monitorRightRoot);
+
+      updateMonitors();
+      requestRender();
+     },
+     undefined,
+     (error) => {
+      console.error("Error cargando segundo monitor.glb:", error);
+     },
+    );
+   },
+   undefined,
+   (error) => {
+    console.error("Error cargando monitor.glb:", error);
+   },
+  );
+ }
+
+ function updateSingleMonitor(anchor, fix, root, x, extraRotY) {
+  if (!anchor || !fix || !root || !deskTopSupport) return;
+
+  anchor.position.set(x, deskTopSupport.position.y + monitorParams.yOffset, monitorParams.zOffset);
+  anchor.rotation.set(monitorParams.rotX, monitorParams.rotY + extraRotY, monitorParams.rotZ);
+  anchor.scale.setScalar(monitorParams.scale);
+
+  fix.position.set(monitorFixParams.posX, monitorFixParams.posY, monitorFixParams.posZ);
+  fix.rotation.set(monitorFixParams.rotX, monitorFixParams.rotY, monitorFixParams.rotZ);
+
+  anchor.updateMatrixWorld(true);
+  fix.updateMatrixWorld(true);
+  root.updateMatrixWorld(true);
+
+  updateMonitorBrightness(root);
+ }
+
+ function updateMonitors() {
+  if (!deskAnchor || !deskTopSupport) return;
+
+  updateSingleMonitor(
+   monitorLeftAnchor,
+   monitorLeftFix,
+   monitorLeftRoot,
+   monitorParams.leftX - monitorParams.gap * 0.5,
+   monitorParams.tiltLeftY,
+  );
+
+  updateSingleMonitor(
+   monitorRightAnchor,
+   monitorRightFix,
+   monitorRightRoot,
+   monitorParams.rightX + monitorParams.gap * 0.5,
+   monitorParams.tiltRightY,
+  );
+
+  requestRender();
+ }
 
  deskLoader.load(
   "/modelos/desk.glb",
@@ -365,6 +560,7 @@ export function initHeroScene() {
    deskSupportMeshes.push(deskTopSupport);
 
    updateDesk();
+   ensureMonitorsLoaded();
    updateChair();
    requestRender();
   },
@@ -452,6 +648,7 @@ export function initHeroScene() {
    }
   });
 
+  updateMonitors();
   requestRender();
  }
 
@@ -462,7 +659,7 @@ export function initHeroScene() {
   */
  const windowParams = {
   x: -4.94,
-  y: 3.6,
+  y: 4.51,
   z: 0.55,
 
   width: 4.47,
@@ -796,8 +993,8 @@ export function initHeroScene() {
  moonLight.position.set(-4, 5, -1);
  scene.add(moonLight);
 
- const warmLight = new THREE.PointLight("#ffb25e", 1.9, 6.2, 2);
- warmLight.position.set(-0.5, 1.8, 0.6);
+ const warmLight = new THREE.PointLight("#ffb25e", 5, 20, 2);
+ warmLight.position.set(-3.65, 3.09, -2.12);
  scene.add(warmLight);
 
  const fillLight = new THREE.PointLight("#4b63ff", 0.38, 8.5, 2);
@@ -818,25 +1015,20 @@ export function initHeroScene() {
  let chairModelFix = null;
 
  const chairParams = {
-  scale: 0.72,
-  x: 2.2,
+  scale: 0.9,
+  x: -2.25,
   y: -0.04,
-  z: 2.77,
+  z: -0.43,
   rotY: -2.3,
   brightness: 1.15,
-  groundOffset: 0.005, // pequeño margen para que no atraviese ni parpadee
+  groundOffset: 0.005,
  };
 
- // Corrección interna del GLB.
- // Estos valores NO son de escena: son solo para dejar el modelo recto.
  const chairFix = {
   rotX: -0.2,
   rotY: 0,
   rotZ: 0,
  };
-
- // Superficies sobre las que la silla puede apoyarse.
- // Si quieres que SOLO detecte el suelo, deja solo [floor]
 
  loader.load("/modelos/chair.glb", (gltf) => {
   chair = gltf.scene;
@@ -876,7 +1068,6 @@ export function initHeroScene() {
  });
 
  function getChairSupportY(x, z) {
-  // Lanzamos el rayo desde bastante arriba
   chairRaycaster.set(new THREE.Vector3(x, 20, z), new THREE.Vector3(0, -1, 0));
 
   const hits = chairRaycaster.intersectObjects([floor, ...deskSupportMeshes], false);
@@ -884,51 +1075,38 @@ export function initHeroScene() {
    return hits[0].point.y;
   }
 
-  // Fallback: suelo base
   return 0;
  }
 
  function updateChair() {
   if (!chair || !chairAnchor || !chairYaw || !chairModelFix) return;
 
-  // 1) Colocación base en planta
   chairAnchor.position.set(chairParams.x, 0, chairParams.z);
-
-  // 2) Dirección visual de la silla
   chairYaw.rotation.set(0, chairParams.rotY, 0);
 
-  // 3) Corrección interna del modelo importado
   chairModelFix.rotation.set(chairFix.rotX, chairFix.rotY, chairFix.rotZ);
   chairModelFix.scale.setScalar(chairParams.scale);
 
-  // 4) El GLB queda centrado dentro del grupo corrector
   chair.position.set(0, 0, 0);
   chair.rotation.set(0, 0, 0);
 
-  // 5) Actualizamos matrices antes de medir
   chairAnchor.updateMatrixWorld(true);
   chairYaw.updateMatrixWorld(true);
   chairModelFix.updateMatrixWorld(true);
   chair.updateMatrixWorld(true);
 
-  // 6) Detectamos la superficie debajo
   const supportY = getChairSupportY(chairParams.x, chairParams.z);
 
-  // 7) Medimos la silla COMPLETA ya transformada
   const box = new THREE.Box3().setFromObject(chairAnchor);
   const lowestPointY = box.min.y;
 
-  // 8) Altura final:
-  // apoyo automático + margen + offset manual del usuario
   chairAnchor.position.y += supportY + chairParams.groundOffset - lowestPointY + chairParams.y;
 
-  // 9) Recalcular matrices después del ajuste final
   chairAnchor.updateMatrixWorld(true);
   chairYaw.updateMatrixWorld(true);
   chairModelFix.updateMatrixWorld(true);
   chair.updateMatrixWorld(true);
 
-  // 10) Brillo materiales
   chair.traverse((child) => {
    if (!child.isMesh) return;
 
@@ -1000,7 +1178,7 @@ export function initHeroScene() {
  const warmConfig = {
   color: warmLight.color.getHexString(),
   flicker: true,
-  baseIntensity: 1.9,
+  baseIntensity: 5,
   flickerAmplitude: 0.06,
   flickerSpeed: 4,
  };
@@ -1160,8 +1338,6 @@ export function initHeroScene() {
 
   deskFolder.add(deskParams, "showSupport").name("show support").onChange(updateDesk);
 
-  // Corrección interna del GLB
-
   deskFolder.add(deskFixParams, "posX", -10, 10, 0.01).name("fix posX").onChange(updateDesk);
   deskFolder.add(deskFixParams, "posY", -10, 10, 0.01).name("fix posY").onChange(updateDesk);
   deskFolder.add(deskFixParams, "posZ", -10, 10, 0.01).name("fix posZ").onChange(updateDesk);
@@ -1169,6 +1345,27 @@ export function initHeroScene() {
   deskFolder.add(deskFixParams, "rotX", -Math.PI, Math.PI, 0.01).name("fix rotX").onChange(updateDesk);
   deskFolder.add(deskFixParams, "rotY", -Math.PI, Math.PI, 0.01).name("fix rotY").onChange(updateDesk);
   deskFolder.add(deskFixParams, "rotZ", -Math.PI, Math.PI, 0.01).name("fix rotZ").onChange(updateDesk);
+
+  const monitorFolder = gui.addFolder("Monitors");
+  monitorFolder.add(monitorParams, "scale", 0.05, 2, 0.001).onChange(updateMonitors);
+  monitorFolder.add(monitorParams, "brightness", 0.2, 2, 0.01).onChange(updateMonitors);
+  monitorFolder.add(monitorParams, "yOffset", -0.2, 0.5, 0.001).onChange(updateMonitors);
+  monitorFolder.add(monitorParams, "zOffset", -1.5, 1.5, 0.001).onChange(updateMonitors);
+  monitorFolder.add(monitorParams, "gap", 0, 1, 0.001).onChange(updateMonitors);
+  monitorFolder.add(monitorParams, "leftX", -2, 2, 0.001).onChange(updateMonitors);
+  monitorFolder.add(monitorParams, "rightX", -2, 2, 0.001).onChange(updateMonitors);
+  monitorFolder.add(monitorParams, "rotX", -Math.PI, Math.PI, 0.001).onChange(updateMonitors);
+  monitorFolder.add(monitorParams, "rotY", -Math.PI, Math.PI, 0.001).onChange(updateMonitors);
+  monitorFolder.add(monitorParams, "rotZ", -Math.PI, Math.PI, 0.001).onChange(updateMonitors);
+  monitorFolder.add(monitorParams, "tiltLeftY", -1, 1, 0.001).onChange(updateMonitors);
+  monitorFolder.add(monitorParams, "tiltRightY", -1, 1, 0.001).onChange(updateMonitors);
+
+  monitorFolder.add(monitorFixParams, "posX", -10, 10, 0.01).name("fix posX").onChange(updateMonitors);
+  monitorFolder.add(monitorFixParams, "posY", -10, 10, 0.01).name("fix posY").onChange(updateMonitors);
+  monitorFolder.add(monitorFixParams, "posZ", -10, 10, 0.01).name("fix posZ").onChange(updateMonitors);
+  monitorFolder.add(monitorFixParams, "rotX", -Math.PI, Math.PI, 0.01).name("fix rotX").onChange(updateMonitors);
+  monitorFolder.add(monitorFixParams, "rotY", -Math.PI, Math.PI, 0.01).name("fix rotY").onChange(updateMonitors);
+  monitorFolder.add(monitorFixParams, "rotZ", -Math.PI, Math.PI, 0.01).name("fix rotZ").onChange(updateMonitors);
 
   const windowFolder = gui.addFolder("Window");
   windowFolder.add(windowParams, "x", -10, 0, 0.01).onChange(updateWindow);
@@ -1233,7 +1430,6 @@ export function initHeroScene() {
   chairFolder.add(chairParams, "brightness", 0.2, 2, 0.01).onChange(updateChair);
   chairFolder.add(chairParams, "groundOffset", 0, 0.05, 0.001).onChange(updateChair);
 
-  // Debug fino del GLB
   chairFolder.add(chairFix, "rotX", -Math.PI, Math.PI, 0.01).name("fix rotX").onChange(updateChair);
   chairFolder.add(chairFix, "rotY", -Math.PI, Math.PI, 0.01).name("fix rotY").onChange(updateChair);
   chairFolder.add(chairFix, "rotZ", -Math.PI, Math.PI, 0.01).name("fix rotZ").onChange(updateChair);
@@ -1357,6 +1553,46 @@ export function initHeroScene() {
   if (chair) {
    chair.traverse((child) => {
     if (!child.isMesh) return;
+    if (child.geometry) child.geometry.dispose();
+
+    if (Array.isArray(child.material)) {
+     child.material.forEach((mat) => {
+      if (mat && mat.dispose) mat.dispose();
+     });
+    } else if (child.material) {
+     child.material.dispose();
+    }
+   });
+  }
+
+  if (monitorLeftAnchor && deskAnchor) {
+   deskAnchor.remove(monitorLeftAnchor);
+  }
+
+  if (monitorRightAnchor && deskAnchor) {
+   deskAnchor.remove(monitorRightAnchor);
+  }
+
+  if (monitorLeftRoot) {
+   monitorLeftRoot.traverse((child) => {
+    if (!child.isMesh) return;
+
+    if (child.geometry) child.geometry.dispose();
+
+    if (Array.isArray(child.material)) {
+     child.material.forEach((mat) => {
+      if (mat && mat.dispose) mat.dispose();
+     });
+    } else if (child.material) {
+     child.material.dispose();
+    }
+   });
+  }
+
+  if (monitorRightRoot) {
+   monitorRightRoot.traverse((child) => {
+    if (!child.isMesh) return;
+
     if (child.geometry) child.geometry.dispose();
 
     if (Array.isArray(child.material)) {
