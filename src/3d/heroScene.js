@@ -286,27 +286,27 @@ export function initHeroScene() {
  let monitorRightFix = null;
 
  const monitorParams = {
-  scale: 0.42,
+  scale: 2,
   brightness: 0.95,
 
   yOffset: 0.01,
   zOffset: 0.02,
 
-  gap: 0.02,
+  gap: 2.201,
 
   leftX: -0.42,
   rightX: 0.42,
 
-  rotY: 0,
+  rotY: -1.5,
   rotX: 0,
   rotZ: 0,
 
-  tiltLeftY: 0.12,
-  tiltRightY: -0.12,
+  tiltLeftY: 0.288,
+  tiltRightY: -0.288,
  };
 
  const monitorFixParams = {
-  posX: 0,
+  posX: -0.18,
   posY: 0,
   posZ: 0,
   rotX: 0,
@@ -1016,11 +1016,11 @@ export function initHeroScene() {
 
  const chairParams = {
   scale: 0.9,
-  x: -2.25,
+  x: 1.06,
   y: -0.04,
   z: -0.43,
-  rotY: -2.3,
-  brightness: 1.15,
+  rotY: -2.9,
+  brightness: 1.1,
   groundOffset: 0.005,
  };
 
@@ -1351,7 +1351,7 @@ export function initHeroScene() {
   monitorFolder.add(monitorParams, "brightness", 0.2, 2, 0.01).onChange(updateMonitors);
   monitorFolder.add(monitorParams, "yOffset", -0.2, 0.5, 0.001).onChange(updateMonitors);
   monitorFolder.add(monitorParams, "zOffset", -1.5, 1.5, 0.001).onChange(updateMonitors);
-  monitorFolder.add(monitorParams, "gap", 0, 1, 0.001).onChange(updateMonitors);
+  monitorFolder.add(monitorParams, "gap", 0, 5, 0.001).onChange(updateMonitors);
   monitorFolder.add(monitorParams, "leftX", -2, 2, 0.001).onChange(updateMonitors);
   monitorFolder.add(monitorParams, "rightX", -2, 2, 0.001).onChange(updateMonitors);
   monitorFolder.add(monitorParams, "rotX", -Math.PI, Math.PI, 0.001).onChange(updateMonitors);
