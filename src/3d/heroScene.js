@@ -1813,7 +1813,7 @@ export function initHeroScene() {
  scene.add(moonLight);
 
  const warmLight = new THREE.PointLight("#ffb25e", 5, 20, 2);
- warmLight.position.set(-3.65, 3.09, -2.12);
+ warmLight.position.set(-4.03, 3.09, -2.12);
  scene.add(warmLight);
 
  const fillLight = new THREE.PointLight("#4b63ff", 0.38, 8.5, 2);
@@ -1949,6 +1949,369 @@ export function initHeroScene() {
   requestRender();
  }
 
+ // ══════════════════════════════════════════════════════════════════════════
+ // LÁMPARA / COHETE — sobre la mesa, esquina derecha
+ // ══════════════════════════════════════════════════════════════════════════
+ let lamparaRoot = null;
+ let lamparaAnchor = null;
+
+ const lamparaParams = {
+  x: -3.74,
+  y: 0.0,
+  z: 0.33,
+  rotX: 0.0,
+  rotY: 0.0,
+  rotZ: 0.08,
+  scale: 0.24,
+  brightness: 0.2,
+ };
+
+ const lamparaLoader = new GLTFLoader();
+ lamparaLoader.load(
+  "/modelos/lampara.glb",
+  (gltf) => {
+   lamparaRoot = gltf.scene;
+   lamparaAnchor = new THREE.Group();
+   lamparaAnchor.add(lamparaRoot);
+
+   lamparaRoot.traverse((child) => {
+    if (!child.isMesh) return;
+    child.castShadow = child.receiveShadow = false;
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.forEach((mat) => {
+     if (!mat) return;
+     if ("roughness" in mat) mat.roughness = 0.75;
+     if ("metalness" in mat) mat.metalness = 0.1;
+     if ("envMapIntensity" in mat) mat.envMapIntensity = 0.5;
+     if (mat.color) {
+      mat.userData.__baseColor = mat.color.clone();
+      mat.color.copy(mat.userData.__baseColor).multiplyScalar(lamparaParams.brightness);
+     }
+    });
+   });
+
+   // Adjuntar a deskAnchor cuando esté disponible
+   if (deskAnchor) deskAnchor.add(lamparaAnchor);
+   updateLampara();
+   requestRender();
+  },
+  undefined,
+  (err) => console.error("[Lámpara] Error:", err),
+ );
+
+ // ── Helper: cota de la superficie del escritorio ─────────────────────────
+ // deskTopSupport.position.y es la referencia canónica — la calcula updateDesk()
+ // y es exactamente la Y local (en espacio de deskAnchor) del tablero.
+ // Usamos eso en lugar de recalcular bbox del deskAnchor completo,
+ // lo que evita que los objetos hijos contaminen el resultado.
+ function getDeskSurfaceLocalY() {
+  if (!deskTopSupport) return 0;
+  return deskTopSupport.position.y;
+ }
+
+ // ── Helper: ajustar un modelo sobre la superficie del escritorio ──────────
+ // anchor: el Group hijo de deskAnchor
+ // root:   el gltf.scene dentro del anchor (ya escalado)
+ // params: { x, y, z, rotY }
+ // Calcula el punto base real del modelo (min.y de su bbox) y lo apoya
+ // sobre la cota del tablero. params.y es un offset corrector ajustable.
+ function placeOnDesk(anchor, root, params) {
+  if (!anchor || !root || !deskTopSupport) return;
+
+  // Aseguramos que la escala/posición base del root están aplicadas
+  // antes de medir su bbox
+  root.position.set(0, 0, 0);
+  root.rotation.set(0, 0, 0);
+  root.updateMatrixWorld(true);
+
+  // Bbox del modelo en world-space → convertimos a local de deskAnchor
+  const worldBox = new THREE.Box3().setFromObject(root);
+  // El origen del anchor está en deskAnchor-space, así que el min.y del
+  // modelo en world-space = anchor.position.y + modelo_localMin.y
+  // Necesitamos localMin.y para saber cuánto sobresale por debajo del origin
+  const modelLocalMinY = worldBox.min.y - anchor.getWorldPosition(new THREE.Vector3()).y;
+
+  // Cota del tablero en local de deskAnchor
+  const surfaceY = getDeskSurfaceLocalY();
+
+  anchor.position.set(params.x, surfaceY - modelLocalMinY + params.y, params.z);
+  anchor.rotation.set(0, params.rotY ?? 0, 0);
+ }
+
+ function updateLampara() {
+  if (!lamparaRoot || !lamparaAnchor || !deskTopSupport) return;
+  lamparaRoot.scale.setScalar(lamparaParams.scale);
+  placeOnDesk(lamparaAnchor, lamparaRoot, lamparaParams);
+  lamparaRoot.traverse((child) => {
+   if (!child.isMesh) return;
+   const ap = (mat) => {
+    if (!mat?.color) return;
+    if (!mat.userData.__baseColor) mat.userData.__baseColor = mat.color.clone();
+    mat.color.copy(mat.userData.__baseColor).multiplyScalar(lamparaParams.brightness);
+   };
+   Array.isArray(child.material) ? child.material.forEach(ap) : ap(child.material);
+  });
+  requestRender();
+ }
+
+ // ══════════════════════════════════════════════════════════════════════════
+ // TECLADO — sobre la mesa, delante de los monitores
+ // ══════════════════════════════════════════════════════════════════════════
+ let tecladoRoot = null;
+ let tecladoAnchor = null;
+
+ const tecladoParams = {
+  x: -0.05,
+  y: 0.0,
+  z: 0.35,
+  rotX: 0.0,
+  rotY: 0.0,
+  rotZ: 0.0,
+  scale: 0.55,
+  brightness: 1.0,
+ };
+
+ const tecladoLoader = new GLTFLoader();
+ tecladoLoader.load(
+  "/modelos/teclado.glb",
+  (gltf) => {
+   tecladoRoot = gltf.scene;
+   tecladoAnchor = new THREE.Group();
+   tecladoAnchor.add(tecladoRoot);
+
+   tecladoRoot.traverse((child) => {
+    if (!child.isMesh) return;
+    child.castShadow = child.receiveShadow = false;
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.forEach((mat) => {
+     if (!mat) return;
+     if ("roughness" in mat) mat.roughness = 0.8;
+     if ("metalness" in mat) mat.metalness = 0.05;
+     if ("envMapIntensity" in mat) mat.envMapIntensity = 0.4;
+     if (mat.color) {
+      mat.userData.__baseColor = mat.color.clone();
+      mat.color.copy(mat.userData.__baseColor).multiplyScalar(tecladoParams.brightness);
+     }
+    });
+   });
+
+   if (deskAnchor) deskAnchor.add(tecladoAnchor);
+   updateTeclado();
+   requestRender();
+  },
+  undefined,
+  (err) => console.error("[Teclado] Error:", err),
+ );
+
+ function updateTeclado() {
+  if (!tecladoRoot || !tecladoAnchor || !deskTopSupport) return;
+  tecladoRoot.scale.setScalar(tecladoParams.scale);
+  placeOnDesk(tecladoAnchor, tecladoRoot, tecladoParams);
+  tecladoRoot.traverse((child) => {
+   if (!child.isMesh) return;
+   const ap = (mat) => {
+    if (!mat?.color) return;
+    if (!mat.userData.__baseColor) mat.userData.__baseColor = mat.color.clone();
+    mat.color.copy(mat.userData.__baseColor).multiplyScalar(tecladoParams.brightness);
+   };
+   Array.isArray(child.material) ? child.material.forEach(ap) : ap(child.material);
+  });
+  requestRender();
+ }
+
+ // ══════════════════════════════════════════════════════════════════════════
+ // RATÓN — a la derecha del teclado
+ // ══════════════════════════════════════════════════════════════════════════
+ let ratonRoot = null;
+ let ratonAnchor = null;
+
+ const ratonParams = {
+  x: 0.5,
+  y: 0.0,
+  z: 0.35,
+  rotX: 0.0,
+  rotY: 0.0,
+  rotZ: 0.0,
+  scale: 0.45,
+  brightness: 1.0,
+ };
+
+ const ratonLoader = new GLTFLoader();
+ ratonLoader.load(
+  "/modelos/raton.glb",
+  (gltf) => {
+   ratonRoot = gltf.scene;
+   ratonAnchor = new THREE.Group();
+   ratonAnchor.add(ratonRoot);
+
+   ratonRoot.traverse((child) => {
+    if (!child.isMesh) return;
+    child.castShadow = child.receiveShadow = false;
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.forEach((mat) => {
+     if (!mat) return;
+     if ("roughness" in mat) mat.roughness = 0.75;
+     if ("metalness" in mat) mat.metalness = 0.05;
+     if ("envMapIntensity" in mat) mat.envMapIntensity = 0.4;
+     if (mat.color) {
+      mat.userData.__baseColor = mat.color.clone();
+      mat.color.copy(mat.userData.__baseColor).multiplyScalar(ratonParams.brightness);
+     }
+    });
+   });
+
+   if (deskAnchor) deskAnchor.add(ratonAnchor);
+   updateRaton();
+   requestRender();
+  },
+  undefined,
+  (err) => console.error("[Ratón] Error:", err),
+ );
+
+ function updateRaton() {
+  if (!ratonRoot || !ratonAnchor || !deskTopSupport) return;
+  ratonRoot.scale.setScalar(ratonParams.scale);
+  placeOnDesk(ratonAnchor, ratonRoot, ratonParams);
+  ratonRoot.traverse((child) => {
+   if (!child.isMesh) return;
+   const ap = (mat) => {
+    if (!mat?.color) return;
+    if (!mat.userData.__baseColor) mat.userData.__baseColor = mat.color.clone();
+    mat.color.copy(mat.userData.__baseColor).multiplyScalar(ratonParams.brightness);
+   };
+   Array.isArray(child.material) ? child.material.forEach(ap) : ap(child.material);
+  });
+  requestRender();
+ }
+
+ // ══════════════════════════════════════════════════════════════════════════
+ // ASTRONAUTA — sentado sobre la silla, hijo de chairYaw
+ // ══════════════════════════════════════════════════════════════════════════
+ //
+ // Jerarquía:
+ //   chairAnchor
+ //     └── chairYaw         ← aquí se adjunta, hereda posición+rotación
+ //           ├── chairModelFix → chair
+ //           └── astronautAnchor → astronautRoot
+ //
+ // La bbox de la silla se calcula solo sobre chairModelFix (nunca incluyendo
+ // al astronauta) para no contaminar el cálculo de groundOffset.
+ //
+ // seatApproxY: punto de apoyo inicial = min.y + altura * seatRatio
+ // Luego params.y corrige cualquier desviación sin fórmulas cerradas.
+
+ let astronautRoot = null;
+ let astronautAnchor = null;
+
+ const astronautParams = {
+  x: 0.0, // offset local en chairYaw-space
+  y: 0.0, // offset Y sobre el asiento (ajustar en GUI)
+  z: 0.0, // offset Z
+  rotY: 0.0, // orientación (0 = mira en la dirección del yaw de la silla)
+  rotX: -0.08, // leve inclinación hacia adelante — más natural
+  rotZ: 0.0,
+  scale: 0.55,
+  brightness: 1.0,
+  seatRatio: 0.58, // fracción de la altura de la silla donde está el asiento
+ };
+
+ const astronautLoader = new GLTFLoader();
+ astronautLoader.load(
+  "/modelos/astronauta.glb",
+  (gltf) => {
+   astronautRoot = gltf.scene;
+
+   // Ajuste de materiales — misma paleta que la silla
+   astronautRoot.traverse((child) => {
+    if (!child.isMesh) return;
+    child.castShadow = false;
+    child.receiveShadow = false;
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.forEach((mat) => {
+     if (!mat) return;
+     if ("roughness" in mat) mat.roughness = 0.85;
+     if ("metalness" in mat) mat.metalness = 0.05;
+     if ("envMapIntensity" in mat) mat.envMapIntensity = 0.4;
+     if (mat.color) {
+      mat.userData.__baseColor = mat.color.clone();
+      mat.color.copy(mat.userData.__baseColor).multiplyScalar(astronautParams.brightness);
+     }
+    });
+   });
+
+   astronautAnchor = new THREE.Group();
+   astronautAnchor.add(astronautRoot);
+
+   // Adjuntar a chairYaw — hereda posición del anchor + rotación del yaw
+   if (chairYaw) {
+    chairYaw.add(astronautAnchor);
+   }
+
+   updateAstronaut();
+   requestRender();
+  },
+  undefined,
+  (err) => console.error("[Astronauta] Error al cargar:", err),
+ );
+
+ function updateAstronaut() {
+  if (!astronautRoot || !astronautAnchor || !chairModelFix) return;
+
+  // 1. Aplicar escala + rotación local al root
+  astronautRoot.scale.setScalar(astronautParams.scale);
+  astronautRoot.rotation.set(0, 0, 0);
+  astronautRoot.position.set(0, 0, 0);
+
+  // 2. Calcular la bbox de la silla (solo chairModelFix — sin astronauta)
+  //    Temporalmente quitamos el astronauta del árbol para una bbox limpia
+  if (chairYaw && astronautAnchor.parent === chairYaw) {
+   chairYaw.remove(astronautAnchor);
+  }
+  chairModelFix.updateMatrixWorld(true);
+  const chairBox = new THREE.Box3().setFromObject(chairModelFix);
+
+  // 3. Calcular seatY en coordenadas locales de chairYaw
+  //    min.y + (max.y - min.y) * seatRatio da la altura del asiento
+  //    Convertimos a coordenadas locales de chairYaw con worldToLocal
+  const seatWorldY = chairBox.min.y + (chairBox.max.y - chairBox.min.y) * astronautParams.seatRatio;
+
+  // 4. Calcular la bbox propia del astronauta para encontrar su punto base
+  //    Necesitamos la bbox en local-space del anchor → escalamos el root primero
+  const tempBox = new THREE.Box3().setFromObject(astronautRoot);
+  const astronautBaseOffset = tempBox.min.y; // cuánto sobresale por abajo del origen
+
+  // 5. Colocar el anchor: su Y en coordenadas locales de chairYaw
+  //    para que el pie del astronauta coincida con seatY
+  astronautAnchor.position.set(
+   astronautParams.x,
+   seatWorldY - astronautBaseOffset + astronautParams.y,
+   astronautParams.z,
+  );
+
+  // 6. Rotación: mira hacia los monitores (en la dirección del yaw de la silla)
+  //    rotY=0 = misma dirección que la silla, positivo = giro hacia la izquierda
+  astronautAnchor.rotation.set(astronautParams.rotX, astronautParams.rotY, astronautParams.rotZ);
+
+  // 7. Re-adjuntar a chairYaw
+  if (chairYaw && astronautAnchor.parent !== chairYaw) {
+   chairYaw.add(astronautAnchor);
+  }
+
+  // 8. Brightness
+  astronautRoot.traverse((child) => {
+   if (!child.isMesh) return;
+   const applyB = (mat) => {
+    if (!mat || !mat.color) return;
+    if (!mat.userData.__baseColor) mat.userData.__baseColor = mat.color.clone();
+    mat.color.copy(mat.userData.__baseColor).multiplyScalar(astronautParams.brightness);
+   };
+   if (Array.isArray(child.material)) child.material.forEach(applyB);
+   else applyB(child.material);
+  });
+
+  requestRender();
+ }
+
  /**
   * =========================================================
   * CONTROLS
@@ -2001,15 +2364,35 @@ export function initHeroScene() {
   color: warmLight.color.getHexString(),
   flicker: true,
   baseIntensity: 5,
-  flickerAmplitude: 0.06,
-  flickerSpeed: 4,
+  flickerAmplitude: 1,
+  flickerSpeed: 10,
  };
 
  if (gui) {
   const cameraFolder = gui.addFolder("Camera");
-  cameraFolder.add(cameraBase, "x", -10, 10, 0.01).name("base x");
-  cameraFolder.add(cameraBase, "y", 0, 10, 0.01).name("base y");
-  cameraFolder.add(cameraBase, "z", 0, 20, 0.01).name("base z");
+  cameraFolder
+   .add(cameraBase, "x", -10, 10, 0.01)
+   .name("base x")
+   .onChange(() => {
+    buildKeyframes();
+    requestRender();
+   });
+
+  cameraFolder
+   .add(cameraBase, "y", 0, 10, 0.01)
+   .name("base y")
+   .onChange(() => {
+    buildKeyframes();
+    requestRender();
+   });
+
+  cameraFolder
+   .add(cameraBase, "z", 0, 20, 0.01)
+   .name("base z")
+   .onChange(() => {
+    buildKeyframes();
+    requestRender();
+   });
 
   cameraFolder
    .add(camera, "fov", 20, 90, 1)
@@ -2243,18 +2626,63 @@ export function initHeroScene() {
    requestRender();
   });
 
+  // ── Silla ────────────────────────────────────────────────────────────
   const chairFolder = gui.addFolder("Chair");
-  chairFolder.add(chairParams, "scale", 0.2, 2, 0.01).onChange(updateChair);
-  chairFolder.add(chairParams, "x", -5, 5, 0.01).onChange(updateChair);
-  chairFolder.add(chairParams, "y", -2, 5, 0.01).onChange(updateChair);
-  chairFolder.add(chairParams, "z", -2, 5, 0.01).onChange(updateChair);
-  chairFolder.add(chairParams, "rotY", -Math.PI, Math.PI, 0.01).onChange(updateChair);
-  chairFolder.add(chairParams, "brightness", 0.2, 2, 0.01).onChange(updateChair);
-  chairFolder.add(chairParams, "groundOffset", 0, 0.05, 0.001).onChange(updateChair);
-
+  chairFolder.add(chairParams, "scale", 0.01, 5, 0.01).name("scale").onChange(updateChair);
+  chairFolder.add(chairParams, "x", -10, 10, 0.01).name("pos X").onChange(updateChair);
+  chairFolder.add(chairParams, "y", -10, 10, 0.01).name("pos Y").onChange(updateChair);
+  chairFolder.add(chairParams, "z", -10, 10, 0.01).name("pos Z").onChange(updateChair);
+  chairFolder.add(chairParams, "rotY", -Math.PI, Math.PI, 0.01).name("rot Y").onChange(updateChair);
+  chairFolder.add(chairParams, "brightness", 0.1, 5, 0.01).name("brightness").onChange(updateChair);
+  chairFolder.add(chairParams, "groundOffset", -1, 1, 0.001).name("ground offset").onChange(updateChair);
   chairFolder.add(chairFix, "rotX", -Math.PI, Math.PI, 0.01).name("fix rotX").onChange(updateChair);
   chairFolder.add(chairFix, "rotY", -Math.PI, Math.PI, 0.01).name("fix rotY").onChange(updateChair);
   chairFolder.add(chairFix, "rotZ", -Math.PI, Math.PI, 0.01).name("fix rotZ").onChange(updateChair);
+
+  // ── Astronauta ────────────────────────────────────────────────────────
+  const astronautFolder = gui.addFolder("Astronauta");
+  astronautFolder.add(astronautParams, "x", -10, 10, 0.01).name("pos X").onChange(updateAstronaut);
+  astronautFolder.add(astronautParams, "y", -10, 10, 0.01).name("pos Y").onChange(updateAstronaut);
+  astronautFolder.add(astronautParams, "z", -10, 10, 0.01).name("pos Z").onChange(updateAstronaut);
+  astronautFolder.add(astronautParams, "rotX", -Math.PI, Math.PI, 0.01).name("rot X").onChange(updateAstronaut);
+  astronautFolder.add(astronautParams, "rotY", -Math.PI, Math.PI, 0.01).name("rot Y").onChange(updateAstronaut);
+  astronautFolder.add(astronautParams, "rotZ", -Math.PI, Math.PI, 0.01).name("rot Z").onChange(updateAstronaut);
+  astronautFolder.add(astronautParams, "scale", 0.01, 5, 0.01).name("scale").onChange(updateAstronaut);
+  astronautFolder.add(astronautParams, "brightness", 0.1, 5, 0.01).name("brightness").onChange(updateAstronaut);
+  astronautFolder.add(astronautParams, "seatRatio", 0.0, 1.0, 0.01).name("seat ratio").onChange(updateAstronaut);
+
+  // ── Lámpara ───────────────────────────────────────────────────────────
+  const lamparaFolder = gui.addFolder("Lampara");
+  lamparaFolder.add(lamparaParams, "x", -10, 10, 0.01).name("pos X").onChange(updateLampara);
+  lamparaFolder.add(lamparaParams, "y", -10, 10, 0.01).name("pos Y").onChange(updateLampara);
+  lamparaFolder.add(lamparaParams, "z", -10, 10, 0.01).name("pos Z").onChange(updateLampara);
+  lamparaFolder.add(lamparaParams, "rotX", -Math.PI, Math.PI, 0.01).name("rot X").onChange(updateLampara);
+  lamparaFolder.add(lamparaParams, "rotY", -Math.PI, Math.PI, 0.01).name("rot Y").onChange(updateLampara);
+  lamparaFolder.add(lamparaParams, "rotZ", -Math.PI, Math.PI, 0.01).name("rot Z").onChange(updateLampara);
+  lamparaFolder.add(lamparaParams, "scale", 0.01, 5, 0.01).name("scale").onChange(updateLampara);
+  lamparaFolder.add(lamparaParams, "brightness", 0.1, 5, 0.01).name("brightness").onChange(updateLampara);
+
+  // ── Teclado ───────────────────────────────────────────────────────────
+  const tecladoFolder = gui.addFolder("Teclado");
+  tecladoFolder.add(tecladoParams, "x", -10, 10, 0.01).name("pos X").onChange(updateTeclado);
+  tecladoFolder.add(tecladoParams, "y", -10, 10, 0.01).name("pos Y").onChange(updateTeclado);
+  tecladoFolder.add(tecladoParams, "z", -10, 10, 0.01).name("pos Z").onChange(updateTeclado);
+  tecladoFolder.add(tecladoParams, "rotX", -Math.PI, Math.PI, 0.01).name("rot X").onChange(updateTeclado);
+  tecladoFolder.add(tecladoParams, "rotY", -Math.PI, Math.PI, 0.01).name("rot Y").onChange(updateTeclado);
+  tecladoFolder.add(tecladoParams, "rotZ", -Math.PI, Math.PI, 0.01).name("rot Z").onChange(updateTeclado);
+  tecladoFolder.add(tecladoParams, "scale", 0.01, 5, 0.01).name("scale").onChange(updateTeclado);
+  tecladoFolder.add(tecladoParams, "brightness", 0.1, 5, 0.01).name("brightness").onChange(updateTeclado);
+
+  // ── Ratón ─────────────────────────────────────────────────────────────
+  const ratonFolder = gui.addFolder("Raton");
+  ratonFolder.add(ratonParams, "x", -10, 10, 0.01).name("pos X").onChange(updateRaton);
+  ratonFolder.add(ratonParams, "y", -10, 10, 0.01).name("pos Y").onChange(updateRaton);
+  ratonFolder.add(ratonParams, "z", -10, 10, 0.01).name("pos Z").onChange(updateRaton);
+  ratonFolder.add(ratonParams, "rotX", -Math.PI, Math.PI, 0.01).name("rot X").onChange(updateRaton);
+  ratonFolder.add(ratonParams, "rotY", -Math.PI, Math.PI, 0.01).name("rot Y").onChange(updateRaton);
+  ratonFolder.add(ratonParams, "rotZ", -Math.PI, Math.PI, 0.01).name("rot Z").onChange(updateRaton);
+  ratonFolder.add(ratonParams, "scale", 0.01, 5, 0.01).name("scale").onChange(updateRaton);
+  ratonFolder.add(ratonParams, "brightness", 0.1, 5, 0.01).name("brightness").onChange(updateRaton);
  }
 
  /**
@@ -2326,19 +2754,21 @@ export function initHeroScene() {
  const workPos = new THREE.Vector3();
 
  function buildKeyframes() {
-  const cfg = getResponsiveConfig();
-  KP[0].set(cfg.camera.x, cfg.camera.y, cfg.camera.z);
+  KP[0].set(cameraBase.x, cameraBase.y, cameraBase.z);
   KP[1].set(-1.5, 4.51, windowParams.z);
   KP[2].set(-12.0, 4.51, windowParams.z);
+
   auxCam.position.copy(KP[0]);
   auxCam.up.set(0, 1, 0);
-  auxCam.lookAt(cfg.target.x, cfg.target.y, cfg.target.z);
+  auxCam.lookAt(controls.target.x, controls.target.y, controls.target.z);
   KQ[0].copy(auxCam.quaternion);
+
   auxCam.position.copy(KP[1]);
   auxCam.up.set(0, 1, 0);
   auxCam.lookAt(-20.0, KP[1].y, KP[1].z);
   KQ[1].copy(auxCam.quaternion);
-  KQ[2].copy(KQ[1]); // mismo look en exterior → cero giro al cruzar la pared
+
+  KQ[2].copy(KQ[1]);
  }
 
  // Construir keyframes ANTES de applyResponsiveLayout
@@ -2698,6 +3128,57 @@ export function initHeroScene() {
   }
 
   controls.dispose();
+
+  // Astronauta (hijo de chairYaw, se elimina con chairAnchor pero hacemos dispose explícito)
+  if (astronautRoot) {
+   astronautRoot.traverse((child) => {
+    if (!child.isMesh) return;
+    if (child.geometry) child.geometry.dispose();
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.forEach((m) => {
+     if (m?.dispose) m.dispose();
+    });
+   });
+  }
+
+  // Lámpara
+  if (lamparaAnchor && deskAnchor) deskAnchor.remove(lamparaAnchor);
+  if (lamparaRoot) {
+   lamparaRoot.traverse((child) => {
+    if (!child.isMesh) return;
+    if (child.geometry) child.geometry.dispose();
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.forEach((m) => {
+     if (m?.dispose) m.dispose();
+    });
+   });
+  }
+
+  // Teclado
+  if (tecladoAnchor && deskAnchor) deskAnchor.remove(tecladoAnchor);
+  if (tecladoRoot) {
+   tecladoRoot.traverse((child) => {
+    if (!child.isMesh) return;
+    if (child.geometry) child.geometry.dispose();
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.forEach((m) => {
+     if (m?.dispose) m.dispose();
+    });
+   });
+  }
+
+  // Ratón
+  if (ratonAnchor && deskAnchor) deskAnchor.remove(ratonAnchor);
+  if (ratonRoot) {
+   ratonRoot.traverse((child) => {
+    if (!child.isMesh) return;
+    if (child.geometry) child.geometry.dispose();
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.forEach((m) => {
+     if (m?.dispose) m.dispose();
+    });
+   });
+  }
 
   if (chairAnchor) {
    scene.remove(chairAnchor);
