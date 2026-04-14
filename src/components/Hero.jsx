@@ -38,7 +38,7 @@ export function Hero() {
   return (
     <div
       ref={wrapperRef}
-      style={{ position: "relative", height: "450vh" }}
+      style={{ position: "relative", height: "380vh" }}
     >
       <div
         style={{

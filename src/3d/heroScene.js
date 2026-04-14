@@ -858,6 +858,26 @@ export function initHeroScene() {
   return isTabVisible && isCanvasVisible;
  }
 
+ /**
+  * =========================================================
+  * HELPERS Y CONSTANTES DE FASE — antes de requestRender/tick
+  * =========================================================
+  */
+ const easeIn3 = (t) => t * t * t;
+ const easeOut3 = (t) => 1 - Math.pow(1 - t, 3);
+ const easeIO3 = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+ const clamp01 = (t) => Math.max(0, Math.min(1, t));
+ const lerpV = (a, b, t) => a + (b - a) * t;
+ const phase = (sp, s, e) => clamp01((sp - s) / (e - s));
+
+ // Fases de scrollProgress (sp = scrollY / vh)
+ const F2S = 0.3,
+  F2E = 0.75;
+ const F3S = 0.75,
+  F3E = 1.1;
+ const F4S = 1.1,
+  F4E = 1.5;
+
  function requestRender() {
   if (!shouldAnimate()) return;
   if (isRendering) return;
@@ -943,7 +963,10 @@ export function initHeroScene() {
  // Los tres colores crean ilusión de distancia cromática real.
  // Distribución uniforme en esfera → sin zonas vacías ni sesgos.
 
- function buildExtStarLayer(count, rMin, rMax) {
+ // buildExtStarLayer — distribución esférica con sesgo opcional
+ // biasY / biasZ desplazan el centro de distribución para crear asimetría
+ // sin crear zonas vacías — el sesgo es aditivo, no elimina estrellas
+ function buildExtStarLayer(count, rMin, rMax, biasY = 0, biasZ = 0) {
   const pos = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
    const r = rMin + Math.random() * (rMax - rMin);
@@ -952,8 +975,8 @@ export function initHeroScene() {
    const theta = 2 * Math.PI * u;
    const phi = Math.acos(2 * v - 1);
    pos[i * 3] = EXT_X + r * Math.sin(phi) * Math.cos(theta);
-   pos[i * 3 + 1] = EXT_Y + r * Math.sin(phi) * Math.sin(theta);
-   pos[i * 3 + 2] = EXT_Z + r * Math.cos(phi);
+   pos[i * 3 + 1] = EXT_Y + r * Math.sin(phi) * Math.sin(theta) + biasY * r * 0.35;
+   pos[i * 3 + 2] = EXT_Z + r * Math.cos(phi) + biasZ * r * 0.35;
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
@@ -962,7 +985,7 @@ export function initHeroScene() {
 
  // Capa A — lejana, densa, azul frío
  const EXT_A_COUNT = isMobile ? 400 : 1600;
- const extStarsGeo = buildExtStarLayer(EXT_A_COUNT, 20, 42);
+ const extStarsGeo = buildExtStarLayer(EXT_A_COUNT, 20, 42, 0.6, -0.4);
  const extStarsMat = new THREE.PointsMaterial({
   color: "#c0d4ff",
   size: isMobile ? 0.048 : 0.032,
@@ -1054,7 +1077,7 @@ export function initHeroScene() {
   opacity: 0.0,
  });
  const extMoon = new THREE.Mesh(extMoonGeo, extMoonMat);
- extMoon.position.set(EXT_X - 26, EXT_Y + 2.5, EXT_Z + 2.8);
+ extMoon.position.set(EXT_X - 26, EXT_Y + 3.2, EXT_Z - 1.5);
  extMoon.renderOrder = 10;
  extMoon.visible = false;
  scene.add(extMoon);
@@ -1092,9 +1115,11 @@ export function initHeroScene() {
   cv.height = 256;
   const c = cv.getContext("2d");
   // Gradiente radial muy tenue: centro levemente azul frío, bordes transparentes
-  const g = c.createRadialGradient(128, 128, 0, 128, 128, 128);
-  g.addColorStop(0.0, "rgba(18, 26, 60, 0.22)"); // centro: azul muy oscuro
-  g.addColorStop(0.5, "rgba(10, 14, 35, 0.10)");
+  // Centro desplazado arriba-izquierda → no perfectamente centrado
+  // Coincide con la zona donde está la luna → más atmósfera natural
+  const g = c.createRadialGradient(96, 88, 0, 96, 88, 140);
+  g.addColorStop(0.0, "rgba(16, 24, 55, 0.26)");
+  g.addColorStop(0.5, "rgba(9, 13, 32, 0.11)");
   g.addColorStop(1.0, "rgba(0, 0, 0, 0.00)");
   c.fillStyle = g;
   c.fillRect(0, 0, 256, 256);
@@ -1115,6 +1140,362 @@ export function initHeroScene() {
  nebulaMesh.rotation.y = Math.PI * 0.5;
  nebulaMesh.renderOrder = 0; // detrás de todo
  scene.add(nebulaMesh);
+
+ // ── Viñeta espacial — frame visual sutil ─────────────────────────────────
+ // Plano grande colocado muy cerca de la cámara (0.5u delante).
+ // Canvas con gradiente radial INVERSO: centro transparente, bordes oscuros.
+ // Siempre sigue la cámara en F4+ → efecto de viñeta constante.
+ // renderOrder 99 → siempre encima de la escena.
+ const vignetteTex = (() => {
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = 256;
+  const c = cv.getContext("2d");
+  const g = c.createRadialGradient(128, 128, 52, 128, 128, 148);
+  g.addColorStop(0.0, "rgba(0, 0, 0, 0.00)"); // centro: completamente transparente
+  g.addColorStop(0.55, "rgba(0, 0, 0, 0.00)"); // zona central sin tocar
+  g.addColorStop(0.8, "rgba(0, 0, 0, 0.18)"); // inicio del oscurecimiento
+  g.addColorStop(1.0, "rgba(0, 0, 0, 0.52)"); // bordes oscuros
+  c.fillStyle = g;
+  c.fillRect(0, 0, 256, 256);
+  const t = new THREE.CanvasTexture(cv);
+  t.needsUpdate = true;
+  return t;
+ })();
+
+ // Aspecto: dimensiones en mundo que correspondan al FOV y ratio de pantalla
+ // Con FOV 35° y cámara a 0.5u delante: ancho ≈ 2×tan(17.5°)×0.5 ≈ 0.315u por lado
+ // Pero queremos que cubra todo el viewport con algo de margen → usamos 1.4×1.4
+ const vignetteGeo = new THREE.PlaneGeometry(1.4, 1.4);
+ const vignetteMat = new THREE.MeshBasicMaterial({
+  map: vignetteTex,
+  transparent: true,
+  opacity: 0.0,
+  depthWrite: false,
+  depthTest: false, // siempre visible, nunca ocluida
+  side: THREE.DoubleSide,
+ });
+ const vignetteMesh = new THREE.Mesh(vignetteGeo, vignetteMat);
+ vignetteMesh.renderOrder = 99;
+ scene.add(vignetteMesh);
+
+ // ══════════════════════════════════════════════════════════════════════════
+ // SATÉLITE MINIMAL + ESTRELLA FUGAZ
+ // ══════════════════════════════════════════════════════════════════════════
+
+ // ── Satélite ──────────────────────────────────────────────────────────────
+ // Profundidad EXT_X-14 → detrás del claim (EXT_X-5.5), delante de la luna
+ // Órbita elíptica: período ~48s, radio X=4.2, radio Z=1.8
+
+ const satGroup = new THREE.Group();
+ satGroup.visible = false;
+ scene.add(satGroup);
+
+ const SAT_ORBIT_X = EXT_X - 14;
+ const SAT_ORBIT_Y = EXT_Y + 0.8;
+ const SAT_ORBIT_Z = EXT_Z - 1.2;
+ const SAT_RX = 4.2;
+ const SAT_RZ = 1.8;
+
+ // Cuerpo
+ const satBodyGeo = new THREE.BoxGeometry(0.055, 0.035, 0.035);
+ const satBodyMat = new THREE.MeshBasicMaterial({
+  color: "#dce8ff",
+  transparent: true,
+  opacity: 0.0,
+ });
+ const satBody = new THREE.Mesh(satBodyGeo, satBodyMat);
+ satGroup.add(satBody);
+
+ // Paneles solares
+ const satPanelGeo = new THREE.BoxGeometry(0.12, 0.006, 0.032);
+ const satPanelMat = new THREE.MeshBasicMaterial({
+  color: "#8898cc",
+  transparent: true,
+  opacity: 0.0,
+ });
+ const satPanelL = new THREE.Mesh(satPanelGeo, satPanelMat);
+ satPanelL.position.set(-0.088, 0, 0);
+ satGroup.add(satPanelL);
+
+ const satPanelR = new THREE.Mesh(satPanelGeo, satPanelMat);
+ satPanelR.position.set(0.088, 0, 0);
+ satGroup.add(satPanelR);
+
+ // Glow sprite — gradiente circular difuso, muy sutil
+ const satGlowCv = document.createElement("canvas");
+ satGlowCv.width = satGlowCv.height = 32;
+ (() => {
+  const c = satGlowCv.getContext("2d");
+  const g = c.createRadialGradient(16, 16, 0, 16, 16, 16);
+  g.addColorStop(0.0, "rgba(210, 230, 255, 0.90)");
+  g.addColorStop(0.4, "rgba(180, 210, 255, 0.35)");
+  g.addColorStop(1.0, "rgba(0, 0, 0, 0.00)");
+  c.fillStyle = g;
+  c.fillRect(0, 0, 32, 32);
+ })();
+ const satGlowTex = new THREE.CanvasTexture(satGlowCv);
+ const satGlowMat = new THREE.SpriteMaterial({
+  map: satGlowTex,
+  transparent: true,
+  opacity: 0.0,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+ });
+ const satGlowSprite = new THREE.Sprite(satGlowMat);
+ satGlowSprite.scale.setScalar(0.18);
+ satGroup.add(satGlowSprite);
+
+ // ── Estrella fugaz ─────────────────────────────────────────────────────────
+ // Estado: idle → active → idle. Período: 8–20s. Duración: ~0.85s.
+ const shootingState = {
+  phase: "idle",
+  t: 0,
+  nextAt: 10,
+  _lastElapsed: 0,
+  startX: 0,
+  startY: 0,
+  startZ: 0,
+  dirX: 0,
+  dirY: 0,
+  dirZ: 0,
+  length: 3.5,
+ };
+
+ const shootLineGeo = new THREE.BufferGeometry();
+ const shootLinePos = new Float32Array(6);
+ shootLineGeo.setAttribute("position", new THREE.BufferAttribute(shootLinePos, 3));
+
+ const shootLineMat = new THREE.LineBasicMaterial({
+  color: "#f0f6ff",
+  transparent: true,
+  opacity: 0.0,
+  depthWrite: false,
+  linewidth: 1,
+ });
+ const shootLine = new THREE.Line(shootLineGeo, shootLineMat);
+ shootLine.renderOrder = 5;
+ shootLine.visible = false;
+ scene.add(shootLine);
+
+ function spawnShootingStar() {
+  const sx = EXT_X - 18 - Math.random() * 8;
+  const sy = EXT_Y + 2.5 + Math.random() * 2.0;
+  const sz = EXT_Z + (Math.random() - 0.5) * 4;
+  const angle = Math.PI * (0.12 + Math.random() * 0.1);
+  let dx = -1,
+   dy = -Math.tan(angle),
+   dz = (Math.random() - 0.3) * 0.4;
+  const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  dx /= len;
+  dy /= len;
+  dz /= len;
+  Object.assign(shootingState, {
+   startX: sx,
+   startY: sy,
+   startZ: sz,
+   dirX: dx,
+   dirY: dy,
+   dirZ: dz,
+   length: 2.8 + Math.random() * 1.4,
+   phase: "active",
+   t: 0,
+  });
+  shootLine.visible = true;
+ }
+
+ // ══════════════════════════════════════════════════════════════════════════
+ // UFO — scroll-driven, declarativo, sin timers
+ // ══════════════════════════════════════════════════════════════════════════
+ //
+ // El UFO ocupa el tramo sp 1.62 → 1.96 (dentro del plateau del claim).
+ // Su posición es función pura del scroll — no hay estado ni timers.
+ //
+ // Trayectoria:
+ //   - X fijo en UFO_X (profundidad capa intermedia)
+ //   - Y fijo arriba del claim → UFO_BASE_Y = EXT_Y + 1.8
+ //   - Z: barrido de +3.0 → -3.0 centrado en EXT_Z  (barrido horizontal legible)
+ //     +3.0 = lateral derecho del claim, -3.0 = lateral izquierdo
+ //     EXT_Z=0.55 → el UFO pasa exactamente sobre el centro del texto
+ //
+ // Influencia: beamInfl = falloff cuadrático según |ufoZ - EXT_Z|
+ //   máximo cuando el UFO está centrado sobre el texto, cero a ±2.5u
+
+ const UFO_X = EXT_X - 9; // profundidad intermedia
+ const UFO_BASE_Y = EXT_Y + 1.8; // por encima del claim (EXT_Y-0.2)
+ const UFO_SP_START = 1.62; // scroll en que entra
+ const UFO_SP_END = 1.96; // scroll en que sale
+ const UFO_Z_START = EXT_Z + 3.0; // lateral derecho
+ const UFO_Z_END = EXT_Z - 3.0; // lateral izquierdo
+
+ let ufoRoot = null;
+ const ufoGroup = new THREE.Group();
+ ufoGroup.visible = false;
+ scene.add(ufoGroup);
+ const ufoMaterials = [];
+
+ // ── Haz triangular (ShapeGeometry) ───────────────────────────────────────
+ // Triángulo isósceles: vértice arriba estrecho (bajo el UFO),
+ // base abajo ancha pero acotada al ancho del claim (~1.6u).
+ // Canvas con gradiente radial desde el vértice: cian en el apex,
+ // transparente en la base → forma cónica natural, sin bordes duros.
+ // AdditiveBlending → solo ilumina texto blanco/naranja, invisible sobre negro.
+ (() => {
+  // Shape: triángulo con vértice en (0, 0.9) y base en (-0.8, -0.9) / (0.8, -0.9)
+  // total alto: 1.8u, base: 1.6u — acotado al ancho del claim
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0.9); // vértice superior (apex, debajo del UFO)
+  shape.lineTo(-0.8, -0.9); // esquina inferior izquierda
+  shape.lineTo(0.8, -0.9); // esquina inferior derecha
+  shape.closePath();
+  window.__ufoBeamShape = shape;
+ })();
+
+ const ufoBeamGeo = new THREE.ShapeGeometry(window.__ufoBeamShape);
+ delete window.__ufoBeamShape;
+
+ // Textura del haz: gradiente radial desde el apex
+ const ufoBeamTex = (() => {
+  const cv = document.createElement("canvas");
+  cv.width = 128;
+  cv.height = 256;
+  const c = cv.getContext("2d");
+  // Gradiente radial centrado en el apex (arriba-centro)
+  // Radio hasta la base: 256px
+  const g = c.createRadialGradient(64, 0, 0, 64, 0, 260);
+  g.addColorStop(0.0, "rgba(180, 255, 235, 0.72)"); // apex: cian brillante
+  g.addColorStop(0.3, "rgba(140, 235, 215, 0.38)");
+  g.addColorStop(0.65, "rgba(100, 210, 190, 0.15)");
+  g.addColorStop(1.0, "rgba(60,  180, 160, 0.00)"); // base: transparente
+  c.fillStyle = g;
+  c.fillRect(0, 0, 128, 256);
+  const t = new THREE.CanvasTexture(cv);
+  t.needsUpdate = true;
+  return t;
+ })();
+
+ const ufoBeamMat = new THREE.MeshBasicMaterial({
+  map: ufoBeamTex,
+  transparent: true,
+  opacity: 0.0,
+  depthWrite: false,
+  side: THREE.DoubleSide,
+  blending: THREE.AdditiveBlending,
+ });
+ const ufoBeamMesh = new THREE.Mesh(ufoBeamGeo, ufoBeamMat);
+ ufoBeamMesh.rotation.y = Math.PI * 0.5; // perpendicular al eje de visión
+ ufoBeamMesh.visible = false;
+ scene.add(ufoBeamMesh);
+
+ // ── Overlays aditivos para intensificar letras ────────────────────────────
+ // DOS planos muy pequeños, estrictamente del tamaño de cada línea de texto.
+ // Sin blending normal — puramente AdditiveBlending.
+ // Sobre fondo negro son invisibles. Solo afectan al texto brillante.
+ //
+ // ufoOverlayWhite  → título "Diseñando experiencias" (blanco → más blanco)
+ //   tamaño: 3.0u × 0.42u (ancho claim, solo primera línea)
+ //   posición: ligeramente por encima del centro del claim
+ //
+ // ufoOverlayOrange → "de otro planeta" (naranja → más naranja)
+ //   tamaño: 1.8u × 0.38u (más estrecho, solo esa línea)
+ //   posición: justo en la segunda línea
+ //
+ // El tamaño se corresponde visualmente con el canvas:
+ //   claim en mundo: 3.8u × 1.19u, canvas lógico 1024×320
+ //   línea 1 ocupa ~94/320 del alto → ~0.35u en mundo
+ //   línea 2 ocupa ~88/320 del alto → ~0.33u en mundo
+
+ // ── Overlays de glow por línea — gradiente elíptico, sin bordes duros ──────
+ // Cada overlay usa una CanvasTexture con gradiente radial:
+ //   centro: color brillante  →  borde: completamente transparente
+ // Con AdditiveBlending son INVISIBLES sobre el fondo negro y solo
+ // iluminan los píxeles del texto blanco/naranja que tienen color.
+ // No crean rectángulos visibles — los bordes del gradiente llegan a 0.
+
+ function makeGlowTex(r, g, b) {
+  const cv = document.createElement("canvas");
+  cv.width = 256;
+  cv.height = 64; // ancho >> alto → forma elíptica natural
+  const c = cv.getContext("2d");
+  const gr = c.createRadialGradient(128, 32, 0, 128, 32, 128);
+  gr.addColorStop(0.0, `rgba(${r},${g},${b},0.90)`); // centro: intenso
+  gr.addColorStop(0.4, `rgba(${r},${g},${b},0.40)`);
+  gr.addColorStop(0.75, `rgba(${r},${g},${b},0.10)`);
+  gr.addColorStop(1.0, `rgba(${r},${g},${b},0.00)`); // borde: transparente
+  c.fillStyle = gr;
+  c.fillRect(0, 0, 256, 64);
+  const t = new THREE.CanvasTexture(cv);
+  t.needsUpdate = true;
+  return t;
+ }
+
+ // Línea 1 — "Diseñando experiencias" — glow blanco frío
+ // Overlays desactivados — el efecto de escáner ocurre en drawClaimScan()
+ // Stubs para que el cleanup existente no lance errores.
+ const ufoOverlayWhiteGeo = new THREE.PlaneGeometry(0.01, 0.01);
+ const ufoOverlayWhiteMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0 });
+ const ufoOverlayWhite = new THREE.Mesh(ufoOverlayWhiteGeo, ufoOverlayWhiteMat);
+ ufoOverlayWhite.visible = false;
+ scene.add(ufoOverlayWhite);
+
+ const ufoOverlayOrangeGeo = new THREE.PlaneGeometry(0.01, 0.01);
+ const ufoOverlayOrangeMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0 });
+ const ufoOverlayOrange = new THREE.Mesh(ufoOverlayOrangeGeo, ufoOverlayOrangeMat);
+ ufoOverlayOrange.visible = false;
+ scene.add(ufoOverlayOrange);
+
+ // ── Carga del modelo ──────────────────────────────────────────────────────
+ const ufoGLTFLoader = new GLTFLoader();
+ ufoGLTFLoader.load(
+  "/modelos/Ufo.glb",
+  (gltf) => {
+   ufoRoot = gltf.scene;
+   ufoRoot.scale.setScalar(0.58); // ← más grande: 0.45→0.58
+   ufoRoot.rotation.set(0, 0, 0);
+
+   ufoRoot.traverse((child) => {
+    if (!child.isMesh) return;
+    child.castShadow = false;
+    child.receiveShadow = false;
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.forEach((mat) => {
+     if (!mat) return;
+     mat.transparent = true;
+     mat.opacity = 0.0;
+     mat.needsUpdate = true;
+     // Subir brillo base del modelo: los GLBs espaciales suelen ser muy oscuros
+     if (mat.color) mat.color.multiplyScalar(2.8);
+     // Asegurar que no absorba demasiada luz en escena muy oscura
+     if ("roughness" in mat) mat.roughness = Math.min(mat.roughness ?? 0.6, 0.65);
+     if ("metalness" in mat) mat.metalness = Math.max(mat.metalness ?? 0.2, 0.25);
+     ufoMaterials.push(mat);
+    });
+   });
+
+   // Luz interior del UFO — rim light suave desde abajo/frente
+   // Ilumina el propio modelo dando silueta sin parecer cartoon
+   const ufoLight = new THREE.PointLight("#a8d4ff", 1.4, 2.8, 1.8);
+   ufoLight.position.set(0, -0.25, 0.3); // ligeramente debajo y al frente
+   ufoGroup.add(ufoLight);
+
+   // Segundo punto de luz para definir el borde superior (rim)
+   const ufoRim = new THREE.PointLight("#cce8ff", 0.7, 2.0, 2);
+   ufoRim.position.set(0, 0.4, -0.2);
+   ufoGroup.add(ufoRim);
+
+   ufoGroup.add(ufoRoot);
+   console.log("[UFO] Cargado —", ufoMaterials.length, "materiales");
+   requestRender();
+  },
+  undefined,
+  (err) => console.error("[UFO] Error:", err),
+ );
+
+ // Stub de compatibilidad (cleanup existente lo disposa)
+ const extUfoScanGeo = new THREE.PlaneGeometry(0.01, 0.01);
+ const extUfoScanMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0 });
+ const extUfoScanPlane = new THREE.Mesh(extUfoScanGeo, extUfoScanMat);
+ extUfoScanPlane.visible = false;
+ scene.add(extUfoScanPlane);
 
  // ── makeTextCanvas — alta resolución (S×3 internamente) ───────────────────
  // El drawFn recibe dimensiones LÓGICAS normales. ctx.scale(S,S) ya aplicado.
@@ -1174,61 +1555,90 @@ export function initHeroScene() {
  extPlaneHalo.rotation.y = Math.PI * 0.5;
  scene.add(extPlaneHalo);
 
- // ── Plano A — Claim narrativo — EL GRAN MOMENTO VISUAL ───────────────────
+ // ── Plano A — Claim narrativo — canvas mutable para efecto escáner UFO ───
  //
- // Canvas lógico 1024×320 → real 3072×960 (S=3) — alta densidad
- // Plano en mundo 3.8 × 1.19u — más grande que antes, más presencia
- // Sombras de texto integradas en la textura → el glow es PARTE del glyph,
- //   no un overlay encima. Elimina la sensación de "plano pegado".
- const PLANE_A_TEX = makeTextCanvas(1024, 320, (ctx, w, h) => {
-  ctx.clearRect(0, 0, w, h);
+ // La textura se dibuja en un canvas persistente.
+ // drawClaimScan(scanInfl) redibuja con colores boosteados en las letras:
+ //   scanInfl=0   → estado base (como antes)
+ //   scanInfl=1   → máximo brillo del escáner
+ // El efecto existe SOLO en los píxeles del texto — clearRect limpia el fondo
+ // a transparente en cada redibujado → el negro del fondo es el de la escena,
+ // nunca un rectángulo pintado.
+
+ const S_CLAIM = 3;
+ const W_CLAIM = 1024;
+ const H_CLAIM = 320;
+ const claimCanvas = document.createElement("canvas");
+ claimCanvas.width = W_CLAIM * S_CLAIM;
+ claimCanvas.height = H_CLAIM * S_CLAIM;
+ const claimCtx = claimCanvas.getContext("2d");
+ claimCtx.scale(S_CLAIM, S_CLAIM);
+
+ function drawClaimScan(scanInfl) {
+  const ctx = claimCtx;
+  const w = W_CLAIM;
+  const h = H_CLAIM; // eslint-disable-line no-unused-vars
+  ctx.clearRect(0, 0, w, H_CLAIM);
   const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif";
 
-  // Línea 1 — "Diseñando experiencias" con glow frío integrado
+  // Línea 1 — "Diseñando experiencias"
+  // shadowBlur: 20 base → 48 máx   |   shadow alpha: 0.35 → 0.90
+  const sA1 = 0.35 + scanInfl * 0.55;
+  const sR1 = Math.round(180 + scanInfl * 75);
+  const sG1 = Math.round(210 + scanInfl * 45);
   ctx.font = `300 68px ${SANS}`;
   ctx.textAlign = "center";
-  ctx.shadowColor = "rgba(180, 210, 255, 0.35)";
-  ctx.shadowBlur = 20;
+  ctx.shadowColor = `rgba(${sR1},${sG1},255,${sA1.toFixed(2)})`;
+  ctx.shadowBlur = 20 + scanInfl * 28;
   ctx.fillStyle = "rgba(240, 246, 255, 1.0)";
   ctx.fillText("Diseñando experiencias", w * 0.5, 94);
   ctx.shadowBlur = 0;
 
-  // Línea 2 — "de otro planeta" naranja #ff6b2c con glow naranja integrado
+  // Línea 2 — "de otro planeta"
+  // shadowBlur: 28 → 60   |   fillColor G: 107→140, B: 44→80
+  const oG = Math.round(107 + scanInfl * 33);
+  const oB = Math.round(44 + scanInfl * 36);
+  const oA = 0.5 + scanInfl * 0.45;
   ctx.font = `700 68px ${SANS}`;
-  ctx.shadowColor = "rgba(255, 107, 44, 0.50)";
-  ctx.shadowBlur = 28;
-  ctx.fillStyle = "rgba(255, 107, 44, 1.0)";
+  ctx.shadowColor = `rgba(255,107,44,${oA.toFixed(2)})`;
+  ctx.shadowBlur = 28 + scanInfl * 32;
+  ctx.fillStyle = `rgba(255,${oG},${oB},1.0)`;
   ctx.fillText("de otro planeta", w * 0.5, 182);
   ctx.shadowBlur = 0;
 
-  // Línea de acento naranja — más fina y elegante
+  // Separador + rombo — sin cambio con el escáner
   ctx.strokeStyle = "rgba(255, 107, 44, 0.60)";
   ctx.lineWidth = 0.8;
   const lineW = w * 0.28;
   const lineY = 207;
-  // Izquierda
   ctx.beginPath();
   ctx.moveTo(w * 0.5 - lineW - 12, lineY);
   ctx.lineTo(w * 0.5 - 12, lineY);
   ctx.stroke();
-  // Pequeño rombo central
   ctx.fillStyle = "rgba(255, 107, 44, 0.70)";
   ctx.save();
   ctx.translate(w * 0.5, lineY);
   ctx.rotate(Math.PI * 0.25);
   ctx.fillRect(-4, -4, 8, 8);
   ctx.restore();
-  // Derecha
   ctx.beginPath();
   ctx.moveTo(w * 0.5 + 12, lineY);
   ctx.lineTo(w * 0.5 + lineW + 12, lineY);
   ctx.stroke();
 
-  // Línea secundaria
+  // Subtítulo
   ctx.font = `300 20px ${SANS}`;
   ctx.fillStyle = "rgba(168, 188, 232, 0.72)";
   ctx.fillText("Frontend · Three.js · Experiencias interactivas", w * 0.5, 258);
- });
+ }
+
+ drawClaimScan(0); // dibujado inicial sin efecto
+
+ const PLANE_A_TEX = new THREE.CanvasTexture(claimCanvas);
+ PLANE_A_TEX.minFilter = THREE.LinearMipmapLinearFilter;
+ PLANE_A_TEX.magFilter = THREE.LinearFilter;
+ PLANE_A_TEX.anisotropy = renderer.capabilities.getMaxAnisotropy();
+ PLANE_A_TEX.generateMipmaps = true;
 
  const extPlaneAGeo = new THREE.PlaneGeometry(3.8, 3.8 * (320 / 1024));
  const extPlaneAMat = new THREE.MeshBasicMaterial({
@@ -1354,6 +1764,7 @@ export function initHeroScene() {
 
   centerMullion.scale.set(windowParams.mullionWidth, innerHeight, frameDepth * 0.95);
   centerMullion.position.set(0, 0, 0);
+  centerMullion.visible = false;
 
   windowGlass.scale.set(innerWidth, innerHeight, 1);
   windowGlass.position.set(0, 0, windowParams.glassOffset);
@@ -1907,22 +2318,6 @@ export function initHeroScene() {
   *  F5+ 1.50–3.50   Cámara quieta, overlays HTML
   */
 
- // ─── Helpers ──────────────────────────────────────────────
- const easeIn3 = (t) => t * t * t;
- const easeOut3 = (t) => 1 - Math.pow(1 - t, 3);
- const easeIO3 = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
- const clamp01 = (t) => Math.max(0, Math.min(1, t));
- const lerpV = (a, b, t) => a + (b - a) * t;
- const phase = (sp, s, e) => clamp01((sp - s) / (e - s));
-
- // ─── Boundaries ───────────────────────────────────────────
- const F2S = 0.3,
-  F2E = 0.75;
- const F3S = 0.75,
-  F3E = 1.1;
- const F4S = 1.1,
-  F4E = 1.5;
-
  // ─── Keyframes (declarados ANTES de applyResponsiveLayout) ─
  const KP = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
  const KQ = [new THREE.Quaternion(), new THREE.Quaternion(), new THREE.Quaternion()];
@@ -2046,6 +2441,12 @@ export function initHeroScene() {
    starsPoints.rotation.z = elapsedTime * 0.003;
   }
 
+  // ── Claim opacity — calculado aquí para que el bloque UFO pueda usarlo ──
+  // (const no se hoista; debe declararse antes de cualquier uso)
+  const claimFI = easeOut3(phase(sp, 1.5, 1.78));
+  const claimFO = easeIn3(phase(sp, 1.98, 2.2));
+  const claimOp = clamp01(claimFI * (1 - claimFO));
+
   // ── Exterior: 4 capas de estrellas + nebula + luna + texto ─────────────
   // Visibilidad binaria antes de F4S — garantiza ausencia total en habitación
 
@@ -2060,7 +2461,7 @@ export function initHeroScene() {
 
   if (inExterior) {
    const extFI = easeOut3(phase(sp, F4S, F4E));
-   const extFO = easeIn3(phase(sp, 3.1, 3.45));
+   const extFO = easeIn3(phase(sp, 2.58, 2.78)); // fade-out más temprano → menos franja negra
    const extBase = clamp01(extFI * (1 - extFO));
 
    // ── Respiración estelar muy sutil — seno lento, sin flicker ─────────────
@@ -2096,9 +2497,131 @@ export function initHeroScene() {
    // ── Nebula de fondo — aparece con el exterior, casi imperceptible ────────
    nebulaMat.opacity = extBase * 0.82;
 
+   // ── Viñeta — sigue la cámara, fade-in suave con el exterior ──────────────
+   // Se posiciona 0.5u delante de la cámara, en la dirección de visión (-X)
+   vignetteMesh.position.set(camera.position.x - 0.5, camera.position.y, camera.position.z);
+   vignetteMesh.rotation.y = Math.PI * 0.5; // perpendicular al eje de visión
+   vignetteMat.opacity = extBase * 0.88;
+
    // ── Luna ──────────────────────────────────────────────────────────────
    extMoonMat.opacity = extBase * 0.88;
    extMoonLight.intensity = extBase * 0.2;
+
+   // ── Satélite orbital ──────────────────────────────────────────────────
+   satGroup.visible = true;
+   const satAngle = elapsedTime * ((Math.PI * 2) / 48);
+   satGroup.position.set(
+    SAT_ORBIT_X + Math.cos(satAngle) * SAT_RX,
+    SAT_ORBIT_Y + Math.sin(satAngle * 0.38) * 0.5,
+    SAT_ORBIT_Z + Math.sin(satAngle) * SAT_RZ,
+   );
+   satGroup.rotation.z = satAngle * 0.15;
+   const satOp = extBase * 0.72;
+   satBodyMat.opacity = satOp;
+   satPanelMat.opacity = satOp * 0.65;
+   satGlowMat.opacity = satOp * 0.45;
+
+   // ── Estrella fugaz ────────────────────────────────────────────────────
+   if (!isMobile && extBase > 0.3) {
+    if (shootingState.phase === "idle") {
+     const dt = elapsedTime - (shootingState._lastElapsed || elapsedTime);
+     shootingState.nextAt -= dt;
+     if (shootingState.nextAt <= 0) spawnShootingStar();
+    }
+    shootingState._lastElapsed = elapsedTime;
+
+    if (shootingState.phase === "active") {
+     const DURATION = 0.85;
+     shootingState.t += 1 / 60 / DURATION;
+     if (shootingState.t >= 1) {
+      shootingState.phase = "idle";
+      shootingState.nextAt = 8 + Math.random() * 12;
+      shootLine.visible = false;
+      shootLineMat.opacity = 0.0;
+     } else {
+      const t = shootingState.t;
+      const tailT = Math.max(0, t - 0.35);
+      const L = shootingState.length;
+      shootLinePos[0] = shootingState.startX + shootingState.dirX * L * tailT;
+      shootLinePos[1] = shootingState.startY + shootingState.dirY * L * tailT;
+      shootLinePos[2] = shootingState.startZ + shootingState.dirZ * L * tailT;
+      shootLinePos[3] = shootingState.startX + shootingState.dirX * L * t;
+      shootLinePos[4] = shootingState.startY + shootingState.dirY * L * t;
+      shootLinePos[5] = shootingState.startZ + shootingState.dirZ * L * t;
+      shootLineGeo.attributes.position.needsUpdate = true;
+      const fadeIn = Math.min(1, t / 0.15);
+      const fadeOut = t > 0.65 ? 1 - (t - 0.65) / 0.35 : 1;
+      shootLineMat.opacity = fadeIn * fadeOut * 0.75 * extBase;
+     }
+    }
+   }
+
+   // ── UFO — scroll-driven, completamente declarativo ──────────────────────
+   // ufoT: 0 cuando sp=UFO_SP_START, 1 cuando sp=UFO_SP_END
+   // Toda la lógica es función pura de sp — sin estado ni timers.
+   const ufoT = phase(sp, UFO_SP_START, UFO_SP_END);
+   const ufoActive = sp >= UFO_SP_START && sp <= UFO_SP_END && ufoRoot;
+
+   if (ufoActive) {
+    // ── Posición — barrido en Z (horizontal para el espectador) ────────────
+    // Easing suave en los extremos para entrada/salida elegante
+    const ufoTE = easeIO3(ufoT);
+    const ufoZ = lerpV(UFO_Z_START, UFO_Z_END, ufoTE);
+    // Y con leve ondulación ligada al progreso (no al tiempo — no oscila raramente)
+    const ufoY = UFO_BASE_Y + Math.sin(ufoT * Math.PI) * 0.08;
+
+    ufoGroup.visible = true;
+    ufoGroup.position.set(UFO_X, ufoY, ufoZ);
+    // Rotación: ligera inclinación de avance según dirección del barrido
+    ufoGroup.rotation.y = Math.PI * 0.5 + (ufoTE - 0.5) * 0.15;
+
+    // Fade: primero y último 10% del tramo
+    const ufoFade = ufoT < 0.1 ? ufoT / 0.1 : ufoT > 0.9 ? (1 - ufoT) / 0.1 : 1.0;
+    const ufoOp = clamp01(ufoFade) * 0.92;
+    ufoMaterials.forEach((m) => {
+     m.opacity = ufoOp;
+    });
+
+    // ── beamInfl: distancia del UFO al centro del claim en Z ───────────────
+    // Máximo cuando el UFO está sobre EXT_Z (centro del claim)
+    const beamDist = Math.abs(ufoZ - EXT_Z);
+    const beamRange = 2.2; // radio de influencia ± 2.2u en Z
+    const beamRaw = Math.max(0, 1 - beamDist / beamRange);
+    const beamInfl = beamRaw * beamRaw * ufoFade; // cuadrático + fade
+
+    // ── Haz triangular ─────────────────────────────────────────────────────
+    // Apex justo debajo del UFO, la base cubre el claim
+    // Centro Y = entre UFO y texto: ufoY - 0.9 (a mitad del gap de ~1.8u)
+    ufoBeamMesh.visible = true;
+    ufoBeamMesh.position.set(UFO_X + 0.01, ufoY - 0.9, ufoZ);
+    ufoBeamMat.opacity = beamInfl * 0.7;
+
+    // ── Escáner en el canvas del claim ────────────────────────────────────
+    // Redibujamos la textura con colores boosteados según beamInfl.
+    // El efecto existe SOLO en los píxeles de las letras — nunca en el fondo
+    // (drawClaimScan solo dibuja texto, clearRect vacía el fondo a transparente).
+    // Throttle: cuantizar a pasos de 0.025 para no redibujar cada frame.
+    const newInfl = Math.round(beamInfl * 40) / 40;
+    if (Math.abs(newInfl - (extPlaneA.userData.lastInfl ?? -1)) > 0.001) {
+     drawClaimScan(newInfl);
+     PLANE_A_TEX.needsUpdate = true;
+     extPlaneA.userData.lastInfl = newInfl;
+    }
+   } else {
+    // Fuera del tramo: resetear canvas al estado base
+    ufoGroup.visible = false;
+    ufoBeamMesh.visible = false;
+    ufoBeamMat.opacity = 0.0;
+    if (extPlaneA.userData.lastInfl !== 0) {
+     drawClaimScan(0);
+     PLANE_A_TEX.needsUpdate = true;
+     extPlaneA.userData.lastInfl = 0;
+    }
+    if (ufoRoot)
+     ufoMaterials.forEach((m) => {
+      m.opacity = 0.0;
+     });
+   }
   } else {
    extStarsMat.opacity = 0.0;
    extStarsBMat.opacity = 0.0;
@@ -2108,12 +2631,17 @@ export function initHeroScene() {
    extMoonLight.intensity = 0.0;
    nebulaMat.opacity = 0.0;
    extGlowMat.opacity = 0.0;
+   satGroup.visible = false;
+   shootLine.visible = false;
+   vignetteMat.opacity = 0.0;
+   ufoGroup.visible = false;
+   extUfoScanMat.opacity = 0.0;
+   ufoBeamMesh.visible = false;
+   ufoBeamMat.opacity = 0.0;
   }
 
   // ── Bloque B — Claim narrativo (F5: 1.50 → 2.20) ─────────────────────────
-  const claimFI = easeOut3(phase(sp, 1.5, 1.78));
-  const claimFO = easeIn3(phase(sp, 1.98, 2.2));
-  const claimOp = clamp01(claimFI * (1 - claimFO));
+  // claimFI / claimFO / claimOp ya calculados arriba
 
   // Texto
   extPlaneAMat.opacity = claimOp;
@@ -2276,6 +2804,9 @@ export function initHeroScene() {
   nebulaGeo.dispose();
   if (nebulaMat.map) nebulaMat.map.dispose();
   nebulaMat.dispose();
+  vignetteGeo.dispose();
+  if (vignetteMat.map) vignetteMat.map.dispose();
+  vignetteMat.dispose();
   // Luna
   extMoonGeo.dispose();
   if (extMoonMat.map) extMoonMat.map.dispose();
@@ -2291,6 +2822,38 @@ export function initHeroScene() {
   extPlaneAMat.dispose();
   extGlowGeo.dispose();
   extGlowMat.dispose();
+  // Satélite
+  satBodyGeo.dispose();
+  satBodyMat.dispose();
+  satPanelGeo.dispose();
+  satPanelMat.dispose();
+  satGlowTex.dispose();
+  satGlowMat.dispose();
+  // Estrella fugaz
+  shootLineGeo.dispose();
+  shootLineMat.dispose();
+  // UFO
+  extUfoScanGeo.dispose();
+  extUfoScanMat.dispose();
+  ufoBeamGeo.dispose();
+  ufoBeamTex.dispose();
+  ufoBeamMat.dispose();
+  ufoOverlayWhiteGeo.dispose();
+  if (ufoOverlayWhiteMat.map) ufoOverlayWhiteMat.map.dispose();
+  ufoOverlayWhiteMat.dispose();
+  ufoOverlayOrangeGeo.dispose();
+  if (ufoOverlayOrangeMat.map) ufoOverlayOrangeMat.map.dispose();
+  ufoOverlayOrangeMat.dispose();
+  if (ufoRoot) {
+   ufoRoot.traverse((child) => {
+    if (!child.isMesh) return;
+    if (child.geometry) child.geometry.dispose();
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.forEach((m) => {
+     if (m && m.dispose) m.dispose();
+    });
+   });
+  }
   extPlaneCGeo.dispose();
   if (extPlaneCMat.map) extPlaneCMat.map.dispose();
   extPlaneCMat.dispose();

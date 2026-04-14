@@ -21,7 +21,7 @@ const PROJECTS = [
   year: "2026",
   tagline: "Simulador visual de alfombras a medida",
   color: "#c97a36",
-  image: "/images/projects/temyplast.jpg",
+  image: "/images/projects/diploma3d.png",
   link: "https://temyplast.com",
  },
  {
@@ -30,7 +30,7 @@ const PROJECTS = [
   year: "2026",
   tagline: "Generación dinámica de diplomas en 3D",
   color: "#5b8cff",
-  image: "/images/projects/diploma3d.jpg",
+  image: "/images/projects/diploma3d.png",
   link: null,
  },
  {
@@ -39,7 +39,7 @@ const PROJECTS = [
   year: "2026",
   tagline: "Experiencia interactiva en Three.js narrativa",
   color: "#ff6b4a",
-  image: "/images/projects/portfolio.jpg",
+  image: "/images/projects/diploma3d.png",
   link: null,
  },
  {
@@ -48,7 +48,7 @@ const PROJECTS = [
   year: "2025–2026",
   tagline: "Escena 3D reactiva con scroll y luz",
   color: "#7bd389",
-  image: "/images/projects/room.jpg",
+  image: "/images/projects/diploma3d.png",
   link: null,
  },
 ];
@@ -120,11 +120,20 @@ export function initProjectsScene(canvas) {
  // ── Precarga ────────────────────────────────────────────
  PROJECTS.forEach((p, i) => {
   screen.imagesLoaded[i] = false;
+
   const img = new Image();
+
   img.onload = () => {
    screen.imagesLoaded[i] = true;
+   console.log("[ProjectsScene] Imagen cargada OK:", p.image, img.naturalWidth, img.naturalHeight);
+   requestRender();
   };
-  img.onerror = () => {};
+
+  img.onerror = () => {
+   screen.imagesLoaded[i] = false;
+   console.error("[ProjectsScene] Error cargando imagen:", p.image);
+  };
+
   img.src = p.image;
   screen.images[i] = img;
  });
