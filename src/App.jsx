@@ -1,5 +1,5 @@
 import { Hero } from './components/Hero'
-import { IntroStory } from './components/IntroStory'
+// import { IntroStory } from './components/IntroStory'
 import { Projects } from './components/Projects'
 import { InteractiveLab } from './components/InteractiveLab'
 import { About } from './components/About'
@@ -13,7 +13,6 @@ function App() {
     <div className="min-h-screen bg-bg text-text">
       <main>
         <Hero />
-        <IntroStory/>
         <Projects />
         <InteractiveLab />
         <About />

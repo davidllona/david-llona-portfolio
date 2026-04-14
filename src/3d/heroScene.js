@@ -54,6 +54,13 @@ export function initHeroScene() {
  const scene = new THREE.Scene();
  scene.background = new THREE.Color("#07070d");
 
+ // Fog para la fase de salida al exterior — empieza inactivo
+ scene.fog = new THREE.FogExp2("#03030a", 0.0);
+
+ // Colores de interpolación para la transición
+ const BG_ROOM = new THREE.Color("#07070d"); // fondo normal de la habitación
+ const BG_SPACE = new THREE.Color("#03030a"); // fondo del espacio / Projects
+
  /**
   * =========================================================
   * SIZES
@@ -914,6 +921,407 @@ export function initHeroScene() {
 
  /**
   * =========================================================
+  * EXTERIOR ESPACIAL — estrellas + luna + texto en escena raíz
+  * =========================================================
+  *
+  * KP[2] = (-12, 4.51, 0.55)  ← posición final de cámara
+  * Todo lo exterior vive aquí, en coordenadas absolutas.
+  * Invisible hasta F4. Controlado por .visible + opacity.
+  */
+
+ // ── Centro del exterior ────────────────────────────────────────────────────
+ const EXT_X = -12.0;
+ const EXT_Y = 4.51;
+ const EXT_Z = 0.55;
+
+ // ── Estrellas exteriores — 3 capas cromáticas con profundidad real ────────
+ //
+ // Capa A (lejana):  1600 partículas, muy finas, azul frío  → polvo estelar profundo
+ // Capa B (media):    400 partículas, medianas, blanco neutro → magnitud media
+ // Capa C (cercana):   60 partículas, más grandes, blanco cálido → primer plano
+ //
+ // Los tres colores crean ilusión de distancia cromática real.
+ // Distribución uniforme en esfera → sin zonas vacías ni sesgos.
+
+ function buildExtStarLayer(count, rMin, rMax) {
+  const pos = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+   const r = rMin + Math.random() * (rMax - rMin);
+   const u = Math.random(),
+    v = Math.random();
+   const theta = 2 * Math.PI * u;
+   const phi = Math.acos(2 * v - 1);
+   pos[i * 3] = EXT_X + r * Math.sin(phi) * Math.cos(theta);
+   pos[i * 3 + 1] = EXT_Y + r * Math.sin(phi) * Math.sin(theta);
+   pos[i * 3 + 2] = EXT_Z + r * Math.cos(phi);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  return geo;
+ }
+
+ // Capa A — lejana, densa, azul frío
+ const EXT_A_COUNT = isMobile ? 400 : 1600;
+ const extStarsGeo = buildExtStarLayer(EXT_A_COUNT, 20, 42);
+ const extStarsMat = new THREE.PointsMaterial({
+  color: "#c0d4ff",
+  size: isMobile ? 0.048 : 0.032,
+  sizeAttenuation: true,
+  transparent: true,
+  opacity: 0.0,
+  depthWrite: false,
+ });
+ const extStarsPoints = new THREE.Points(extStarsGeo, extStarsMat);
+ extStarsPoints.renderOrder = 1;
+ extStarsPoints.visible = false;
+ scene.add(extStarsPoints);
+
+ // Capa B — media, blanco neutro
+ const EXT_B_COUNT = isMobile ? 100 : 400;
+ const extStarsBGeo = buildExtStarLayer(EXT_B_COUNT, 10, 22);
+ const extStarsBMat = new THREE.PointsMaterial({
+  color: "#e8eeff",
+  size: isMobile ? 0.09 : 0.065,
+  sizeAttenuation: true,
+  transparent: true,
+  opacity: 0.0,
+  depthWrite: false,
+ });
+ const extStarsBPoints = new THREE.Points(extStarsBGeo, extStarsBMat);
+ extStarsBPoints.renderOrder = 2;
+ extStarsBPoints.visible = false;
+ scene.add(extStarsBPoints);
+
+ // Capa C — cercana, blanco cálido, muy pocas → puntos de brillo
+ const EXT_C_COUNT = isMobile ? 14 : 60;
+ const extStarsCGeo = buildExtStarLayer(EXT_C_COUNT, 4, 11);
+ const extStarsCMat = new THREE.PointsMaterial({
+  color: "#fff4e8",
+  size: isMobile ? 0.13 : 0.1,
+  sizeAttenuation: true,
+  transparent: true,
+  opacity: 0.0,
+  depthWrite: false,
+ });
+ const extStarsCPoints = new THREE.Points(extStarsCGeo, extStarsCMat);
+ extStarsCPoints.renderOrder = 3;
+ extStarsCPoints.visible = false;
+ scene.add(extStarsCPoints);
+
+ // Capa D — polvo de primer plano, muy cercano a la cámara
+ // Pocas partículas, grandes y muy transparentes → profundidad de campo
+ // r=1.5–4u desde EXT → aparecen flotando DELANTE del claim
+ const EXT_D_COUNT = isMobile ? 0 : 18;
+ const extStarsDGeo =
+  EXT_D_COUNT > 0
+   ? buildExtStarLayer(EXT_D_COUNT, 1.5, 4)
+   : (() => {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(3), 3));
+      return g;
+     })();
+ const extStarsDMat = new THREE.PointsMaterial({
+  color: "#dde8ff",
+  size: 0.24,
+  sizeAttenuation: true,
+  transparent: true,
+  opacity: 0.0,
+  depthWrite: false,
+ });
+ const extStarsDPoints = new THREE.Points(extStarsDGeo, extStarsDMat);
+ extStarsDPoints.renderOrder = 4;
+ extStarsDPoints.visible = false;
+ scene.add(extStarsDPoints);
+
+ // ── Luna exterior — textura real, fondo equilibrado ──────────────────────
+ //
+ // Composición:
+ //   Cámara KP[2] = (-12, 4.51, 0.55)
+ //   Luna en       (-36, EXT_Y + 1.8, EXT_Z + 1.6)
+ //   → 24u al frente, +1.8u arriba, +1.6u lateral en Z
+ //   → offset Z moderado: no está perfectamente centrada detrás del texto
+ //     pero tampoco arrinconada en el lateral — equilibrio compositivo
+ //   → radio 1.5: más presencia de "gran fondo" sin invadir el claim
+ //   → tamaño angular: 1.5 / 24.1u ≈ 7.1°
+ //
+ // DirectionalLight apuntando desde la luna hacia el centro de escena:
+ //   ilumina el campo de estrellas con tinte muy frío sin crear "foco" visible
+ const extMoonLoader = new THREE.TextureLoader();
+ const extMoonGeo = new THREE.SphereGeometry(1.5, 36, 36);
+ const extMoonMat = new THREE.MeshBasicMaterial({
+  color: "#f5f8ff",
+  transparent: true,
+  opacity: 0.0,
+ });
+ const extMoon = new THREE.Mesh(extMoonGeo, extMoonMat);
+ extMoon.position.set(EXT_X - 26, EXT_Y + 2.5, EXT_Z + 2.8);
+ extMoon.renderOrder = 10;
+ extMoon.visible = false;
+ scene.add(extMoon);
+
+ extMoonLoader.load("/textures/moon.jpg", (tex) => {
+  tex.colorSpace = THREE.SRGBColorSpace;
+  extMoonMat.map = tex;
+  extMoonMat.color.set("#ffffff");
+  extMoonMat.needsUpdate = true;
+  requestRender();
+ });
+
+ // DirectionalLight desde la luna — ilumina suavemente el entorno sin "foco"
+ // intensity empieza en 0, sube a 0.22 en F4 — muy sutil, sin teñir
+ const extMoonLight = new THREE.DirectionalLight("#e8f0ff", 0.0);
+ extMoonLight.position.copy(extMoon.position);
+ extMoonLight.target.position.set(EXT_X, EXT_Y, EXT_Z);
+ scene.add(extMoonLight);
+ scene.add(extMoonLight.target);
+
+ // Stub para cleanup (halo desactivado)
+ const extMoonHaloGeo = new THREE.SphereGeometry(0.01, 3, 3);
+ const extMoonHaloMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0 });
+ const extMoonHalo = new THREE.Mesh(extMoonHaloGeo, extMoonHaloMat);
+ extMoonHalo.visible = false;
+ scene.add(extMoonHalo);
+
+ // ── Fondo nebular — rompe el negro plano sin ruido visual ────────────────
+ // Un plano grande con gradiente radial muy sutil centrado en el espacio.
+ // Casi imperceptible — solo añade una cálida variación de profundidad.
+ // Colocado muy lejos (EXT_X - 50) para que quede siempre detrás de todo.
+ const nebulaTex = (() => {
+  const cv = document.createElement("canvas");
+  cv.width = 256;
+  cv.height = 256;
+  const c = cv.getContext("2d");
+  // Gradiente radial muy tenue: centro levemente azul frío, bordes transparentes
+  const g = c.createRadialGradient(128, 128, 0, 128, 128, 128);
+  g.addColorStop(0.0, "rgba(18, 26, 60, 0.22)"); // centro: azul muy oscuro
+  g.addColorStop(0.5, "rgba(10, 14, 35, 0.10)");
+  g.addColorStop(1.0, "rgba(0, 0, 0, 0.00)");
+  c.fillStyle = g;
+  c.fillRect(0, 0, 256, 256);
+  const t = new THREE.CanvasTexture(cv);
+  t.needsUpdate = true;
+  return t;
+ })();
+ const nebulaGeo = new THREE.PlaneGeometry(28, 20);
+ const nebulaMat = new THREE.MeshBasicMaterial({
+  map: nebulaTex,
+  transparent: true,
+  opacity: 0.0, // controlado en tick, máx 0.85
+  depthWrite: false,
+  side: THREE.DoubleSide,
+ });
+ const nebulaMesh = new THREE.Mesh(nebulaGeo, nebulaMat);
+ nebulaMesh.position.set(EXT_X - 50, EXT_Y, EXT_Z);
+ nebulaMesh.rotation.y = Math.PI * 0.5;
+ nebulaMesh.renderOrder = 0; // detrás de todo
+ scene.add(nebulaMesh);
+
+ // ── makeTextCanvas — alta resolución (S×3 internamente) ───────────────────
+ // El drawFn recibe dimensiones LÓGICAS normales. ctx.scale(S,S) ya aplicado.
+ // El plano 3D tiene dimensiones físicas controladas → textura densa → nitidez.
+ function makeTextCanvas(logicalW, logicalH, drawFn) {
+  const S = 3;
+  const cv = document.createElement("canvas");
+  cv.width = logicalW * S;
+  cv.height = logicalH * S;
+  const ctx = cv.getContext("2d");
+  ctx.scale(S, S);
+  drawFn(ctx, logicalW, logicalH);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  tex.generateMipmaps = true;
+  return tex;
+ }
+
+ // ── Plano HALO — gradiente radial detrás del claim ────────────────────────
+ // No es un rectángulo: canvas con gradiente radial transparente en los bordes.
+ // Oscurece sutilmente el fondo justo detrás del texto → el texto "emerge"
+ // del espacio en lugar de flotar sobre negro liso.
+ // ── Halo detrás del claim ────────────────────────────────────────────────
+ // Gradiente elíptico vertical (más alto que ancho) — sigue la forma
+ // del bloque de texto, no un círculo. Negro puro, muy controlado.
+ // No crea mancha visible: los bordes son completamente transparentes.
+ const HALO_A_TEX = makeTextCanvas(360, 200, (ctx, w, h) => {
+  // Gradiente elíptico: radio horizontal menor que vertical
+  const rx = w * 0.42,
+   ry = h * 0.48;
+  const cx = w * 0.5,
+   cy = h * 0.5;
+  // Usamos transformación de escala para simular elipse en createRadialGradient
+  ctx.save();
+  ctx.scale(1, h / w); // aplana el gradiente verticalmente
+  const g = ctx.createRadialGradient(cx, cy * (w / h), 0, cx, cy * (w / h), rx);
+  g.addColorStop(0.0, "rgba(0, 0, 0, 0.42)");
+  g.addColorStop(0.45, "rgba(0, 0, 0, 0.18)");
+  g.addColorStop(1.0, "rgba(0, 0, 0, 0.00)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, w); // cuadrado que ctx.scale convierte en rectángulo
+  ctx.restore();
+ });
+
+ const extPlaneHaloGeo = new THREE.PlaneGeometry(4.0, 4.0 * (200 / 360));
+ const extPlaneHaloMat = new THREE.MeshBasicMaterial({
+  map: HALO_A_TEX,
+  transparent: true,
+  opacity: 0.0,
+  depthWrite: false,
+  side: THREE.DoubleSide,
+ });
+ const extPlaneHalo = new THREE.Mesh(extPlaneHaloGeo, extPlaneHaloMat);
+ extPlaneHalo.position.set(EXT_X - 5.42, EXT_Y - 0.2, EXT_Z);
+ extPlaneHalo.rotation.y = Math.PI * 0.5;
+ scene.add(extPlaneHalo);
+
+ // ── Plano A — Claim narrativo — EL GRAN MOMENTO VISUAL ───────────────────
+ //
+ // Canvas lógico 1024×320 → real 3072×960 (S=3) — alta densidad
+ // Plano en mundo 3.8 × 1.19u — más grande que antes, más presencia
+ // Sombras de texto integradas en la textura → el glow es PARTE del glyph,
+ //   no un overlay encima. Elimina la sensación de "plano pegado".
+ const PLANE_A_TEX = makeTextCanvas(1024, 320, (ctx, w, h) => {
+  ctx.clearRect(0, 0, w, h);
+  const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif";
+
+  // Línea 1 — "Diseñando experiencias" con glow frío integrado
+  ctx.font = `300 68px ${SANS}`;
+  ctx.textAlign = "center";
+  ctx.shadowColor = "rgba(180, 210, 255, 0.35)";
+  ctx.shadowBlur = 20;
+  ctx.fillStyle = "rgba(240, 246, 255, 1.0)";
+  ctx.fillText("Diseñando experiencias", w * 0.5, 94);
+  ctx.shadowBlur = 0;
+
+  // Línea 2 — "de otro planeta" naranja #ff6b2c con glow naranja integrado
+  ctx.font = `700 68px ${SANS}`;
+  ctx.shadowColor = "rgba(255, 107, 44, 0.50)";
+  ctx.shadowBlur = 28;
+  ctx.fillStyle = "rgba(255, 107, 44, 1.0)";
+  ctx.fillText("de otro planeta", w * 0.5, 182);
+  ctx.shadowBlur = 0;
+
+  // Línea de acento naranja — más fina y elegante
+  ctx.strokeStyle = "rgba(255, 107, 44, 0.60)";
+  ctx.lineWidth = 0.8;
+  const lineW = w * 0.28;
+  const lineY = 207;
+  // Izquierda
+  ctx.beginPath();
+  ctx.moveTo(w * 0.5 - lineW - 12, lineY);
+  ctx.lineTo(w * 0.5 - 12, lineY);
+  ctx.stroke();
+  // Pequeño rombo central
+  ctx.fillStyle = "rgba(255, 107, 44, 0.70)";
+  ctx.save();
+  ctx.translate(w * 0.5, lineY);
+  ctx.rotate(Math.PI * 0.25);
+  ctx.fillRect(-4, -4, 8, 8);
+  ctx.restore();
+  // Derecha
+  ctx.beginPath();
+  ctx.moveTo(w * 0.5 + 12, lineY);
+  ctx.lineTo(w * 0.5 + lineW + 12, lineY);
+  ctx.stroke();
+
+  // Línea secundaria
+  ctx.font = `300 20px ${SANS}`;
+  ctx.fillStyle = "rgba(168, 188, 232, 0.72)";
+  ctx.fillText("Frontend · Three.js · Experiencias interactivas", w * 0.5, 258);
+ });
+
+ const extPlaneAGeo = new THREE.PlaneGeometry(3.8, 3.8 * (320 / 1024));
+ const extPlaneAMat = new THREE.MeshBasicMaterial({
+  map: PLANE_A_TEX,
+  transparent: true,
+  opacity: 0.0,
+  depthWrite: false,
+  side: THREE.DoubleSide,
+ });
+ const extPlaneA = new THREE.Mesh(extPlaneAGeo, extPlaneAMat);
+ extPlaneA.position.set(EXT_X - 5.5, EXT_Y - 0.2, EXT_Z);
+ extPlaneA.rotation.y = Math.PI * 0.5;
+ scene.add(extPlaneA);
+
+ // ── Plano GLOW — overlay naranja vivo sobre "de otro planeta" ───────────
+ // Plano mínimo del mismo tamaño que el claim.
+ // Color naranja puro, opacidad máxima 0.038 — casi imperceptible
+ // pero pulsando muy lentamente da sensación de vida al texto.
+ // Posicionado 0.02u más cerca de cámara que extPlaneA.
+ const extGlowGeo = new THREE.PlaneGeometry(3.8, 3.8 * (320 / 1024));
+ const extGlowMat = new THREE.MeshBasicMaterial({
+  color: "#ff6b2c",
+  transparent: true,
+  opacity: 0.0,
+  depthWrite: false,
+  side: THREE.DoubleSide,
+ });
+ const extGlowPlane = new THREE.Mesh(extGlowGeo, extGlowMat);
+ extGlowPlane.position.set(EXT_X - 5.48, EXT_Y - 0.2, EXT_Z); // 0.02u más cerca
+ extGlowPlane.rotation.y = Math.PI * 0.5;
+ scene.add(extGlowPlane);
+
+ // ── Plano C — Texto técnico / señal (todo en español) ────────────────────
+ const PLANE_C_TEX = makeTextCanvas(700, 230, (ctx, w, h) => {
+  ctx.clearRect(0, 0, w, h);
+  const FM = "'Courier New', 'Lucida Console', monospace";
+
+  ctx.strokeStyle = "rgba(255, 107, 44, 0.55)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(w * 0.5, 14);
+  ctx.lineTo(w * 0.5, 42);
+  ctx.stroke();
+
+  ctx.font = `13px ${FM}`;
+  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(255, 107, 44, 0.72)";
+  ctx.fillText("◈", w * 0.5 - 96, 80);
+
+  ctx.fillStyle = "rgba(120, 140, 215, 0.65)";
+  ctx.fillText("SEÑAL ENTRANTE", w * 0.5 + 8, 80);
+
+  ctx.font = `bold 24px ${FM}`;
+  ctx.shadowColor = "rgba(185, 205, 255, 0.25)";
+  ctx.shadowBlur = 10;
+  ctx.fillStyle = "rgba(200, 218, 255, 0.96)";
+  ctx.fillText("ENLACE AL ARCHIVO ESTABLECIDO", w * 0.5, 128);
+  ctx.shadowBlur = 0;
+
+  ctx.strokeStyle = "rgba(255, 107, 44, 0.35)";
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(w * 0.22, 150);
+  ctx.lineTo(w * 0.78, 150);
+  ctx.stroke();
+
+  ctx.font = `15px ${FM}`;
+  ctx.fillStyle = "rgba(105, 125, 200, 0.58)";
+  ctx.fillText("04 ENTRADAS  ·  DESPLÁZATE PARA VER ↓", w * 0.5, 183);
+
+  ctx.strokeStyle = "rgba(255, 107, 44, 0.55)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(w * 0.5, 200);
+  ctx.lineTo(w * 0.5, 220);
+  ctx.stroke();
+ });
+
+ const extPlaneCGeo = new THREE.PlaneGeometry(3.0, 3.0 * (230 / 700));
+ const extPlaneCMat = new THREE.MeshBasicMaterial({
+  map: PLANE_C_TEX,
+  transparent: true,
+  opacity: 0.0,
+  depthWrite: false,
+  side: THREE.DoubleSide,
+ });
+ const extPlaneC = new THREE.Mesh(extPlaneCGeo, extPlaneCMat);
+ extPlaneC.position.set(EXT_X - 5.5, EXT_Y - 0.1, EXT_Z);
+ extPlaneC.rotation.y = Math.PI * 0.5;
+ scene.add(extPlaneC);
+
+ /**
+  * =========================================================
   * UPDATE WINDOW
   * =========================================================
   */
@@ -1166,6 +1574,9 @@ export function initHeroScene() {
   camera.updateProjectionMatrix();
 
   controls.target.set(config.target.x, config.target.y, config.target.z);
+
+  // Reconstruir keyframes si el sistema de animación ya está inicializado
+  if (typeof buildKeyframes === "function" && typeof KP !== "undefined") buildKeyframes();
 
   requestRender();
  }
@@ -1481,42 +1892,256 @@ export function initHeroScene() {
 
  /**
   * =========================================================
+  * ANIMATION — rail cinematográfico con keyframes + slerp
+  * =========================================================
+  *
+  * NO se usa lookAt() dinámico en ningún frame de scroll.
+  * buildKeyframes() calcula posición y orientación UNA VEZ (y en resize).
+  * tick(): solo lerp posición + slerp quaternion.
+  *
+  * Fases (sp = scrollY / vh):
+  *  F1  0.00–0.30   Habitación estática
+  *  F2  0.30–0.75   Aproximación a la ventana
+  *  F3  0.75–1.10   Cruce de la pared
+  *  F4  1.10–1.50   Vacío limpio
+  *  F5+ 1.50–3.50   Cámara quieta, overlays HTML
+  */
+
+ // ─── Helpers ──────────────────────────────────────────────
+ const easeIn3 = (t) => t * t * t;
+ const easeOut3 = (t) => 1 - Math.pow(1 - t, 3);
+ const easeIO3 = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+ const clamp01 = (t) => Math.max(0, Math.min(1, t));
+ const lerpV = (a, b, t) => a + (b - a) * t;
+ const phase = (sp, s, e) => clamp01((sp - s) / (e - s));
+
+ // ─── Boundaries ───────────────────────────────────────────
+ const F2S = 0.3,
+  F2E = 0.75;
+ const F3S = 0.75,
+  F3E = 1.1;
+ const F4S = 1.1,
+  F4E = 1.5;
+
+ // ─── Keyframes (declarados ANTES de applyResponsiveLayout) ─
+ const KP = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+ const KQ = [new THREE.Quaternion(), new THREE.Quaternion(), new THREE.Quaternion()];
+ const auxCam = new THREE.PerspectiveCamera();
+ const workQ = new THREE.Quaternion();
+ const workPos = new THREE.Vector3();
+
+ function buildKeyframes() {
+  const cfg = getResponsiveConfig();
+  KP[0].set(cfg.camera.x, cfg.camera.y, cfg.camera.z);
+  KP[1].set(-1.5, 4.51, windowParams.z);
+  KP[2].set(-12.0, 4.51, windowParams.z);
+  auxCam.position.copy(KP[0]);
+  auxCam.up.set(0, 1, 0);
+  auxCam.lookAt(cfg.target.x, cfg.target.y, cfg.target.z);
+  KQ[0].copy(auxCam.quaternion);
+  auxCam.position.copy(KP[1]);
+  auxCam.up.set(0, 1, 0);
+  auxCam.lookAt(-20.0, KP[1].y, KP[1].z);
+  KQ[1].copy(auxCam.quaternion);
+  KQ[2].copy(KQ[1]); // mismo look en exterior → cero giro al cruzar la pared
+ }
+
+ // Construir keyframes ANTES de applyResponsiveLayout
+ buildKeyframes();
+
+ /**
+  * =========================================================
   * INIT RESPONSIVE
   * =========================================================
   */
  applyResponsiveLayout();
 
- /**
-  * =========================================================
-  * ANIMATION
-  * =========================================================
-  */
  function tick() {
   isRendering = false;
-
   if (!shouldAnimate()) return;
 
   const elapsedTime = clock.getElapsedTime();
-  const scrollProgress = scrollY / sizes.height;
+  const sp = scrollY / sizes.height;
 
-  camera.position.x = cameraBase.x;
-  camera.position.y = cameraBase.y - scrollProgress * scrollConfig.yFactor;
-  camera.position.z = cameraBase.z - scrollProgress * scrollConfig.zFactor;
+  // ── Posición y rotación de la cámara ──────────────────────────────────────
+  //
+  // El recorrido completo KP0 → KP1 → KP2 se divide en dos segmentos:
+  //   Seg A: KP0 → KP1  durante F1+F2  (sp 0 → F2E)
+  //   Seg B: KP1 → KP2  durante F3     (sp F3S → F3E)
+  //
+  // La rotación sigue los mismos segmentos con slerp.
+  // En F4+ la cámara está quieta en KP2 con micro-flotación.
 
-  if (warmConfig.flicker) {
-   warmLight.intensity =
-    warmConfig.baseIntensity + Math.sin(elapsedTime * warmConfig.flickerSpeed) * warmConfig.flickerAmplitude;
+  if (sp <= F3E) {
+   // ── Seg A: F1 + F2 (habitación → frente a la ventana) ──────────────────
+   // En F1 (sp < F2S) el t es 0 → cámara fija en KP0
+   const tA = easeIO3(phase(sp, F2S, F2E));
+
+   const posA = workPos.lerpVectors(KP[0], KP[1], tA);
+   camera.position.copy(posA);
+   workQ.slerpQuaternions(KQ[0], KQ[1], tA);
+
+   // ── Seg B: F3 (cruce de la pared) ───────────────────────────────────────
+   if (sp >= F3S) {
+    const tB = easeIO3(phase(sp, F3S, F3E));
+    const posB = workPos.lerpVectors(KP[1], KP[2], tB);
+    camera.position.copy(posB);
+    // KQ1 → KQ2: misma orientación, slerp es instantáneo pero suave
+    workQ.slerpQuaternions(KQ[1], KQ[2], tB);
+   }
+
+   camera.quaternion.copy(workQ);
   } else {
-   warmLight.intensity = warmConfig.baseIntensity;
+   // ── F4+: exterior, cámara quieta con micro-flotación ───────────────────
+   camera.position.set(
+    KP[2].x,
+    KP[2].y + Math.sin(elapsedTime * 0.22) * 0.035,
+    KP[2].z + Math.sin(elapsedTime * 0.18) * 0.025,
+   );
+   camera.quaternion.copy(KQ[2]);
   }
 
+  // OrbitControls: solo activos en F1 (sp < F2S), se desactivan al entrar en F2
+  if (sp >= F2S && controls.enabled) {
+   controls.enabled = false;
+  }
+  if (controls.enabled && controls.enableDamping) {
+   controls.update();
+  }
+
+  // ── Fondo — habitación → espacio ──────────────────────────────────────────
+  const bgT = clamp01(phase(sp, F3S, F4E));
+  scene.background.lerpColors(BG_ROOM, BG_SPACE, easeOut3(bgT));
+
+  // ── Fog ───────────────────────────────────────────────────────────────────
+  // El fog solo actúa durante el cruce (F3) para ocultar la habitación.
+  // En F4+ es prácticamente cero — no queremos oscurecer el exterior.
+  if (scene.fog) {
+   scene.fog.color.lerpColors(BG_ROOM, BG_SPACE, easeOut3(bgT));
+   if (sp < F3S) {
+    scene.fog.density = 0.0;
+   } else if (sp < F3E) {
+    scene.fog.density = lerpV(0.0, 0.38, easeIn3(phase(sp, F3S, F3E)));
+   } else if (sp < F4E) {
+    // Se aclara completamente — el exterior debe ser legible
+    scene.fog.density = lerpV(0.38, 0.0, easeOut3(phase(sp, F3E, F4E)));
+   } else {
+    scene.fog.density = 0.0;
+   }
+  }
+
+  // ── Luces de la habitación ────────────────────────────────────────────────
+  const roomFade = 1 - clamp01(phase(sp, F2E, F3E));
+  const warmBase = warmConfig.flicker
+   ? warmConfig.baseIntensity + Math.sin(elapsedTime * warmConfig.flickerSpeed) * warmConfig.flickerAmplitude
+   : warmConfig.baseIntensity;
+
+  warmLight.intensity = warmBase * roomFade;
+  ambientLight.intensity = 0.35 * roomFade;
+  moonLight.intensity = 0.55 * roomFade;
+  fillLight.intensity = 0.38 * roomFade;
+
+  // ── Estrellas interiores (ventana) ────────────────────────────────────────
   if (starsPoints && !isMobile) {
    starsPoints.rotation.z = elapsedTime * 0.003;
   }
 
-  if (controls.enabled && controls.enableDamping) {
-   controls.update();
+  // ── Exterior: 4 capas de estrellas + nebula + luna + texto ─────────────
+  // Visibilidad binaria antes de F4S — garantiza ausencia total en habitación
+
+  const inExterior = sp >= F4S;
+
+  extStarsPoints.visible = inExterior;
+  extStarsBPoints.visible = inExterior;
+  extStarsCPoints.visible = inExterior;
+  extStarsDPoints.visible = inExterior && !isMobile;
+  extMoon.visible = inExterior;
+  extMoonHalo.visible = false; // stub siempre off
+
+  if (inExterior) {
+   const extFI = easeOut3(phase(sp, F4S, F4E));
+   const extFO = easeIn3(phase(sp, 3.1, 3.45));
+   const extBase = clamp01(extFI * (1 - extFO));
+
+   // ── Respiración estelar muy sutil — seno lento, sin flicker ─────────────
+   // Cada capa respira a frecuencia ligeramente distinta → sensación orgánica
+   const breathA = 1.0 + Math.sin(elapsedTime * 0.18) * 0.04;
+   const breathB = 1.0 + Math.sin(elapsedTime * 0.24 + 1.2) * 0.05;
+   const breathC = 1.0 + Math.sin(elapsedTime * 0.31 + 2.4) * 0.06;
+
+   // ── Parallax real — cada capa rota a velocidad diferente ────────────────
+   // Lejanas: muy poco movimiento  |  Cercanas: más movimiento
+   if (!isMobile) {
+    // Capa A (lejana) — movimiento mínimo
+    extStarsPoints.rotation.y = elapsedTime * 0.0018;
+    extStarsPoints.rotation.x = elapsedTime * 0.0006;
+    // Capa B (media) — algo más
+    extStarsBPoints.rotation.y = elapsedTime * 0.0032;
+    extStarsBPoints.rotation.x = elapsedTime * 0.0012;
+    // Capa C (cercana) — más que B, menos que D
+    extStarsCPoints.rotation.y = elapsedTime * 0.0038;
+    extStarsCPoints.rotation.x = elapsedTime * 0.0014;
+    // Capa D (primer plano) — el más visible pero nunca molesto
+    extStarsDPoints.rotation.y = elapsedTime * 0.0055;
+    extStarsDPoints.rotation.x = elapsedTime * 0.002;
+   }
+
+   // ── Opacidades con respiración ────────────────────────────────────────
+   extStarsMat.opacity = extBase * 0.72 * breathA;
+   extStarsBMat.opacity = extBase * 0.85 * breathB;
+   extStarsCMat.opacity = extBase * 0.9 * breathC;
+   // Capa D: primer plano sutil — pocas partículas grandes muy transparentes
+   extStarsDMat.opacity = isMobile ? 0.0 : extBase * 0.08;
+
+   // ── Nebula de fondo — aparece con el exterior, casi imperceptible ────────
+   nebulaMat.opacity = extBase * 0.82;
+
+   // ── Luna ──────────────────────────────────────────────────────────────
+   extMoonMat.opacity = extBase * 0.88;
+   extMoonLight.intensity = extBase * 0.2;
+  } else {
+   extStarsMat.opacity = 0.0;
+   extStarsBMat.opacity = 0.0;
+   extStarsCMat.opacity = 0.0;
+   extStarsDMat.opacity = 0.0;
+   extMoonMat.opacity = 0.0;
+   extMoonLight.intensity = 0.0;
+   nebulaMat.opacity = 0.0;
+   extGlowMat.opacity = 0.0;
   }
+
+  // ── Bloque B — Claim narrativo (F5: 1.50 → 2.20) ─────────────────────────
+  const claimFI = easeOut3(phase(sp, 1.5, 1.78));
+  const claimFO = easeIn3(phase(sp, 1.98, 2.2));
+  const claimOp = clamp01(claimFI * (1 - claimFO));
+
+  // Texto
+  extPlaneAMat.opacity = claimOp;
+
+  // Halo elíptico de fondo — más suave que antes para no crear mancha
+  extPlaneHaloMat.opacity = claimOp * 0.62;
+
+  // Scale de entrada sutil: 0.95 → 1.0 durante fade-in (6% total, elegante)
+  const claimScale = lerpV(0.95, 1.0, claimFI);
+  extPlaneA.scale.setScalar(claimScale);
+  extPlaneHalo.scale.setScalar(claimScale);
+  extGlowPlane.scale.setScalar(claimScale);
+
+  // Glow naranja vivo — pulso muy lento, amplitud 0.038 máxima
+  // Solo activo cuando el claim está visible (claimOp > 0)
+  // El seno oscila entre 0.012 y 0.038 — variación casi imperceptible
+  // pero suficiente para que el texto se sienta vivo y no estático
+  if (claimOp > 0.01) {
+   const glowPulse = 0.025 + Math.sin(elapsedTime * 0.55) * 0.013;
+   extGlowMat.opacity = claimOp * glowPulse;
+  } else {
+   extGlowMat.opacity = 0.0;
+  }
+
+  // ── Bloque C — Texto técnico (F6: 2.20 → 2.85) ───────────────────────────
+  const techFI = easeOut3(phase(sp, 2.2, 2.46));
+  const techFO = easeIn3(phase(sp, 2.65, 2.85));
+  extPlaneCMat.opacity = clamp01(techFI * (1 - techFO));
 
   renderer.render(scene, camera);
   requestRender();
@@ -1638,6 +2263,37 @@ export function initHeroScene() {
 
   if (starsGeometry) starsGeometry.dispose();
   if (starsMaterial) starsMaterial.dispose();
+
+  // Exterior espacial — estrellas (4 capas) + nebula
+  extStarsGeo.dispose();
+  extStarsMat.dispose();
+  extStarsBGeo.dispose();
+  extStarsBMat.dispose();
+  extStarsCGeo.dispose();
+  extStarsCMat.dispose();
+  extStarsDGeo.dispose();
+  extStarsDMat.dispose();
+  nebulaGeo.dispose();
+  if (nebulaMat.map) nebulaMat.map.dispose();
+  nebulaMat.dispose();
+  // Luna
+  extMoonGeo.dispose();
+  if (extMoonMat.map) extMoonMat.map.dispose();
+  extMoonMat.dispose();
+  extMoonHaloGeo.dispose();
+  extMoonHaloMat.dispose();
+  // Planos de texto
+  extPlaneHaloGeo.dispose();
+  if (extPlaneHaloMat.map) extPlaneHaloMat.map.dispose();
+  extPlaneHaloMat.dispose();
+  extPlaneAGeo.dispose();
+  if (extPlaneAMat.map) extPlaneAMat.map.dispose();
+  extPlaneAMat.dispose();
+  extGlowGeo.dispose();
+  extGlowMat.dispose();
+  extPlaneCGeo.dispose();
+  if (extPlaneCMat.map) extPlaneCMat.map.dispose();
+  extPlaneCMat.dispose();
 
   wallMaterial.dispose();
   floorMaterial.dispose();

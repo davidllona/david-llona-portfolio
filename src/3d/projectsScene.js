@@ -59,6 +59,10 @@ const SCROLL_P_SPAN = 0.19;
 const SCROLL_CAM_START = 0.04;
 const SCROLL_CAM_END = 0.13;
 
+// ── Entrada de cámara al inicio de la escena (materialización desde el vacío)
+// La cámara empieza más atrás y se acerca suavemente durante el boot
+const CAM_ENTRY_START = 7.5; // posición inicial (más atrás = más vacío)
+
 // ── Secuencia de entrada por proyecto ─────────────────────
 // Cada proyecto pasa por 4 fases al ser detectado:
 // DETECT → GLITCH → STABILIZE → REVEAL
@@ -143,7 +147,8 @@ export function initProjectsScene(canvas) {
  const CAM_NEAR = 3.0;
 
  const camera = new THREE.PerspectiveCamera(36, sizes.width / sizes.height, 0.1, 60);
- camera.position.set(0, 0.05, CAM_FAR);
+ // Empieza más atrás — se acerca durante el boot, como si emergiera del vacío
+ camera.position.set(0, 0.05, CAM_ENTRY_START);
  scene.add(camera);
 
  // ── Renderer ────────────────────────────────────────────
@@ -276,15 +281,15 @@ export function initProjectsScene(canvas) {
  // ══════════════════════════════════════════════════════
  // LUCES
  // ══════════════════════════════════════════════════════
- scene.add(new THREE.AmbientLight("#0d1020", 0.55));
+ scene.add(new THREE.AmbientLight("#14182e", 0.85));
 
  // Rim trasero — hace flotar la pantalla en el void
- const rimBack = new THREE.DirectionalLight("#080d28", 0.45);
+ const rimBack = new THREE.DirectionalLight("#0c1230", 0.65);
  rimBack.position.set(0, 2, -5);
  scene.add(rimBack);
 
  // Rim lateral izquierdo — forma la carcasa
- const rimLeft = new THREE.DirectionalLight("#050810", 0.3);
+ const rimLeft = new THREE.DirectionalLight("#080c18", 0.45);
  rimLeft.position.set(-4, 1, 2);
  scene.add(rimLeft);
 
@@ -311,19 +316,20 @@ export function initProjectsScene(canvas) {
 
  // Paleta: fondo levantado para contraste, textos más luminosos
  const C = {
-  bg: "#06070f", // levantado de #02020a — da separación real vs texto
-  green: "#00f07a", // más brillante — se lee en fondo oscuro
-  gdim: "#006838",
-  amber: "#f0ac38", // más luminoso
-  white: "#eef2ff", // casi blanco — máximo contraste sin romper atmósfera
-  offwhite: "#b8c2e0", // subido desde #a8b0d0
-  dim: "#2e3450", // subido — separadores visibles
-  dim2: "#3a4468", // subido — texto secundario legible
-  cyan: "#50e8ff", // más brillante
-  cyanDim: "#0d4050",
-  red: "#e03030",
-  scan: "rgba(0,0,0,0.10)", // menos agresivo — no aplasta el texto
-  scan2: "rgba(255,255,255,0.015)",
+  bg: "#05060e", // fondo ligeramente más oscuro → más contraste de texto
+  green: "#00ff88", // verde nítido, pleno
+  gdim: "#007840", // verde dim más visible
+  amber: "#ffb830", // ámbar más luminoso
+  orange: "#ff6b2c", // naranja exacto del portfolio — acento principal
+  white: "#f8fbff", // blanco casi puro — máximo contraste
+  offwhite: "#d8e0f5", // off-white más luminoso — texto secundario legible
+  dim: "#3a4460", // separadores más visibles
+  dim2: "#4e5878", // texto secundario más claro
+  cyan: "#48e8ff", // cian nítido
+  cyanDim: "#0f4858",
+  red: "#e83030",
+  scan: "rgba(0,0,0,0.08)",
+  scan2: "rgba(255,255,255,0.018)",
  };
 
  // ── Util ─────────────────────────────────────────────────
@@ -405,14 +411,15 @@ export function initProjectsScene(canvas) {
  // ── Boot ─────────────────────────────────────────────────
  function drawBoot(p, elapsed) {
   const lines = [
-   { t: "NAV-COMM  /  TRANSMISSION ARCHIVE  v3.1", c: C.offwhite, d: 0.0, bold: true },
-   { t: "─────────────────────────────────────────", c: C.dim2, d: 0.07, bold: false },
-   { t: "INITIALIZING SIGNAL ARRAY...", c: C.gdim, d: 0.18, bold: false },
-   { t: "CARRIER LOCK  ···  ESTABLISHED", c: C.green, d: 0.42, bold: false },
-   { t: "─────────────────────────────────────────", c: C.dim, d: 0.52, bold: false },
-   { t: "ARCHIVE ENTRIES FOUND  ·  04", c: C.amber, d: 0.64, bold: true },
-   { t: "─────────────────────────────────────────", c: C.dim, d: 0.74, bold: false },
-   { t: "SCROLL TO RECEIVE  ↓", c: C.cyan, d: 0.84, bold: false },
+   { t: "◈  SEÑAL DETECTADA  ·  ENLACE AL ARCHIVO ESTABLECIDO", c: C.orange, d: 0.0, bold: true },
+   { t: "─────────────────────────────────────────", c: C.dim2, d: 0.08, bold: false },
+   { t: "NAV-COMM  /  ARCHIVO DE TRANSMISIÓN  v3.1", c: C.offwhite, d: 0.18, bold: false },
+   { t: "INICIALIZANDO ARRAY DE SEÑALES...", c: C.gdim, d: 0.3, bold: false },
+   { t: "PORTADORA BLOQUEADA  ···  ESTABLECIDA", c: C.green, d: 0.46, bold: false },
+   { t: "─────────────────────────────────────────", c: C.dim, d: 0.54, bold: false },
+   { t: "ENTRADAS EN ARCHIVO  ·  04", c: C.amber, d: 0.66, bold: true },
+   { t: "─────────────────────────────────────────", c: C.dim, d: 0.75, bold: false },
+   { t: "DESPLÁZATE PARA RECIBIR  ↓", c: C.cyan, d: 0.84, bold: false },
   ];
 
   const FS = 15;
@@ -436,7 +443,7 @@ export function initProjectsScene(canvas) {
     ctx.font = `${FS}px ${FM}`;
     ctx.fillStyle = C.cyan;
     const lastY = SY + 7 * LH;
-    ctx.fillText("_", SX + ctx.measureText("SCROLL TO RECEIVE  ↓").width + 6, lastY);
+    ctx.fillText("_", SX + ctx.measureText("DESPLÁZATE PARA RECIBIR  ↓").width + 6, lastY);
    }
   }
  }
@@ -455,11 +462,11 @@ export function initProjectsScene(canvas) {
   if (blink) {
    ctx.font = `bold 13px ${FM}`;
    ctx.fillStyle = h2r(C.amber, 0.9);
-   ctx.fillText("◈  INCOMING TRANSMISSION DETECTED", TEX_W * 0.5 - 200, TEX_H * 0.5 - 10);
+   ctx.fillText("◈  TRANSMISIÓN ENTRANTE DETECTADA", TEX_W * 0.5 - 200, TEX_H * 0.5 - 10);
 
    ctx.font = `11px ${FM}`;
    ctx.fillStyle = h2r(C.dim2, 0.8);
-   ctx.fillText(`ENTRY  0${idx + 1} / 04  ·  CLASSIFYING...`, TEX_W * 0.5 - 150, TEX_H * 0.5 + 16);
+   ctx.fillText(`ENTRADA  0${idx + 1} / 04  ·  CLASIFICANDO...`, TEX_W * 0.5 - 150, TEX_H * 0.5 + 16);
   }
 
   // Barra de progreso de recepción
@@ -521,7 +528,7 @@ export function initProjectsScene(canvas) {
   if (intensity > 0.3) {
    ctx.font = `bold 12px ${FM}`;
    ctx.fillStyle = h2r(C.red, intensity * 0.9);
-   ctx.fillText("▒▒  SIGNAL CORRUPTED  ▒▒", 44, TEX_H * 0.5);
+   ctx.fillText("▒▒  SEÑAL CORRUPTA  ▒▒", 44, TEX_H * 0.5);
   }
  }
 
@@ -548,7 +555,7 @@ export function initProjectsScene(canvas) {
   if (t > 0.5) {
    ctx.font = `11px ${FM}`;
    ctx.fillStyle = h2r(C.green, (t - 0.5) * 2 * 0.7);
-   ctx.fillText("SIGNAL STABILIZED  ·  DECODING ARCHIVE ENTRY", 44, TEX_H - 22);
+   ctx.fillText("SEÑAL ESTABILIZADA  ·  DECODIFICANDO ENTRADA DE ARCHIVO", 44, TEX_H - 22);
   }
  }
 
@@ -565,7 +572,7 @@ export function initProjectsScene(canvas) {
    ctx.strokeRect(MX, MY, IW, IH);
    ctx.font = `12px ${FM}`;
    ctx.fillStyle = h2r(C.dim2, 0.6);
-   ctx.fillText("[ LOADING IMAGE... ]", MX + IW * 0.5 - 80, MY + IH * 0.5);
+   ctx.fillText("[ CARGANDO IMAGEN... ]", MX + IW * 0.5 - 80, MY + IH * 0.5);
    return;
   }
 
@@ -607,7 +614,7 @@ export function initProjectsScene(canvas) {
    ctx.font = `10px ${FM}`;
    ctx.fillStyle = h2r(C.cyan, 0.6);
    ctx.fillText(
-    `SCAN  ${Math.round(revealP * 100)
+    `ESCANEO  ${Math.round(revealP * 100)
      .toString()
      .padStart(3, "0")}%`,
     MX + IW - 80,
@@ -630,7 +637,7 @@ export function initProjectsScene(canvas) {
 
   ctx.font = `10px ${FM}`;
   ctx.fillStyle = h2r(p.color, fade * 1.0); // de 0.85 → 1.0
-  ctx.fillText("TRANSMISSION", SX, IY - 2);
+  ctx.fillText("TRANSMISIÓN", SX, IY - 2);
 
   ctx.font = `bold 10px ${FM}`;
   ctx.fillStyle = h2r(C.white, fade * 1.0); // de 0.9 → 1.0
@@ -645,7 +652,7 @@ export function initProjectsScene(canvas) {
   const sigPulse = Math.sin(elapsed * 3.5) * 0.5 + 0.5;
   ctx.font = `10px ${FM}`;
   ctx.fillStyle = h2r(C.green, fade * (0.7 + sigPulse * 0.3)); // de 0.5 → 0.7 base
-  ctx.fillText("● SIGNAL STABLE", statusX, IY - 2);
+  ctx.fillText("● SEÑAL ESTABLE", statusX, IY - 2);
 
   // ── Zona inferior ──────────────────────────────────────
   const bottomZone = TEX_H - 30;
@@ -688,7 +695,7 @@ export function initProjectsScene(canvas) {
   } else {
    ctx.font = `10px ${FM}`;
    ctx.fillStyle = h2r(C.dim2, fade * 0.85); // de 0.7 → 0.85
-   ctx.fillText("ARCHIVE  ·  NOT YET DEPLOYED", SX, bottomZone - 26);
+   ctx.fillText("ARCHIVO  ·  AÚN NO DESPLEGADO", SX, bottomZone - 26);
   }
 
   // Watermark decorativo
@@ -918,8 +925,19 @@ export function initProjectsScene(canvas) {
   }
 
   // ── Cámara ───────────────────────────────────────────
-  const camT = easeIO(Math.min(1, Math.max(0, (sNorm - SCROLL_CAM_START) / (SCROLL_CAM_END - SCROLL_CAM_START))));
-  camera.position.z = lerp(CAM_FAR, CAM_NEAR, camT);
+  // Durante el boot la cámara se aproxima desde el vacío hasta CAM_FAR
+  // Después el scroll la lleva de CAM_FAR a CAM_NEAR
+  if (!screen.bootDone) {
+   // Aproximación suave durante el boot: CAM_ENTRY_START → CAM_FAR
+   const bootEase =
+    screen.bootProgress < 0.5
+     ? 4 * screen.bootProgress * screen.bootProgress * screen.bootProgress
+     : 1 - Math.pow(-2 * screen.bootProgress + 2, 3) / 2;
+   camera.position.z = lerp(CAM_ENTRY_START, CAM_FAR, bootEase);
+  } else {
+   const camT = easeIO(Math.min(1, Math.max(0, (sNorm - SCROLL_CAM_START) / (SCROLL_CAM_END - SCROLL_CAM_START))));
+   camera.position.z = lerp(CAM_FAR, CAM_NEAR, camT);
+  }
   // Flotación muy suave — da vida sin distraer
   camera.position.y = 0.05 + Math.sin(elapsed * 0.28) * 0.04;
   camera.position.x = Math.sin(elapsed * 0.15) * 0.018;
@@ -930,8 +948,8 @@ export function initProjectsScene(canvas) {
   screen.lightPulse = Math.max(0, screen.lightPulse - delta * 1.4);
   const pulseBoost = screen.lightPulse * 2.0;
 
-  // Intensidad base más alta para que la carcasa reciba color visible
-  const baseInt = screen.activeProject >= 0 ? 3.2 : 0.0;
+  // Intensidad más alta — carcasa recibe color visible y la pantalla brilla
+  const baseInt = screen.activeProject >= 0 ? 4.5 : 0.0;
   const targetInt = baseInt + pulseBoost;
   reactiveLight.intensity = lerp(reactiveLight.intensity, targetInt, 0.05);
   reactiveLight.color.copy(screen.lightColor);
@@ -946,7 +964,7 @@ export function initProjectsScene(canvas) {
     : new THREE.Color("#1a2040"),
    0.025,
   );
-  haloLight.intensity = lerp(haloLight.intensity, screen.activeProject >= 0 ? 0.6 : 0.25, 0.03);
+  haloLight.intensity = lerp(haloLight.intensity, screen.activeProject >= 0 ? 0.85 : 0.4, 0.03);
 
   // Flicker sutil
   if (screen.activeProject >= 0 && screen.entryPhase === "done") {
@@ -956,11 +974,7 @@ export function initProjectsScene(canvas) {
   // ── Borde interior de pantalla reactivo ──────────────
   if (screen.activeProject >= 0) {
    innerGlowMat.color.copy(screen.lightColor);
-   innerGlowMat.opacity = lerp(
-    innerGlowMat.opacity,
-    screen.entryPhase === "done" ? 0.72 : 0.45, // de 0.5/0.3 → 0.72/0.45
-    0.05,
-   );
+   innerGlowMat.opacity = lerp(innerGlowMat.opacity, screen.entryPhase === "done" ? 0.9 : 0.6, 0.05);
   } else {
    innerGlowMat.opacity = lerp(innerGlowMat.opacity, 0.0, 0.04);
   }
