@@ -167,9 +167,40 @@ export function initHeroScene() {
   * MATERIALS
   * =========================================================
   */
+ // Pared con textura PBR — textures/pared/ (repetición sutil 3×2)
+ const wallTexLoader = new THREE.TextureLoader();
+ const WALL_REP = new THREE.Vector2(3, 2);
+ const _wrapRepeat = (t) => {
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.copy(WALL_REP);
+ };
+ const wallColorTex = wallTexLoader.load("textures/pared/BaseColor.jpg", (t) => {
+  t.colorSpace = THREE.SRGBColorSpace;
+  _wrapRepeat(t);
+  requestRender();
+ });
+ const wallNormalTex = wallTexLoader.load("textures/pared/Normal.jpg", (t) => {
+  _wrapRepeat(t);
+  requestRender();
+ });
+ const wallRoughTex = wallTexLoader.load("textures/pared/Roughness.jpg", (t) => {
+  _wrapRepeat(t);
+  requestRender();
+ });
+ const wallAOTex = wallTexLoader.load("textures/pared/AmbientOcclusion.jpg", (t) => {
+  _wrapRepeat(t);
+  requestRender();
+ });
+
  const wallMaterial = new THREE.MeshStandardMaterial({
-  color: "#2f3140",
-  roughness: 1,
+  color: "#2f3140", // tinte oscuro — mantiene look nocturno
+  map: wallColorTex,
+  normalMap: wallNormalTex,
+  normalScale: new THREE.Vector2(0.3, 0.3), // normal sutil
+  roughnessMap: wallRoughTex,
+  roughness: 0.92,
+  aoMap: wallAOTex,
+  aoMapIntensity: 0.45,
   metalness: 0,
  });
 
@@ -218,8 +249,20 @@ export function initHeroScene() {
   depthWrite: false,
  });
 
- const moonMaterial = new THREE.MeshBasicMaterial({
-  color: "#7f8fc9",
+ // Luna con textura real — textures/moon.jpg
+ const moonTextureLoader = new THREE.TextureLoader();
+ const moonMaterial = new THREE.MeshStandardMaterial({
+  color: "#d0d8f5",
+  roughness: 0.85,
+  metalness: 0.0,
+  emissive: new THREE.Color("#2a3a7a"),
+  emissiveIntensity: 0.22,
+ });
+ moonTextureLoader.load("textures/moon.jpg", (tex) => {
+  tex.colorSpace = THREE.SRGBColorSpace;
+  moonMaterial.map = tex;
+  moonMaterial.needsUpdate = true;
+  requestRender();
  });
 
  /**
@@ -1800,6 +1843,471 @@ export function initHeroScene() {
 
  updateWindow();
 
+ // ══════════════════════════════════════════════════════════════════════════
+ // NEÓN "DAVID LLONA" — letrero de tubo 3D montado en pared
+ // ══════════════════════════════════════════════════════════════════════════
+ //
+ // Arquitectura física real — sin CanvasTexture para las letras:
+ //
+ //   neonGroup          — Group raíz, controlado por neonParams (GUI)
+ //   ├─ backPlate       — placa trasera fina y oscura (aluminio anodizado)
+ //   ├─ wireMeshes[]    — uno por trazo de cada letra (TubeGeometry)
+ //   │    ├─ coreMat    — núcleo casi blanco, muy emissive (vidrio incandescente)
+ //   │    └─ glowMat    — tubo exterior violeta, transparente, AdditiveBlending
+ //   ├─ glowSprites[]   — uno por letra, Sprite con gradiente radial suave
+ //   ├─ neonWallMesh    — plano en la pared con gradiente de contaminación
+ //   ├─ neonLight       — PointLight principal de rebote
+ //   ├─ neonLight2      — segunda PointLight desplazada, da volumen al rebote
+ //   └─ mountPins[]     — pequeñas esferas de acero que anclan la placa a la pared
+ //
+ // Animación: máquina de estados por intensidad de emissive por letra.
+ //   Las letras NUNCA se apagan del todo — brillo residual 0.08.
+ //   "I" (idx 3) y "A" final (idx 10) = mensaje oculto AI.
+
+ const NEON_COLOR = new THREE.Color("#7b5fff");
+ const NEON_CORE = new THREE.Color("#e8e0ff"); // blanco-violeta del núcleo
+ const NEON_TUBE = new THREE.Color("#7b5fff"); // violeta del tubo exterior
+ const NEON_RESIDUAL = 0.08; // emissive mínimo al "apagarse"
+ const AI_INDICES = [3, 10]; // I y A — índices en "DAVID LLONA" (sin espacio: D0 A1 V2 I3 D4 L5 L6 O7 N8 A9)
+
+ // ── Parámetros editables por GUI ──────────────────────────────────────────
+ const neonParams = {
+  x: 1.2,
+  y: 6.2,
+  z: -3.96,
+  scale: 1.0,
+  intensity: 1.0, // multiplica emissiveIntensity de todos los tubos
+  glowStrength: 1.0, // multiplica opacidad de sprites de glow y mancha de pared
+  flickerSpeed: 1.0, // multiplica velocidad de la máquina de estados
+ };
+
+ // ── Máquina de estados ────────────────────────────────────────────────────
+ // "DAVID LLONA" sin espacio = 10 letras (índices 0–9)
+ // D(0) A(1) V(2) I(3) D(4) L(5) L(6) O(7) N(8) A(9)
+ const NEON_LETTER_COUNT = 10;
+
+ const neonState = {
+  phase: "FULL", // FULL | FLICKER | AI | BUILD
+  t: 0,
+  // emissive por letra: 1.0 = encendida al máximo, NEON_RESIDUAL = fantasma
+  lit: new Float32Array(NEON_LETTER_COUNT).fill(1.0),
+  target: new Float32Array(NEON_LETTER_COUNT).fill(1.0),
+ };
+
+ const NEON_PHASES = {
+  FULL: { duration: 4.5 },
+  FLICKER: { duration: 2.4 },
+  AI: { duration: 3.4 },
+  BUILD: { duration: 2.8 },
+ };
+
+ // ── Definición de trazos por letra ────────────────────────────────────────
+ //
+ // Coordenadas en espacio local de la letra, unidad = 1 = altura de la letra.
+ // Cada letra puede tener 1 o más trazos (strokes).
+ // Cada trazo es un array de Vector3 que serán control points de CatmullRomCurve3.
+ // Las letras se apilarán horizontalmente con un letterSpacing constante.
+ //
+ // Sistema de coordenadas: X = derecha, Y = arriba, Z = 0 (en pared, desplazado después)
+ // Bbox de referencia: x ∈ [0, 0.6], y ∈ [0, 1.0]
+
+ const V = (x, y, z = 0) => new THREE.Vector3(x, y, z);
+
+ const LETTER_STROKES = {
+  D: [
+   // Palo vertical izquierdo
+   [V(0.05, 0.0), V(0.05, 0.5), V(0.05, 1.0)],
+   // Curva derecha (media luna)
+   [V(0.05, 1.0), V(0.45, 0.95), V(0.62, 0.72), V(0.65, 0.5), V(0.62, 0.28), V(0.45, 0.05), V(0.05, 0.0)],
+  ],
+  A: [
+   // Pata izquierda
+   [V(0.0, 0.0), V(0.12, 0.33), V(0.28, 0.68), V(0.3, 1.0)],
+   // Pata derecha
+   [V(0.6, 0.0), V(0.48, 0.33), V(0.32, 0.68), V(0.3, 1.0)],
+   // Travesaño
+   [V(0.1, 0.42), V(0.3, 0.42), V(0.5, 0.42)],
+  ],
+  V: [
+   // Pata izquierda
+   [V(0.0, 1.0), V(0.12, 0.65), V(0.28, 0.32), V(0.3, 0.0)],
+   // Pata derecha
+   [V(0.6, 1.0), V(0.48, 0.65), V(0.32, 0.32), V(0.3, 0.0)],
+  ],
+  I: [
+   // Palo vertical
+   [V(0.3, 0.0), V(0.3, 0.5), V(0.3, 1.0)],
+   // Serif superior
+   [V(0.1, 1.0), V(0.3, 1.0), V(0.5, 1.0)],
+   // Serif inferior
+   [V(0.1, 0.0), V(0.3, 0.0), V(0.5, 0.0)],
+  ],
+  L: [
+   // Palo vertical
+   [V(0.05, 1.0), V(0.05, 0.5), V(0.05, 0.0)],
+   // Base horizontal
+   [V(0.05, 0.0), V(0.32, 0.0), V(0.58, 0.0)],
+  ],
+  O: [
+   // Elipse cerrada — dividida en dos semicírculos para que sea un tubo continuo
+   [
+    V(0.3, 1.0),
+    V(0.62, 0.92),
+    V(0.72, 0.65),
+    V(0.72, 0.5),
+    V(0.72, 0.35),
+    V(0.62, 0.08),
+    V(0.3, 0.0),
+    V(-0.02, 0.08),
+    V(-0.12, 0.35),
+    V(-0.12, 0.5),
+    V(-0.12, 0.65),
+    V(-0.02, 0.92),
+    V(0.3, 1.0),
+   ],
+  ],
+  N: [
+   // Palo izquierdo
+   [V(0.05, 0.0), V(0.05, 0.5), V(0.05, 1.0)],
+   // Diagonal
+   [V(0.05, 1.0), V(0.22, 0.75), V(0.38, 0.5), V(0.55, 0.25), V(0.58, 0.0)],
+   // Palo derecho
+   [V(0.58, 0.0), V(0.58, 0.5), V(0.58, 1.0)],
+  ],
+ };
+
+ // Orden de letras en "DAVID LLONA"
+ // (espacio entre "DAVID" y "LLONA" se gestiona con letterSpacing extra)
+ const WORD_LAYOUT = [
+  { char: "D", idx: 0 },
+  { char: "A", idx: 1 },
+  { char: "V", idx: 2 },
+  { char: "I", idx: 3 },
+  { char: "D", idx: 4 },
+  { char: " " }, // espacio — gap extra
+  { char: "L", idx: 5 },
+  { char: "L", idx: 6 },
+  { char: "O", idx: 7 },
+  { char: "N", idx: 8 },
+  { char: "A", idx: 9 },
+ ];
+
+ // ── Materiales del tubo ───────────────────────────────────────────────────
+ //
+ // Dos materiales por trazo (se asignan a un Group con dos Mesh):
+ //   coreMat  — MeshStandardMaterial emissive brillante (núcleo del tubo)
+ //   glowMat  — MeshStandardMaterial emissive más oscuro + transparente (vidrio)
+ //
+ // No usamos AdditiveBlending en los tubos — querían ser objetos físicos.
+ // El glow se logra por emissiveIntensity alta + la PointLight de rebote.
+
+ const neonCoreMats = []; // un material por letra (índice 0–9)
+ const neonGlowMats = [];
+ const neonGlowSpriteMats = []; // SpriteMaterial por letra para el halo 2D
+
+ for (let i = 0; i < NEON_LETTER_COUNT; i++) {
+  neonCoreMats.push(
+   new THREE.MeshStandardMaterial({
+    color: NEON_CORE,
+    emissive: NEON_CORE,
+    emissiveIntensity: 2.8,
+    roughness: 0.0,
+    metalness: 0.0,
+    transparent: false,
+   }),
+  );
+
+  neonGlowMats.push(
+   new THREE.MeshStandardMaterial({
+    color: NEON_TUBE,
+    emissive: NEON_TUBE,
+    emissiveIntensity: 1.6,
+    roughness: 0.15,
+    metalness: 0.0,
+    transparent: true,
+    opacity: 0.55,
+    depthWrite: false,
+    side: THREE.FrontSide,
+   }),
+  );
+
+  // Sprite de halo suave por letra — gradiente radial violeta
+  neonGlowSpriteMats.push(
+   new THREE.SpriteMaterial({
+    map: (() => {
+     const cv = document.createElement("canvas");
+     cv.width = cv.height = 64;
+     const c = cv.getContext("2d");
+     const g = c.createRadialGradient(32, 32, 0, 32, 32, 32);
+     g.addColorStop(0.0, "rgba(160, 120, 255, 0.55)");
+     g.addColorStop(0.4, "rgba(120,  80, 220, 0.20)");
+     g.addColorStop(1.0, "rgba(0,  0, 0, 0.00)");
+     c.fillStyle = g;
+     c.fillRect(0, 0, 64, 64);
+     const t = new THREE.CanvasTexture(cv);
+     t.needsUpdate = true;
+     return t;
+    })(),
+    transparent: true,
+    opacity: 0.0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+   }),
+  );
+ }
+
+ // ── Construcción geométrica ───────────────────────────────────────────────
+ //
+ // letterWidth  = ancho de cada caja de letra en unidades de escena
+ // letterHeight = altura
+ // letterGap    = espacio entre letras
+ // wordGap      = espacio extra entre palabras
+ //
+ // El Group neonGroup se escala en tick() según neonParams.scale.
+
+ const neonGroup = new THREE.Group();
+ scene.add(neonGroup);
+
+ const LETTER_H = 0.38; // altura de cada letra en unidades de escena
+ const LETTER_W = 0.6 * LETTER_H; // ancho proporcional
+ const LETTER_GAP = 0.14 * LETTER_H; // espacio entre letras
+ const WORD_GAP = 0.3 * LETTER_H; // espacio extra entre palabras
+ const TUBE_R_CORE = 0.01; // radio del núcleo (vidrio incandescente)
+ const TUBE_R_GLOW = 0.017; // radio del tubo exterior (vidrio coloreado)
+ const TUBE_SEGS = 5; // segmentos radiales del tubo (bajo = efecto tubo real)
+
+ // Calculamos el ancho total para centrar el letrero
+ let totalWidth = 0;
+ WORD_LAYOUT.forEach((entry) => {
+  totalWidth += entry.char === " " ? WORD_GAP : LETTER_W + LETTER_GAP;
+ });
+ totalWidth -= LETTER_GAP; // quitar el gap del último carácter
+
+ // Meshes agrupados por letra para animación de intensidad
+ const neonLetterGroups = []; // índice = letra idx (0–9)
+ for (let i = 0; i < NEON_LETTER_COUNT; i++) {
+  const g = new THREE.Group();
+  neonGroup.add(g);
+  neonLetterGroups.push(g);
+ }
+
+ // Sprites de glow — uno por letra, posicionado en el centro de la bbox
+ const neonGlowSprites = [];
+ for (let i = 0; i < NEON_LETTER_COUNT; i++) {
+  const sp = new THREE.Sprite(neonGlowSpriteMats[i]);
+  sp.scale.set(LETTER_W * 2.5, LETTER_H * 2.2, 1);
+  neonGroup.add(sp);
+  neonGlowSprites.push(sp);
+ }
+
+ // Construir los tubos de cada letra
+ let cursorX = -totalWidth * 0.5;
+
+ WORD_LAYOUT.forEach((entry) => {
+  if (entry.char === " ") {
+   cursorX += WORD_GAP;
+   return;
+  }
+
+  const lIdx = entry.idx;
+  const strokes = LETTER_STROKES[entry.char];
+  const lGroup = neonLetterGroups[lIdx];
+  const coreMat = neonCoreMats[lIdx];
+  const glowMat = neonGlowMats[lIdx];
+
+  // Centro de la letra en X (para el sprite de glow)
+  const letterCenterX = cursorX + LETTER_W * 0.5;
+
+  strokes.forEach((pts) => {
+   // Escalar puntos del trazo al espacio de escena
+   const scaledPts = pts.map((p) => new THREE.Vector3(cursorX + p.x * LETTER_W, p.y * LETTER_H, p.z));
+
+   const curve = new THREE.CatmullRomCurve3(scaledPts, false, "catmullrom", 0.5);
+   const tubePts = Math.max(20, scaledPts.length * 10);
+
+   // Tubo núcleo (vidrio incandescente)
+   const coreGeo = new THREE.TubeGeometry(curve, tubePts, TUBE_R_CORE, TUBE_SEGS, false);
+   const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+   lGroup.add(coreMesh);
+
+   // Tubo exterior (vidrio coloreado)
+   const glowGeo = new THREE.TubeGeometry(curve, tubePts, TUBE_R_GLOW, TUBE_SEGS, false);
+   const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+   lGroup.add(glowMesh);
+  });
+
+  // Posicionar sprite de glow en el centro vertical de la letra
+  neonGlowSprites[lIdx].position.set(letterCenterX, LETTER_H * 0.5, 0.02);
+
+  cursorX += LETTER_W + LETTER_GAP;
+ });
+
+ // ── Placa trasera fina (aluminio anodizado oscuro) ─────────────────────────
+ //
+ // Placa casi negra con un tinte metálico muy sutil.
+ // No debe destacar — es el soporte silencioso del letrero.
+ const backPlateGeo = new THREE.BoxGeometry(totalWidth + 0.12, LETTER_H + 0.1, 0.008);
+ const backPlateMat = new THREE.MeshStandardMaterial({
+  color: "#1a1822",
+  roughness: 0.55,
+  metalness: 0.65,
+  envMapIntensity: 0.2,
+ });
+ const backPlateMesh = new THREE.Mesh(backPlateGeo, backPlateMat);
+ backPlateMesh.position.set(0, LETTER_H * 0.5, -0.018); // 18mm detrás de los tubos
+ neonGroup.add(backPlateMesh);
+
+ // ── Pines de anclaje — pequeñas esferas de acero ─────────────────────────
+ const pinGeo = new THREE.SphereGeometry(0.007, 6, 6);
+ const pinMat = new THREE.MeshStandardMaterial({
+  color: "#888898",
+  roughness: 0.4,
+  metalness: 0.9,
+ });
+ const pinPositionsX = [-totalWidth * 0.5 + 0.06, 0, totalWidth * 0.5 - 0.06];
+ pinPositionsX.forEach((px) => {
+  const pin = new THREE.Mesh(pinGeo, pinMat);
+  pin.position.set(px, LETTER_H * 0.5, -0.022);
+  neonGroup.add(pin);
+ });
+
+ // ── Mancha de contaminación en la pared ───────────────────────────────────
+ //
+ // Plano pegado a la pared trasera con textura de gradiente radial.
+ // Simula el rebote difuso de luz violeta sobre el hormigón.
+ const neonWallCv = document.createElement("canvas");
+ neonWallCv.width = 256;
+ neonWallCv.height = 128;
+ (() => {
+  const c = neonWallCv.getContext("2d");
+  const g = c.createRadialGradient(128, 64, 0, 128, 64, 128);
+  g.addColorStop(0.0, "rgba(100, 65, 240, 0.32)");
+  g.addColorStop(0.35, "rgba(75,  45, 180, 0.14)");
+  g.addColorStop(0.7, "rgba(50,  30, 120, 0.05)");
+  g.addColorStop(1.0, "rgba(0,   0,   0, 0.00)");
+  c.fillStyle = g;
+  c.fillRect(0, 0, 256, 128);
+ })();
+ const neonWallTex = new THREE.CanvasTexture(neonWallCv);
+ const neonWallMat = new THREE.MeshBasicMaterial({
+  map: neonWallTex,
+  transparent: true,
+  opacity: 0.0,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+  side: THREE.DoubleSide,
+ });
+ const neonWallGeo = new THREE.PlaneGeometry(totalWidth * 2.8, LETTER_H * 4.0);
+ const neonWallMesh = new THREE.Mesh(neonWallGeo, neonWallMat);
+ neonWallMesh.position.set(0, LETTER_H * 0.5, -0.03); // pegado a la pared
+ neonGroup.add(neonWallMesh); // forma parte del grupo → se mueve con él
+
+ // ── Luces de rebote ───────────────────────────────────────────────────────
+ //
+ // Dos PointLights ligeramente desplazadas dan un rebote volumétrico.
+ // La segunda está más baja y tenue — crea un gradiente natural.
+ const neonLight = new THREE.PointLight(NEON_TUBE, 0.7, 7, 2);
+ const neonLight2 = new THREE.PointLight(NEON_TUBE, 0.35, 5, 2.2);
+ scene.add(neonLight);
+ scene.add(neonLight2);
+
+ // ── Posicionamiento inicial ───────────────────────────────────────────────
+ neonGroup.position.set(neonParams.x, neonParams.y, neonParams.z);
+ neonGroup.scale.setScalar(neonParams.scale);
+ neonLight.position.set(neonParams.x, neonParams.y + 0.1, neonParams.z + 0.4);
+ neonLight2.position.set(neonParams.x + 0.5, neonParams.y - 0.2, neonParams.z + 0.3);
+
+ // Stub de compatibilidad para el cleanup existente — variables esperadas
+ // por las secciones de GUI tick y dispose que no queremos tocar.
+ // neonMesh, neonTexture, neonMat, neonHaloGeo, etc. se eliminan del cleanup
+ // a continuación, pero mantenemos las referencias nulas para evitar errores.
+ const neonMesh = null; // obsoleto — sustituido por neonGroup
+ const neonTexture = null; // obsoleto
+ const neonMat = null; // obsoleto
+ const neonHaloGeo = null; // obsoleto
+ const neonHaloTex = null; // obsoleto
+ const neonHaloMat = null; // obsoleto
+ const neonHaloMesh = null; // obsoleto
+ // neonWallGeo — la geometría real vive dentro de neonGroup y se libera al traversarlo
+ // neonWallTex, neonWallMat, neonWallMesh → los nuevos están en neonGroup
+
+ // ── Llamas del cohete — propulsión decorativa premium ────────────────────
+ //
+ // Arquitectura en capas concéntricas desde el núcleo hacia fuera:
+ //   L0: núcleo — cono corto blanco-amarillo casi sólido (calor máximo)
+ //   L1: media  — cono amarillo-naranja, algo más ancho y largo
+ //   L2: exterior — cono naranja-ámbar, el más ancho, muy transparente
+ //   L3: glow   — sprite canvas con gradiente radial, AdditiveBlending
+ //
+ // Todo sale hacia ABAJO (rotation.z = Math.PI en conos, Y negativo en sprite).
+ // El sprite actúa como halo suave que "contamina" la mesa con luz cálida.
+
+ const flameGroup = new THREE.Group();
+ scene.add(flameGroup);
+ flameGroup.visible = false;
+
+ // ── Canvas de glow para el sprite ────────────────────────────────────────
+ const flameGlowCv = document.createElement("canvas");
+ flameGlowCv.width = flameGlowCv.height = 64;
+ (() => {
+  const c = flameGlowCv.getContext("2d");
+  const g = c.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0.0, "rgba(255, 220, 100, 0.85)");
+  g.addColorStop(0.3, "rgba(255, 150,  30, 0.45)");
+  g.addColorStop(0.65, "rgba(255,  90,  10, 0.18)");
+  g.addColorStop(1.0, "rgba(0, 0, 0, 0.00)");
+  c.fillStyle = g;
+  c.fillRect(0, 0, 64, 64);
+ })();
+ const flameGlowTex = new THREE.CanvasTexture(flameGlowCv);
+
+ function makeFlameCone(offsetX, offsetZ, height, radiusTop, col, opacity) {
+  const geo = new THREE.ConeGeometry(radiusTop, height, 6, 1, true);
+  const mat = new THREE.MeshBasicMaterial({
+   color: col,
+   transparent: true,
+   opacity,
+   depthWrite: false,
+   blending: THREE.AdditiveBlending,
+   side: THREE.DoubleSide,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.z = Math.PI; // punta hacia abajo
+  mesh.position.set(offsetX, 0, offsetZ);
+  flameGroup.add(mesh);
+  return { mesh, mat };
+ }
+
+ // Núcleo blanco-amarillo: corto y estrecho
+ const flameCore = makeFlameCone(0, 0, 0.055, 0.006, "#fffbe0", 0.92);
+ // Media naranja: más ancho y largo
+ const flameMid = makeFlameCone(0, 0, 0.085, 0.013, "#ffaa30", 0.62);
+ // Exterior ámbar: el más ancho, muy diáfano
+ const flameOuter = makeFlameCone(0, 0, 0.11, 0.02, "#ff6a10", 0.3);
+
+ // Sprite de glow — escala hacia abajo (Y negativo = bajo el cohete)
+ const flameGlowMat = new THREE.SpriteMaterial({
+  map: flameGlowTex,
+  transparent: true,
+  opacity: 0.55,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+ });
+ const flameGlowSprite = new THREE.Sprite(flameGlowMat);
+ flameGlowSprite.scale.set(0.09, 0.09, 1);
+ flameGlowSprite.position.set(0, -0.04, 0); // centrado bajo el cono
+ flameGroup.add(flameGlowSprite);
+
+ const flames = [flameCore, flameMid, flameOuter];
+
+ // Parámetros de llama expuestos en GUI
+ const flameParams = {
+  rocketFlameIntensity: 1.0,
+  rocketFlameScale: 1.0,
+  rocketFlickerSpeed: 1.0,
+  rocketLightIntensity: 1.8,
+ };
+
  /**
   * =========================================================
   * LIGHTS
@@ -1812,13 +2320,39 @@ export function initHeroScene() {
  moonLight.position.set(-4, 5, -1);
  scene.add(moonLight);
 
+ // Luz de rebote de luna entrando por la ventana — azul fría, área lateral izquierda
+ const windowFillLight = new THREE.PointLight("#4a6ccc", 0.45, 12, 2);
+ windowFillLight.position.set(-4.2, 3.0, 0.5);
+ scene.add(windowFillLight);
+
  const warmLight = new THREE.PointLight("#ffb25e", 5, 20, 2);
  warmLight.position.set(-4.03, 3.09, -2.12);
  scene.add(warmLight);
 
+ // Luz de la lámpara/cohete — separada del warmLight para flicker independiente
+ // Ilumina la mesa y pared cercana con tono ámbar cálido
+ const lamparaLight = new THREE.PointLight("#ff9f3a", 1.8, 5, 2);
+ lamparaLight.position.set(-3.8, 2.8, -2.0);
+ scene.add(lamparaLight);
+
  const fillLight = new THREE.PointLight("#4b63ff", 0.38, 8.5, 2);
  fillLight.position.set(4.2, 1.2, 1.5);
  scene.add(fillLight);
+
+ // Rim light trasero — separa astronauta+silla del fondo
+ const rimLight = new THREE.PointLight("#2a3888", 0.3, 7, 2);
+ rimLight.position.set(0.5, 3.8, -3.4);
+ scene.add(rimLight);
+
+ // Luz de área de luna — rebote frío más marcado desde ventana
+ const moonAreaLight = new THREE.PointLight("#4060cc", 0.55, 14, 2);
+ moonAreaLight.position.set(-4.8, 3.4, 0.6);
+ scene.add(moonAreaLight);
+
+ // Llama del cohete — separada de lamparaLight para flicker propio
+ const lamparaFlameLight = new THREE.PointLight("#ff7a18", 2.0, 4.5, 2);
+ lamparaFlameLight.position.set(-3.74, 2.5, 0.33);
+ scene.add(lamparaFlameLight);
 
  /**
   * =========================================================
@@ -1835,7 +2369,7 @@ export function initHeroScene() {
 
  const chairParams = {
   scale: 0.9,
-  x: 1.06,
+  x: 0.33,
   y: -0.04,
   z: -0.43,
   rotY: -2.9,
@@ -1845,11 +2379,11 @@ export function initHeroScene() {
 
  const chairFix = {
   rotX: -0.2,
-  rotY: 0,
+  rotY: 0.51,
   rotZ: 0,
  };
 
- loader.load("/modelos/chair.glb", (gltf) => {
+ loader.load("/modelos/astronauta_silla_2.glb", (gltf) => {
   chair = gltf.scene;
 
   chairAnchor = new THREE.Group();
@@ -1993,6 +2527,8 @@ export function initHeroScene() {
    // Adjuntar a deskAnchor cuando esté disponible
    if (deskAnchor) deskAnchor.add(lamparaAnchor);
    updateLampara();
+   // Activar y posicionar las llamas del cohete
+   flameGroup.visible = true;
    requestRender();
   },
   undefined,
@@ -2042,6 +2578,13 @@ export function initHeroScene() {
   if (!lamparaRoot || !lamparaAnchor || !deskTopSupport) return;
   lamparaRoot.scale.setScalar(lamparaParams.scale);
   placeOnDesk(lamparaAnchor, lamparaRoot, lamparaParams);
+  // Mantener llamas alineadas con la base de la lámpara
+  if (flameGroup && deskAnchor) {
+   const wp = new THREE.Vector3();
+   lamparaAnchor.getWorldPosition(wp);
+   flameGroup.position.set(wp.x + lamparaParams.x * 0.0, wp.y + 0.02, wp.z);
+   lamparaFlameLight.position.set(wp.x, wp.y + 0.05, wp.z);
+  }
   lamparaRoot.traverse((child) => {
    if (!child.isMesh) return;
    const ap = (mat) => {
@@ -2126,11 +2669,11 @@ export function initHeroScene() {
  let ratonAnchor = null;
 
  const ratonParams = {
-  x: 0.5,
-  y: 0.0,
+  x: 1.09,
+  y: -0.06,
   z: 0.35,
   rotX: 0.0,
-  rotY: 0.0,
+  rotY: -3.14,
   rotZ: 0.0,
   scale: 0.45,
   brightness: 1.0,
@@ -2683,6 +3226,23 @@ export function initHeroScene() {
   ratonFolder.add(ratonParams, "rotZ", -Math.PI, Math.PI, 0.01).name("rot Z").onChange(updateRaton);
   ratonFolder.add(ratonParams, "scale", 0.01, 5, 0.01).name("scale").onChange(updateRaton);
   ratonFolder.add(ratonParams, "brightness", 0.1, 5, 0.01).name("brightness").onChange(updateRaton);
+
+  // ── Neón ─────────────────────────────────────────────────────────────────
+  const neonFolder = gui.addFolder("Neon");
+  neonFolder.add(neonParams, "x", -6, 6, 0.01).name("neonX").onChange(requestRender);
+  neonFolder.add(neonParams, "y", 2, 10, 0.01).name("neonY").onChange(requestRender);
+  neonFolder.add(neonParams, "z", -5, -3, 0.01).name("neonZ").onChange(requestRender);
+  neonFolder.add(neonParams, "scale", 0.2, 3, 0.01).name("neonScale").onChange(requestRender);
+  neonFolder.add(neonParams, "intensity", 0.1, 3, 0.05).name("neonIntensity").onChange(requestRender);
+  neonFolder.add(neonParams, "glowStrength", 0.0, 2.0, 0.05).name("neonGlowStrength").onChange(requestRender);
+  neonFolder.add(neonParams, "flickerSpeed", 0.1, 3.0, 0.05).name("neonFlickerSpeed").onChange(requestRender);
+
+  // ── Llama cohete ─────────────────────────────────────────────────────────
+  const flameFolder = gui.addFolder("Rocket Flame");
+  flameFolder.add(flameParams, "rocketFlameIntensity", 0.0, 3.0, 0.05).name("flameIntensity").onChange(requestRender);
+  flameFolder.add(flameParams, "rocketFlameScale", 0.2, 3.0, 0.05).name("flameScale").onChange(requestRender);
+  flameFolder.add(flameParams, "rocketFlickerSpeed", 0.1, 4.0, 0.05).name("flickerSpeed").onChange(requestRender);
+  flameFolder.add(flameParams, "rocketLightIntensity", 0.0, 5.0, 0.05).name("lightIntensity").onChange(requestRender);
  }
 
  /**
@@ -2864,7 +3424,149 @@ export function initHeroScene() {
   warmLight.intensity = warmBase * roomFade;
   ambientLight.intensity = 0.35 * roomFade;
   moonLight.intensity = 0.55 * roomFade;
+  moonAreaLight.intensity = 0.55 * roomFade;
   fillLight.intensity = 0.38 * roomFade;
+  windowFillLight.intensity = 0.45 * roomFade;
+  rimLight.intensity = 0.3 * roomFade;
+
+  // ── Flicker de la llama del cohete — tres senos a frecuencias primas ─────
+  const fSpd = flameParams.rocketFlickerSpeed;
+  const fA = Math.sin(elapsedTime * 7.3 * fSpd) * 0.16;
+  const fB = Math.sin(elapsedTime * 13.1 * fSpd + 1.2) * 0.09;
+  const fC = Math.sin(elapsedTime * 4.7 * fSpd + 2.8) * 0.06;
+  const flameBrightness = 1.0 + fA + fB + fC;
+  const fInt = flameParams.rocketFlameIntensity;
+  const fScl = flameParams.rocketFlameScale;
+
+  lamparaLight.intensity = Math.max(0.4, flameParams.rocketLightIntensity * flameBrightness) * roomFade;
+  lamparaFlameLight.intensity = Math.max(0.3, flameParams.rocketLightIntensity * 1.1 * flameBrightness) * roomFade;
+
+  // Animar las tres capas de llama más el sprite de glow
+  if (flameGroup.visible) {
+   // Núcleo (idx 0) — corto, intenso, oscila rápido
+   const fcore = flameCore;
+   const fcFlick = 0.88 + Math.sin(elapsedTime * 11.2 * fSpd) * 0.12;
+   fcore.mesh.scale.set(fScl * fcFlick * 0.85, fScl * fcFlick, fScl * fcFlick * 0.85);
+   fcore.mat.opacity = Math.min(1, (0.88 + Math.sin(elapsedTime * 9.5 * fSpd) * 0.12) * fInt * roomFade);
+
+   // Media (idx 1) — oscilación media
+   const fmid = flameMid;
+   const fmFlick = 0.82 + Math.sin(elapsedTime * 7.8 * fSpd + 0.9) * 0.18;
+   fmid.mesh.scale.set(fScl * fmFlick * 0.9, fScl * fmFlick, fScl * fmFlick * 0.9);
+   fmid.mat.opacity = (0.58 + Math.sin(elapsedTime * 6.3 * fSpd + 0.6) * 0.14) * fInt * roomFade;
+
+   // Exterior (idx 2) — lento y suave
+   const fout = flameOuter;
+   const foFlick = 0.78 + Math.sin(elapsedTime * 4.9 * fSpd + 2.1) * 0.22;
+   fout.mesh.scale.set(fScl * foFlick, fScl * foFlick, fScl * foFlick);
+   fout.mat.opacity = (0.24 + Math.sin(elapsedTime * 3.8 * fSpd + 1.5) * 0.1) * fInt * roomFade;
+
+   // Sprite glow — pulso muy lento
+   const glowPulse = 0.45 + Math.sin(elapsedTime * 2.4 * fSpd) * 0.15;
+   flameGlowSprite.material.opacity = glowPulse * fInt * roomFade;
+   const glowS = fScl * (1.0 + Math.sin(elapsedTime * 3.1 * fSpd) * 0.08) * 0.09;
+   flameGlowSprite.scale.set(glowS, glowS, 1);
+  }
+
+  // ── Neón 3D — sincronizar posición/escala/luz con neonParams ────────────
+  neonGroup.position.set(neonParams.x, neonParams.y, neonParams.z);
+  neonGroup.scale.setScalar(neonParams.scale);
+  neonLight.position.set(neonParams.x, neonParams.y + LETTER_H * neonParams.scale * 0.25, neonParams.z + 0.4);
+  neonLight2.position.set(neonParams.x + 0.5, neonParams.y - LETTER_H * neonParams.scale * 0.15, neonParams.z + 0.3);
+
+  // ── Máquina de estados del neón ──────────────────────────────────────────
+  if (roomFade > 0.05) {
+   neonState.t += (1 / 60) * neonParams.flickerSpeed;
+   const phase_n = neonState.phase;
+
+   if (phase_n === "FULL") {
+    for (let i = 0; i < NEON_LETTER_COUNT; i++) {
+     const spark = Math.random() > 0.997 ? 0.85 + Math.random() * 0.15 : 1.0;
+     neonState.lit[i] = lerpV(neonState.lit[i], spark, 0.07);
+    }
+    if (neonState.t > NEON_PHASES.FULL.duration) {
+     neonState.phase = "FLICKER";
+     neonState.t = 0;
+     for (let i = 0; i < NEON_LETTER_COUNT; i++) {
+      neonState.target[i] = AI_INDICES.includes(i) ? 1.0 : NEON_RESIDUAL;
+     }
+    }
+   } else if (phase_n === "FLICKER") {
+    const progress = Math.min(1, neonState.t / NEON_PHASES.FLICKER.duration);
+    for (let i = 0; i < NEON_LETTER_COUNT; i++) {
+     const isAI = AI_INDICES.includes(i);
+     const tgt = neonState.target[i];
+     const noise = isAI ? 0 : (1 - progress) * (Math.random() > 0.82 ? Math.random() * 0.28 : 0);
+     const spd = isAI ? 0.035 : 0.05;
+     neonState.lit[i] = lerpV(neonState.lit[i], tgt + noise, spd);
+    }
+    if (neonState.t > NEON_PHASES.FLICKER.duration) {
+     neonState.phase = "AI";
+     neonState.t = 0;
+    }
+   } else if (phase_n === "AI") {
+    const pulse = 0.88 + Math.sin(elapsedTime * 1.7 * neonParams.flickerSpeed) * 0.12;
+    for (let i = 0; i < NEON_LETTER_COUNT; i++) {
+     const isAI = AI_INDICES.includes(i);
+     neonState.lit[i] = lerpV(neonState.lit[i], isAI ? pulse : NEON_RESIDUAL, isAI ? 0.1 : 0.03);
+    }
+    neonLight.intensity = 0.5 * pulse * neonParams.glowStrength * roomFade;
+    neonLight2.intensity = 0.22 * pulse * neonParams.glowStrength * roomFade;
+    if (neonState.t > NEON_PHASES.AI.duration) {
+     neonState.phase = "BUILD";
+     neonState.t = 0;
+     neonState.target.fill(1.0);
+    }
+   } else if (phase_n === "BUILD") {
+    const progress = Math.min(1, neonState.t / NEON_PHASES.BUILD.duration);
+    for (let i = 0; i < NEON_LETTER_COUNT; i++) {
+     const delay = i / NEON_LETTER_COUNT;
+     const letProg = Math.max(0, (progress - delay * 0.32) / 0.68);
+     const tgt = Math.min(1.0, letProg * 1.12);
+     const spark = tgt > 0.25 && Math.random() > 0.93 ? tgt * (0.65 + Math.random() * 0.5) : tgt;
+     neonState.lit[i] = lerpV(neonState.lit[i], spark, 0.09);
+    }
+    if (neonState.t > NEON_PHASES.BUILD.duration) {
+     neonState.phase = "FULL";
+     neonState.t = 0;
+     neonState.lit.fill(1.0);
+    }
+   }
+
+   // Aplicar intensidades a materiales por letra
+   const avgLit = neonState.lit.reduce((a, b) => a + b, 0) / NEON_LETTER_COUNT;
+   for (let i = 0; i < NEON_LETTER_COUNT; i++) {
+    const lit = neonState.lit[i];
+    const baseI = neonParams.intensity;
+    // Núcleo: muy brillante al máximo, mínimo residual visible
+    neonCoreMats[i].emissiveIntensity = (NEON_RESIDUAL * 0.8 + lit * 2.8) * baseI * roomFade;
+    // Tubo exterior: más tenue, se apaga más rápido
+    neonGlowMats[i].emissiveIntensity = (NEON_RESIDUAL * 0.4 + lit * 1.6) * baseI * roomFade;
+    neonGlowMats[i].opacity = (0.08 + lit * 0.47) * roomFade;
+    // Sprite de glow por letra
+    neonGlowSpriteMats[i].opacity = lit * 0.38 * neonParams.glowStrength * roomFade;
+   }
+
+   // Luces de rebote (excepto fase AI que ya las controla arriba)
+   if (phase_n !== "AI") {
+    neonLight.intensity = avgLit * 0.75 * neonParams.glowStrength * roomFade;
+    neonLight2.intensity = avgLit * 0.32 * neonParams.glowStrength * roomFade;
+   }
+
+   // Mancha de pared
+   neonWallMat.opacity = avgLit * 0.45 * neonParams.glowStrength * roomFade;
+  } else {
+   // Escena fuera de vista — apagar todo
+   for (let i = 0; i < NEON_LETTER_COUNT; i++) {
+    neonCoreMats[i].emissiveIntensity = 0;
+    neonGlowMats[i].emissiveIntensity = 0;
+    neonGlowMats[i].opacity = 0;
+    neonGlowSpriteMats[i].opacity = 0;
+   }
+   neonLight.intensity = 0;
+   neonLight2.intensity = 0;
+   neonWallMat.opacity = 0;
+  }
 
   // ── Estrellas interiores (ventana) ────────────────────────────────────────
   if (starsPoints && !isMobile) {
@@ -3352,5 +4054,48 @@ export function initHeroScene() {
   renderer.dispose();
 
   if (gui) gui.destroy();
+
+  // Neón 3D — tubos, materiales, sprites, luces
+  neonLetterGroups.forEach((lg) => {
+   lg.traverse((child) => {
+    if (!child.isMesh && !child.isSprite) return;
+    if (child.geometry) child.geometry.dispose();
+   });
+  });
+  neonCoreMats.forEach((m) => m.dispose());
+  neonGlowMats.forEach((m) => m.dispose());
+  neonGlowSpriteMats.forEach((m) => {
+   if (m.map) m.map.dispose();
+   m.dispose();
+  });
+  backPlateMat.dispose();
+  backPlateGeo.dispose();
+  pinGeo.dispose();
+  pinMat.dispose();
+  neonWallTex.dispose();
+  neonWallMat.dispose();
+  // neonWallGeo se libera al traversar neonGroup (es hijo de él)
+  scene.remove(neonGroup);
+  scene.remove(neonLight);
+  scene.remove(neonLight2);
+  // Luces extra
+  scene.remove(windowFillLight);
+  scene.remove(lamparaLight);
+  scene.remove(rimLight);
+  scene.remove(moonAreaLight);
+  scene.remove(lamparaFlameLight);
+  // Llamas del cohete — conos + sprite glow
+  flames.forEach(({ mesh, mat }) => {
+   mesh.geometry.dispose();
+   mat.dispose();
+  });
+  flameGlowTex.dispose();
+  flameGlowMat.dispose();
+  flameGroup.remove(flameGlowSprite);
+  scene.remove(flameGroup);
+  // Texturas de pared
+  [wallColorTex, wallNormalTex, wallRoughTex, wallAOTex].forEach((t) => {
+   if (t) t.dispose();
+  });
  };
 }
