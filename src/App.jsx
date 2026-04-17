@@ -4,7 +4,6 @@ import { Projects } from './components/Projects'
 import { InteractiveLab } from './components/InteractiveLab'
 import { About } from './components/About'
 import { Contact } from './components/Contact'
-import { Footer } from './components/Footer'
 import { SpeedInsights } from "@vercel/speed-insights/react"
 
 
@@ -18,7 +17,6 @@ function App() {
         <About />
         <Contact />
       </main>
-      <Footer />
       <SpeedInsights />
     </div>
   )
