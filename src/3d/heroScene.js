@@ -151,6 +151,26 @@ export function initHeroScene() {
  renderer.shadowMap.enabled = false;
  renderer.info.autoReset = true;
 
+ // Tone mapping — por defecto ACESFilmic suave, controlable por GUI
+ renderer.toneMapping = THREE.ACESFilmicToneMapping;
+ renderer.toneMappingExposure = 0.88;
+
+ // ── Params atmosféricos globales (controlable por GUI) ───────────────────
+ const atmosphereParams = {
+  exposure: 0.88,
+  toneMapping: "ACESFilmic", // None | Linear | Reinhard | ACESFilmic
+  backgroundColor: "#07070d",
+  vignetteOpacity: 0.88, // multiplicador sobre el fade del vignette
+  fogDensityMult: 1.0,
+ };
+
+ const toneMappingMap = {
+  None: THREE.NoToneMapping,
+  Linear: THREE.LinearToneMapping,
+  Reinhard: THREE.ReinhardToneMapping,
+  ACESFilmic: THREE.ACESFilmicToneMapping,
+ };
+
  /**
   * =========================================================
   * SHARED GEOMETRIES
@@ -204,10 +224,37 @@ export function initHeroScene() {
   metalness: 0,
  });
 
+ // Normal map procedural — micro-textura tipo microcemento, sin cargar archivos.
+ const _floorNormalCanvas = document.createElement("canvas");
+ _floorNormalCanvas.width = _floorNormalCanvas.height = 512;
+ {
+  const ctx = _floorNormalCanvas.getContext("2d");
+  // Base neutra (0.5, 0.5, 1.0) en RGB = normal recto hacia arriba
+  ctx.fillStyle = "rgb(128,128,255)";
+  ctx.fillRect(0, 0, 512, 512);
+  // Ruido muy sutil para romper el plano sin que se note
+  const img = ctx.getImageData(0, 0, 512, 512);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+   const n = (Math.random() - 0.5) * 14;
+   d[i] = Math.max(0, Math.min(255, 128 + n));
+   d[i + 1] = Math.max(0, Math.min(255, 128 + n * 0.8));
+   d[i + 2] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+ }
+ const floorNormalTex = new THREE.CanvasTexture(_floorNormalCanvas);
+ floorNormalTex.wrapS = floorNormalTex.wrapT = THREE.RepeatWrapping;
+ floorNormalTex.repeat.set(6, 6);
+ floorNormalTex.needsUpdate = true;
+
  const floorMaterial = new THREE.MeshStandardMaterial({
-  color: "#1b1d26",
-  roughness: 0.95,
-  metalness: 0,
+  color: "#252a38", // gris azulado, NO negro puro
+  roughness: 0.6, // reflexión controlada tipo microcemento pulido
+  metalness: 0.1, // sutil — las luces "resbalan"
+  normalMap: floorNormalTex,
+  normalScale: new THREE.Vector2(0.35, 0.35),
+  envMapIntensity: 0.5,
  });
 
  const deskMaterial = new THREE.MeshStandardMaterial({
@@ -222,10 +269,14 @@ export function initHeroScene() {
   metalness: 0,
  });
 
+ // El marco no es un LED. Es metal que refleja el azul del exterior.
+ // Metalness alta + emissive bajo → recibe luz, no la emite.
  const windowFrameMaterial = new THREE.MeshStandardMaterial({
-  color: "#c9ccd7",
-  roughness: 0.8,
-  metalness: 0,
+  color: "#7a8db0",
+  roughness: 0.55,
+  metalness: 0.4,
+  emissive: new THREE.Color("#2a3a7a"),
+  emissiveIntensity: 0.28,
  });
 
  const windowRevealMaterial = new THREE.MeshStandardMaterial({
@@ -235,28 +286,30 @@ export function initHeroScene() {
  });
 
  const windowGlassMaterial = new THREE.MeshBasicMaterial({
-  color: "#ffffff",
+  color: "#a8c2ff", // tinte frío en vez de blanco plano
   transparent: true,
-  opacity: 0.03,
+  opacity: 0.07, // un pelín más presente
   depthWrite: false,
   depthTest: false,
  });
 
  const outerGlowMaterial = new THREE.MeshBasicMaterial({
-  color: "#516dff",
+  color: "#4a6eff",
   transparent: true,
-  opacity: 0.05,
+  opacity: 0.12,
   depthWrite: false,
  });
 
  // Luna con textura real — textures/moon.jpg
  const moonTextureLoader = new THREE.TextureLoader();
+ // La luna NO es una bombilla. Es un planeta texturizado con glow sutil.
+ // El claroscuro viene de su textura (moon.jpg), no de emissive.
  const moonMaterial = new THREE.MeshStandardMaterial({
-  color: "#d0d8f5",
-  roughness: 0.85,
+  color: "#b8c6e8", // base ligeramente apagada, deja respirar la textura
+  roughness: 0.95,
   metalness: 0.0,
   emissive: new THREE.Color("#2a3a7a"),
-  emissiveIntensity: 0.22,
+  emissiveIntensity: 0.2, // glow muy suave, no foco frontal
  });
  moonTextureLoader.load("textures/moon.jpg", (tex) => {
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -337,7 +390,7 @@ export function initHeroScene() {
 
  const monitorParams = {
   scale: 2,
-  brightness: 0.95,
+  brightness: 0.6,
 
   yOffset: 0.01,
   zOffset: 0.02,
@@ -428,6 +481,348 @@ export function initHeroScene() {
   });
  }
 
+ // Lista de updaters de pantalla — el tick() los llama con elapsedTime cada frame.
+ // Cada updater decide internamente si redibujar o no (throttling por deltaTime).
+ const screenAnimators = [];
+
+ /**
+  * Pantalla izquierda — editor de código estilo VSCode con typing lento.
+  * Registra un updater en screenAnimators que redibuja cuando hay cambios.
+  */
+ function makeCodeScreenTexture() {
+  const W = 1024,
+   H = 640;
+  const cv = document.createElement("canvas");
+  cv.width = W;
+  cv.height = H;
+  const c = cv.getContext("2d");
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+
+  // Script que se irá escribiendo línea a línea
+  const script = [
+   { t: "import * as THREE from 'three';", cls: "kw" },
+   { t: "import { GLTFLoader } from 'three/loader';", cls: "kw" },
+   { t: "", cls: "" },
+   { t: "export function initHeroScene() {", cls: "fn" },
+   { t: "  const scene = new THREE.Scene();", cls: "var" },
+   { t: "  const camera = new THREE.PerspectiveCamera(", cls: "var" },
+   { t: "    35, window.innerWidth / window.innerHeight,", cls: "num" },
+   { t: "    0.1, 100", cls: "num" },
+   { t: "  );", cls: "" },
+   { t: "", cls: "" },
+   { t: "  // cinematic lighting setup", cls: "cmt" },
+   { t: "  const moonLight = new THREE.DirectionalLight(", cls: "var" },
+   { t: "    '#8a9cff', 1.0", cls: "str" },
+   { t: "  );", cls: "" },
+   { t: "  scene.add(moonLight);", cls: "var" },
+   { t: "", cls: "" },
+   { t: "  return () => cleanup();", cls: "kw" },
+   { t: "}", cls: "fn" },
+  ];
+
+  const palette = {
+   kw: "#b48aff",
+   fn: "#6ad0ff",
+   var: "#d5deee",
+   num: "#ffb977",
+   str: "#8ae2a3",
+   cmt: "#4e5a75",
+   "": "#d5deee",
+  };
+  const sidebar = [
+   "▸ src",
+   "  ├ App.jsx",
+   "  ├ Hero.jsx",
+   "  ├ Projects.jsx",
+   "  ├ About.jsx",
+   "  └ Contact.jsx",
+   "▸ 3d",
+   "  ├ heroScene.js",
+   "  └ utils.js",
+   "▸ textures",
+   "▸ public",
+  ];
+
+  let lineIdx = 0;
+  let charIdx = 0;
+  let lastStep = 0;
+  let nextDelay = 0.09;
+  let pauseUntil = 0;
+  let scrollOffset = 0;
+
+  function draw(elapsed) {
+   c.fillStyle = "#0f131d";
+   c.fillRect(0, 0, W, H);
+
+   c.fillStyle = "#0a0d15";
+   c.fillRect(0, 0, 160, H);
+   c.fillStyle = "#2a3650";
+   c.font = "12px -apple-system, 'Segoe UI', monospace";
+   sidebar.forEach((f, i) => c.fillText(f, 10, 40 + i * 20));
+
+   c.fillStyle = "#161b28";
+   c.fillRect(160, 0, W - 160, 28);
+   c.fillStyle = "#8aa0c8";
+   c.font = "11px monospace";
+   c.fillText("heroScene.js  ●", 180, 19);
+
+   const startX = 160,
+    gutterW = 40,
+    lineH = 20;
+   c.font = "12px 'Menlo', 'Consolas', monospace";
+   const maxVisible = Math.floor((H - 54 - 22) / lineH);
+   const firstVisible = scrollOffset;
+   const lastVisible = Math.min(script.length, firstVisible + maxVisible);
+
+   for (let i = firstVisible; i < lastVisible; i++) {
+    const y = 54 + (i - firstVisible) * lineH;
+    c.fillStyle = "#3a4666";
+    c.fillText(String(i + 1).padStart(2, " "), startX + 6, y);
+
+    const ln = script[i];
+    const fullText = ln.t;
+    const text = i < lineIdx ? fullText : i === lineIdx ? fullText.slice(0, charIdx) : "";
+    c.fillStyle = palette[ln.cls] || palette[""];
+    c.fillText(text, startX + gutterW, y);
+
+    if (i === lineIdx) {
+     const blink = Math.floor(elapsed * 2) % 2 === 0;
+     if (blink) {
+      const cursorX = startX + gutterW + c.measureText(text).width + 1;
+      c.fillStyle = "#d5deee";
+      c.fillRect(cursorX, y - 11, 6, 14);
+     }
+    }
+   }
+
+   c.fillStyle = "#1a2135";
+   c.fillRect(0, H - 22, W, 22);
+   c.fillStyle = "#6a7fa8";
+   c.font = "10px monospace";
+   const colNum = (lineIdx < script.length ? charIdx : script[script.length - 1].t.length) + 1;
+   c.fillText(`main  ●  JavaScript  UTF-8  Ln ${lineIdx + 1}, Col ${colNum}`, 170, H - 8);
+
+   tex.needsUpdate = true;
+  }
+
+  draw(0);
+
+  const update = (elapsed) => {
+   if (elapsed < pauseUntil) {
+    if (elapsed - lastStep > 0.15) {
+     lastStep = elapsed;
+     draw(elapsed);
+    }
+    return;
+   }
+
+   if (elapsed - lastStep < nextDelay) {
+    if (elapsed - lastStep > 0.25) draw(elapsed);
+    return;
+   }
+
+   lastStep = elapsed;
+
+   if (lineIdx >= script.length) {
+    pauseUntil = elapsed + 4.0;
+    lineIdx = 0;
+    charIdx = 0;
+    scrollOffset = 0;
+    draw(elapsed);
+    return;
+   }
+
+   const line = script[lineIdx];
+   if (charIdx < line.t.length) {
+    charIdx++;
+    const ch = line.t[charIdx - 1];
+    nextDelay = 0.07 + Math.random() * 0.07;
+    if (ch === " " || ch === "." || ch === ",") nextDelay += 0.05;
+   } else {
+    lineIdx++;
+    charIdx = 0;
+    nextDelay = 0.02;
+    pauseUntil = elapsed + (line.t === "" ? 0.15 : 0.35 + Math.random() * 0.5);
+    const maxVisible = Math.floor((H - 54 - 22) / 20);
+    if (lineIdx - scrollOffset >= maxVisible) scrollOffset = lineIdx - maxVisible + 1;
+   }
+
+   draw(elapsed);
+  };
+
+  screenAnimators.push(update);
+  return tex;
+ }
+
+ /**
+  * Genera una textura tipo UI futurista minimal (pantalla derecha).
+  * Paneles, títulos, líneas tenues — todo en azules integrados.
+  */
+ function makeUIScreenTexture() {
+  const W = 1024,
+   H = 640;
+  const cv = document.createElement("canvas");
+  cv.width = W;
+  cv.height = H;
+  const c = cv.getContext("2d");
+
+  c.fillStyle = "#0b1020";
+  c.fillRect(0, 0, W, H);
+
+  // Header
+  c.fillStyle = "#8aa8e0";
+  c.font = "16px -apple-system, 'Segoe UI', sans-serif";
+  c.fillText("▸ CONSTRUYENDO EXPERIENCIAS", 40, 50);
+  c.fillText("  DIGITALES DE OTRO PLANETA", 40, 72);
+
+  // Código central
+  c.font = "12px 'Menlo', monospace";
+  c.fillStyle = "#5f78a8";
+  const code = [
+   "function buildExperience(idea) {",
+   "  return create(Import(idea));",
+   "}",
+   "",
+   "const skills = {",
+   "  'Three.js',",
+   "  'React',",
+   "  'GLSL',",
+   "  'GSAP',",
+   "};",
+   "",
+   "while (passion) {",
+   "  keepLearning();",
+   "  keepBuilding();",
+   "}",
+   "",
+   "> Building the future...",
+  ];
+  code.forEach((ln, i) => c.fillText(ln, 40, 110 + i * 18));
+
+  // Panel lateral derecho
+  const panelX = 680,
+   panelW = W - panelX - 30;
+  c.strokeStyle = "#2a3a5e";
+  c.lineWidth = 1;
+  c.strokeRect(panelX, 40, panelW, H - 80);
+
+  c.fillStyle = "#6ad0ff";
+  c.font = "12px -apple-system, 'Segoe UI', sans-serif";
+  c.fillText("PROJECTS", panelX + 16, 62);
+  c.fillStyle = "#7a8db0";
+  c.font = "11px -apple-system, 'Segoe UI', sans-serif";
+  ["• Interactive Worlds", "• 3D Experiences", "• Web Development"].forEach((l, i) =>
+   c.fillText(l, panelX + 16, 82 + i * 18),
+  );
+
+  c.fillStyle = "#6ad0ff";
+  c.font = "12px -apple-system, 'Segoe UI', sans-serif";
+  c.fillText("SKILLS", panelX + 16, 172);
+  c.fillStyle = "#7a8db0";
+  c.font = "11px -apple-system, 'Segoe UI', sans-serif";
+  ["• Three.js", "• React", "• Node.js", "• GSAP", "• WebGL"].forEach((l, i) =>
+   c.fillText(l, panelX + 16, 192 + i * 18),
+  );
+
+  c.fillStyle = "#6ad0ff";
+  c.font = "12px -apple-system, 'Segoe UI', sans-serif";
+  c.fillText("STATUS", panelX + 16, 310);
+  c.fillStyle = "#8ae2a3";
+  c.font = "11px -apple-system, 'Segoe UI', sans-serif";
+  ["▸ Focused", "▸ Motivated", "▸ Building"].forEach((l, i) => c.fillText(l, panelX + 16, 330 + i * 18));
+
+  // Orb/grid sutil tipo radar
+  c.strokeStyle = "rgba(106,208,255,0.18)";
+  c.lineWidth = 1;
+  c.beginPath();
+  for (let r = 20; r <= 100; r += 20) c.arc(560, 330, r, 0, Math.PI * 2);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(460, 330);
+  c.lineTo(660, 330);
+  c.moveTo(560, 230);
+  c.lineTo(560, 430);
+  c.stroke();
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  tex.needsUpdate = true;
+  return tex;
+ }
+
+ // Opcional: si tras ver el console.log quieres forzar una mesh concreta.
+ const MONITOR_SCREEN_MESH_NAME = null; // ej: "Screen" o null
+
+ /**
+  * Detecta la mesh "pantalla" y hace SWAP del map del material existente.
+  * Estrategia robusta: busca meshes cuyo material ya tenga una textura (map
+  * o emissiveMap) — en GLBs de monitores, la pantalla siempre trae wallpaper,
+  * el resto del chasis no. Preservamos el material original (roughness,
+  * metalness, etc.) y solo intercambiamos la textura.
+  */
+ function applyMonitorScreenContent(root, kind) {
+  if (!root) return;
+  const meshLog = [];
+  let screenMesh = null;
+  let maxArea = -1;
+
+  root.traverse((child) => {
+   if (!child.isMesh || !child.geometry) return;
+   child.geometry.computeBoundingBox();
+   const b = child.geometry.boundingBox;
+   if (!b) return;
+   const sx = b.max.x - b.min.x;
+   const sy = b.max.y - b.min.y;
+   const sz = b.max.z - b.min.z;
+
+   const mats = Array.isArray(child.material) ? child.material : [child.material];
+   const hasMap = mats.some((m) => m && (m.map || m.emissiveMap));
+
+   meshLog.push({ name: child.name, sx: +sx.toFixed(3), sy: +sy.toFixed(3), sz: +sz.toFixed(3), hasMap });
+
+   if (MONITOR_SCREEN_MESH_NAME && child.name === MONITOR_SCREEN_MESH_NAME) {
+    screenMesh = child;
+    return;
+   }
+   // Pantalla = mesh con textura existente + mayor área XY.
+   if (hasMap) {
+    const area = sx * sy;
+    if (area > maxArea) {
+     maxArea = area;
+     screenMesh = child;
+    }
+   }
+  });
+
+  console.log(`[monitor:${kind}] meshes:`, meshLog);
+  console.log(`[monitor:${kind}] screen →`, screenMesh?.name ?? "(ninguna)");
+  if (!screenMesh) return;
+
+  // Fabricamos la textura de contenido
+  const newTex = kind === "code" ? makeCodeScreenTexture() : makeUIScreenTexture();
+
+  // SWAP sobre el material existente (preserva roughness/metalness originales del GLB)
+  const mat = Array.isArray(screenMesh.material) ? screenMesh.material[0] : screenMesh.material;
+  if (!mat) return;
+
+  // Dispose de texturas anteriores (el wallpaper de Windows 11)
+  if (mat.map && mat.map.dispose) mat.map.dispose();
+  if (mat.emissiveMap && mat.emissiveMap.dispose) mat.emissiveMap.dispose();
+
+  mat.map = newTex;
+  mat.emissiveMap = newTex;
+  mat.emissive = new THREE.Color("#ffffff");
+  mat.emissiveIntensity = 0.85; // pantalla "encendida" sin depender de luces
+  mat.toneMapped = false; // preserva nitidez del canvas
+  mat.needsUpdate = true;
+
+  screenMesh.userData.__screenTex = newTex;
+  screenMesh.userData.__screenMat = mat;
+ }
+
  function ensureMonitorsLoaded() {
   if (!deskAnchor) return;
   if (monitorLeftAnchor || monitorRightAnchor) return;
@@ -444,6 +839,7 @@ export function initHeroScene() {
     deskAnchor.add(monitorLeftAnchor);
 
     applyMonitorMaterialTweaks(monitorLeftRoot);
+    applyMonitorScreenContent(monitorLeftRoot, "code");
     centerMonitorRoot(monitorLeftRoot);
 
     monitorLoader.load(
@@ -458,6 +854,7 @@ export function initHeroScene() {
       deskAnchor.add(monitorRightAnchor);
 
       applyMonitorMaterialTweaks(monitorRightRoot);
+      applyMonitorScreenContent(monitorRightRoot, "ui");
       centerMonitorRoot(monitorRightRoot);
 
       updateMonitors();
@@ -726,10 +1123,10 @@ export function initHeroScene() {
   sillHeight: 0.08,
   mullionWidth: 0.08,
 
-  glowWidth: 3.7,
-  glowHeight: 3.33,
+  glowWidth: 5.2,
+  glowHeight: 4.6,
   glowOffset: -0.45,
-  glowColor: "#516dff",
+  glowColor: "#5d7bff",
  };
 
  /**
@@ -997,20 +1394,126 @@ export function initHeroScene() {
  const EXT_Y = 4.51;
  const EXT_Z = 0.55;
 
- // ── Estrellas exteriores — 3 capas cromáticas con profundidad real ────────
+ // ── Estrellas exteriores — 4 capas cromáticas con sprite circular real ──
  //
- // Capa A (lejana):  1600 partículas, muy finas, azul frío  → polvo estelar profundo
- // Capa B (media):    400 partículas, medianas, blanco neutro → magnitud media
- // Capa C (cercana):   60 partículas, más grandes, blanco cálido → primer plano
+ // Cada capa usa un ShaderMaterial con:
+ //  - sprite radial suave (CanvasTexture compartida) → discos, no cuadrados
+ //  - atributo aColor por vértice → variación cromática dentro de la capa
+ //  - atributo aSize por vértice → jerarquía de tamaños (algunas brillantes)
+ //  - twinkle opcional con fase aleatoria por estrella
  //
- // Los tres colores crean ilusión de distancia cromática real.
- // Distribución uniforme en esfera → sin zonas vacías ni sesgos.
+ // Capa A (lejana):  azul frío / densa   → polvo estelar profundo
+ // Capa B (media):   blanco neutro       → magnitud media
+ // Capa C (cercana): blanco cálido       → puntos de brillo
+ // Capa D (foreground): muy pocas, DOF   → sensación de profundidad
 
- // buildExtStarLayer — distribución esférica con sesgo opcional
- // biasY / biasZ desplazan el centro de distribución para crear asimetría
- // sin crear zonas vacías — el sesgo es aditivo, no elimina estrellas
- function buildExtStarLayer(count, rMin, rMax, biasY = 0, biasZ = 0) {
+ // ── Sprite procedural — gradiente radial gaussiano (una sola textura) ───
+ const starSpriteTex = (() => {
+  const s = 64;
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = s;
+  const c = cv.getContext("2d");
+  const g = c.createRadialGradient(s * 0.5, s * 0.5, 0, s * 0.5, s * 0.5, s * 0.5);
+  // Núcleo muy brillante → halo suave → borde transparente (gaussiana)
+  g.addColorStop(0.0, "rgba(255,255,255,1.0)");
+  g.addColorStop(0.12, "rgba(255,255,255,0.92)");
+  g.addColorStop(0.28, "rgba(255,255,255,0.45)");
+  g.addColorStop(0.55, "rgba(255,255,255,0.12)");
+  g.addColorStop(1.0, "rgba(255,255,255,0.0)");
+  c.fillStyle = g;
+  c.fillRect(0, 0, s, s);
+  const t = new THREE.CanvasTexture(cv);
+  t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.magFilter = THREE.LinearFilter;
+  t.generateMipmaps = true;
+  t.needsUpdate = true;
+  return t;
+ })();
+
+ // ── Params de estrellas (controlable por GUI) ────────────────────────────
+ const starsParams = {
+  visible: true,
+  globalOpacity: 2.0,
+  twinkleStrength: 0.15, // 0 = off
+  parallaxSpeed: 1.25,
+
+  // Capa A — lejana
+  aCount: isMobile ? 550 : 2200,
+  aSize: isMobile ? 0.07 : 0.055,
+  aOpacity: 0.78,
+  aTint: "#b8cdff",
+
+  // Capa B — media
+  bCount: isMobile ? 140 : 550,
+  bSize: isMobile ? 0.12 : 0.095,
+  bOpacity: 0.9,
+  bTint: "#e8efff",
+
+  // Capa C — cercana (brillantes)
+  cCount: isMobile ? 22 : 90,
+  cSize: isMobile ? 0.18 : 0.15,
+  cOpacity: 0.95,
+  cTint: "#fff4e8",
+
+  // Capa D — foreground DOF
+  dCount: isMobile ? 0 : 24,
+  dSize: 0.32,
+  dOpacity: 0.1,
+  dTint: "#dde8ff",
+ };
+
+ // ── Shader compartido — sprite + atributos por vértice + twinkle ─────────
+ const starVertexShader = /* glsl */ `
+  attribute float aSize;
+  attribute vec3 aColor;
+  attribute float aPhase;
+  uniform float uPixelRatio;
+  uniform float uSize;
+  uniform float uTime;
+  uniform float uTwinkle;
+  varying vec3 vColor;
+  varying float vTwinkle;
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * mv;
+    // Size attenuation manual — tamaño en pantalla ~ 1/-mv.z
+    gl_PointSize = aSize * uSize * uPixelRatio * (300.0 / max(-mv.z, 0.1));
+    vColor = aColor;
+    // Twinkle: seno por-estrella con fase aleatoria
+    float tw = sin(uTime * 1.4 + aPhase * 6.2831) * 0.5 + 0.5;
+    vTwinkle = mix(1.0, tw, uTwinkle);
+  }
+ `;
+
+ const starFragmentShader = /* glsl */ `
+  uniform sampler2D uSprite;
+  uniform float uOpacity;
+  varying vec3 vColor;
+  varying float vTwinkle;
+  void main() {
+    vec4 tex = texture2D(uSprite, gl_PointCoord);
+    float a = tex.a;
+    if (a < 0.02) discard;
+    gl_FragColor = vec4(vColor, a * uOpacity * vTwinkle);
+  }
+ `;
+
+ // ── Helper: construir geometría de capa con atributos por vértice ────────
+ // tint: color base de la capa (hex)
+ // biasY/biasZ: sesgo de centro de distribución (como antes)
+ // brightRatio: fracción de estrellas "brillantes" (tamaño ×2–3)
+ function buildStarLayer(count, rMin, rMax, tint, biasY = 0, biasZ = 0, brightRatio = 0.06) {
   const pos = new Float32Array(count * 3);
+  const col = new Float32Array(count * 3);
+  const siz = new Float32Array(count);
+  const pha = new Float32Array(count);
+
+  const tintCol = new THREE.Color(tint);
+  const warm = new THREE.Color("#ffeec8");
+  const cold = new THREE.Color("#b6c8ff");
+  const pure = new THREE.Color("#ffffff");
+  const tmp = new THREE.Color();
+
   for (let i = 0; i < count; i++) {
    const r = rMin + Math.random() * (rMax - rMin);
    const u = Math.random(),
@@ -1020,98 +1523,137 @@ export function initHeroScene() {
    pos[i * 3] = EXT_X + r * Math.sin(phi) * Math.cos(theta);
    pos[i * 3 + 1] = EXT_Y + r * Math.sin(phi) * Math.sin(theta) + biasY * r * 0.35;
    pos[i * 3 + 2] = EXT_Z + r * Math.cos(phi) + biasZ * r * 0.35;
+
+   // Color: mezcla del tint de capa con un shift aleatorio
+   const shift = Math.random();
+   tmp.copy(tintCol);
+   if (shift < 0.2) tmp.lerp(warm, 0.35 + Math.random() * 0.3);
+   else if (shift < 0.5) tmp.lerp(cold, 0.15 + Math.random() * 0.25);
+   else tmp.lerp(pure, Math.random() * 0.2);
+   col[i * 3] = tmp.r;
+   col[i * 3 + 1] = tmp.g;
+   col[i * 3 + 2] = tmp.b;
+
+   // Tamaño: 0.4–1.6 base, con ~brightRatio% multiplicado ×2–3 → jerarquía
+   let s = 0.4 + Math.random() * 1.2;
+   if (Math.random() < brightRatio) s *= 2.0 + Math.random();
+   siz[i] = s;
+
+   pha[i] = Math.random();
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute("aColor", new THREE.BufferAttribute(col, 3));
+  geo.setAttribute("aSize", new THREE.BufferAttribute(siz, 1));
+  geo.setAttribute("aPhase", new THREE.BufferAttribute(pha, 1));
   return geo;
  }
 
- // Capa A — lejana, densa, azul frío
- const EXT_A_COUNT = isMobile ? 400 : 1600;
- const extStarsGeo = buildExtStarLayer(EXT_A_COUNT, 20, 42, 0.6, -0.4);
- const extStarsMat = new THREE.PointsMaterial({
-  color: "#c0d4ff",
-  size: isMobile ? 0.048 : 0.032,
-  sizeAttenuation: true,
-  transparent: true,
-  opacity: 0.0,
-  depthWrite: false,
- });
+ function makeStarMaterial(sizeMult) {
+  return new THREE.ShaderMaterial({
+   uniforms: {
+    uSprite: { value: starSpriteTex },
+    uPixelRatio: { value: renderer.getPixelRatio() },
+    uSize: { value: sizeMult },
+    uTime: { value: 0 },
+    uOpacity: { value: 0.0 },
+    uTwinkle: { value: starsParams.twinkleStrength },
+   },
+   vertexShader: starVertexShader,
+   fragmentShader: starFragmentShader,
+   transparent: true,
+   depthWrite: false,
+   blending: THREE.AdditiveBlending,
+  });
+ }
+
+ // ── Capa A — lejana, azul frío, densa ────────────────────────────────────
+ let extStarsGeo = buildStarLayer(starsParams.aCount, 20, 42, starsParams.aTint, 0.6, -0.4, 0.04);
+ const extStarsMat = makeStarMaterial(starsParams.aSize);
  const extStarsPoints = new THREE.Points(extStarsGeo, extStarsMat);
  extStarsPoints.renderOrder = 1;
  extStarsPoints.visible = false;
  scene.add(extStarsPoints);
 
- // Capa B — media, blanco neutro
- const EXT_B_COUNT = isMobile ? 100 : 400;
- const extStarsBGeo = buildExtStarLayer(EXT_B_COUNT, 10, 22);
- const extStarsBMat = new THREE.PointsMaterial({
-  color: "#e8eeff",
-  size: isMobile ? 0.09 : 0.065,
-  sizeAttenuation: true,
-  transparent: true,
-  opacity: 0.0,
-  depthWrite: false,
- });
+ // ── Capa B — media, blanco neutro ────────────────────────────────────────
+ let extStarsBGeo = buildStarLayer(starsParams.bCount, 10, 22, starsParams.bTint, 0, 0, 0.07);
+ const extStarsBMat = makeStarMaterial(starsParams.bSize);
  const extStarsBPoints = new THREE.Points(extStarsBGeo, extStarsBMat);
  extStarsBPoints.renderOrder = 2;
  extStarsBPoints.visible = false;
  scene.add(extStarsBPoints);
 
- // Capa C — cercana, blanco cálido, muy pocas → puntos de brillo
- const EXT_C_COUNT = isMobile ? 14 : 60;
- const extStarsCGeo = buildExtStarLayer(EXT_C_COUNT, 4, 11);
- const extStarsCMat = new THREE.PointsMaterial({
-  color: "#fff4e8",
-  size: isMobile ? 0.13 : 0.1,
-  sizeAttenuation: true,
-  transparent: true,
-  opacity: 0.0,
-  depthWrite: false,
- });
+ // ── Capa C — cercana, blanco cálido, brillantes ──────────────────────────
+ let extStarsCGeo = buildStarLayer(starsParams.cCount, 4, 11, starsParams.cTint, 0, 0, 0.15);
+ const extStarsCMat = makeStarMaterial(starsParams.cSize);
  const extStarsCPoints = new THREE.Points(extStarsCGeo, extStarsCMat);
  extStarsCPoints.renderOrder = 3;
  extStarsCPoints.visible = false;
  scene.add(extStarsCPoints);
 
- // Capa D — polvo de primer plano, muy cercano a la cámara
- // Pocas partículas, grandes y muy transparentes → profundidad de campo
- // r=1.5–4u desde EXT → aparecen flotando DELANTE del claim
- const EXT_D_COUNT = isMobile ? 0 : 18;
- const extStarsDGeo =
-  EXT_D_COUNT > 0
-   ? buildExtStarLayer(EXT_D_COUNT, 1.5, 4)
+ // ── Capa D — foreground DOF (muy cercano) ────────────────────────────────
+ let extStarsDGeo =
+  starsParams.dCount > 0
+   ? buildStarLayer(starsParams.dCount, 1.5, 4, starsParams.dTint, 0, 0, 0.2)
    : (() => {
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(3), 3));
+      g.setAttribute("aColor", new THREE.BufferAttribute(new Float32Array(3), 3));
+      g.setAttribute("aSize", new THREE.BufferAttribute(new Float32Array(1), 1));
+      g.setAttribute("aPhase", new THREE.BufferAttribute(new Float32Array(1), 1));
       return g;
      })();
- const extStarsDMat = new THREE.PointsMaterial({
-  color: "#dde8ff",
-  size: 0.24,
-  sizeAttenuation: true,
-  transparent: true,
-  opacity: 0.0,
-  depthWrite: false,
- });
+ const extStarsDMat = makeStarMaterial(starsParams.dSize);
  const extStarsDPoints = new THREE.Points(extStarsDGeo, extStarsDMat);
  extStarsDPoints.renderOrder = 4;
  extStarsDPoints.visible = false;
  scene.add(extStarsDPoints);
 
+ // ── Rebuild helpers (para GUI: count, tint) ──────────────────────────────
+ function rebuildStarLayer(which) {
+  if (which === "A") {
+   extStarsGeo.dispose();
+   extStarsGeo = buildStarLayer(starsParams.aCount, 20, 42, starsParams.aTint, 0.6, -0.4, 0.04);
+   extStarsPoints.geometry = extStarsGeo;
+  } else if (which === "B") {
+   extStarsBGeo.dispose();
+   extStarsBGeo = buildStarLayer(starsParams.bCount, 10, 22, starsParams.bTint, 0, 0, 0.07);
+   extStarsBPoints.geometry = extStarsBGeo;
+  } else if (which === "C") {
+   extStarsCGeo.dispose();
+   extStarsCGeo = buildStarLayer(starsParams.cCount, 4, 11, starsParams.cTint, 0, 0, 0.15);
+   extStarsCPoints.geometry = extStarsCGeo;
+  } else if (which === "D") {
+   extStarsDGeo.dispose();
+   if (starsParams.dCount > 0) {
+    extStarsDGeo = buildStarLayer(starsParams.dCount, 1.5, 4, starsParams.dTint, 0, 0, 0.2);
+   } else {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(3), 3));
+    g.setAttribute("aColor", new THREE.BufferAttribute(new Float32Array(3), 3));
+    g.setAttribute("aSize", new THREE.BufferAttribute(new Float32Array(1), 1));
+    g.setAttribute("aPhase", new THREE.BufferAttribute(new Float32Array(1), 1));
+    extStarsDGeo = g;
+   }
+   extStarsDPoints.geometry = extStarsDGeo;
+  }
+  requestRender();
+ }
+
  // ── Luna exterior — textura real, fondo equilibrado ──────────────────────
  //
- // Composición:
- //   Cámara KP[2] = (-12, 4.51, 0.55)
- //   Luna en       (-36, EXT_Y + 1.8, EXT_Z + 1.6)
- //   → 24u al frente, +1.8u arriba, +1.6u lateral en Z
- //   → offset Z moderado: no está perfectamente centrada detrás del texto
- //     pero tampoco arrinconada en el lateral — equilibrio compositivo
- //   → radio 1.5: más presencia de "gran fondo" sin invadir el claim
- //   → tamaño angular: 1.5 / 24.1u ≈ 7.1°
- //
- // DirectionalLight apuntando desde la luna hacia el centro de escena:
- //   ilumina el campo de estrellas con tinte muy frío sin crear "foco" visible
+ // Params controlables desde GUI
+ const moonParams = {
+  visible: true,
+  x: EXT_X - 26,
+  y: EXT_Y + 3.2,
+  z: EXT_Z - 1.5,
+  scale: 1.0,
+  opacity: 0.88,
+  lightIntensity: 0.2,
+  tint: "#ffffff",
+ };
+
  const extMoonLoader = new THREE.TextureLoader();
  const extMoonGeo = new THREE.SphereGeometry(1.5, 36, 36);
  const extMoonMat = new THREE.MeshBasicMaterial({
@@ -1120,7 +1662,7 @@ export function initHeroScene() {
   opacity: 0.0,
  });
  const extMoon = new THREE.Mesh(extMoonGeo, extMoonMat);
- extMoon.position.set(EXT_X - 26, EXT_Y + 3.2, EXT_Z - 1.5);
+ extMoon.position.set(moonParams.x, moonParams.y, moonParams.z);
  extMoon.renderOrder = 10;
  extMoon.visible = false;
  scene.add(extMoon);
@@ -1128,13 +1670,13 @@ export function initHeroScene() {
  extMoonLoader.load("/textures/moon.jpg", (tex) => {
   tex.colorSpace = THREE.SRGBColorSpace;
   extMoonMat.map = tex;
-  extMoonMat.color.set("#ffffff");
+  extMoonMat.color.set(moonParams.tint);
   extMoonMat.needsUpdate = true;
   requestRender();
  });
 
  // DirectionalLight desde la luna — ilumina suavemente el entorno sin "foco"
- // intensity empieza en 0, sube a 0.22 en F4 — muy sutil, sin teñir
+ // intensity empieza en 0, sube en F4 — muy sutil, sin teñir
  const extMoonLight = new THREE.DirectionalLight("#e8f0ff", 0.0);
  extMoonLight.position.copy(extMoon.position);
  extMoonLight.target.position.set(EXT_X, EXT_Y, EXT_Z);
@@ -1148,41 +1690,95 @@ export function initHeroScene() {
  extMoonHalo.visible = false;
  scene.add(extMoonHalo);
 
- // ── Fondo nebular — rompe el negro plano sin ruido visual ────────────────
- // Un plano grande con gradiente radial muy sutil centrado en el espacio.
- // Casi imperceptible — solo añade una cálida variación de profundidad.
- // Colocado muy lejos (EXT_X - 50) para que quede siempre detrás de todo.
- const nebulaTex = (() => {
+ function updateMoon() {
+  extMoon.position.set(moonParams.x, moonParams.y, moonParams.z);
+  extMoon.scale.setScalar(moonParams.scale);
+  extMoonMat.color.set(moonParams.tint);
+  extMoonLight.position.copy(extMoon.position);
+  requestRender();
+ }
+
+ // ── Fondo nebular — params + regeneración ────────────────────────────────
+ // Params controlables desde GUI (posición, escala, rotación, colores, suavidad,
+ // densidad y opacidad). Al cambiar colores/densidad/suavidad se regenera
+ // la textura; posición/escala/rotación/opacidad son directas.
+ const nebulaParams = {
+  visible: true,
+  opacity: 0.82,
+  scale: 1.0,
+  x: EXT_X - 50,
+  y: EXT_Y,
+  z: EXT_Z,
+  rotY: Math.PI * 0.5,
+  colorPrimary: "#101837",
+  colorSecondary: "#090d20",
+  softness: 0.5, // 0 = borde duro, 1 = muy suave
+  density: 0.65, // multiplica la alpha del centro
+ };
+
+ function buildNebulaTexture() {
   const cv = document.createElement("canvas");
   cv.width = 256;
   cv.height = 256;
   const c = cv.getContext("2d");
-  // Gradiente radial muy tenue: centro levemente azul frío, bordes transparentes
-  // Centro desplazado arriba-izquierda → no perfectamente centrado
-  // Coincide con la zona donde está la luna → más atmósfera natural
-  const g = c.createRadialGradient(96, 88, 0, 96, 88, 140);
-  g.addColorStop(0.0, "rgba(16, 24, 55, 0.26)");
-  g.addColorStop(0.5, "rgba(9, 13, 32, 0.11)");
-  g.addColorStop(1.0, "rgba(0, 0, 0, 0.00)");
+  // Centro ligeramente desplazado → no perfectamente centrado
+  const cx = 96,
+   cy = 88;
+  const rMax = 140 * (0.6 + nebulaParams.scale * 0.4);
+  const g = c.createRadialGradient(cx, cy, 0, cx, cy, rMax);
+
+  const p = new THREE.Color(nebulaParams.colorPrimary);
+  const s = new THREE.Color(nebulaParams.colorSecondary);
+  const aCenter = 0.4 * nebulaParams.density;
+  const aMid = 0.18 * nebulaParams.density;
+  const softness = nebulaParams.softness;
+  // Más softness → el gradiente se extiende más suavemente
+  g.addColorStop(
+   0.0,
+   `rgba(${Math.round(p.r * 255)},${Math.round(p.g * 255)},${Math.round(p.b * 255)},${aCenter.toFixed(3)})`,
+  );
+  g.addColorStop(
+   0.35 + softness * 0.15,
+   `rgba(${Math.round(s.r * 255)},${Math.round(s.g * 255)},${Math.round(s.b * 255)},${aMid.toFixed(3)})`,
+  );
+  g.addColorStop(1.0, "rgba(0,0,0,0.0)");
   c.fillStyle = g;
   c.fillRect(0, 0, 256, 256);
   const t = new THREE.CanvasTexture(cv);
   t.needsUpdate = true;
   return t;
- })();
+ }
+
+ let nebulaTex = buildNebulaTexture();
  const nebulaGeo = new THREE.PlaneGeometry(28, 20);
  const nebulaMat = new THREE.MeshBasicMaterial({
   map: nebulaTex,
   transparent: true,
-  opacity: 0.0, // controlado en tick, máx 0.85
+  opacity: 0.0,
   depthWrite: false,
   side: THREE.DoubleSide,
  });
  const nebulaMesh = new THREE.Mesh(nebulaGeo, nebulaMat);
- nebulaMesh.position.set(EXT_X - 50, EXT_Y, EXT_Z);
- nebulaMesh.rotation.y = Math.PI * 0.5;
+ nebulaMesh.position.set(nebulaParams.x, nebulaParams.y, nebulaParams.z);
+ nebulaMesh.rotation.y = nebulaParams.rotY;
+ nebulaMesh.scale.setScalar(nebulaParams.scale);
  nebulaMesh.renderOrder = 0; // detrás de todo
  scene.add(nebulaMesh);
+
+ function regenerateNebula() {
+  if (nebulaMat.map) nebulaMat.map.dispose();
+  nebulaTex = buildNebulaTexture();
+  nebulaMat.map = nebulaTex;
+  nebulaMat.needsUpdate = true;
+  requestRender();
+ }
+
+ function updateNebula() {
+  nebulaMesh.position.set(nebulaParams.x, nebulaParams.y, nebulaParams.z);
+  nebulaMesh.rotation.y = nebulaParams.rotY;
+  nebulaMesh.scale.setScalar(nebulaParams.scale);
+  requestRender();
+ }
 
  // ── Viñeta espacial — frame visual sutil ─────────────────────────────────
  // Plano grande colocado muy cerca de la cámara (0.5u delante).
@@ -1370,7 +1966,26 @@ export function initHeroScene() {
  const UFO_Z_START = EXT_Z + 3.0; // lateral derecho
  const UFO_Z_END = EXT_Z - 3.0; // lateral izquierdo
 
+ // Params controlables desde GUI
+ const ufoParams = {
+  visible: true,
+  xOffset: 0.0, // se suma a UFO_X
+  yOffset: 0.0, // se suma a UFO_BASE_Y
+  scale: 0.58, // escala del modelo GLB
+  rotYOffset: 0.0, // se suma a la rotación calculada
+  glowIntensity: 1.0, // multiplicador de las luces internas
+  beamOpacityMult: 1.0,
+  beamWidth: 1.0, // escala X del haz
+  beamLength: 1.0, // escala Y del haz
+  underLightIntensity: 1.0, // multiplicador de ufoLight (azul bajo)
+ };
+
  let ufoRoot = null;
+ let ufoInnerLight = null; // ref. a la luz interior (se asigna al cargar)
+ let ufoInnerRim = null; // ref. a la luz rim
+ const UFO_INNER_LIGHT_BASE = 1.4;
+ const UFO_INNER_RIM_BASE = 0.7;
+
  const ufoGroup = new THREE.Group();
  ufoGroup.visible = false;
  scene.add(ufoGroup);
@@ -1492,7 +2107,7 @@ export function initHeroScene() {
   "/modelos/Ufo.glb",
   (gltf) => {
    ufoRoot = gltf.scene;
-   ufoRoot.scale.setScalar(0.58); // ← más grande: 0.45→0.58
+   ufoRoot.scale.setScalar(ufoParams.scale);
    ufoRoot.rotation.set(0, 0, 0);
 
    ufoRoot.traverse((child) => {
@@ -1516,14 +2131,14 @@ export function initHeroScene() {
 
    // Luz interior del UFO — rim light suave desde abajo/frente
    // Ilumina el propio modelo dando silueta sin parecer cartoon
-   const ufoLight = new THREE.PointLight("#a8d4ff", 1.4, 2.8, 1.8);
-   ufoLight.position.set(0, -0.25, 0.3); // ligeramente debajo y al frente
-   ufoGroup.add(ufoLight);
+   ufoInnerLight = new THREE.PointLight("#a8d4ff", UFO_INNER_LIGHT_BASE, 2.8, 1.8);
+   ufoInnerLight.position.set(0, -0.25, 0.3); // ligeramente debajo y al frente
+   ufoGroup.add(ufoInnerLight);
 
    // Segundo punto de luz para definir el borde superior (rim)
-   const ufoRim = new THREE.PointLight("#cce8ff", 0.7, 2.0, 2);
-   ufoRim.position.set(0, 0.4, -0.2);
-   ufoGroup.add(ufoRim);
+   ufoInnerRim = new THREE.PointLight("#cce8ff", UFO_INNER_RIM_BASE, 2.0, 2);
+   ufoInnerRim.position.set(0, 0.4, -0.2);
+   ufoGroup.add(ufoInnerRim);
 
    ufoGroup.add(ufoRoot);
    console.log("[UFO] Cargado —", ufoMaterials.length, "materiales");
@@ -1532,6 +2147,14 @@ export function initHeroScene() {
   undefined,
   (err) => console.error("[UFO] Error:", err),
  );
+
+ function updateUfo() {
+  if (ufoRoot) ufoRoot.scale.setScalar(ufoParams.scale);
+  if (ufoInnerLight)
+   ufoInnerLight.intensity = UFO_INNER_LIGHT_BASE * ufoParams.underLightIntensity * ufoParams.glowIntensity;
+  if (ufoInnerRim) ufoInnerRim.intensity = UFO_INNER_RIM_BASE * ufoParams.glowIntensity;
+  requestRender();
+ }
 
  // Stub de compatibilidad (cleanup existente lo disposa)
  const extUfoScanGeo = new THREE.PlaneGeometry(0.01, 0.01);
@@ -1608,6 +2231,21 @@ export function initHeroScene() {
  // a transparente en cada redibujado → el negro del fondo es el de la escena,
  // nunca un rectángulo pintado.
 
+ // Params controlables desde GUI
+ const claimParams = {
+  visible: true,
+  x: EXT_X - 5.5,
+  y: EXT_Y - 0.2,
+  z: EXT_Z,
+  scale: 1.0,
+  opacityMult: 1.0,
+  orangeColor: "#ff6b2c", // color "de otro planeta"
+  glowIntensity: 1.0, // multiplicador del pulso naranja (extGlowMat)
+  haloOpacityMult: 1.0, // multiplicador del halo elíptico de fondo
+  subtitleVisible: true, // muestra/oculta el subtítulo
+  subtitleText: "Frontend · Three.js · Experiencias interactivas",
+ };
+
  const S_CLAIM = 3;
  const W_CLAIM = 1024;
  const H_CLAIM = 320;
@@ -1616,6 +2254,15 @@ export function initHeroScene() {
  claimCanvas.height = H_CLAIM * S_CLAIM;
  const claimCtx = claimCanvas.getContext("2d");
  claimCtx.scale(S_CLAIM, S_CLAIM);
+
+ function hexToRgb(hex) {
+  const h = hex.replace("#", "");
+  return {
+   r: parseInt(h.substring(0, 2), 16),
+   g: parseInt(h.substring(2, 4), 16),
+   b: parseInt(h.substring(4, 6), 16),
+  };
+ }
 
  function drawClaimScan(scanInfl) {
   const ctx = claimCtx;
@@ -1637,20 +2284,21 @@ export function initHeroScene() {
   ctx.fillText("Diseñando experiencias", w * 0.5, 94);
   ctx.shadowBlur = 0;
 
-  // Línea 2 — "de otro planeta"
-  // shadowBlur: 28 → 60   |   fillColor G: 107→140, B: 44→80
-  const oG = Math.round(107 + scanInfl * 33);
-  const oB = Math.round(44 + scanInfl * 36);
+  // Línea 2 — "de otro planeta" — color controlable
+  const oc = hexToRgb(claimParams.orangeColor);
+  // Intensifica canales G/B con el scanner
+  const oG = Math.min(255, Math.round(oc.g + scanInfl * 33));
+  const oB = Math.min(255, Math.round(oc.b + scanInfl * 36));
   const oA = 0.5 + scanInfl * 0.45;
   ctx.font = `700 68px ${SANS}`;
-  ctx.shadowColor = `rgba(255,107,44,${oA.toFixed(2)})`;
+  ctx.shadowColor = `rgba(${oc.r},${oc.g},${oc.b},${oA.toFixed(2)})`;
   ctx.shadowBlur = 28 + scanInfl * 32;
-  ctx.fillStyle = `rgba(255,${oG},${oB},1.0)`;
+  ctx.fillStyle = `rgba(${oc.r},${oG},${oB},1.0)`;
   ctx.fillText("de otro planeta", w * 0.5, 182);
   ctx.shadowBlur = 0;
 
-  // Separador + rombo — sin cambio con el escáner
-  ctx.strokeStyle = "rgba(255, 107, 44, 0.60)";
+  // Separador + rombo — usa el mismo color naranja
+  ctx.strokeStyle = `rgba(${oc.r},${oc.g},${oc.b},0.60)`;
   ctx.lineWidth = 0.8;
   const lineW = w * 0.28;
   const lineY = 207;
@@ -1658,7 +2306,7 @@ export function initHeroScene() {
   ctx.moveTo(w * 0.5 - lineW - 12, lineY);
   ctx.lineTo(w * 0.5 - 12, lineY);
   ctx.stroke();
-  ctx.fillStyle = "rgba(255, 107, 44, 0.70)";
+  ctx.fillStyle = `rgba(${oc.r},${oc.g},${oc.b},0.70)`;
   ctx.save();
   ctx.translate(w * 0.5, lineY);
   ctx.rotate(Math.PI * 0.25);
@@ -1669,10 +2317,12 @@ export function initHeroScene() {
   ctx.lineTo(w * 0.5 + lineW + 12, lineY);
   ctx.stroke();
 
-  // Subtítulo
-  ctx.font = `300 20px ${SANS}`;
-  ctx.fillStyle = "rgba(168, 188, 232, 0.72)";
-  ctx.fillText("Frontend · Three.js · Experiencias interactivas", w * 0.5, 258);
+  // Subtítulo — opcional
+  if (claimParams.subtitleVisible) {
+   ctx.font = `300 20px ${SANS}`;
+   ctx.fillStyle = "rgba(168, 188, 232, 0.72)";
+   ctx.fillText(claimParams.subtitleText, w * 0.5, 258);
+  }
  }
 
  drawClaimScan(0); // dibujado inicial sin efecto
@@ -1698,12 +2348,11 @@ export function initHeroScene() {
 
  // ── Plano GLOW — overlay naranja vivo sobre "de otro planeta" ───────────
  // Plano mínimo del mismo tamaño que el claim.
- // Color naranja puro, opacidad máxima 0.038 — casi imperceptible
- // pero pulsando muy lentamente da sensación de vida al texto.
+ // Color controlable desde GUI (sincronizado con claimParams.orangeColor).
  // Posicionado 0.02u más cerca de cámara que extPlaneA.
  const extGlowGeo = new THREE.PlaneGeometry(3.8, 3.8 * (320 / 1024));
  const extGlowMat = new THREE.MeshBasicMaterial({
-  color: "#ff6b2c",
+  color: claimParams.orangeColor,
   transparent: true,
   opacity: 0.0,
   depthWrite: false,
@@ -1713,6 +2362,24 @@ export function initHeroScene() {
  extGlowPlane.position.set(EXT_X - 5.48, EXT_Y - 0.2, EXT_Z); // 0.02u más cerca
  extGlowPlane.rotation.y = Math.PI * 0.5;
  scene.add(extGlowPlane);
+
+ // ── updateClaim — aplica params a los 3 planos (A + halo + glow) ─────────
+ function updateClaim() {
+  // Posición base (el halo va 0.08u detrás del claim; el glow 0.02u delante)
+  extPlaneA.position.set(claimParams.x, claimParams.y, claimParams.z);
+  extPlaneHalo.position.set(claimParams.x + 0.08, claimParams.y, claimParams.z);
+  extGlowPlane.position.set(claimParams.x + 0.02, claimParams.y, claimParams.z);
+  // Escala uniforme
+  extPlaneA.scale.setScalar(claimParams.scale);
+  extPlaneHalo.scale.setScalar(claimParams.scale);
+  extGlowPlane.scale.setScalar(claimParams.scale);
+  // Color del glow plane
+  extGlowMat.color.set(claimParams.orangeColor);
+  // Redibujar canvas (color/subtítulo pueden haber cambiado)
+  drawClaimScan(extPlaneA.userData.lastInfl ?? 0);
+  PLANE_A_TEX.needsUpdate = true;
+  requestRender();
+ }
 
  // ── Plano C — Texto técnico / señal (todo en español) ────────────────────
  const PLANE_C_TEX = makeTextCanvas(700, 230, (ctx, w, h) => {
@@ -1876,9 +2543,9 @@ export function initHeroScene() {
   y: 6.2,
   z: -3.96,
   scale: 1.0,
-  intensity: 1.0, // multiplica emissiveIntensity de todos los tubos
-  glowStrength: 1.0, // multiplica opacidad de sprites de glow y mancha de pared
-  flickerSpeed: 1.0, // multiplica velocidad de la máquina de estados
+  intensity: 1.0,
+  glowStrength: 1.35, // ↑ halo más presente (era 1.0)
+  flickerSpeed: 1.0,
  };
 
  // ── Máquina de estados ────────────────────────────────────────────────────
@@ -2010,7 +2677,7 @@ export function initHeroScene() {
    new THREE.MeshStandardMaterial({
     color: NEON_CORE,
     emissive: NEON_CORE,
-    emissiveIntensity: 2.8,
+    emissiveIntensity: 2.1,
     roughness: 0.0,
     metalness: 0.0,
     transparent: false,
@@ -2021,7 +2688,7 @@ export function initHeroScene() {
    new THREE.MeshStandardMaterial({
     color: NEON_TUBE,
     emissive: NEON_TUBE,
-    emissiveIntensity: 1.6,
+    emissiveIntensity: 1.2,
     roughness: 0.15,
     metalness: 0.0,
     transparent: true,
@@ -2206,8 +2873,8 @@ export function initHeroScene() {
  //
  // Dos PointLights ligeramente desplazadas dan un rebote volumétrico.
  // La segunda está más baja y tenue — crea un gradiente natural.
- const neonLight = new THREE.PointLight(NEON_TUBE, 0.7, 7, 2);
- const neonLight2 = new THREE.PointLight(NEON_TUBE, 0.35, 5, 2.2);
+ const neonLight = new THREE.PointLight(NEON_TUBE, 0.75, 7.5, 2);
+ const neonLight2 = new THREE.PointLight(NEON_TUBE, 0.42, 5.5, 2.2);
  scene.add(neonLight);
  scene.add(neonLight2);
 
@@ -2313,46 +2980,195 @@ export function initHeroScene() {
   * LIGHTS
   * =========================================================
   */
- const ambientLight = new THREE.AmbientLight("#7c86b8", 0.35);
+ // Ambient — azul-violeta profundo. Los negros ganan tinte cromático.
+ const ambientLight = new THREE.AmbientLight("#2e3860", 0.14);
  scene.add(ambientLight);
 
- const moonLight = new THREE.DirectionalLight("#6f87ff", 0.55);
- moonLight.position.set(-4, 5, -1);
+ // Key fría lateral: entra por ventana, recorta bordes. Sin target forzado:
+ // apuntar al astronauta convierte el rim en luz frontal que aplana.
+ const moonLight = new THREE.DirectionalLight("#8a9cff", 1.0);
+ moonLight.position.set(-5, 4, 1);
  scene.add(moonLight);
 
- // Luz de rebote de luna entrando por la ventana — azul fría, área lateral izquierda
- const windowFillLight = new THREE.PointLight("#4a6ccc", 0.45, 12, 2);
+ // Rebote frío de luna entrando por ventana.
+ const windowFillLight = new THREE.PointLight("#5a72d8", 0.75, 14, 2);
  windowFillLight.position.set(-4.2, 3.0, 0.5);
  scene.add(windowFillLight);
 
- const warmLight = new THREE.PointLight("#ffb25e", 5, 20, 2);
+ // WARM KEY del cohete — cálida pero CONTENIDA.
+ // distance bajo para que NO se coma toda la escena (como en la ref).
+ const warmLight = new THREE.PointLight("#ff9a52", 2.6, 3.8, 2);
+
  warmLight.position.set(-4.03, 3.09, -2.12);
  scene.add(warmLight);
 
- // Luz de la lámpara/cohete — separada del warmLight para flicker independiente
- // Ilumina la mesa y pared cercana con tono ámbar cálido
- const lamparaLight = new THREE.PointLight("#ff9f3a", 1.8, 5, 2);
+ // Luz de la lámpara/cohete — íntima, zona mesa/base del cohete.
+ const lamparaLight = new THREE.PointLight("#ff8c45", 1.4, 3.0, 2);
  lamparaLight.position.set(-3.8, 2.8, -2.0);
  scene.add(lamparaLight);
 
- const fillLight = new THREE.PointLight("#4b63ff", 0.38, 8.5, 2);
+ // Fill frío lado derecho — muy sutil, equilibra la composición.
+ const fillLight = new THREE.PointLight("#5a72ff", 0.35, 8.5, 2);
  fillLight.position.set(4.2, 1.2, 1.5);
  scene.add(fillLight);
 
- // Rim light trasero — separa astronauta+silla del fondo
- const rimLight = new THREE.PointLight("#2a3888", 0.3, 7, 2);
+ // Rim light trasero — separa astronauta+silla del fondo.
+ const rimLight = new THREE.PointLight("#3d4db5", 0.55, 7, 2);
  rimLight.position.set(0.5, 3.8, -3.4);
  scene.add(rimLight);
 
- // Luz de área de luna — rebote frío más marcado desde ventana
- const moonAreaLight = new THREE.PointLight("#4060cc", 0.55, 14, 2);
+ // Luz de área de luna — rebote frío marcado desde ventana.
+ const moonAreaLight = new THREE.PointLight("#4f68d0", 0.75, 14, 2);
  moonAreaLight.position.set(-4.8, 3.4, 0.6);
  scene.add(moonAreaLight);
 
- // Llama del cohete — separada de lamparaLight para flicker propio
- const lamparaFlameLight = new THREE.PointLight("#ff7a18", 2.0, 4.5, 2);
+ // ⭐ BACK RIM — detrás de la mesa, evita negro muerto, separa planos.
+ const backRimLight = new THREE.PointLight("#4a5ebd", 0.5, 6.5, 2.2);
+ backRimLight.position.set(0.4, 1.2, -3.0);
+ scene.add(backRimLight);
+
+ // LED único, intensidad contenida, decay alto → solo zona justo bajo monitores.
+ const ledUnderDesk = new THREE.PointLight("#4a78ff", 1.1, 4.5, 2.2);
+ ledUnderDesk.position.set(1.3, 2.55, -1.15);
+ scene.add(ledUnderDesk);
+
+ // Llama del cohete — modero color y mantengo intensidad.
+ const lamparaFlameLight = new THREE.PointLight("#ff7a2a", 1.85, 3.2, 2);
  lamparaFlameLight.position.set(-3.74, 2.5, 0.33);
  scene.add(lamparaFlameLight);
+
+ // Rebote cálido sobre la superficie de la mesa — ayuda a leer teclado/ratón
+ // sin que se note como luz nueva. Decay alto = cae muy rápido fuera del área.
+ const deskBounceLight = new THREE.PointLight("#ff9a60", 0.8, 1.9, 2.6);
+ deskBounceLight.position.set(-3.5, 2.65, -1.65);
+ scene.add(deskBounceLight);
+
+ /**
+  * =========================================================
+  * DOG HOLOGRAM — easter egg holográfico
+  * =========================================================
+  * Perro construido con primitivas wireframe + pedestal + scan.
+  * Colores cian dentro de la paleta fría. Muy sutil.
+  */
+ function createDogHologram() {
+  const g = new THREE.Group();
+  const cyan = new THREE.Color("#5ad7ff");
+
+  const wireMat = new THREE.LineBasicMaterial({
+   color: cyan,
+   transparent: true,
+   opacity: 0.75,
+   blending: THREE.AdditiveBlending,
+   depthWrite: false,
+  });
+
+  // Cuerpo
+  const body = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(0.55, 0.3, 0.22)), wireMat);
+  body.position.set(0, 0.35, 0);
+  g.add(body);
+
+  // Cabeza
+  const head = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(0.22, 0.24, 0.22)), wireMat);
+  head.position.set(0.3, 0.47, 0);
+  g.add(head);
+
+  // Hocico
+  const snout = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(0.14, 0.1, 0.13)), wireMat);
+  snout.position.set(0.43, 0.4, 0);
+  g.add(snout);
+
+  // Orejas
+  const earGeom = new THREE.EdgesGeometry(new THREE.ConeGeometry(0.05, 0.13, 4));
+  const earL = new THREE.LineSegments(earGeom, wireMat);
+  earL.position.set(0.3, 0.63, 0.08);
+  g.add(earL);
+  const earR = new THREE.LineSegments(earGeom, wireMat);
+  earR.position.set(0.3, 0.63, -0.08);
+  g.add(earR);
+
+  // 4 patas
+  const legGeom = new THREE.EdgesGeometry(new THREE.CylinderGeometry(0.035, 0.035, 0.3, 6));
+  [
+   [0.2, 0.15, 0.09],
+   [0.2, 0.15, -0.09],
+   [-0.2, 0.15, 0.09],
+   [-0.2, 0.15, -0.09],
+  ].forEach((p) => {
+   const leg = new THREE.LineSegments(legGeom, wireMat);
+   leg.position.set(p[0], p[1], p[2]);
+   g.add(leg);
+  });
+
+  // Cola
+  const tail = new THREE.LineSegments(
+   new THREE.EdgesGeometry(new THREE.CylinderGeometry(0.03, 0.01, 0.22, 6)),
+   wireMat,
+  );
+  tail.position.set(-0.3, 0.46, 0);
+  tail.rotation.z = Math.PI * 0.35;
+  g.add(tail);
+
+  // Pedestal — anillo
+  const ringMat = new THREE.MeshBasicMaterial({
+   color: cyan,
+   transparent: true,
+   opacity: 0.4,
+   blending: THREE.AdditiveBlending,
+   side: THREE.DoubleSide,
+   depthWrite: false,
+  });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.26, 0.38, 40), ringMat);
+  ring.rotation.x = -Math.PI * 0.5;
+  ring.position.y = 0.006;
+  g.add(ring);
+
+  // Disco interior brillante
+  const discMat = new THREE.MeshBasicMaterial({
+   color: cyan,
+   transparent: true,
+   opacity: 0.1,
+   blending: THREE.AdditiveBlending,
+   depthWrite: false,
+  });
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(0.28, 40), discMat);
+  disc.rotation.x = -Math.PI * 0.5;
+  disc.position.y = 0.005;
+  g.add(disc);
+
+  // Scan line — ring fino horizontal que sube y baja
+  const scanMat = new THREE.MeshBasicMaterial({
+   color: cyan,
+   transparent: true,
+   opacity: 0.55,
+   blending: THREE.AdditiveBlending,
+   side: THREE.DoubleSide,
+   depthWrite: false,
+  });
+  const scan = new THREE.Mesh(new THREE.RingGeometry(0.13, 0.18, 32), scanMat);
+  scan.rotation.x = -Math.PI * 0.5;
+  scan.position.y = 0.1;
+  g.add(scan);
+
+  // Luz de rebote cian muy pequeña
+  const holoLight = new THREE.PointLight(cyan, 0.4, 1.6, 2.2);
+  holoLight.position.set(0, 0.4, 0);
+  g.add(holoLight);
+
+  g.userData.wireMat = wireMat;
+  g.userData.ringMat = ringMat;
+  g.userData.discMat = discMat;
+  g.userData.scanMat = scanMat;
+  g.userData.scan = scan;
+  g.userData.holoLight = holoLight;
+
+  return g;
+ }
+
+ const dogHologram = createDogHologram();
+ // Posición: suelo, delante de la ventana, lado frío de la escena
+ dogHologram.position.set(-3.5, 0, 1.2);
+ dogHologram.scale.setScalar(0.85);
+ scene.add(dogHologram);
 
  /**
   * =========================================================
@@ -2906,12 +3722,181 @@ export function initHeroScene() {
  const warmConfig = {
   color: warmLight.color.getHexString(),
   flicker: true,
-  baseIntensity: 5,
-  flickerAmplitude: 1,
+  baseIntensity: 3.0,
+  flickerAmplitude: 0.45,
   flickerSpeed: 10,
  };
 
  if (gui) {
+  // ═════════════════════════════════════════════════════════════════════════
+  // EXTERIOR SCENE — arriba del todo: estrellas, nebula, UFO, luna, claim, atmósfera
+  // Se registra antes que cualquier otra carpeta → aparece como primera entrada
+  // en el panel. Arranca ABIERTA para acceso inmediato.
+  // ═════════════════════════════════════════════════════════════════════════
+  const extFolder = gui.addFolder("Exterior Scene");
+  extFolder.open();
+
+  // ── Stars ────────────────────────────────────────────────────────────────
+  const starsFolder = extFolder.addFolder("Stars");
+  starsFolder.close();
+  const starsGlobalFolder = starsFolder.addFolder("Global");
+  starsGlobalFolder.add(starsParams, "visible").name("visible").onChange(requestRender);
+  starsGlobalFolder.add(starsParams, "globalOpacity", 0, 2, 0.01).name("opacity mult").onChange(requestRender);
+  starsGlobalFolder.add(starsParams, "twinkleStrength", 0, 1, 0.01).name("twinkle").onChange(requestRender);
+  starsGlobalFolder.add(starsParams, "parallaxSpeed", 0, 3, 0.01).name("parallax speed").onChange(requestRender);
+
+  const layerAFolder = starsFolder.addFolder("Layer A — Far");
+  layerAFolder
+   .add(starsParams, "aCount", 100, 4000, 50)
+   .name("count")
+   .onChange(() => rebuildStarLayer("A"));
+  layerAFolder.add(starsParams, "aSize", 0.01, 0.3, 0.001).name("size").onChange(requestRender);
+  layerAFolder.add(starsParams, "aOpacity", 0, 2, 0.01).name("opacity").onChange(requestRender);
+  layerAFolder
+   .addColor(starsParams, "aTint")
+   .name("color")
+   .onChange(() => rebuildStarLayer("A"));
+
+  const layerBFolder = starsFolder.addFolder("Layer B — Mid");
+  layerBFolder
+   .add(starsParams, "bCount", 50, 1500, 25)
+   .name("count")
+   .onChange(() => rebuildStarLayer("B"));
+  layerBFolder.add(starsParams, "bSize", 0.01, 0.4, 0.001).name("size").onChange(requestRender);
+  layerBFolder.add(starsParams, "bOpacity", 0, 2, 0.01).name("opacity").onChange(requestRender);
+  layerBFolder
+   .addColor(starsParams, "bTint")
+   .name("color")
+   .onChange(() => rebuildStarLayer("B"));
+
+  const layerCFolder = starsFolder.addFolder("Layer C — Bright");
+  layerCFolder
+   .add(starsParams, "cCount", 10, 300, 5)
+   .name("count")
+   .onChange(() => rebuildStarLayer("C"));
+  layerCFolder.add(starsParams, "cSize", 0.02, 0.5, 0.001).name("size").onChange(requestRender);
+  layerCFolder.add(starsParams, "cOpacity", 0, 2, 0.01).name("opacity").onChange(requestRender);
+  layerCFolder
+   .addColor(starsParams, "cTint")
+   .name("color")
+   .onChange(() => rebuildStarLayer("C"));
+
+  const layerDFolder = starsFolder.addFolder("Layer D — Foreground");
+  layerDFolder
+   .add(starsParams, "dCount", 0, 60, 1)
+   .name("count")
+   .onChange(() => rebuildStarLayer("D"));
+  layerDFolder.add(starsParams, "dSize", 0.05, 1.0, 0.01).name("size").onChange(requestRender);
+  layerDFolder.add(starsParams, "dOpacity", 0, 1, 0.01).name("opacity").onChange(requestRender);
+  layerDFolder
+   .addColor(starsParams, "dTint")
+   .name("color")
+   .onChange(() => rebuildStarLayer("D"));
+
+  // ── Nebula ───────────────────────────────────────────────────────────────
+  const nebulaFolder = extFolder.addFolder("Nebula");
+  nebulaFolder.close();
+  nebulaFolder.add(nebulaParams, "visible").name("visible").onChange(requestRender);
+  nebulaFolder.add(nebulaParams, "opacity", 0, 1.5, 0.01).name("opacity").onChange(requestRender);
+  nebulaFolder.add(nebulaParams, "scale", 0.2, 3, 0.01).name("scale").onChange(updateNebula);
+  nebulaFolder
+   .add(nebulaParams, "x", EXT_X - 80, EXT_X + 10, 0.1)
+   .name("pos X")
+   .onChange(updateNebula);
+  nebulaFolder.add(nebulaParams, "y", -5, 15, 0.1).name("pos Y").onChange(updateNebula);
+  nebulaFolder.add(nebulaParams, "z", -10, 10, 0.1).name("pos Z").onChange(updateNebula);
+  nebulaFolder.add(nebulaParams, "rotY", -Math.PI, Math.PI, 0.01).name("rot Y").onChange(updateNebula);
+  nebulaFolder.addColor(nebulaParams, "colorPrimary").name("color primary").onChange(regenerateNebula);
+  nebulaFolder.addColor(nebulaParams, "colorSecondary").name("color secondary").onChange(regenerateNebula);
+  nebulaFolder.add(nebulaParams, "softness", 0, 1, 0.01).name("softness").onChange(regenerateNebula);
+  nebulaFolder.add(nebulaParams, "density", 0, 2, 0.01).name("density").onChange(regenerateNebula);
+
+  // ── UFO ──────────────────────────────────────────────────────────────────
+  const ufoFolder = extFolder.addFolder("UFO");
+  ufoFolder.close();
+  ufoFolder.add(ufoParams, "visible").name("visible").onChange(requestRender);
+  ufoFolder.add(ufoParams, "xOffset", -5, 5, 0.01).name("pos X offset").onChange(requestRender);
+  ufoFolder.add(ufoParams, "yOffset", -5, 5, 0.01).name("pos Y offset").onChange(requestRender);
+  ufoFolder.add(ufoParams, "scale", 0.1, 2, 0.01).name("scale").onChange(updateUfo);
+  ufoFolder.add(ufoParams, "rotYOffset", -Math.PI, Math.PI, 0.01).name("rot Y offset").onChange(requestRender);
+  ufoFolder.add(ufoParams, "glowIntensity", 0, 3, 0.01).name("glow intensity").onChange(updateUfo);
+  ufoFolder.add(ufoParams, "underLightIntensity", 0, 3, 0.01).name("under light").onChange(updateUfo);
+  ufoFolder.add(ufoParams, "beamOpacityMult", 0, 3, 0.01).name("beam opacity").onChange(requestRender);
+  ufoFolder.add(ufoParams, "beamWidth", 0.1, 3, 0.01).name("beam width").onChange(requestRender);
+  ufoFolder.add(ufoParams, "beamLength", 0.1, 3, 0.01).name("beam length").onChange(requestRender);
+
+  // ── Moon ─────────────────────────────────────────────────────────────────
+  const moonFolder = extFolder.addFolder("Moon");
+  moonFolder.close();
+  moonFolder.add(moonParams, "visible").name("visible").onChange(requestRender);
+  moonFolder
+   .add(moonParams, "x", EXT_X - 50, EXT_X + 10, 0.1)
+   .name("pos X")
+   .onChange(updateMoon);
+  moonFolder.add(moonParams, "y", -5, 15, 0.1).name("pos Y").onChange(updateMoon);
+  moonFolder.add(moonParams, "z", -10, 10, 0.1).name("pos Z").onChange(updateMoon);
+  moonFolder.add(moonParams, "scale", 0.1, 3, 0.01).name("scale").onChange(updateMoon);
+  moonFolder.add(moonParams, "opacity", 0, 1.5, 0.01).name("opacity").onChange(requestRender);
+  moonFolder.add(moonParams, "lightIntensity", 0, 3, 0.01).name("light intensity").onChange(requestRender);
+  moonFolder.addColor(moonParams, "tint").name("tint").onChange(updateMoon);
+
+  // ── Claim ────────────────────────────────────────────────────────────────
+  const claimFolder = extFolder.addFolder("Claim");
+  claimFolder.close();
+  claimFolder.add(claimParams, "visible").name("visible").onChange(requestRender);
+  claimFolder
+   .add(claimParams, "x", EXT_X - 10, EXT_X, 0.01)
+   .name("pos X")
+   .onChange(updateClaim);
+  claimFolder.add(claimParams, "y", -5, 15, 0.01).name("pos Y").onChange(updateClaim);
+  claimFolder.add(claimParams, "z", -5, 5, 0.01).name("pos Z").onChange(updateClaim);
+  claimFolder.add(claimParams, "scale", 0.3, 2, 0.01).name("scale").onChange(updateClaim);
+  claimFolder.add(claimParams, "opacityMult", 0, 2, 0.01).name("opacity mult").onChange(requestRender);
+  claimFolder.addColor(claimParams, "orangeColor").name("accent color").onChange(updateClaim);
+  claimFolder.add(claimParams, "glowIntensity", 0, 3, 0.01).name("glow intensity").onChange(requestRender);
+  claimFolder.add(claimParams, "haloOpacityMult", 0, 2, 0.01).name("halo opacity").onChange(requestRender);
+  claimFolder.add(claimParams, "subtitleVisible").name("subtitle").onChange(updateClaim);
+
+  // ── Atmosphere ───────────────────────────────────────────────────────────
+  const atmFolder = extFolder.addFolder("Atmosphere");
+  atmFolder.close();
+  atmFolder
+   .add(atmosphereParams, "exposure", 0.1, 3, 0.01)
+   .name("exposure")
+   .onChange((v) => {
+    renderer.toneMappingExposure = v;
+    requestRender();
+   });
+  atmFolder
+   .add(atmosphereParams, "toneMapping", Object.keys(toneMappingMap))
+   .name("tone mapping")
+   .onChange((v) => {
+    renderer.toneMapping = toneMappingMap[v] ?? THREE.ACESFilmicToneMapping;
+    // Los materiales necesitan recompilación cuando cambia el tone mapping
+    scene.traverse((obj) => {
+     if (obj.material) {
+      const arr = Array.isArray(obj.material) ? obj.material : [obj.material];
+      arr.forEach((m) => {
+       if (m) m.needsUpdate = true;
+      });
+     }
+    });
+    requestRender();
+   });
+  atmFolder
+   .addColor(atmosphereParams, "backgroundColor")
+   .name("background")
+   .onChange((v) => {
+    BG_SPACE.set(v);
+    scene.background = new THREE.Color(v);
+    requestRender();
+   });
+  atmFolder.add(atmosphereParams, "vignetteOpacity", 0, 1.5, 0.01).name("vignette").onChange(requestRender);
+  atmFolder.add(atmosphereParams, "fogDensityMult", 0, 3, 0.01).name("fog density").onChange(requestRender);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ROOM / OTHER — carpetas originales (debajo de Exterior Scene)
+  // ─────────────────────────────────────────────────────────────────────────
   const cameraFolder = gui.addFolder("Camera");
   cameraFolder
    .add(cameraBase, "x", -10, 10, 0.01)
@@ -3348,6 +4333,9 @@ export function initHeroScene() {
   const elapsedTime = clock.getElapsedTime();
   const sp = scrollY / sizes.height;
 
+  // Animación de pantallas (typing + dashboard)
+  for (let i = 0; i < screenAnimators.length; i++) screenAnimators[i](elapsedTime);
+
   // ── Posición y rotación de la cámara ──────────────────────────────────────
   //
   // El recorrido completo KP0 → KP1 → KP2 se divide en dos segmentos:
@@ -3401,15 +4389,17 @@ export function initHeroScene() {
   // ── Fog ───────────────────────────────────────────────────────────────────
   // El fog solo actúa durante el cruce (F3) para ocultar la habitación.
   // En F4+ es prácticamente cero — no queremos oscurecer el exterior.
+  // atmosphereParams.fogDensityMult permite ajustar el pico desde GUI.
   if (scene.fog) {
    scene.fog.color.lerpColors(BG_ROOM, BG_SPACE, easeOut3(bgT));
+   const fogMult = atmosphereParams.fogDensityMult;
    if (sp < F3S) {
     scene.fog.density = 0.0;
    } else if (sp < F3E) {
-    scene.fog.density = lerpV(0.0, 0.38, easeIn3(phase(sp, F3S, F3E)));
+    scene.fog.density = lerpV(0.0, 0.38, easeIn3(phase(sp, F3S, F3E))) * fogMult;
    } else if (sp < F4E) {
     // Se aclara completamente — el exterior debe ser legible
-    scene.fog.density = lerpV(0.38, 0.0, easeOut3(phase(sp, F3E, F4E)));
+    scene.fog.density = lerpV(0.38, 0.0, easeOut3(phase(sp, F3E, F4E))) * fogMult;
    } else {
     scene.fog.density = 0.0;
    }
@@ -3422,12 +4412,15 @@ export function initHeroScene() {
    : warmConfig.baseIntensity;
 
   warmLight.intensity = warmBase * roomFade;
-  ambientLight.intensity = 0.35 * roomFade;
-  moonLight.intensity = 0.55 * roomFade;
-  moonAreaLight.intensity = 0.55 * roomFade;
-  fillLight.intensity = 0.38 * roomFade;
-  windowFillLight.intensity = 0.45 * roomFade;
-  rimLight.intensity = 0.3 * roomFade;
+  ambientLight.intensity = 0.14 * roomFade;
+  moonLight.intensity = 1.0 * roomFade;
+  moonAreaLight.intensity = 0.75 * roomFade;
+  fillLight.intensity = 0.35 * roomFade;
+  windowFillLight.intensity = 0.75 * roomFade;
+  rimLight.intensity = 0.55 * roomFade;
+  backRimLight.intensity = 0.5 * roomFade;
+  ledUnderDesk.intensity = 1.1 * roomFade;
+  deskBounceLight.intensity = 0.8 * roomFade;
 
   // ── Flicker de la llama del cohete — tres senos a frecuencias primas ─────
   const fSpd = flameParams.rocketFlickerSpeed;
@@ -3480,10 +4473,13 @@ export function initHeroScene() {
    const phase_n = neonState.phase;
 
    if (phase_n === "FULL") {
+    // Respiración global muy sutil (amplitud 0.04) + sparks ocasionales
+    const breathe = 1.0 + Math.sin(elapsedTime * 1.6) * 0.04;
     for (let i = 0; i < NEON_LETTER_COUNT; i++) {
-     const spark = Math.random() > 0.997 ? 0.85 + Math.random() * 0.15 : 1.0;
+     const spark = Math.random() > 0.997 ? 0.82 + Math.random() * 0.15 : breathe;
      neonState.lit[i] = lerpV(neonState.lit[i], spark, 0.07);
     }
+
     if (neonState.t > NEON_PHASES.FULL.duration) {
      neonState.phase = "FLICKER";
      neonState.t = 0;
@@ -3584,12 +4580,14 @@ export function initHeroScene() {
 
   const inExterior = sp >= F4S;
 
-  extStarsPoints.visible = inExterior;
-  extStarsBPoints.visible = inExterior;
-  extStarsCPoints.visible = inExterior;
-  extStarsDPoints.visible = inExterior && !isMobile;
-  extMoon.visible = inExterior;
+  const showStars = inExterior && starsParams.visible;
+  extStarsPoints.visible = showStars;
+  extStarsBPoints.visible = showStars;
+  extStarsCPoints.visible = showStars;
+  extStarsDPoints.visible = showStars && !isMobile && starsParams.dCount > 0;
+  extMoon.visible = inExterior && moonParams.visible;
   extMoonHalo.visible = false; // stub siempre off
+  nebulaMesh.visible = inExterior && nebulaParams.visible;
 
   if (inExterior) {
    const extFI = easeOut3(phase(sp, F4S, F4E));
@@ -3603,41 +4601,55 @@ export function initHeroScene() {
    const breathC = 1.0 + Math.sin(elapsedTime * 0.31 + 2.4) * 0.06;
 
    // ── Parallax real — cada capa rota a velocidad diferente ────────────────
-   // Lejanas: muy poco movimiento  |  Cercanas: más movimiento
+   // Multiplicado por starsParams.parallaxSpeed (GUI)
    if (!isMobile) {
+    const ps = starsParams.parallaxSpeed;
     // Capa A (lejana) — movimiento mínimo
-    extStarsPoints.rotation.y = elapsedTime * 0.0018;
-    extStarsPoints.rotation.x = elapsedTime * 0.0006;
+    extStarsPoints.rotation.y = elapsedTime * 0.0018 * ps;
+    extStarsPoints.rotation.x = elapsedTime * 0.0006 * ps;
     // Capa B (media) — algo más
-    extStarsBPoints.rotation.y = elapsedTime * 0.0032;
-    extStarsBPoints.rotation.x = elapsedTime * 0.0012;
+    extStarsBPoints.rotation.y = elapsedTime * 0.0032 * ps;
+    extStarsBPoints.rotation.x = elapsedTime * 0.0012 * ps;
     // Capa C (cercana) — más que B, menos que D
-    extStarsCPoints.rotation.y = elapsedTime * 0.0038;
-    extStarsCPoints.rotation.x = elapsedTime * 0.0014;
+    extStarsCPoints.rotation.y = elapsedTime * 0.0038 * ps;
+    extStarsCPoints.rotation.x = elapsedTime * 0.0014 * ps;
     // Capa D (primer plano) — el más visible pero nunca molesto
-    extStarsDPoints.rotation.y = elapsedTime * 0.0055;
-    extStarsDPoints.rotation.x = elapsedTime * 0.002;
+    extStarsDPoints.rotation.y = elapsedTime * 0.0055 * ps;
+    extStarsDPoints.rotation.x = elapsedTime * 0.002 * ps;
    }
 
-   // ── Opacidades con respiración ────────────────────────────────────────
-   extStarsMat.opacity = extBase * 0.72 * breathA;
-   extStarsBMat.opacity = extBase * 0.85 * breathB;
-   extStarsCMat.opacity = extBase * 0.9 * breathC;
-   // Capa D: primer plano sutil — pocas partículas grandes muy transparentes
-   extStarsDMat.opacity = isMobile ? 0.0 : extBase * 0.08;
+   // ── Actualizar uniforms del shader de estrellas ────────────────────────
+   // uTime para el twinkle, uSize desde params (permite ajustar tamaño vivo),
+   // uTwinkle desde params, uOpacity combina extBase + respiración + params.
+   const starsVisibleMult = starsParams.visible ? starsParams.globalOpacity : 0.0;
+   const mats = [extStarsMat, extStarsBMat, extStarsCMat, extStarsDMat];
+   mats.forEach((m) => {
+    m.uniforms.uTime.value = elapsedTime;
+    m.uniforms.uTwinkle.value = starsParams.twinkleStrength;
+   });
+   extStarsMat.uniforms.uSize.value = starsParams.aSize;
+   extStarsBMat.uniforms.uSize.value = starsParams.bSize;
+   extStarsCMat.uniforms.uSize.value = starsParams.cSize;
+   extStarsDMat.uniforms.uSize.value = starsParams.dSize;
 
-   // ── Nebula de fondo — aparece con el exterior, casi imperceptible ────────
-   nebulaMat.opacity = extBase * 0.82;
+   extStarsMat.uniforms.uOpacity.value = extBase * starsParams.aOpacity * breathA * starsVisibleMult;
+   extStarsBMat.uniforms.uOpacity.value = extBase * starsParams.bOpacity * breathB * starsVisibleMult;
+   extStarsCMat.uniforms.uOpacity.value = extBase * starsParams.cOpacity * breathC * starsVisibleMult;
+   extStarsDMat.uniforms.uOpacity.value = isMobile ? 0.0 : extBase * starsParams.dOpacity * starsVisibleMult;
+
+   // ── Nebula de fondo — aparece con el exterior ────────────────────────────
+   nebulaMesh.visible = nebulaParams.visible;
+   nebulaMat.opacity = extBase * nebulaParams.opacity;
 
    // ── Viñeta — sigue la cámara, fade-in suave con el exterior ──────────────
-   // Se posiciona 0.5u delante de la cámara, en la dirección de visión (-X)
    vignetteMesh.position.set(camera.position.x - 0.5, camera.position.y, camera.position.z);
-   vignetteMesh.rotation.y = Math.PI * 0.5; // perpendicular al eje de visión
-   vignetteMat.opacity = extBase * 0.88;
+   vignetteMesh.rotation.y = Math.PI * 0.5;
+   vignetteMat.opacity = extBase * atmosphereParams.vignetteOpacity;
 
    // ── Luna ──────────────────────────────────────────────────────────────
-   extMoonMat.opacity = extBase * 0.88;
-   extMoonLight.intensity = extBase * 0.2;
+   extMoon.visible = moonParams.visible && inExterior;
+   extMoonMat.opacity = extBase * moonParams.opacity;
+   extMoonLight.intensity = extBase * 0.2 * moonParams.lightIntensity;
 
    // ── Satélite orbital ──────────────────────────────────────────────────
    satGroup.visible = true;
@@ -3689,23 +4701,20 @@ export function initHeroScene() {
    }
 
    // ── UFO — scroll-driven, completamente declarativo ──────────────────────
-   // ufoT: 0 cuando sp=UFO_SP_START, 1 cuando sp=UFO_SP_END
-   // Toda la lógica es función pura de sp — sin estado ni timers.
    const ufoT = phase(sp, UFO_SP_START, UFO_SP_END);
-   const ufoActive = sp >= UFO_SP_START && sp <= UFO_SP_END && ufoRoot;
+   const ufoActive = sp >= UFO_SP_START && sp <= UFO_SP_END && ufoRoot && ufoParams.visible;
 
    if (ufoActive) {
     // ── Posición — barrido en Z (horizontal para el espectador) ────────────
-    // Easing suave en los extremos para entrada/salida elegante
     const ufoTE = easeIO3(ufoT);
     const ufoZ = lerpV(UFO_Z_START, UFO_Z_END, ufoTE);
-    // Y con leve ondulación ligada al progreso (no al tiempo — no oscila raramente)
     const ufoY = UFO_BASE_Y + Math.sin(ufoT * Math.PI) * 0.08;
 
     ufoGroup.visible = true;
-    ufoGroup.position.set(UFO_X, ufoY, ufoZ);
-    // Rotación: ligera inclinación de avance según dirección del barrido
-    ufoGroup.rotation.y = Math.PI * 0.5 + (ufoTE - 0.5) * 0.15;
+    // Posición con offsets de GUI
+    ufoGroup.position.set(UFO_X + ufoParams.xOffset, ufoY + ufoParams.yOffset, ufoZ);
+    // Rotación + offset
+    ufoGroup.rotation.y = Math.PI * 0.5 + (ufoTE - 0.5) * 0.15 + ufoParams.rotYOffset;
 
     // Fade: primero y último 10% del tramo
     const ufoFade = ufoT < 0.1 ? ufoT / 0.1 : ufoT > 0.9 ? (1 - ufoT) / 0.1 : 1.0;
@@ -3714,25 +4723,26 @@ export function initHeroScene() {
      m.opacity = ufoOp;
     });
 
+    // Glow intensity reactivo (se multiplica en updateUfo, pero por fade también)
+    if (ufoInnerLight)
+     ufoInnerLight.intensity = UFO_INNER_LIGHT_BASE * ufoParams.underLightIntensity * ufoParams.glowIntensity * ufoFade;
+    if (ufoInnerRim) ufoInnerRim.intensity = UFO_INNER_RIM_BASE * ufoParams.glowIntensity * ufoFade;
+
     // ── beamInfl: distancia del UFO al centro del claim en Z ───────────────
-    // Máximo cuando el UFO está sobre EXT_Z (centro del claim)
     const beamDist = Math.abs(ufoZ - EXT_Z);
-    const beamRange = 2.2; // radio de influencia ± 2.2u en Z
+    const beamRange = 2.2;
     const beamRaw = Math.max(0, 1 - beamDist / beamRange);
-    const beamInfl = beamRaw * beamRaw * ufoFade; // cuadrático + fade
+    const beamInfl = beamRaw * beamRaw * ufoFade;
 
     // ── Haz triangular ─────────────────────────────────────────────────────
-    // Apex justo debajo del UFO, la base cubre el claim
-    // Centro Y = entre UFO y texto: ufoY - 0.9 (a mitad del gap de ~1.8u)
     ufoBeamMesh.visible = true;
-    ufoBeamMesh.position.set(UFO_X + 0.01, ufoY - 0.9, ufoZ);
-    ufoBeamMat.opacity = beamInfl * 0.7;
+    ufoBeamMesh.position.set(UFO_X + ufoParams.xOffset + 0.01, ufoY + ufoParams.yOffset - 0.9, ufoZ);
+    // Escala X = ancho del haz; escala Y = longitud (el haz está rotado Y=π/2
+    // → el triángulo vive en el plano YZ; scale.z controla ancho, scale.y largo)
+    ufoBeamMesh.scale.set(1, ufoParams.beamLength, ufoParams.beamWidth);
+    ufoBeamMat.opacity = beamInfl * 0.7 * ufoParams.beamOpacityMult;
 
     // ── Escáner en el canvas del claim ────────────────────────────────────
-    // Redibujamos la textura con colores boosteados según beamInfl.
-    // El efecto existe SOLO en los píxeles de las letras — nunca en el fondo
-    // (drawClaimScan solo dibuja texto, clearRect vacía el fondo a transparente).
-    // Throttle: cuantizar a pasos de 0.025 para no redibujar cada frame.
     const newInfl = Math.round(beamInfl * 40) / 40;
     if (Math.abs(newInfl - (extPlaneA.userData.lastInfl ?? -1)) > 0.001) {
      drawClaimScan(newInfl);
@@ -3744,6 +4754,8 @@ export function initHeroScene() {
     ufoGroup.visible = false;
     ufoBeamMesh.visible = false;
     ufoBeamMat.opacity = 0.0;
+    if (ufoInnerLight) ufoInnerLight.intensity = 0.0;
+    if (ufoInnerRim) ufoInnerRim.intensity = 0.0;
     if (extPlaneA.userData.lastInfl !== 0) {
      drawClaimScan(0);
      PLANE_A_TEX.needsUpdate = true;
@@ -3755,10 +4767,11 @@ export function initHeroScene() {
      });
    }
   } else {
-   extStarsMat.opacity = 0.0;
-   extStarsBMat.opacity = 0.0;
-   extStarsCMat.opacity = 0.0;
-   extStarsDMat.opacity = 0.0;
+   // Fuera del exterior — silenciar todo
+   extStarsMat.uniforms.uOpacity.value = 0.0;
+   extStarsBMat.uniforms.uOpacity.value = 0.0;
+   extStarsCMat.uniforms.uOpacity.value = 0.0;
+   extStarsDMat.uniforms.uOpacity.value = 0.0;
    extMoonMat.opacity = 0.0;
    extMoonLight.intensity = 0.0;
    nebulaMat.opacity = 0.0;
@@ -3770,30 +4783,30 @@ export function initHeroScene() {
    extUfoScanMat.opacity = 0.0;
    ufoBeamMesh.visible = false;
    ufoBeamMat.opacity = 0.0;
+   if (ufoInnerLight) ufoInnerLight.intensity = 0.0;
+   if (ufoInnerRim) ufoInnerRim.intensity = 0.0;
   }
 
   // ── Bloque B — Claim narrativo (F5: 1.50 → 2.20) ─────────────────────────
-  // claimFI / claimFO / claimOp ya calculados arriba
+  // Visibilidad controlada por claimParams.visible
+  const claimVisMult = claimParams.visible ? claimParams.opacityMult : 0.0;
 
   // Texto
-  extPlaneAMat.opacity = claimOp;
+  extPlaneAMat.opacity = claimOp * claimVisMult;
 
-  // Halo elíptico de fondo — más suave que antes para no crear mancha
-  extPlaneHaloMat.opacity = claimOp * 0.62;
+  // Halo elíptico de fondo
+  extPlaneHaloMat.opacity = claimOp * 0.62 * claimVisMult * claimParams.haloOpacityMult;
 
-  // Scale de entrada sutil: 0.95 → 1.0 durante fade-in (6% total, elegante)
-  const claimScale = lerpV(0.95, 1.0, claimFI);
-  extPlaneA.scale.setScalar(claimScale);
-  extPlaneHalo.scale.setScalar(claimScale);
-  extGlowPlane.scale.setScalar(claimScale);
+  // Scale de entrada sutil: 0.95 → 1.0 durante fade-in, multiplicado por params.scale
+  const claimScaleAnim = lerpV(0.95, 1.0, claimFI) * claimParams.scale;
+  extPlaneA.scale.setScalar(claimScaleAnim);
+  extPlaneHalo.scale.setScalar(claimScaleAnim);
+  extGlowPlane.scale.setScalar(claimScaleAnim);
 
-  // Glow naranja vivo — pulso muy lento, amplitud 0.038 máxima
-  // Solo activo cuando el claim está visible (claimOp > 0)
-  // El seno oscila entre 0.012 y 0.038 — variación casi imperceptible
-  // pero suficiente para que el texto se sienta vivo y no estático
-  if (claimOp > 0.01) {
+  // Glow naranja vivo — pulso modulado por claimParams.glowIntensity
+  if (claimOp > 0.01 && claimParams.visible) {
    const glowPulse = 0.025 + Math.sin(elapsedTime * 0.55) * 0.013;
-   extGlowMat.opacity = claimOp * glowPulse;
+   extGlowMat.opacity = claimOp * glowPulse * claimParams.glowIntensity * claimParams.opacityMult;
   } else {
    extGlowMat.opacity = 0.0;
   }
@@ -3802,6 +4815,11 @@ export function initHeroScene() {
   const techFI = easeOut3(phase(sp, 2.2, 2.46));
   const techFO = easeIn3(phase(sp, 2.65, 2.85));
   extPlaneCMat.opacity = clamp01(techFI * (1 - techFO));
+
+  // ── Atmósfera global — exposure + background (cambios en vivo) ───────────
+  if (renderer.toneMappingExposure !== atmosphereParams.exposure) {
+   renderer.toneMappingExposure = atmosphereParams.exposure;
+  }
 
   renderer.render(scene, camera);
   requestRender();
@@ -3913,6 +4931,8 @@ export function initHeroScene() {
    monitorLeftRoot.traverse((child) => {
     if (!child.isMesh) return;
 
+    if (child.userData.__screenTex) child.userData.__screenTex.dispose();
+    if (child.userData.__screenMat) child.userData.__screenMat.dispose();
     if (child.geometry) child.geometry.dispose();
 
     if (Array.isArray(child.material)) {
@@ -3967,6 +4987,7 @@ export function initHeroScene() {
   }
 
   planeGeometry14.dispose();
+  floorNormalTex.dispose();
   planeGeometryWall.dispose();
   unitPlaneGeometry.dispose();
   unitBoxGeometry.dispose();
@@ -3984,6 +5005,8 @@ export function initHeroScene() {
   extStarsCMat.dispose();
   extStarsDGeo.dispose();
   extStarsDMat.dispose();
+  // Sprite compartido por las 4 capas
+  starSpriteTex.dispose();
   nebulaGeo.dispose();
   if (nebulaMat.map) nebulaMat.map.dispose();
   nebulaMat.dispose();
@@ -4068,6 +5091,7 @@ export function initHeroScene() {
    if (m.map) m.map.dispose();
    m.dispose();
   });
+  scene.remove(backRimLight);
   backPlateMat.dispose();
   backPlateGeo.dispose();
   pinGeo.dispose();
@@ -4082,8 +5106,25 @@ export function initHeroScene() {
   scene.remove(windowFillLight);
   scene.remove(lamparaLight);
   scene.remove(rimLight);
+  scene.remove(backRimLight);
+
   scene.remove(moonAreaLight);
+  scene.remove(backRimLight);
+  scene.remove(ledUnderDesk);
   scene.remove(lamparaFlameLight);
+
+  scene.remove(deskBounceLight);
+
+  if (dogHologram) {
+   dogHologram.traverse((child) => {
+    if (child.isMesh || child.isLineSegments) {
+     if (child.geometry) child.geometry.dispose();
+     const mats = Array.isArray(child.material) ? child.material : [child.material];
+     mats.forEach((m) => m && m.dispose && m.dispose());
+    }
+   });
+   scene.remove(dogHologram);
+  }
   // Llamas del cohete — conos + sprite glow
   flames.forEach(({ mesh, mat }) => {
    mesh.geometry.dispose();
