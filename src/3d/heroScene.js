@@ -660,96 +660,201 @@ export function initHeroScene() {
   * Genera una textura tipo UI futurista minimal (pantalla derecha).
   * Paneles, títulos, líneas tenues — todo en azules integrados.
   */
- function makeUIScreenTexture() {
+ /**
+  * Pantalla derecha — documentación de Three.js con scroll vertical lento.
+  * Se registra en screenAnimators para redibujar progresivamente. Contenido
+  * pensado para leerse en el close-up de cámara.
+  */
+ function makeDocsScreenTexture() {
   const W = 1024,
    H = 640;
   const cv = document.createElement("canvas");
   cv.width = W;
   cv.height = H;
   const c = cv.getContext("2d");
-
-  c.fillStyle = "#0b1020";
-  c.fillRect(0, 0, W, H);
-
-  // Header
-  c.fillStyle = "#8aa8e0";
-  c.font = "16px -apple-system, 'Segoe UI', sans-serif";
-  c.fillText("▸ CONSTRUYENDO EXPERIENCIAS", 40, 50);
-  c.fillText("  DIGITALES DE OTRO PLANETA", 40, 72);
-
-  // Código central
-  c.font = "12px 'Menlo', monospace";
-  c.fillStyle = "#5f78a8";
-  const code = [
-   "function buildExperience(idea) {",
-   "  return create(Import(idea));",
-   "}",
-   "",
-   "const skills = {",
-   "  'Three.js',",
-   "  'React',",
-   "  'GLSL',",
-   "  'GSAP',",
-   "};",
-   "",
-   "while (passion) {",
-   "  keepLearning();",
-   "  keepBuilding();",
-   "}",
-   "",
-   "> Building the future...",
-  ];
-  code.forEach((ln, i) => c.fillText(ln, 40, 110 + i * 18));
-
-  // Panel lateral derecho
-  const panelX = 680,
-   panelW = W - panelX - 30;
-  c.strokeStyle = "#2a3a5e";
-  c.lineWidth = 1;
-  c.strokeRect(panelX, 40, panelW, H - 80);
-
-  c.fillStyle = "#6ad0ff";
-  c.font = "12px -apple-system, 'Segoe UI', sans-serif";
-  c.fillText("PROJECTS", panelX + 16, 62);
-  c.fillStyle = "#7a8db0";
-  c.font = "11px -apple-system, 'Segoe UI', sans-serif";
-  ["• Interactive Worlds", "• 3D Experiences", "• Web Development"].forEach((l, i) =>
-   c.fillText(l, panelX + 16, 82 + i * 18),
-  );
-
-  c.fillStyle = "#6ad0ff";
-  c.font = "12px -apple-system, 'Segoe UI', sans-serif";
-  c.fillText("SKILLS", panelX + 16, 172);
-  c.fillStyle = "#7a8db0";
-  c.font = "11px -apple-system, 'Segoe UI', sans-serif";
-  ["• Three.js", "• React", "• Node.js", "• GSAP", "• WebGL"].forEach((l, i) =>
-   c.fillText(l, panelX + 16, 192 + i * 18),
-  );
-
-  c.fillStyle = "#6ad0ff";
-  c.font = "12px -apple-system, 'Segoe UI', sans-serif";
-  c.fillText("STATUS", panelX + 16, 310);
-  c.fillStyle = "#8ae2a3";
-  c.font = "11px -apple-system, 'Segoe UI', sans-serif";
-  ["▸ Focused", "▸ Motivated", "▸ Building"].forEach((l, i) => c.fillText(l, panelX + 16, 330 + i * 18));
-
-  // Orb/grid sutil tipo radar
-  c.strokeStyle = "rgba(106,208,255,0.18)";
-  c.lineWidth = 1;
-  c.beginPath();
-  for (let r = 20; r <= 100; r += 20) c.arc(560, 330, r, 0, Math.PI * 2);
-  c.stroke();
-  c.beginPath();
-  c.moveTo(460, 330);
-  c.lineTo(660, 330);
-  c.moveTo(560, 230);
-  c.lineTo(560, 430);
-  c.stroke();
-
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
-  tex.needsUpdate = true;
+
+  const sections = [
+   {
+    title: "THREE.SCENE",
+    subtitle: "Root container for 3D graph",
+    body: ["A Scene holds every object, light", "and camera. Supports background,", "fog and environment maps."],
+    code: [
+     "const scene = new THREE.Scene();",
+     "scene.background = new Color('#07070d');",
+     "scene.fog = new FogExp2('#03030a', 0.02);",
+    ],
+    bullets: ["Tree-structured graph", "Supports fog + env", "Add via scene.add(obj)"],
+   },
+   {
+    title: "MATERIALS",
+    subtitle: "PBR workflow",
+    body: ["MeshStandardMaterial follows physics.", "Tune roughness + metalness as", "independent surface properties."],
+    code: ["new MeshStandardMaterial({", "  color: '#2f3140',", "  roughness: 0.92,", "  metalness: 0.0,", "});"],
+    bullets: ["Roughness = microsurface", "Metalness = binary in reality", "envMap for reflections"],
+   },
+   {
+    title: "LIGHTS",
+    subtitle: "Cinematic control",
+    body: ["A PointLight with low distance reads", "as a bounce, not a flood. Use decay 2", "for physical falloff."],
+    code: [
+     "new PointLight(",
+     "  '#ff9a52',  // color",
+     "  2.6,        // intensity",
+     "  3.8,        // distance — key",
+     "  2.2,        // decay",
+     ");",
+    ],
+    bullets: ["distance > intensity", "RectAreaLight for walls", "DirectionalLight for key"],
+   },
+   {
+    title: "ANIMATION",
+    subtitle: "Time-based, not frame-based",
+    body: [
+     "Use Clock.getDelta() for frame-rate",
+     "independence. slerp for rotations,",
+     "ease cubically for cinematic feel.",
+    ],
+    code: ["const dt = clock.getDelta();", "mesh.rotation.y += dt * speed;", "q.slerpQuaternions(qA, qB, t);"],
+    bullets: ["Never setTimeout for 3D", "slerp > lerp for rotations", "easeIO3 for IO"],
+   },
+   {
+    title: "PERFORMANCE",
+    subtitle: "Cheap cinema",
+    body: ["Share geometries. Disable unused", "features. Instance what repeats.", "Dispose on unmount, always."],
+    code: ["renderer.shadowMap.enabled = false;", "texture.anisotropy = 8;", "geo.dispose();", "mat.dispose();"],
+    bullets: ["Shared geo = shared GPU buffer", "Instance when N > 30", "Dispose on exit"],
+   },
+   {
+    title: "SHADERS",
+    subtitle: "When PBR isn't enough",
+    body: [
+     "Drop to GLSL via ShaderMaterial for",
+     "hologram effects, dissolves, custom",
+     "lighting. Keep uniforms simple.",
+    ],
+    code: [
+     "uniform float uTime;",
+     "varying vec2 vUv;",
+     "void main() {",
+     "  float s = sin(uTime + vUv.y * 10.);",
+     "  gl_FragColor = vec4(vec3(s), 1.);",
+     "}",
+    ],
+    bullets: ["ShaderMaterial over Raw", "uTime / uResolution uniforms", "Debug via DataTexture"],
+   },
+  ];
+
+  const SECTION_GAP = 48;
+  const sectionHeight = (s) =>
+   48 + s.body.length * 22 + 22 + (s.code.length + 1) * 20 + 20 + s.bullets.length * 20 + SECTION_GAP;
+  const totalHeight = sections.reduce((a, s) => a + sectionHeight(s), 0) + 120;
+
+  let scrollPx = -40;
+  let lastDraw = -1;
+
+  function draw() {
+   // Fondo
+   c.fillStyle = "#0b1020";
+   c.fillRect(0, 0, W, H);
+
+   // Header fijo
+   const headerH = 42;
+   c.fillStyle = "#0d1526";
+   c.fillRect(0, 0, W, headerH);
+   c.fillStyle = "#6ad0ff";
+   c.font = "12px -apple-system, 'Segoe UI', sans-serif";
+   c.fillText("▸ THREE.JS  /  DOCUMENTATION", 24, 26);
+   c.fillStyle = "#3a4666";
+   c.fillText("v0.160  ●  auto-scroll", W - 220, 26);
+
+   c.strokeStyle = "#1d2a48";
+   c.lineWidth = 1;
+   c.beginPath();
+   c.moveTo(0, headerH);
+   c.lineTo(W, headerH);
+   c.stroke();
+
+   // Contenido desplazado
+   let y = headerH + 40 - scrollPx;
+   const leftX = 30;
+   const rightX = W - 30;
+
+   sections.forEach((s) => {
+    // Skip si la sección queda fuera de la pantalla (optimización)
+    const sh = sectionHeight(s);
+    if (y + sh < headerH || y > H + 40) {
+     y += sh;
+     return;
+    }
+
+    c.fillStyle = "#b48aff";
+    c.font = "600 22px -apple-system, 'Segoe UI', sans-serif";
+    c.fillText(s.title, leftX, y);
+    c.fillStyle = "#5f78a8";
+    c.font = "11px -apple-system, 'Segoe UI', sans-serif";
+    c.fillText(s.subtitle, leftX, y + 18);
+    y += 48;
+
+    c.fillStyle = "#a8b5d0";
+    c.font = "13px -apple-system, 'Segoe UI', sans-serif";
+    s.body.forEach((ln) => {
+     c.fillText(ln, leftX, y);
+     y += 22;
+    });
+    y += 12;
+
+    c.fillStyle = "#060a14";
+    c.fillRect(leftX - 8, y - 14, rightX - leftX + 16, (s.code.length + 1) * 20 + 8);
+    c.fillStyle = "#6ad0ff";
+    c.font = "12px 'Menlo', 'Consolas', monospace";
+    s.code.forEach((ln) => {
+     c.fillText(ln, leftX, y);
+     y += 20;
+    });
+    y += 20;
+
+    c.fillStyle = "#8ae2a3";
+    c.font = "11px -apple-system, 'Segoe UI', sans-serif";
+    s.bullets.forEach((b) => {
+     c.fillText("▸ " + b, leftX, y);
+     y += 20;
+    });
+    y += SECTION_GAP;
+   });
+
+   // Fade superior e inferior — oculta los cortes
+   const gTop = c.createLinearGradient(0, headerH, 0, headerH + 28);
+   gTop.addColorStop(0, "rgba(11, 16, 32, 1)");
+   gTop.addColorStop(1, "rgba(11, 16, 32, 0)");
+   c.fillStyle = gTop;
+   c.fillRect(0, headerH, W, 28);
+
+   const gFoot = c.createLinearGradient(0, H - 36, 0, H);
+   gFoot.addColorStop(0, "rgba(11, 16, 32, 0)");
+   gFoot.addColorStop(1, "rgba(11, 16, 32, 1)");
+   c.fillStyle = gFoot;
+   c.fillRect(0, H - 36, W, 36);
+
+   tex.needsUpdate = true;
+  }
+
+  draw();
+
+  const update = (elapsed) => {
+   if (lastDraw < 0) lastDraw = elapsed;
+   const dt = elapsed - lastDraw;
+   if (dt < 0.033) return; // ~30fps
+   lastDraw = elapsed;
+
+   scrollPx += dt * 18; // 18 px/s — lento, legible
+   if (scrollPx > totalHeight - H + 80) scrollPx = -40;
+   draw();
+  };
+
+  screenAnimators.push(update);
   return tex;
  }
 
@@ -802,7 +907,7 @@ export function initHeroScene() {
   if (!screenMesh) return;
 
   // Fabricamos la textura de contenido
-  const newTex = kind === "code" ? makeCodeScreenTexture() : makeUIScreenTexture();
+  const newTex = kind === "code" ? makeCodeScreenTexture() : makeDocsScreenTexture();
 
   // SWAP sobre el material existente (preserva roughness/metalness originales del GLB)
   const mat = Array.isArray(screenMesh.material) ? screenMesh.material[0] : screenMesh.material;
@@ -945,8 +1050,8 @@ export function initHeroScene() {
     materials.forEach((mat) => {
      if (!mat) return;
 
-     if ("roughness" in mat) mat.roughness = Math.max(mat.roughness ?? 0.75, 0.75);
-     if ("metalness" in mat) mat.metalness = Math.min(mat.metalness ?? 0.05, 0.1);
+     if ("roughness" in mat) mat.roughness = Math.max(mat.roughness ?? 0.65, 0.55);
+     if ("metalness" in mat) mat.metalness = Math.min(mat.metalness ?? 0.08, 0.18);
      if ("envMapIntensity" in mat) mat.envMapIntensity = 0.6;
 
      if (mat.color) {
@@ -2945,12 +3050,12 @@ export function initHeroScene() {
   return { mesh, mat };
  }
 
- // Núcleo blanco-amarillo: corto y estrecho
- const flameCore = makeFlameCone(0, 0, 0.055, 0.006, "#fffbe0", 0.92);
- // Media naranja: más ancho y largo
- const flameMid = makeFlameCone(0, 0, 0.085, 0.013, "#ffaa30", 0.62);
- // Exterior ámbar: el más ancho, muy diáfano
- const flameOuter = makeFlameCone(0, 0, 0.11, 0.02, "#ff6a10", 0.3);
+ // Núcleo blanco-ámbar tibio — el centro más caliente
+ const flameCore = makeFlameCone(0, 0, 0.055, 0.006, "#ffd88a", 0.82);
+ // Media naranja profundo — más fuego que lámpara
+ const flameMid = makeFlameCone(0, 0, 0.09, 0.014, "#ff8a28", 0.48);
+ // Exterior rojo-ámbar muy diáfano — "humo caliente"
+ const flameOuter = makeFlameCone(0, 0, 0.12, 0.022, "#d84a0c", 0.22);
 
  // Sprite de glow — escala hacia abajo (Y negativo = bajo el cohete)
  const flameGlowMat = new THREE.SpriteMaterial({
@@ -3043,6 +3148,561 @@ export function initHeroScene() {
  deskBounceLight.position.set(-3.5, 2.65, -1.65);
  scene.add(deskBounceLight);
 
+ const deskBounceLightR = new THREE.PointLight("#ff8f55", 0.55, 2.4, 2.8);
+ deskBounceLightR.position.set(-1.2, 2.55, -1.2);
+ scene.add(deskBounceLightR);
+
+ // ── FILL CÁLIDO VERTICAL — lado derecho ─────────────────────────────────
+ // Rompe el negro muerto sobre el mueble y conecta el rebote cálido
+ // inferior con la pared/cuadro. Distance contenida → no alcanza la mesa
+ // ni compite con warmLight del cohete. Intensidad mínima a propósito:
+ // debe sentirse antes que verse.
+ const rightWallFill = new THREE.PointLight("#d07a45", 0.3, 4.2, 2.2);
+ rightWallFill.position.set(4.2, 3.8, -2.2);
+ scene.add(rightWallFill);
+
+ /**
+  * =========================================================
+  * WALL POSTER — "SIGUE CONSTRUYENDO"
+  * =========================================================
+  * Póster decorativo en la pared derecha. Marco fino, imagen
+  * procedural de eclipse, halo cálido detrás + spot dedicado.
+  * Motivo celeste: dialoga con la luna de la ventana.
+  */
+ function createWallPoster() {
+  const group = new THREE.Group();
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // HELPER: dibuja texto con tracking manual (canvas no soporta
+  // letter-spacing CSS fiable — hay que posicionar letra a letra).
+  // ═══════════════════════════════════════════════════════════════════════
+  const drawTrackedText = (ctx, text, cx, cy, tracking) => {
+   const widths = text.split("").map((c) => ctx.measureText(c).width);
+   const total = widths.reduce((a, b) => a + b, 0) + tracking * (text.length - 1);
+   let x = cx - total / 2;
+   for (let i = 0; i < text.length; i++) {
+    ctx.fillText(text[i], x, cy);
+    x += widths[i] + tracking;
+   }
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 1) CANVAS DEL PÓSTER — eclipse + montañas + "SIGUE CONSTRUYENDO"
+  //    Resolución alta (768×1024) para texto nítido al acercarse.
+  // ═══════════════════════════════════════════════════════════════════════
+  const posterCanvas = document.createElement("canvas");
+  posterCanvas.width = 768;
+  posterCanvas.height = 1024;
+  const pctx = posterCanvas.getContext("2d");
+
+  // Cielo nocturno con warm bottom
+  const sky = pctx.createLinearGradient(0, 0, 0, 1024);
+  sky.addColorStop(0, "#080b18");
+  sky.addColorStop(0.45, "#121828");
+  sky.addColorStop(0.8, "#2a1b22");
+  sky.addColorStop(1, "#170f16");
+  pctx.fillStyle = sky;
+  pctx.fillRect(0, 0, 768, 1024);
+
+  // Estrellas (mitad superior)
+  for (let i = 0; i < 220; i++) {
+   const x = Math.random() * 768;
+   const y = Math.random() * 600;
+   const s = Math.random() * 2.0 + 0.4;
+   const a = Math.random() * 0.7 + 0.2;
+   pctx.fillStyle = `rgba(255,255,255,${a})`;
+   pctx.fillRect(x, y, s, s);
+  }
+
+  // Halo cálido detrás del eclipse
+  const cx = 384,
+   cy = 460;
+  const haloInner = pctx.createRadialGradient(cx, cy + 60, 8, cx, cy + 60, 360);
+  haloInner.addColorStop(0, "rgba(255,140,60,0.6)");
+  haloInner.addColorStop(0.3, "rgba(255,100,45,0.35)");
+  haloInner.addColorStop(1, "rgba(255,80,30,0)");
+  pctx.globalCompositeOperation = "screen";
+  pctx.fillStyle = haloInner;
+  pctx.fillRect(0, 0, 768, 1024);
+  pctx.globalCompositeOperation = "source-over";
+
+  // Anillo del eclipse
+  const ringR = 150;
+  const ringGrad = pctx.createRadialGradient(cx, cy, ringR - 12, cx, cy, ringR + 18);
+  ringGrad.addColorStop(0, "rgba(255,170,90,0)");
+  ringGrad.addColorStop(0.45, "rgba(255,215,150,1)");
+  ringGrad.addColorStop(0.7, "rgba(255,170,80,0.85)");
+  ringGrad.addColorStop(1, "rgba(255,150,70,0)");
+  pctx.fillStyle = ringGrad;
+  pctx.beginPath();
+  pctx.arc(cx, cy, ringR + 18, 0, Math.PI * 2);
+  pctx.fill();
+
+  // Núcleo oscuro
+  pctx.fillStyle = "#05060b";
+  pctx.beginPath();
+  pctx.arc(cx, cy, ringR - 12, 0, Math.PI * 2);
+  pctx.fill();
+
+  // Montañas (dos capas)
+  pctx.fillStyle = "#0d1118";
+  pctx.beginPath();
+  pctx.moveTo(0, 800);
+  pctx.lineTo(120, 720);
+  pctx.lineTo(240, 760);
+  pctx.lineTo(360, 695);
+  pctx.lineTo(500, 750);
+  pctx.lineTo(630, 710);
+  pctx.lineTo(768, 760);
+  pctx.lineTo(768, 1024);
+  pctx.lineTo(0, 1024);
+  pctx.closePath();
+  pctx.fill();
+
+  pctx.fillStyle = "#050709";
+  pctx.beginPath();
+  pctx.moveTo(0, 860);
+  pctx.lineTo(75, 820);
+  pctx.lineTo(165, 840);
+  pctx.lineTo(270, 770);
+  pctx.lineTo(375, 825);
+  pctx.lineTo(480, 790);
+  pctx.lineTo(600, 830);
+  pctx.lineTo(705, 800);
+  pctx.lineTo(768, 830);
+  pctx.lineTo(768, 1024);
+  pctx.lineTo(0, 1024);
+  pctx.closePath();
+  pctx.fill();
+
+  // "SIGUE CONSTRUYENDO" — font grande + tracking manual
+  // Glow detrás para legibilidad sobre las montañas
+  pctx.font = "600 40px 'Helvetica Neue', Arial, sans-serif";
+  pctx.textAlign = "left";
+  pctx.textBaseline = "alphabetic";
+  pctx.shadowColor = "rgba(255,170,90,0.55)";
+  pctx.shadowBlur = 18;
+  pctx.fillStyle = "rgba(245,232,212,0.95)";
+  drawTrackedText(pctx, "SIGUE CONSTRUYENDO", 384, 970, 7);
+  pctx.shadowBlur = 0;
+
+  const posterTex = new THREE.CanvasTexture(posterCanvas);
+  posterTex.colorSpace = THREE.SRGBColorSpace;
+  posterTex.anisotropy = 8;
+  posterTex.needsUpdate = true;
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 2) CANVAS DEL MANIFIESTO — se muestra tras el click
+  //    Mantiene el anillo apagado + texto del manifiesto.
+  // ═══════════════════════════════════════════════════════════════════════
+  const manifCanvas = document.createElement("canvas");
+  manifCanvas.width = 768;
+  manifCanvas.height = 1024;
+  const mctx = manifCanvas.getContext("2d");
+
+  // Fondo — mismo cielo pero más sobrio, sin halo
+  const mSky = mctx.createLinearGradient(0, 0, 0, 1024);
+  mSky.addColorStop(0, "#070a14");
+  mSky.addColorStop(0.5, "#0e1422");
+  mSky.addColorStop(1, "#0a0d14");
+  mctx.fillStyle = mSky;
+  mctx.fillRect(0, 0, 768, 1024);
+
+  // Estrellas más tenues
+  for (let i = 0; i < 140; i++) {
+   const x = Math.random() * 768;
+   const y = Math.random() * 1024;
+   const s = Math.random() * 1.3 + 0.3;
+   const a = Math.random() * 0.4 + 0.1;
+   mctx.fillStyle = `rgba(255,255,255,${a})`;
+   mctx.fillRect(x, y, s, s);
+  }
+
+  // Anillo tenue en la esquina (fantasma del eclipse)
+  const mRingGrad = mctx.createRadialGradient(cx, 180, 60, cx, 180, 110);
+  mRingGrad.addColorStop(0.5, "rgba(255,170,90,0)");
+  mRingGrad.addColorStop(0.85, "rgba(255,160,80,0.35)");
+  mRingGrad.addColorStop(1, "rgba(255,150,70,0)");
+  mctx.fillStyle = mRingGrad;
+  mctx.beginPath();
+  mctx.arc(cx, 180, 110, 0, Math.PI * 2);
+  mctx.fill();
+
+  // "MANIFIESTO" — encabezado sutil
+  mctx.font = "500 22px 'Helvetica Neue', Arial, sans-serif";
+  mctx.textAlign = "left";
+  mctx.fillStyle = "rgba(255,170,95,0.75)";
+  drawTrackedText(mctx, "MANIFIESTO", 384, 360, 6);
+
+  // Cuerpo del manifiesto
+  mctx.font = "400 34px 'Helvetica Neue', Arial, sans-serif";
+  mctx.textAlign = "center";
+  mctx.fillStyle = "rgba(230,220,205,0.92)";
+  const lines = [
+   "Nada está terminado.",
+   "Cada proyecto es un ensayo",
+   "del siguiente. Cada error,",
+   "la siguiente iteración.",
+  ];
+  lines.forEach((l, i) => {
+   mctx.fillText(l, 384, 500 + i * 50);
+  });
+
+  // Firma
+  mctx.font = "500 20px 'Helvetica Neue', Arial, sans-serif";
+  mctx.textAlign = "left";
+  mctx.fillStyle = "rgba(200,185,165,0.7)";
+  drawTrackedText(mctx, "— DAVID LLONA", 384, 860, 5);
+
+  const manifestoTex = new THREE.CanvasTexture(manifCanvas);
+  manifestoTex.colorSpace = THREE.SRGBColorSpace;
+  manifestoTex.anisotropy = 8;
+  manifestoTex.needsUpdate = true;
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 3) HALO / BACKLIGHT — más sutil que la versión anterior
+  // ═══════════════════════════════════════════════════════════════════════
+  const haloCanvas = document.createElement("canvas");
+  haloCanvas.width = haloCanvas.height = 256;
+  const hctx = haloCanvas.getContext("2d");
+  const hGrad = hctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+  hGrad.addColorStop(0, "rgba(255,150,80,0.32)"); // antes 0.55
+  hGrad.addColorStop(0.35, "rgba(255,130,70,0.15)"); // antes 0.28
+  hGrad.addColorStop(1, "rgba(255,120,60,0)");
+  hctx.fillStyle = hGrad;
+  hctx.fillRect(0, 0, 256, 256);
+  const haloTex = new THREE.CanvasTexture(haloCanvas);
+  haloTex.needsUpdate = true;
+
+  const haloMat = new THREE.MeshBasicMaterial({
+   map: haloTex,
+   transparent: true,
+   opacity: 0.4, // ← reducido (antes 0.85)
+   blending: THREE.AdditiveBlending,
+   depthWrite: false,
+   toneMapped: false,
+  });
+  const halo = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 2.3), haloMat); // ← más pequeño
+  halo.position.z = -0.05;
+  group.add(halo);
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 3) MARCO con PROFUNDIDAD — BoxGeometry, no Plane.
+  //    Las aristas laterales + superior atrapan la luz del posterSpot →
+  //    se ve el marco como un objeto físico, no como un color plano.
+  // ═══════════════════════════════════════════════════════════════════════
+  const frameMat = new THREE.MeshStandardMaterial({
+   color: "#18181f", // oscuro pero por encima del negro de la pared
+   roughness: 0.32, // baja → specular crisp en la arista superior
+   metalness: 0.65, // metálico → el spot crea highlight visible
+   emissive: new THREE.Color("#1f1208"),
+   emissiveIntensity: 0.3, // tinte cálido residual del halo backlight
+  });
+  // Box delgado: 1.14 × 1.44 × 0.04 → aristas de 4cm que "capturan" luz
+  const frameGeo = new THREE.BoxGeometry(1.14, 1.44, 0.04);
+  const frame = new THREE.Mesh(frameGeo, frameMat);
+  frame.position.z = 0; // centrado en z local (extremos a ±0.02)
+  group.add(frame);
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 4) MOUNT INTERIOR — plano fino entre marco y poster.
+  //    Color un paso más claro que el marco → crea un borde visible de
+  //    1cm alrededor del poster (como un passe-partout real).
+  // ═══════════════════════════════════════════════════════════════════════
+  const mountMat = new THREE.MeshStandardMaterial({
+   color: "#262230", // lighter than frame — notable inner rim
+   roughness: 0.8, // matte — para contraste vs. marco metálico
+   metalness: 0,
+  });
+  const mount = new THREE.Mesh(new THREE.PlaneGeometry(1.08, 1.38), mountMat);
+  mount.position.z = 0.021; // justo sobre la cara frontal del box
+  group.add(mount);
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 5) PÓSTER — encima del mount, con el emissive sutil original
+  // ═══════════════════════════════════════════════════════════════════════
+  const posterMat = new THREE.MeshStandardMaterial({
+   map: posterTex,
+   roughness: 0.85,
+   metalness: 0,
+   emissiveMap: posterTex,
+   emissive: new THREE.Color("#ffffff"),
+   emissiveIntensity: 0.2,
+  });
+  const poster = new THREE.Mesh(new THREE.PlaneGeometry(1.04, 1.34), posterMat);
+  poster.position.z = 0.023; // sobre el mount
+  poster.name = "wallPoster_clickable";
+  group.add(poster);
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 4) ESTADO DE INTERACCIÓN + UPDATE METHOD
+  //    Modos:
+  //     - idle      → respiración sutil siempre activa (pista visual)
+  //     - opening   → flash + swap textura a manifiesto (~0.6s)
+  //     - open      → manifiesto visible, mantenido hasta que el usuario cierre
+  //     - closing   → flash de salida + swap a poster (~0.6s)
+  // ═══════════════════════════════════════════════════════════════════════
+  const state = {
+   hover: 0,
+   hoverTarget: 0,
+   mode: "idle", // idle | opening | open | closing
+   modeStart: 0,
+   textureShowing: "poster",
+  };
+
+  group.userData.state = state;
+  group.userData.poster = poster;
+  group.userData.posterMat = posterMat;
+  group.userData.haloMat = haloMat;
+  group.userData.posterTex = posterTex;
+  group.userData.manifestoTex = manifestoTex;
+  group.userData.textures = [posterTex, manifestoTex, haloTex];
+  group.userData.materials = [haloMat, frameMat, mountMat, posterMat];
+
+  // Duración de los flashes de entrada y salida (segundos).
+  const FLASH_DURATION = 0.55;
+
+  group.userData.update = (t, roomFade) => {
+   // Hover suavizado
+   state.hover += (state.hoverTarget - state.hover) * 0.12;
+
+   // Respiración idle — pista continua de que el cuadro "vive"
+   const breath = Math.sin(t * 2.1) * 0.5 + 0.5;
+   const idleBoost = breath * 0.1;
+
+   let haloOpacity = 0.35 + idleBoost;
+   let emissive = 0.2;
+   let spotBoost = 0;
+
+   const e = t - state.modeStart;
+
+   if (state.mode === "opening") {
+    const k = Math.min(1, e / FLASH_DURATION);
+    if (k < 0.36) {
+     // Ramp up del anillo (0 → 0.2s aprox)
+     const k2 = k / 0.36;
+     emissive = 0.2 + 1.8 * k2;
+     haloOpacity = 0.35 + 0.55 * k2;
+     spotBoost = 1.2 * k2;
+     if (k2 > 0.85 && state.textureShowing === "poster") {
+      posterMat.map = manifestoTex;
+      posterMat.emissiveMap = manifestoTex;
+      posterMat.needsUpdate = true;
+      state.textureShowing = "manifesto";
+     }
+    } else {
+     // Bajada a estado "open" (lectura del manifiesto)
+     const k2 = (k - 0.36) / 0.64;
+     emissive = 2.0 - 1.55 * k2;
+     haloOpacity = 0.9 - 0.5 * k2;
+     spotBoost = 1.2 - 0.9 * k2;
+    }
+    if (k >= 1) state.mode = "open";
+   } else if (state.mode === "open") {
+    // Mantener manifiesto legible — sin timeout, espera al usuario
+    emissive = 0.45;
+    haloOpacity = 0.4;
+    spotBoost = 0.3;
+   } else if (state.mode === "closing") {
+    const k = Math.min(1, e / FLASH_DURATION);
+    if (k < 0.36) {
+     // Flash de cierre
+     const k2 = k / 0.36;
+     emissive = 0.45 + 1.55 * k2;
+     haloOpacity = 0.4 + 0.5 * k2;
+     spotBoost = 0.3 + 0.9 * k2;
+     if (k2 > 0.85 && state.textureShowing === "manifesto") {
+      posterMat.map = posterTex;
+      posterMat.emissiveMap = posterTex;
+      posterMat.needsUpdate = true;
+      state.textureShowing = "poster";
+     }
+    } else {
+     const k2 = (k - 0.36) / 0.64;
+     emissive = 2.0 - 1.8 * k2;
+     haloOpacity = 0.9 - 0.55 * k2;
+     spotBoost = 1.2 - 1.2 * k2;
+    }
+    if (k >= 1) state.mode = "idle";
+   } else {
+    // idle — añadir efecto hover
+    haloOpacity += state.hover * 0.25;
+    emissive += state.hover * 0.12;
+    spotBoost += state.hover * 0.5;
+   }
+
+   haloMat.opacity = haloOpacity * roomFade;
+   posterMat.emissiveIntensity = emissive;
+   return 2.2 + spotBoost;
+  };
+
+  group.userData.triggerOpen = (t) => {
+   if (state.mode !== "idle") return false;
+   state.mode = "opening";
+   state.modeStart = t;
+   return true;
+  };
+
+  group.userData.triggerClose = (t) => {
+   if (state.mode !== "open" && state.mode !== "opening") return false;
+   state.mode = "closing";
+   state.modeStart = t;
+   return true;
+  };
+
+  group.userData.getMode = () => state.mode;
+
+  group.userData.setHover = (on) => {
+   state.hoverTarget = on ? 1 : 0;
+  };
+
+  return group;
+ }
+
+ // ═════════════════════════════════════════════════════════════════════════
+ // RAYCAST — pointer, hover y click para poster + monitores
+ // ═════════════════════════════════════════════════════════════════════════
+ const clickRaycaster = new THREE.Raycaster();
+ const clickPointer = new THREE.Vector2();
+ let posterRoomFade = 1; // actualizado desde tick
+
+ const _updateClickPointer = (event) => {
+  const rect = canvas.getBoundingClientRect();
+  clickPointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  clickPointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+ };
+
+ const _hitsPoster = () => {
+  if (posterRoomFade < 0.2) return false;
+  clickRaycaster.setFromCamera(clickPointer, camera);
+  return clickRaycaster.intersectObject(wallPoster.userData.poster, false).length > 0;
+ };
+
+ const onScenePointerMove = (event) => {
+  if (cameraFocus.active) return;
+  _updateClickPointer(event);
+  const hit = _hitsPoster();
+  wallPoster.userData.setHover(hit);
+  canvas.style.cursor = hit ? "pointer" : "";
+ };
+
+ const onScenePointerDown = (event) => {
+  const now = clock.getElapsedTime();
+
+  // Si hay focus activo → cualquier click cierra (exitCameraFocus
+  // ya gestiona la sincronización de estado del poster internamente)
+  if (cameraFocus.active && cameraFocus.phase !== "exiting") {
+   exitCameraFocus(now);
+   canvas.style.cursor = "";
+   return;
+  }
+
+  _updateClickPointer(event);
+
+  // Priority 1 — poster
+  if (_hitsPoster()) {
+   if (wallPoster.userData.triggerOpen(now)) {
+    enterCameraFocus("poster", now);
+    window.dispatchEvent(new CustomEvent("hero-poster:click", { detail: { time: now } }));
+   }
+   return;
+  }
+
+  // Priority 1 — poster
+  if (_hitsPoster()) {
+   if (wallPoster.userData.triggerOpen(now)) {
+    enterCameraFocus("poster", now);
+    window.dispatchEvent(new CustomEvent("hero-poster:click", { detail: { time: now } }));
+   }
+  }
+ };
+
+ const onSceneKeyDown = (event) => {
+  if (event.key !== "Escape") return;
+  if (!cameraFocus.active) return;
+  exitCameraFocus(clock.getElapsedTime());
+ };
+
+ canvas.addEventListener("pointermove", onScenePointerMove);
+ canvas.addEventListener("pointerdown", onScenePointerDown);
+ window.addEventListener("keydown", onSceneKeyDown);
+
+ const wallPoster = createWallPoster();
+ wallPoster.position.set(4.0, 4.6, -3.94);
+ scene.add(wallPoster);
+
+ // ── SpotLight cálido dedicado — resalta solo el póster ──────────────
+ // Distance corta + decay medio → no moja la pared entera.
+ // Penumbra alta → borde de luz orgánico, no un haz duro.
+ const posterSpot = new THREE.SpotLight(
+  "#ff9a55", // familia cálida del warmLight del cohete
+  2.2, // intensity baja
+  3.0, // distance corto → luz contenida
+  Math.PI * 0.24, // angle ~43° (abierto pero no flood)
+  0.75, // penumbra alta → borde suave
+  1.5, // decay
+ );
+ posterSpot.position.set(2.8, 5.8, -2.8);
+ posterSpot.target.position.set(4.0, 4.6, -3.94);
+ scene.add(posterSpot);
+ scene.add(posterSpot.target);
+
+ // ═════════════════════════════════════════════════════════════════════════
+ // CAMERA FOCUS — close-up cinemático
+ // Sistema unificado: el mismo pipeline de blend se reutiliza para cualquier
+ // target (poster, monitores…). Solo cambia el pose objetivo.
+ // ═════════════════════════════════════════════════════════════════════════
+ const cameraFocus = {
+  active: false,
+  phase: "idle", // idle | entering | held | exiting
+  phaseStart: 0,
+  enterDuration: 1.1,
+  exitDuration: 1.0,
+  scrollYAtEnter: 0,
+  scrollExitThreshold: 60,
+  targetKey: null, // "poster" | "monitors"
+ };
+
+ // Pose resultante (se recalcula cada frame en tick)
+ const focusPos = new THREE.Vector3();
+ const focusQuat = new THREE.Quaternion();
+ const _focusMat = new THREE.Matrix4();
+ const _focusUp = new THREE.Vector3(0, 1, 0);
+ const _focusLookAt = new THREE.Vector3();
+
+ const computeFocusTarget = () => {
+  // Solo poster — monitores se descartaron por no dar un close-up limpio
+  focusPos.set(wallPoster.position.x, wallPoster.position.y, wallPoster.position.z + 2.3);
+  _focusLookAt.copy(wallPoster.position);
+  _focusMat.lookAt(focusPos, _focusLookAt, _focusUp);
+  focusQuat.setFromRotationMatrix(_focusMat);
+ };
+
+ const enterCameraFocus = (targetKey, now) => {
+  if (cameraFocus.active) return false;
+  cameraFocus.active = true;
+  cameraFocus.phase = "entering";
+  cameraFocus.phaseStart = now;
+  cameraFocus.scrollYAtEnter = window.scrollY;
+  cameraFocus.targetKey = targetKey;
+  if (controls.enabled) controls.enabled = false;
+  document.body.style.overflow = "hidden";
+  return true;
+ };
+
+ const exitCameraFocus = (now) => {
+  if (!cameraFocus.active) return;
+  if (cameraFocus.phase === "exiting") return;
+
+  if (cameraFocus.targetKey === "poster") {
+   wallPoster.userData.triggerClose(now);
+  }
+
+  cameraFocus.phase = "exiting";
+  cameraFocus.phaseStart = now;
+  document.body.style.overflow = "";
+ };
+
  /**
   * =========================================================
   * DOG HOLOGRAM — easter egg holográfico
@@ -3052,113 +3712,158 @@ export function initHeroScene() {
   */
  function createDogHologram() {
   const g = new THREE.Group();
-  const cyan = new THREE.Color("#5ad7ff");
 
-  const wireMat = new THREE.LineBasicMaterial({
+  // ── Paleta cian — dos tonos para jerarquía visual ───────────────────────
+  const cyan = new THREE.Color("#5ad7ff"); // cuerpo / anillo (proyectado)
+  const cyanBright = new THREE.Color("#9eeaff"); // emisor / wire / scan (luz)
+
+  // ── Materiales del perro ────────────────────────────────────────────────
+
+  // Cuerpo: sólido translúcido. NO aditivo — evita sobre-exposición en zonas
+  // donde cuerpo+patas+cabeza se solapan. DoubleSide por ser translúcido.
+  const bodyMat = new THREE.MeshBasicMaterial({
    color: cyan,
    transparent: true,
-   opacity: 0.75,
-   blending: THREE.AdditiveBlending,
-   depthWrite: false,
-  });
-
-  // Cuerpo
-  const body = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(0.55, 0.3, 0.22)), wireMat);
-  body.position.set(0, 0.35, 0);
-  g.add(body);
-
-  // Cabeza
-  const head = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(0.22, 0.24, 0.22)), wireMat);
-  head.position.set(0.3, 0.47, 0);
-  g.add(head);
-
-  // Hocico
-  const snout = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(0.14, 0.1, 0.13)), wireMat);
-  snout.position.set(0.43, 0.4, 0);
-  g.add(snout);
-
-  // Orejas
-  const earGeom = new THREE.EdgesGeometry(new THREE.ConeGeometry(0.05, 0.13, 4));
-  const earL = new THREE.LineSegments(earGeom, wireMat);
-  earL.position.set(0.3, 0.63, 0.08);
-  g.add(earL);
-  const earR = new THREE.LineSegments(earGeom, wireMat);
-  earR.position.set(0.3, 0.63, -0.08);
-  g.add(earR);
-
-  // 4 patas
-  const legGeom = new THREE.EdgesGeometry(new THREE.CylinderGeometry(0.035, 0.035, 0.3, 6));
-  [
-   [0.2, 0.15, 0.09],
-   [0.2, 0.15, -0.09],
-   [-0.2, 0.15, 0.09],
-   [-0.2, 0.15, -0.09],
-  ].forEach((p) => {
-   const leg = new THREE.LineSegments(legGeom, wireMat);
-   leg.position.set(p[0], p[1], p[2]);
-   g.add(leg);
-  });
-
-  // Cola
-  const tail = new THREE.LineSegments(
-   new THREE.EdgesGeometry(new THREE.CylinderGeometry(0.03, 0.01, 0.22, 6)),
-   wireMat,
-  );
-  tail.position.set(-0.3, 0.46, 0);
-  tail.rotation.z = Math.PI * 0.35;
-  g.add(tail);
-
-  // Pedestal — anillo
-  const ringMat = new THREE.MeshBasicMaterial({
-   color: cyan,
-   transparent: true,
-   opacity: 0.4,
-   blending: THREE.AdditiveBlending,
+   opacity: 0.5,
    side: THREE.DoubleSide,
    depthWrite: false,
+   toneMapped: false, // preserva el cian puro frente al ACES del renderer
   });
-  const ring = new THREE.Mesh(new THREE.RingGeometry(0.26, 0.38, 40), ringMat);
-  ring.rotation.x = -Math.PI * 0.5;
-  ring.position.y = 0.006;
-  g.add(ring);
 
-  // Disco interior brillante
-  const discMat = new THREE.MeshBasicMaterial({
-   color: cyan,
+  // Wireframe — aristas realzadas. Aditivo para que sumen luz sin dominar.
+  const wireMat = new THREE.LineBasicMaterial({
+   color: cyanBright,
    transparent: true,
-   opacity: 0.1,
+   opacity: 0.42,
    blending: THREE.AdditiveBlending,
    depthWrite: false,
+   toneMapped: false,
   });
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(0.28, 40), discMat);
-  disc.rotation.x = -Math.PI * 0.5;
-  disc.position.y = 0.005;
-  g.add(disc);
 
-  // Scan line — ring fino horizontal que sube y baja
-  const scanMat = new THREE.MeshBasicMaterial({
-   color: cyan,
+  // ── Construcción del perro — subgrupo para levitarlo sobre el proyector ─
+  const dogBody = new THREE.Group();
+  dogBody.position.y = 0.05; // flota ligeramente → lee como proyección
+  g.add(dogBody);
+
+  // Helper: cada parte se añade como sólido + aristas a partir de una misma geo.
+  const addPart = (geo, pos, rot) => {
+   const solid = new THREE.Mesh(geo, bodyMat);
+   solid.position.set(pos[0], pos[1], pos[2]);
+   if (rot) solid.rotation.set(rot[0], rot[1], rot[2]);
+   dogBody.add(solid);
+
+   const wire = new THREE.LineSegments(new THREE.EdgesGeometry(geo), wireMat);
+   wire.position.copy(solid.position);
+   if (rot) wire.rotation.copy(solid.rotation);
+   dogBody.add(wire);
+  };
+
+  // Cuerpo, cabeza, hocico
+  addPart(new THREE.BoxGeometry(0.55, 0.3, 0.22), [0, 0.35, 0]);
+  addPart(new THREE.BoxGeometry(0.22, 0.24, 0.22), [0.3, 0.47, 0]);
+  addPart(new THREE.BoxGeometry(0.14, 0.1, 0.13), [0.43, 0.4, 0]);
+
+  // Orejas
+  const earGeo = new THREE.ConeGeometry(0.05, 0.13, 4);
+  addPart(earGeo, [0.3, 0.63, 0.08]);
+  addPart(earGeo, [0.3, 0.63, -0.08]);
+
+  // 4 patas — 8 segmentos para bordes más limpios que 6
+  const legGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.3, 8);
+  addPart(legGeo, [0.2, 0.15, 0.09]);
+  addPart(legGeo, [0.2, 0.15, -0.09]);
+  addPart(legGeo, [-0.2, 0.15, 0.09]);
+  addPart(legGeo, [-0.2, 0.15, -0.09]);
+
+  // Cola
+  addPart(new THREE.CylinderGeometry(0.03, 0.01, 0.22, 6), [-0.3, 0.46, 0], [0, 0, Math.PI * 0.35]);
+
+  // ── Proyector — cuerpo físico del dispositivo ───────────────────────────
+  // Cilindro plano, oscuro con tinte azul. Opaco para sentirse físico,
+  // pero con un punto de transparencia para no competir visualmente.
+  const projectorBodyMat = new THREE.MeshBasicMaterial({
+   color: "#0b1828",
+   transparent: true,
+   opacity: 0.92,
+   toneMapped: false,
+  });
+  const projectorBody = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.34, 0.025, 48), projectorBodyMat);
+  projectorBody.position.y = 0.013;
+  g.add(projectorBody);
+
+  // Lente emisora — disco cian aditivo sobre el proyector.
+  // Este es el "foco" que está proyectando al perro.
+  const emitterMat = new THREE.MeshBasicMaterial({
+   color: cyanBright,
    transparent: true,
    opacity: 0.55,
    blending: THREE.AdditiveBlending,
    side: THREE.DoubleSide,
    depthWrite: false,
+   toneMapped: false,
   });
-  const scan = new THREE.Mesh(new THREE.RingGeometry(0.13, 0.18, 32), scanMat);
+  const emitter = new THREE.Mesh(new THREE.CircleGeometry(0.28, 48), emitterMat);
+  emitter.rotation.x = -Math.PI * 0.5;
+  emitter.position.y = 0.027;
+  g.add(emitter);
+
+  // Anillo exterior — borde luminoso del dispositivo.
+  const ringMat = new THREE.MeshBasicMaterial({
+   color: cyan,
+   transparent: true,
+   opacity: 0.7,
+   blending: THREE.AdditiveBlending,
+   side: THREE.DoubleSide,
+   depthWrite: false,
+   toneMapped: false,
+  });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.295, 0.325, 64), ringMat);
+  ring.rotation.x = -Math.PI * 0.5;
+  ring.position.y = 0.028;
+  g.add(ring);
+
+  // ── Scan line — anillo fino que recorre el holograma en vertical ────────
+  const scanMat = new THREE.MeshBasicMaterial({
+   color: cyanBright,
+   transparent: true,
+   opacity: 0.45,
+   blending: THREE.AdditiveBlending,
+   side: THREE.DoubleSide,
+   depthWrite: false,
+   toneMapped: false,
+  });
+  const scan = new THREE.Mesh(new THREE.RingGeometry(0.14, 0.18, 48), scanMat);
   scan.rotation.x = -Math.PI * 0.5;
-  scan.position.y = 0.1;
+  scan.position.y = 0.15;
   g.add(scan);
 
-  // Luz de rebote cian muy pequeña
-  const holoLight = new THREE.PointLight(cyan, 0.4, 1.6, 2.2);
+  // ── Luz de rebote cian — tiñe muy sutilmente el entorno cercano ────────
+  const holoLight = new THREE.PointLight(cyan, 0.55, 1.9, 2.0);
   holoLight.position.set(0, 0.4, 0);
   g.add(holoLight);
 
-  g.userData.wireMat = wireMat;
-  g.userData.ringMat = ringMat;
-  g.userData.discMat = discMat;
-  g.userData.scanMat = scanMat;
-  g.userData.scan = scan;
+  // ── Update method — respiración + scan. Muy sutil a propósito ──────────
+  // Se llama desde tick() con elapsedTime. Si no se llama, el holograma
+  // se ve perfectamente estático también (sin estados rotos).
+  const SCAN_MIN = 0.05;
+  const SCAN_MAX = 0.72;
+  g.userData.update = (t) => {
+   // Respiración de opacidad — ±0.07 alrededor de 0.5. Apenas perceptible.
+   const breath = Math.sin(t * 1.25) * 0.07;
+   bodyMat.opacity = 0.5 + breath;
+   wireMat.opacity = 0.42 + breath * 0.6;
+
+   // Scan: barrido vertical lento. Fade en extremos para look limpio.
+   const t01 = Math.sin(t * 0.55) * 0.5 + 0.5; // [0,1]
+   scan.position.y = SCAN_MIN + t01 * (SCAN_MAX - SCAN_MIN);
+   const edgeFade = Math.sin(t01 * Math.PI); // atenúa en bordes
+   scanMat.opacity = 0.25 + edgeFade * 0.3;
+
+   // Luz: micro-flicker orgánico, sin parpadeo evidente
+   holoLight.intensity = 0.55 + Math.sin(t * 2.1) * 0.04;
+  };
+
+  // Referencias expuestas (dispose ya cubierto por el traverse existente)
   g.userData.holoLight = holoLight;
 
   return g;
@@ -3728,172 +4433,6 @@ export function initHeroScene() {
  };
 
  if (gui) {
-  // ═════════════════════════════════════════════════════════════════════════
-  // EXTERIOR SCENE — arriba del todo: estrellas, nebula, UFO, luna, claim, atmósfera
-  // Se registra antes que cualquier otra carpeta → aparece como primera entrada
-  // en el panel. Arranca ABIERTA para acceso inmediato.
-  // ═════════════════════════════════════════════════════════════════════════
-  const extFolder = gui.addFolder("Exterior Scene");
-  extFolder.open();
-
-  // ── Stars ────────────────────────────────────────────────────────────────
-  const starsFolder = extFolder.addFolder("Stars");
-  starsFolder.close();
-  const starsGlobalFolder = starsFolder.addFolder("Global");
-  starsGlobalFolder.add(starsParams, "visible").name("visible").onChange(requestRender);
-  starsGlobalFolder.add(starsParams, "globalOpacity", 0, 2, 0.01).name("opacity mult").onChange(requestRender);
-  starsGlobalFolder.add(starsParams, "twinkleStrength", 0, 1, 0.01).name("twinkle").onChange(requestRender);
-  starsGlobalFolder.add(starsParams, "parallaxSpeed", 0, 3, 0.01).name("parallax speed").onChange(requestRender);
-
-  const layerAFolder = starsFolder.addFolder("Layer A — Far");
-  layerAFolder
-   .add(starsParams, "aCount", 100, 4000, 50)
-   .name("count")
-   .onChange(() => rebuildStarLayer("A"));
-  layerAFolder.add(starsParams, "aSize", 0.01, 0.3, 0.001).name("size").onChange(requestRender);
-  layerAFolder.add(starsParams, "aOpacity", 0, 2, 0.01).name("opacity").onChange(requestRender);
-  layerAFolder
-   .addColor(starsParams, "aTint")
-   .name("color")
-   .onChange(() => rebuildStarLayer("A"));
-
-  const layerBFolder = starsFolder.addFolder("Layer B — Mid");
-  layerBFolder
-   .add(starsParams, "bCount", 50, 1500, 25)
-   .name("count")
-   .onChange(() => rebuildStarLayer("B"));
-  layerBFolder.add(starsParams, "bSize", 0.01, 0.4, 0.001).name("size").onChange(requestRender);
-  layerBFolder.add(starsParams, "bOpacity", 0, 2, 0.01).name("opacity").onChange(requestRender);
-  layerBFolder
-   .addColor(starsParams, "bTint")
-   .name("color")
-   .onChange(() => rebuildStarLayer("B"));
-
-  const layerCFolder = starsFolder.addFolder("Layer C — Bright");
-  layerCFolder
-   .add(starsParams, "cCount", 10, 300, 5)
-   .name("count")
-   .onChange(() => rebuildStarLayer("C"));
-  layerCFolder.add(starsParams, "cSize", 0.02, 0.5, 0.001).name("size").onChange(requestRender);
-  layerCFolder.add(starsParams, "cOpacity", 0, 2, 0.01).name("opacity").onChange(requestRender);
-  layerCFolder
-   .addColor(starsParams, "cTint")
-   .name("color")
-   .onChange(() => rebuildStarLayer("C"));
-
-  const layerDFolder = starsFolder.addFolder("Layer D — Foreground");
-  layerDFolder
-   .add(starsParams, "dCount", 0, 60, 1)
-   .name("count")
-   .onChange(() => rebuildStarLayer("D"));
-  layerDFolder.add(starsParams, "dSize", 0.05, 1.0, 0.01).name("size").onChange(requestRender);
-  layerDFolder.add(starsParams, "dOpacity", 0, 1, 0.01).name("opacity").onChange(requestRender);
-  layerDFolder
-   .addColor(starsParams, "dTint")
-   .name("color")
-   .onChange(() => rebuildStarLayer("D"));
-
-  // ── Nebula ───────────────────────────────────────────────────────────────
-  const nebulaFolder = extFolder.addFolder("Nebula");
-  nebulaFolder.close();
-  nebulaFolder.add(nebulaParams, "visible").name("visible").onChange(requestRender);
-  nebulaFolder.add(nebulaParams, "opacity", 0, 1.5, 0.01).name("opacity").onChange(requestRender);
-  nebulaFolder.add(nebulaParams, "scale", 0.2, 3, 0.01).name("scale").onChange(updateNebula);
-  nebulaFolder
-   .add(nebulaParams, "x", EXT_X - 80, EXT_X + 10, 0.1)
-   .name("pos X")
-   .onChange(updateNebula);
-  nebulaFolder.add(nebulaParams, "y", -5, 15, 0.1).name("pos Y").onChange(updateNebula);
-  nebulaFolder.add(nebulaParams, "z", -10, 10, 0.1).name("pos Z").onChange(updateNebula);
-  nebulaFolder.add(nebulaParams, "rotY", -Math.PI, Math.PI, 0.01).name("rot Y").onChange(updateNebula);
-  nebulaFolder.addColor(nebulaParams, "colorPrimary").name("color primary").onChange(regenerateNebula);
-  nebulaFolder.addColor(nebulaParams, "colorSecondary").name("color secondary").onChange(regenerateNebula);
-  nebulaFolder.add(nebulaParams, "softness", 0, 1, 0.01).name("softness").onChange(regenerateNebula);
-  nebulaFolder.add(nebulaParams, "density", 0, 2, 0.01).name("density").onChange(regenerateNebula);
-
-  // ── UFO ──────────────────────────────────────────────────────────────────
-  const ufoFolder = extFolder.addFolder("UFO");
-  ufoFolder.close();
-  ufoFolder.add(ufoParams, "visible").name("visible").onChange(requestRender);
-  ufoFolder.add(ufoParams, "xOffset", -5, 5, 0.01).name("pos X offset").onChange(requestRender);
-  ufoFolder.add(ufoParams, "yOffset", -5, 5, 0.01).name("pos Y offset").onChange(requestRender);
-  ufoFolder.add(ufoParams, "scale", 0.1, 2, 0.01).name("scale").onChange(updateUfo);
-  ufoFolder.add(ufoParams, "rotYOffset", -Math.PI, Math.PI, 0.01).name("rot Y offset").onChange(requestRender);
-  ufoFolder.add(ufoParams, "glowIntensity", 0, 3, 0.01).name("glow intensity").onChange(updateUfo);
-  ufoFolder.add(ufoParams, "underLightIntensity", 0, 3, 0.01).name("under light").onChange(updateUfo);
-  ufoFolder.add(ufoParams, "beamOpacityMult", 0, 3, 0.01).name("beam opacity").onChange(requestRender);
-  ufoFolder.add(ufoParams, "beamWidth", 0.1, 3, 0.01).name("beam width").onChange(requestRender);
-  ufoFolder.add(ufoParams, "beamLength", 0.1, 3, 0.01).name("beam length").onChange(requestRender);
-
-  // ── Moon ─────────────────────────────────────────────────────────────────
-  const moonFolder = extFolder.addFolder("Moon");
-  moonFolder.close();
-  moonFolder.add(moonParams, "visible").name("visible").onChange(requestRender);
-  moonFolder
-   .add(moonParams, "x", EXT_X - 50, EXT_X + 10, 0.1)
-   .name("pos X")
-   .onChange(updateMoon);
-  moonFolder.add(moonParams, "y", -5, 15, 0.1).name("pos Y").onChange(updateMoon);
-  moonFolder.add(moonParams, "z", -10, 10, 0.1).name("pos Z").onChange(updateMoon);
-  moonFolder.add(moonParams, "scale", 0.1, 3, 0.01).name("scale").onChange(updateMoon);
-  moonFolder.add(moonParams, "opacity", 0, 1.5, 0.01).name("opacity").onChange(requestRender);
-  moonFolder.add(moonParams, "lightIntensity", 0, 3, 0.01).name("light intensity").onChange(requestRender);
-  moonFolder.addColor(moonParams, "tint").name("tint").onChange(updateMoon);
-
-  // ── Claim ────────────────────────────────────────────────────────────────
-  const claimFolder = extFolder.addFolder("Claim");
-  claimFolder.close();
-  claimFolder.add(claimParams, "visible").name("visible").onChange(requestRender);
-  claimFolder
-   .add(claimParams, "x", EXT_X - 10, EXT_X, 0.01)
-   .name("pos X")
-   .onChange(updateClaim);
-  claimFolder.add(claimParams, "y", -5, 15, 0.01).name("pos Y").onChange(updateClaim);
-  claimFolder.add(claimParams, "z", -5, 5, 0.01).name("pos Z").onChange(updateClaim);
-  claimFolder.add(claimParams, "scale", 0.3, 2, 0.01).name("scale").onChange(updateClaim);
-  claimFolder.add(claimParams, "opacityMult", 0, 2, 0.01).name("opacity mult").onChange(requestRender);
-  claimFolder.addColor(claimParams, "orangeColor").name("accent color").onChange(updateClaim);
-  claimFolder.add(claimParams, "glowIntensity", 0, 3, 0.01).name("glow intensity").onChange(requestRender);
-  claimFolder.add(claimParams, "haloOpacityMult", 0, 2, 0.01).name("halo opacity").onChange(requestRender);
-  claimFolder.add(claimParams, "subtitleVisible").name("subtitle").onChange(updateClaim);
-
-  // ── Atmosphere ───────────────────────────────────────────────────────────
-  const atmFolder = extFolder.addFolder("Atmosphere");
-  atmFolder.close();
-  atmFolder
-   .add(atmosphereParams, "exposure", 0.1, 3, 0.01)
-   .name("exposure")
-   .onChange((v) => {
-    renderer.toneMappingExposure = v;
-    requestRender();
-   });
-  atmFolder
-   .add(atmosphereParams, "toneMapping", Object.keys(toneMappingMap))
-   .name("tone mapping")
-   .onChange((v) => {
-    renderer.toneMapping = toneMappingMap[v] ?? THREE.ACESFilmicToneMapping;
-    // Los materiales necesitan recompilación cuando cambia el tone mapping
-    scene.traverse((obj) => {
-     if (obj.material) {
-      const arr = Array.isArray(obj.material) ? obj.material : [obj.material];
-      arr.forEach((m) => {
-       if (m) m.needsUpdate = true;
-      });
-     }
-    });
-    requestRender();
-   });
-  atmFolder
-   .addColor(atmosphereParams, "backgroundColor")
-   .name("background")
-   .onChange((v) => {
-    BG_SPACE.set(v);
-    scene.background = new THREE.Color(v);
-    requestRender();
-   });
-  atmFolder.add(atmosphereParams, "vignetteOpacity", 0, 1.5, 0.01).name("vignette").onChange(requestRender);
-  atmFolder.add(atmosphereParams, "fogDensityMult", 0, 3, 0.01).name("fog density").onChange(requestRender);
-
   // ─────────────────────────────────────────────────────────────────────────
   // ROOM / OTHER — carpetas originales (debajo de Exterior Scene)
   // ─────────────────────────────────────────────────────────────────────────
@@ -4228,6 +4767,71 @@ export function initHeroScene() {
   flameFolder.add(flameParams, "rocketFlameScale", 0.2, 3.0, 0.05).name("flameScale").onChange(requestRender);
   flameFolder.add(flameParams, "rocketFlickerSpeed", 0.1, 4.0, 0.05).name("flickerSpeed").onChange(requestRender);
   flameFolder.add(flameParams, "rocketLightIntensity", 0.0, 5.0, 0.05).name("lightIntensity").onChange(requestRender);
+
+  // ── Dog Hologram ────────────────────────────────────────────────────
+  const hologramFolder = gui.addFolder("Dog Hologram");
+  const hologramConfig = {
+   visible: true,
+   x: dogHologram.position.x,
+   y: dogHologram.position.y,
+   z: dogHologram.position.z,
+   scale: 0.85,
+  };
+  hologramFolder.add(hologramConfig, "visible").onChange((v) => {
+   dogHologram.visible = v;
+   requestRender();
+  });
+  hologramFolder.add(hologramConfig, "x", -6, 6, 0.01).onChange((v) => {
+   dogHologram.position.x = v;
+   requestRender();
+  });
+  hologramFolder.add(hologramConfig, "y", 0, 4, 0.01).onChange((v) => {
+   dogHologram.position.y = v;
+   requestRender();
+  });
+  hologramFolder.add(hologramConfig, "z", -4, 4, 0.01).onChange((v) => {
+   dogHologram.position.z = v;
+   requestRender();
+  });
+  hologramFolder.add(hologramConfig, "scale", 0.3, 1.6, 0.01).onChange((v) => {
+   dogHologram.scale.setScalar(v);
+   requestRender();
+  });
+  if (dogHologram.userData.holoLight) {
+   hologramFolder
+    .add(dogHologram.userData.holoLight, "intensity", 0, 2, 0.01)
+    .name("light intensity")
+    .onChange(requestRender);
+  }
+
+  // ── Wall Poster ─────────────────────────────────────────────────────
+  const posterFolder = gui.addFolder("Wall Poster");
+  const posterConfig = {
+   x: wallPoster.position.x,
+   y: wallPoster.position.y,
+   z: wallPoster.position.z,
+   haloOpacity: 0.35, // base idle — se multiplica internamente
+   spotIntensity: 2.2,
+  };
+  posterFolder.add(posterConfig, "x", -6, 6, 0.01).onChange((v) => {
+   wallPoster.position.x = v;
+   posterSpot.position.x = v;
+   posterSpot.target.position.x = v;
+   requestRender();
+  });
+  posterFolder.add(posterConfig, "y", 0, 7, 0.01).onChange((v) => {
+   wallPoster.position.y = v;
+   posterSpot.target.position.y = v;
+   requestRender();
+  });
+  posterFolder.add(posterConfig, "z", -4, 0, 0.01).onChange((v) => {
+   wallPoster.position.z = v;
+   posterSpot.target.position.z = v;
+   requestRender();
+  });
+  posterFolder.add(posterSpot, "distance", 0.5, 8, 0.1).onChange(requestRender);
+  posterFolder.add(posterSpot, "angle", 0.05, Math.PI * 0.45, 0.01).onChange(requestRender);
+  posterFolder.add(posterSpot, "penumbra", 0, 1, 0.01).onChange(requestRender);
  }
 
  /**
@@ -4345,33 +4949,53 @@ export function initHeroScene() {
   // La rotación sigue los mismos segmentos con slerp.
   // En F4+ la cámara está quieta en KP2 con micro-flotación.
 
+  // ── POSE BASE DRIVEN BY SCROLL ───────────────────────────────────────
+  // Calculamos la pose de scroll en workPos/workQ pero NO la aplicamos
+  // todavía — luego la mezclaremos con el focus del póster si está activo.
   if (sp <= F3E) {
-   // ── Seg A: F1 + F2 (habitación → frente a la ventana) ──────────────────
-   // En F1 (sp < F2S) el t es 0 → cámara fija en KP0
    const tA = easeIO3(phase(sp, F2S, F2E));
-
-   const posA = workPos.lerpVectors(KP[0], KP[1], tA);
-   camera.position.copy(posA);
+   workPos.lerpVectors(KP[0], KP[1], tA);
    workQ.slerpQuaternions(KQ[0], KQ[1], tA);
-
-   // ── Seg B: F3 (cruce de la pared) ───────────────────────────────────────
    if (sp >= F3S) {
     const tB = easeIO3(phase(sp, F3S, F3E));
-    const posB = workPos.lerpVectors(KP[1], KP[2], tB);
-    camera.position.copy(posB);
-    // KQ1 → KQ2: misma orientación, slerp es instantáneo pero suave
+    workPos.lerpVectors(KP[1], KP[2], tB);
     workQ.slerpQuaternions(KQ[1], KQ[2], tB);
    }
-
-   camera.quaternion.copy(workQ);
   } else {
-   // ── F4+: exterior, cámara quieta con micro-flotación ───────────────────
-   camera.position.set(
-    KP[2].x,
-    KP[2].y + Math.sin(elapsedTime * 0.22) * 0.035,
-    KP[2].z + Math.sin(elapsedTime * 0.18) * 0.025,
-   );
-   camera.quaternion.copy(KQ[2]);
+   workPos.set(KP[2].x, KP[2].y + Math.sin(elapsedTime * 0.22) * 0.035, KP[2].z + Math.sin(elapsedTime * 0.18) * 0.025);
+   workQ.copy(KQ[2]);
+  }
+
+  // ── CAMERA FOCUS BLEND ────────────────────────────────────────────────
+  let focusBlend = 0;
+  if (cameraFocus.active) {
+   const dt = elapsedTime - cameraFocus.phaseStart;
+   if (cameraFocus.phase === "entering") {
+    const k = clamp01(dt / cameraFocus.enterDuration);
+    focusBlend = easeIO3(k);
+    if (k >= 1) cameraFocus.phase = "held";
+   } else if (cameraFocus.phase === "held") {
+    focusBlend = 1;
+   } else if (cameraFocus.phase === "exiting") {
+    const k = clamp01(dt / cameraFocus.exitDuration);
+    focusBlend = 1 - easeIO3(k);
+    if (k >= 1) {
+     cameraFocus.active = false;
+     cameraFocus.phase = "idle";
+     cameraFocus.targetKey = null;
+    }
+   }
+
+   computeFocusTarget(); // recalcula focusPos/focusQuat cada frame
+  }
+
+  // ── APLICAR POSE FINAL ────────────────────────────────────────────────
+  if (focusBlend > 0) {
+   camera.position.lerpVectors(workPos, focusPos, focusBlend);
+   camera.quaternion.slerpQuaternions(workQ, focusQuat, focusBlend);
+  } else {
+   camera.position.copy(workPos);
+   camera.quaternion.copy(workQ);
   }
 
   // OrbitControls: solo activos en F1 (sp < F2S), se desactivan al entrar en F2
@@ -4405,6 +5029,12 @@ export function initHeroScene() {
    }
   }
 
+  // Animación de pantallas (typing + dashboard)
+  for (let i = 0; i < screenAnimators.length; i++) screenAnimators[i](elapsedTime);
+
+  // Holograma del perro — respiración + scan
+  if (dogHologram?.userData.update) dogHologram.userData.update(elapsedTime);
+
   // ── Luces de la habitación ────────────────────────────────────────────────
   const roomFade = 1 - clamp01(phase(sp, F2E, F3E));
   const warmBase = warmConfig.flicker
@@ -4421,6 +5051,11 @@ export function initHeroScene() {
   backRimLight.intensity = 0.5 * roomFade;
   ledUnderDesk.intensity = 1.1 * roomFade;
   deskBounceLight.intensity = 0.8 * roomFade;
+  deskBounceLightR.intensity = 0.55 * roomFade;
+  rightWallFill.intensity = 0.3 * roomFade;
+  posterRoomFade = roomFade;
+  const posterSpotIntensity = wallPoster.userData.update(elapsedTime, roomFade);
+  posterSpot.intensity = posterSpotIntensity * roomFade;
 
   // ── Flicker de la llama del cohete — tres senos a frecuencias primas ─────
   const fSpd = flameParams.rocketFlickerSpeed;
@@ -4431,33 +5066,44 @@ export function initHeroScene() {
   const fInt = flameParams.rocketFlameIntensity;
   const fScl = flameParams.rocketFlameScale;
 
-  lamparaLight.intensity = Math.max(0.4, flameParams.rocketLightIntensity * flameBrightness) * roomFade;
-  lamparaFlameLight.intensity = Math.max(0.3, flameParams.rocketLightIntensity * 1.1 * flameBrightness) * roomFade;
+  lamparaLight.intensity = Math.max(0.3, flameParams.rocketLightIntensity * 0.75 * flameBrightness) * roomFade;
+  lamparaFlameLight.intensity = Math.max(0.25, flameParams.rocketLightIntensity * 0.85 * flameBrightness) * roomFade;
 
   // Animar las tres capas de llama más el sprite de glow
   if (flameGroup.visible) {
-   // Núcleo (idx 0) — corto, intenso, oscila rápido
+   // Jitter común de posición (las tres capas lo comparten → coherencia)
+   // Ruido sumado de tres senos = fluctuación orgánica tipo fuego real.
+   const jitterX = Math.sin(elapsedTime * 6.7 * fSpd + 1.3) * 0.004 + Math.sin(elapsedTime * 11.9 * fSpd + 3.1) * 0.002;
+   const jitterY = Math.sin(elapsedTime * 4.9 * fSpd) * 0.006 + Math.sin(elapsedTime * 8.3 * fSpd + 2.2) * 0.003;
+
+   // Núcleo — corto, oscila rápido en altura
    const fcore = flameCore;
-   const fcFlick = 0.88 + Math.sin(elapsedTime * 11.2 * fSpd) * 0.12;
-   fcore.mesh.scale.set(fScl * fcFlick * 0.85, fScl * fcFlick, fScl * fcFlick * 0.85);
-   fcore.mat.opacity = Math.min(1, (0.88 + Math.sin(elapsedTime * 9.5 * fSpd) * 0.12) * fInt * roomFade);
+   const fcHeight = 0.92 + Math.sin(elapsedTime * 10.5 * fSpd) * 0.15;
+   const fcWidth = 0.94 + Math.sin(elapsedTime * 13.7 * fSpd + 1.1) * 0.08;
+   fcore.mesh.scale.set(fScl * fcWidth, fScl * fcHeight, fScl * fcWidth);
+   fcore.mesh.position.set(jitterX * 0.5, jitterY * 0.5, 0);
+   fcore.mat.opacity = (0.72 + Math.sin(elapsedTime * 8.9 * fSpd) * 0.1) * fInt * roomFade;
 
-   // Media (idx 1) — oscilación media
+   // Media — más amplitud de altura, da la "lengua" del fuego
    const fmid = flameMid;
-   const fmFlick = 0.82 + Math.sin(elapsedTime * 7.8 * fSpd + 0.9) * 0.18;
-   fmid.mesh.scale.set(fScl * fmFlick * 0.9, fScl * fmFlick, fScl * fmFlick * 0.9);
-   fmid.mat.opacity = (0.58 + Math.sin(elapsedTime * 6.3 * fSpd + 0.6) * 0.14) * fInt * roomFade;
+   const fmHeight = 0.85 + Math.sin(elapsedTime * 6.2 * fSpd + 0.7) * 0.22;
+   const fmWidth = 0.9 + Math.sin(elapsedTime * 7.8 * fSpd + 0.9) * 0.12;
+   fmid.mesh.scale.set(fScl * fmWidth, fScl * fmHeight, fScl * fmWidth);
+   fmid.mesh.position.set(jitterX, jitterY, 0);
+   fmid.mat.opacity = (0.4 + Math.sin(elapsedTime * 5.3 * fSpd + 0.6) * 0.14) * fInt * roomFade;
 
-   // Exterior (idx 2) — lento y suave
+   // Exterior — lento, amplio, casi humo
    const fout = flameOuter;
-   const foFlick = 0.78 + Math.sin(elapsedTime * 4.9 * fSpd + 2.1) * 0.22;
-   fout.mesh.scale.set(fScl * foFlick, fScl * foFlick, fScl * foFlick);
-   fout.mat.opacity = (0.24 + Math.sin(elapsedTime * 3.8 * fSpd + 1.5) * 0.1) * fInt * roomFade;
+   const foHeight = 0.8 + Math.sin(elapsedTime * 3.8 * fSpd + 2.1) * 0.25;
+   const foWidth = 0.85 + Math.sin(elapsedTime * 4.5 * fSpd + 1.8) * 0.18;
+   fout.mesh.scale.set(fScl * foWidth, fScl * foHeight, fScl * foWidth);
+   fout.mesh.position.set(jitterX * 1.3, jitterY * 0.7, 0);
+   fout.mat.opacity = (0.18 + Math.sin(elapsedTime * 3.0 * fSpd + 1.5) * 0.08) * fInt * roomFade;
 
-   // Sprite glow — pulso muy lento
-   const glowPulse = 0.45 + Math.sin(elapsedTime * 2.4 * fSpd) * 0.15;
+   // Sprite glow — pulso lento
+   const glowPulse = 0.35 + Math.sin(elapsedTime * 2.4 * fSpd) * 0.12;
    flameGlowSprite.material.opacity = glowPulse * fInt * roomFade;
-   const glowS = fScl * (1.0 + Math.sin(elapsedTime * 3.1 * fSpd) * 0.08) * 0.09;
+   const glowS = fScl * (1.0 + Math.sin(elapsedTime * 3.1 * fSpd) * 0.08) * 0.085;
    flameGlowSprite.scale.set(glowS, glowS, 1);
   }
 
@@ -4834,6 +5480,10 @@ export function initHeroScene() {
   */
  return () => {
   window.removeEventListener("scroll", onScroll);
+  canvas.removeEventListener("pointermove", onScenePointerMove);
+  canvas.removeEventListener("pointerdown", onScenePointerDown);
+  window.removeEventListener("keydown", onSceneKeyDown);
+  canvas.style.cursor = "";
   window.removeEventListener("resize", onResize);
   document.removeEventListener("visibilitychange", onVisibilityChange);
 
@@ -5114,6 +5764,20 @@ export function initHeroScene() {
   scene.remove(lamparaFlameLight);
 
   scene.remove(deskBounceLight);
+  scene.remove(deskBounceLightR);
+
+  scene.remove(rightWallFill);
+
+  if (wallPoster) {
+   wallPoster.userData.textures.forEach((t) => t && t.dispose && t.dispose());
+   wallPoster.userData.materials.forEach((m) => m && m.dispose && m.dispose());
+   wallPoster.traverse((c) => {
+    if (c.isMesh && c.geometry) c.geometry.dispose();
+   });
+   scene.remove(wallPoster);
+  }
+  scene.remove(posterSpot);
+  scene.remove(posterSpot.target);
 
   if (dogHologram) {
    dogHologram.traverse((child) => {
