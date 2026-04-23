@@ -11,6 +11,139 @@ export function initHeroScene() {
   return;
  }
 
+ // ═══════════════════════════════════════════════════════════════════════
+ // CUSTOM CURSOR — clásico minimal: aro + punto central
+ // ═══════════════════════════════════════════════════════════════════════
+ //
+ // Dos elementos nada más. El aro persigue con lerp (sensación suave).
+ // El punto sigue casi exacto. En hover sobre elementos interactivos,
+ // el aro crece y se rellena un 12%. Nada de trails ni SVG ni rotación.
+ //
+ const CUR_COLOR = "#6ad0ff";
+
+ const cursorRing = document.createElement("div");
+ Object.assign(cursorRing.style, {
+  position: "fixed",
+  top: "0",
+  left: "0",
+  width: "26px",
+  height: "26px",
+  borderRadius: "50%",
+  border: `1.4px solid ${CUR_COLOR}`,
+  background: "rgba(106, 208, 255, 0)",
+  pointerEvents: "none",
+  zIndex: "99998",
+  transform: "translate3d(-50%, -50%, 0)",
+  transition: "width 0.22s ease, height 0.22s ease, background 0.22s ease, border-color 0.22s ease, opacity 0.25s ease",
+  willChange: "transform",
+ });
+
+ const cursorDot = document.createElement("div");
+ Object.assign(cursorDot.style, {
+  position: "fixed",
+  top: "0",
+  left: "0",
+  width: "4px",
+  height: "4px",
+  borderRadius: "50%",
+  background: CUR_COLOR,
+  pointerEvents: "none",
+  zIndex: "99999",
+  transform: "translate3d(-50%, -50%, 0)",
+  transition: "opacity 0.25s ease, width 0.15s ease, height 0.15s ease",
+  willChange: "transform",
+ });
+
+ document.body.appendChild(cursorRing);
+ document.body.appendChild(cursorDot);
+
+ // ── Ocultar cursor nativo: CSS global + inline en html/body ────────────
+ const HIDDEN_CURSOR = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1' height='1'><rect width='1' height='1' fill='none'/></svg>") 0 0, none`;
+
+ const cursorStyleEl = document.createElement("style");
+ cursorStyleEl.setAttribute("data-hero-cursor", "true");
+ cursorStyleEl.textContent = `
+  html, body, #root, main, canvas, a, button, input, textarea, select,
+  label, [role="button"], [data-clickable], * {
+   cursor: ${HIDDEN_CURSOR} !important;
+  }
+ `;
+ document.head.appendChild(cursorStyleEl);
+ document.documentElement.style.setProperty("cursor", HIDDEN_CURSOR, "important");
+ document.body.style.setProperty("cursor", HIDDEN_CURSOR, "important");
+ if (canvas) canvas.style.setProperty("cursor", HIDDEN_CURSOR, "important");
+
+ // ── Estado ──────────────────────────────────────────────────────────────
+ let cursorMouseX = window.innerWidth / 2;
+ let cursorMouseY = window.innerHeight / 2;
+ let cursorRingX = cursorMouseX;
+ let cursorRingY = cursorMouseY;
+ let cursorDotX = cursorMouseX;
+ let cursorDotY = cursorMouseY;
+ let cursorHover = false;
+
+ const onCursorMove = (e) => {
+  cursorMouseX = e.clientX;
+  cursorMouseY = e.clientY;
+
+  if (e.target && e.target.style) {
+   e.target.style.setProperty("cursor", HIDDEN_CURSOR, "important");
+  }
+ };
+
+ const onCursorOver = (e) => {
+  const t = e.target;
+  const isInteractive = t.closest("a, button, [data-clickable], canvas") !== null;
+  if (isInteractive !== cursorHover) {
+   cursorHover = isInteractive;
+   if (cursorHover) {
+    cursorRing.style.width = "40px";
+    cursorRing.style.height = "40px";
+    cursorRing.style.background = "rgba(106, 208, 255, 0.12)";
+    cursorRing.style.borderColor = "rgba(106, 208, 255, 0.9)";
+    cursorDot.style.width = "3px";
+    cursorDot.style.height = "3px";
+   } else {
+    cursorRing.style.width = "26px";
+    cursorRing.style.height = "26px";
+    cursorRing.style.background = "rgba(106, 208, 255, 0)";
+    cursorRing.style.borderColor = CUR_COLOR;
+    cursorDot.style.width = "4px";
+    cursorDot.style.height = "4px";
+   }
+  }
+ };
+
+ const onCursorLeave = () => {
+  cursorRing.style.opacity = "0";
+  cursorDot.style.opacity = "0";
+ };
+ const onCursorEnter = () => {
+  cursorRing.style.opacity = "1";
+  cursorDot.style.opacity = "1";
+ };
+
+ window.addEventListener("mousemove", onCursorMove, { passive: true });
+ window.addEventListener("mouseover", onCursorOver, { passive: true });
+ document.addEventListener("mouseleave", onCursorLeave);
+ document.addEventListener("mouseenter", onCursorEnter);
+
+ let cursorRafId = 0;
+ const cursorTick = () => {
+  // Aro — lerp medio, suave pero responsivo
+  cursorRingX += (cursorMouseX - cursorRingX) * 0.22;
+  cursorRingY += (cursorMouseY - cursorRingY) * 0.22;
+  cursorRing.style.transform = `translate3d(${cursorRingX}px, ${cursorRingY}px, 0) translate(-50%, -50%)`;
+
+  // Punto — casi exacto, solo el más mínimo lerp para suavizar
+  cursorDotX += (cursorMouseX - cursorDotX) * 0.55;
+  cursorDotY += (cursorMouseY - cursorDotY) * 0.55;
+  cursorDot.style.transform = `translate3d(${cursorDotX}px, ${cursorDotY}px, 0) translate(-50%, -50%)`;
+
+  cursorRafId = requestAnimationFrame(cursorTick);
+ };
+ cursorTick();
+
  /**
   * =========================================================
   * VARIABLES
@@ -37,6 +170,13 @@ export function initHeroScene() {
   */
  const isMobile = window.innerWidth < 768;
  const isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
+
+ // Config en vivo de la pantalla wireframe (segunda pantalla).
+ // Se lee desde makeWireframeViewerScreenTexture y desde el GUI.
+ const wireScreen = {
+  fps: 30,
+  speed: 1.0,
+ };
 
  const quality = {
   antialias: !isMobile,
@@ -342,6 +482,17 @@ export function initHeroScene() {
 
  let deskRoot = null;
  let deskAnchor = null;
+
+ // Cola de adjuntos pendientes al deskAnchor (evita race conditions
+ // si un modelo carga antes que la mesa)
+ const pendingDeskChildren = [];
+ const attachToDesk = (child) => {
+  if (deskAnchor) {
+   deskAnchor.add(child);
+  } else {
+   pendingDeskChildren.push(child);
+  }
+ };
  let deskYaw = null;
  let deskFix = null;
  let deskTopSupport = null;
@@ -657,17 +808,16 @@ export function initHeroScene() {
  }
 
  /**
-  * Genera una textura tipo UI futurista minimal (pantalla derecha).
-  * Paneles, títulos, líneas tenues — todo en azules integrados.
+  * Pantalla derecha — visor 3D wireframe minimalista.
+  * Renderiza 3 viewports con geometrías primitivas rotando, estilo CAD.
+  * Cero texto denso: transmite "portfolio 3D" sin gritar.
   */
- /**
-  * Pantalla derecha — documentación de Three.js con scroll vertical lento.
-  * Se registra en screenAnimators para redibujar progresivamente. Contenido
-  * pensado para leerse en el close-up de cámara.
-  */
- function makeDocsScreenTexture() {
-  const W = 1024,
-   H = 640;
+ function makeWireframeViewerScreenTexture() {
+  // Canvas final 720×460 (antes 1024×640) — 50% menos píxeles sin pérdida
+  // visible a la distancia a la que se ve desde la cámara.
+  const W = 460;
+  const H = 300;
+
   const cv = document.createElement("canvas");
   cv.width = W;
   cv.height = H;
@@ -676,188 +826,366 @@ export function initHeroScene() {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
 
-  const sections = [
+  const COL = {
+   bg: "#0b1020",
+   panel: "#0d1526",
+   grid: "#182338",
+   gridStrong: "#25344f",
+   wire: "#6ad0ff",
+   wireSoft: "rgba(61, 123, 168, 0.38)",
+   wireFront: "rgba(106, 208, 255, 0.88)",
+   label: "#8aa0c8",
+   accent: "#b48aff",
+   dim: "#3a4666",
+  };
+
+  // ── Geometrías ─────────────────────────────────────────────────────────
+  const CUBE = (() => {
+   const v = [
+    [-1, -1, -1],
+    [1, -1, -1],
+    [1, 1, -1],
+    [-1, 1, -1],
+    [-1, -1, 1],
+    [1, -1, 1],
+    [1, 1, 1],
+    [-1, 1, 1],
+   ];
+   const e = [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 0],
+    [4, 5],
+    [5, 6],
+    [6, 7],
+    [7, 4],
+    [0, 4],
+    [1, 5],
+    [2, 6],
+    [3, 7],
+   ];
+   return { v, e };
+  })();
+
+  const ICO = (() => {
+   const t = (1 + Math.sqrt(5)) / 2;
+   const v = [
+    [-1, t, 0],
+    [1, t, 0],
+    [-1, -t, 0],
+    [1, -t, 0],
+    [0, -1, t],
+    [0, 1, t],
+    [0, -1, -t],
+    [0, 1, -t],
+    [t, 0, -1],
+    [t, 0, 1],
+    [-t, 0, -1],
+    [-t, 0, 1],
+   ];
+   const n = v.map((p) => {
+    const l = Math.hypot(p[0], p[1], p[2]);
+    return [p[0] / l, p[1] / l, p[2] / l];
+   });
+   const e = [
+    [0, 11],
+    [0, 5],
+    [0, 1],
+    [0, 7],
+    [0, 10],
+    [1, 5],
+    [1, 7],
+    [1, 8],
+    [1, 9],
+    [2, 3],
+    [2, 4],
+    [2, 6],
+    [2, 10],
+    [2, 11],
+    [3, 4],
+    [3, 6],
+    [3, 8],
+    [3, 9],
+    [4, 5],
+    [4, 9],
+    [4, 11],
+    [5, 9],
+    [5, 11],
+    [6, 7],
+    [6, 8],
+    [6, 10],
+    [7, 8],
+    [7, 10],
+    [8, 9],
+    [10, 11],
+   ];
+   return { v: n, e };
+  })();
+
+  const TORUS = (() => {
+   const R = 0.9,
+    r = 0.35,
+    nU = 10,
+    nV = 6;
+   const v = [];
+   for (let i = 0; i < nU; i++) {
+    const u = (i / nU) * Math.PI * 2;
+    for (let j = 0; j < nV; j++) {
+     const th = (j / nV) * Math.PI * 2;
+     v.push([(R + r * Math.cos(th)) * Math.cos(u), r * Math.sin(th), (R + r * Math.cos(th)) * Math.sin(u)]);
+    }
+   }
+   const e = [];
+   for (let i = 0; i < nU; i++) {
+    for (let j = 0; j < nV; j++) {
+     const a = i * nV + j;
+     const b = i * nV + ((j + 1) % nV);
+     const cIx = ((i + 1) % nU) * nV + j;
+     e.push([a, b]);
+     e.push([a, cIx]);
+    }
+   }
+   return { v, e };
+  })();
+
+  // ── Proyección ortográfica ─────────────────────────────────────────────
+  const project = (v, rx, ry, cx, cy, s) => {
+   const cosX = Math.cos(rx),
+    sinX = Math.sin(rx);
+   const cosY = Math.cos(ry),
+    sinY = Math.sin(ry);
+   let x = v[0] * cosY - v[2] * sinY;
+   let z = v[0] * sinY + v[2] * cosY;
+   let y = v[1] * cosX - z * sinX;
+   z = v[1] * sinX + z * cosX;
+   return [cx + x * s, cy - y * s, z];
+  };
+
+  // ── Layout calculado una sola vez ──────────────────────────────────────
+  const headerH = 34;
+  const footY = H - 40;
+  const pad = 14;
+  const vpY = headerH + pad;
+  const vpH = H - headerH - pad - 50;
+  const vpW = (W - pad * 4) / 3;
+
+  const viewports = [
    {
-    title: "THREE.SCENE",
-    subtitle: "Root container for 3D graph",
-    body: ["A Scene holds every object, light", "and camera. Supports background,", "fog and environment maps."],
-    code: [
-     "const scene = new THREE.Scene();",
-     "scene.background = new Color('#07070d');",
-     "scene.fog = new FogExp2('#03030a', 0.02);",
-    ],
-    bullets: ["Tree-structured graph", "Supports fog + env", "Add via scene.add(obj)"],
+    x: pad + 0 * (vpW + pad),
+    geo: CUBE,
+    rxBase: 0.35,
+    ryFactor: 0.3,
+    rxFactor: 0.2,
+    label: "// CUBE",
+    idx: 1,
+    verts: 8,
+    edges: 12,
    },
    {
-    title: "MATERIALS",
-    subtitle: "PBR workflow",
-    body: ["MeshStandardMaterial follows physics.", "Tune roughness + metalness as", "independent surface properties."],
-    code: ["new MeshStandardMaterial({", "  color: '#2f3140',", "  roughness: 0.92,", "  metalness: 0.0,", "});"],
-    bullets: ["Roughness = microsurface", "Metalness = binary in reality", "envMap for reflections"],
+    x: pad + 1 * (vpW + pad),
+    geo: ICO,
+    rxBase: 0.45,
+    ryFactor: 0.38,
+    rxFactor: 0.15,
+    label: "// ICOSAHEDRON",
+    idx: 2,
+    verts: 12,
+    edges: 30,
    },
    {
-    title: "LIGHTS",
-    subtitle: "Cinematic control",
-    body: ["A PointLight with low distance reads", "as a bounce, not a flood. Use decay 2", "for physical falloff."],
-    code: [
-     "new PointLight(",
-     "  '#ff9a52',  // color",
-     "  2.6,        // intensity",
-     "  3.8,        // distance — key",
-     "  2.2,        // decay",
-     ");",
-    ],
-    bullets: ["distance > intensity", "RectAreaLight for walls", "DirectionalLight for key"],
-   },
-   {
-    title: "ANIMATION",
-    subtitle: "Time-based, not frame-based",
-    body: [
-     "Use Clock.getDelta() for frame-rate",
-     "independence. slerp for rotations,",
-     "ease cubically for cinematic feel.",
-    ],
-    code: ["const dt = clock.getDelta();", "mesh.rotation.y += dt * speed;", "q.slerpQuaternions(qA, qB, t);"],
-    bullets: ["Never setTimeout for 3D", "slerp > lerp for rotations", "easeIO3 for IO"],
-   },
-   {
-    title: "PERFORMANCE",
-    subtitle: "Cheap cinema",
-    body: ["Share geometries. Disable unused", "features. Instance what repeats.", "Dispose on unmount, always."],
-    code: ["renderer.shadowMap.enabled = false;", "texture.anisotropy = 8;", "geo.dispose();", "mat.dispose();"],
-    bullets: ["Shared geo = shared GPU buffer", "Instance when N > 30", "Dispose on exit"],
-   },
-   {
-    title: "SHADERS",
-    subtitle: "When PBR isn't enough",
-    body: [
-     "Drop to GLSL via ShaderMaterial for",
-     "hologram effects, dissolves, custom",
-     "lighting. Keep uniforms simple.",
-    ],
-    code: [
-     "uniform float uTime;",
-     "varying vec2 vUv;",
-     "void main() {",
-     "  float s = sin(uTime + vUv.y * 10.);",
-     "  gl_FragColor = vec4(vec3(s), 1.);",
-     "}",
-    ],
-    bullets: ["ShaderMaterial over Raw", "uTime / uResolution uniforms", "Debug via DataTexture"],
+    x: pad + 2 * (vpW + pad),
+    geo: TORUS,
+    rxBase: 0.4,
+    ryFactor: 0.28,
+    rxFactor: 0.18,
+    label: "// TORUS",
+    idx: 3,
+    verts: 60,
+    edges: 120,
    },
   ];
 
-  const SECTION_GAP = 48;
-  const sectionHeight = (s) =>
-   48 + s.body.length * 22 + 22 + (s.code.length + 1) * 20 + 20 + s.bullets.length * 20 + SECTION_GAP;
-  const totalHeight = sections.reduce((a, s) => a + sectionHeight(s), 0) + 120;
+  // ═══════════════════════════════════════════════════════════════════════
+  // PRE-RENDER del FONDO ESTÁTICO — rejillas, marcos, textos, HUD.
+  // Esto se dibuja UNA SOLA VEZ. En cada frame luego se copia con drawImage
+  // (casi gratis) y encima se pinta sólo lo que cambia (las aristas).
+  // ═══════════════════════════════════════════════════════════════════════
+  const bgCv = document.createElement("canvas");
+  bgCv.width = W;
+  bgCv.height = H;
+  const bg = bgCv.getContext("2d");
 
-  let scrollPx = -40;
-  let lastDraw = -1;
+  const drawStaticBackground = () => {
+   // Fondo global
+   bg.fillStyle = COL.bg;
+   bg.fillRect(0, 0, W, H);
 
-  function draw() {
-   // Fondo
-   c.fillStyle = "#0b1020";
-   c.fillRect(0, 0, W, H);
+   // Header
+   bg.fillStyle = COL.panel;
+   bg.fillRect(0, 0, W, headerH);
+   bg.strokeStyle = COL.grid;
+   bg.lineWidth = 1;
+   bg.beginPath();
+   bg.moveTo(0, headerH + 0.5);
+   bg.lineTo(W, headerH + 0.5);
+   bg.stroke();
 
-   // Header fijo
-   const headerH = 42;
-   c.fillStyle = "#0d1526";
-   c.fillRect(0, 0, W, headerH);
-   c.fillStyle = "#6ad0ff";
-   c.font = "12px -apple-system, 'Segoe UI', sans-serif";
-   c.fillText("▸ THREE.JS  /  DOCUMENTATION", 24, 26);
-   c.fillStyle = "#3a4666";
-   c.fillText("v0.160  ●  auto-scroll", W - 220, 26);
+   bg.fillStyle = COL.accent;
+   bg.font = "11px 'Menlo', 'Consolas', monospace";
+   bg.fillText("▸ VIEWPORT", 18, 21);
+   bg.fillStyle = COL.label;
+   bg.fillText("three.js  /  primitives", 110, 21);
+   bg.fillStyle = COL.dim;
+   bg.font = "10px 'Menlo', 'Consolas', monospace";
+   bg.fillText("60 FPS  ●  wire", W - 118, 21);
 
-   c.strokeStyle = "#1d2a48";
-   c.lineWidth = 1;
-   c.beginPath();
-   c.moveTo(0, headerH);
-   c.lineTo(W, headerH);
-   c.stroke();
+   // Cada viewport: panel + borde + rejilla + cruz + label
+   viewports.forEach((vp) => {
+    bg.fillStyle = COL.panel;
+    bg.fillRect(vp.x, vpY, vpW, vpH);
+    bg.strokeStyle = COL.grid;
+    bg.lineWidth = 1;
+    bg.strokeRect(vp.x + 0.5, vpY + 0.5, vpW - 1, vpH - 1);
 
-   // Contenido desplazado
-   let y = headerH + 40 - scrollPx;
-   const leftX = 30;
-   const rightX = W - 30;
-
-   sections.forEach((s) => {
-    // Skip si la sección queda fuera de la pantalla (optimización)
-    const sh = sectionHeight(s);
-    if (y + sh < headerH || y > H + 40) {
-     y += sh;
-     return;
+    // Rejilla cada 30px (antes 20px = 50% menos líneas)
+    bg.beginPath();
+    for (let gx = vp.x + 30; gx < vp.x + vpW; gx += 30) {
+     bg.moveTo(gx + 0.5, vpY + 1);
+     bg.lineTo(gx + 0.5, vpY + vpH - 1);
     }
+    for (let gy = vpY + 30; gy < vpY + vpH; gy += 30) {
+     bg.moveTo(vp.x + 1, gy + 0.5);
+     bg.lineTo(vp.x + vpW - 1, gy + 0.5);
+    }
+    bg.stroke();
 
-    c.fillStyle = "#b48aff";
-    c.font = "600 22px -apple-system, 'Segoe UI', sans-serif";
-    c.fillText(s.title, leftX, y);
-    c.fillStyle = "#5f78a8";
-    c.font = "11px -apple-system, 'Segoe UI', sans-serif";
-    c.fillText(s.subtitle, leftX, y + 18);
-    y += 48;
+    // Cruz central
+    const cx = vp.x + vpW / 2;
+    const cy = vpY + vpH / 2;
+    bg.strokeStyle = COL.gridStrong;
+    bg.beginPath();
+    bg.moveTo(cx - 7, cy + 0.5);
+    bg.lineTo(cx + 7, cy + 0.5);
+    bg.moveTo(cx + 0.5, cy - 7);
+    bg.lineTo(cx + 0.5, cy + 7);
+    bg.stroke();
 
-    c.fillStyle = "#a8b5d0";
-    c.font = "13px -apple-system, 'Segoe UI', sans-serif";
-    s.body.forEach((ln) => {
-     c.fillText(ln, leftX, y);
-     y += 22;
-    });
-    y += 12;
-
-    c.fillStyle = "#060a14";
-    c.fillRect(leftX - 8, y - 14, rightX - leftX + 16, (s.code.length + 1) * 20 + 8);
-    c.fillStyle = "#6ad0ff";
-    c.font = "12px 'Menlo', 'Consolas', monospace";
-    s.code.forEach((ln) => {
-     c.fillText(ln, leftX, y);
-     y += 20;
-    });
-    y += 20;
-
-    c.fillStyle = "#8ae2a3";
-    c.font = "11px -apple-system, 'Segoe UI', sans-serif";
-    s.bullets.forEach((b) => {
-     c.fillText("▸ " + b, leftX, y);
-     y += 20;
-    });
-    y += SECTION_GAP;
+    // Label + índice
+    bg.fillStyle = COL.label;
+    bg.font = "10px 'Menlo', 'Consolas', monospace";
+    bg.fillText(vp.label, vp.x + 8, vpY + 15);
+    bg.fillStyle = COL.dim;
+    bg.fillText("0" + vp.idx, vp.x + vpW - 20, vpY + 15);
    });
 
-   // Fade superior e inferior — oculta los cortes
-   const gTop = c.createLinearGradient(0, headerH, 0, headerH + 28);
-   gTop.addColorStop(0, "rgba(11, 16, 32, 1)");
-   gTop.addColorStop(1, "rgba(11, 16, 32, 0)");
-   c.fillStyle = gTop;
-   c.fillRect(0, headerH, W, 28);
+   // Footer: HUD inferior con métricas
+   bg.fillStyle = COL.panel;
+   bg.fillRect(0, footY, W, 40);
+   bg.strokeStyle = COL.grid;
+   bg.beginPath();
+   bg.moveTo(0, footY + 0.5);
+   bg.lineTo(W, footY + 0.5);
+   bg.stroke();
 
-   const gFoot = c.createLinearGradient(0, H - 36, 0, H);
-   gFoot.addColorStop(0, "rgba(11, 16, 32, 0)");
-   gFoot.addColorStop(1, "rgba(11, 16, 32, 1)");
-   c.fillStyle = gFoot;
-   c.fillRect(0, H - 36, W, 36);
+   bg.font = "10px 'Menlo', 'Consolas', monospace";
+   viewports.forEach((vp) => {
+    const gx = vp.x + 6;
+    bg.fillStyle = COL.dim;
+    bg.fillText("VERTS", gx, footY + 17);
+    bg.fillStyle = COL.wire;
+    bg.fillText(String(vp.verts), gx + 40, footY + 17);
+    bg.fillStyle = COL.dim;
+    bg.fillText("EDGES", gx + 82, footY + 17);
+    bg.fillStyle = COL.wire;
+    bg.fillText(String(vp.edges), gx + 125, footY + 17);
+    // Barra base estática
+    bg.fillStyle = COL.grid;
+    bg.fillRect(gx, footY + 25, vpW - 18, 3);
+   });
+  };
+  drawStaticBackground();
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // DRAW — cada frame. Sólo copia fondo + dibuja wireframes + barras pulse.
+  // ═══════════════════════════════════════════════════════════════════════
+  let t = 0;
+  let lastDraw = -1;
+
+  const drawWireframe = (vp, rx, ry) => {
+   const cx = vp.x + vpW / 2;
+   const cy = vpY + vpH / 2;
+   const scale = Math.min(vpW, vpH) * 0.26;
+   const geo = vp.geo;
+
+   // Proyectar todos los vértices una vez
+   const proj = geo.v.map((vv) => project(vv, rx, ry, cx, cy, scale));
+
+   // Una sola pasada — alpha fijo según Z medio de cada arista (cálculo
+   // barato, sólo un if por arista). Sin sort.
+   c.lineWidth = 1.1;
+   c.strokeStyle = COL.wireSoft;
+   c.beginPath();
+   geo.e.forEach(([a, b]) => {
+    if ((proj[a][2] + proj[b][2]) * 0.5 < 0) {
+     c.moveTo(proj[a][0], proj[a][1]);
+     c.lineTo(proj[b][0], proj[b][1]);
+    }
+   });
+   c.stroke();
+
+   c.strokeStyle = COL.wireFront;
+   c.beginPath();
+   geo.e.forEach(([a, b]) => {
+    if ((proj[a][2] + proj[b][2]) * 0.5 >= 0) {
+     c.moveTo(proj[a][0], proj[a][1]);
+     c.lineTo(proj[b][0], proj[b][1]);
+    }
+   });
+   c.stroke();
+  };
+
+  function draw() {
+   // 1. Copia del fondo estático — operación aceleradísima
+   c.drawImage(bgCv, 0, 0);
+
+   // 2. Wireframes de cada viewport
+   viewports.forEach((vp) => {
+    drawWireframe(vp, t * vp.rxFactor + vp.rxBase, t * vp.ryFactor);
+   });
+
+   // 3. Barras de actividad con pulse — lo único animado del footer
+   c.fillStyle = COL.wire;
+   viewports.forEach((vp, i) => {
+    const gx = vp.x + 6;
+    const pulse = 0.5 + Math.sin(t * 2 + i) * 0.5;
+    c.fillRect(gx, footY + 25, (vpW - 18) * pulse, 3);
+   });
 
    tex.needsUpdate = true;
   }
 
   draw();
 
+  // Acumulador propio: permite cambiar la velocidad sin saltos bruscos.
+  let accumulatedT = 0;
+
   const update = (elapsed) => {
    if (lastDraw < 0) lastDraw = elapsed;
    const dt = elapsed - lastDraw;
-   if (dt < 0.033) return; // ~30fps
+   // FPS configurable en vivo desde GUI
+   const threshold = 1 / Math.max(wireScreen.fps, 0.5);
+   if (dt < threshold) return;
    lastDraw = elapsed;
-
-   scrollPx += dt * 18; // 18 px/s — lento, legible
-   if (scrollPx > totalHeight - H + 80) scrollPx = -40;
+   // Tiempo "artístico" — avanza con speed. A 0 se congela.
+   accumulatedT += dt * wireScreen.speed;
+   t = accumulatedT;
    draw();
   };
 
   screenAnimators.push(update);
   return tex;
  }
-
  // Opcional: si tras ver el console.log quieres forzar una mesh concreta.
  const MONITOR_SCREEN_MESH_NAME = null; // ej: "Screen" o null
 
@@ -907,7 +1235,7 @@ export function initHeroScene() {
   if (!screenMesh) return;
 
   // Fabricamos la textura de contenido
-  const newTex = kind === "code" ? makeCodeScreenTexture() : makeDocsScreenTexture();
+  const newTex = kind === "code" ? makeCodeScreenTexture() : makeWireframeViewerScreenTexture();
 
   // SWAP sobre el material existente (preserva roughness/metalness originales del GLB)
   const mat = Array.isArray(screenMesh.material) ? screenMesh.material[0] : screenMesh.material;
@@ -1112,6 +1440,15 @@ export function initHeroScene() {
    deskSupportMeshes.push(deskTopSupport);
 
    updateDesk();
+   // Vaciar la cola de pendientes (cohete, teclado, ratón que cargaron
+   // antes que la mesa — esto arregla el bug del cohete desaparecido)
+   while (pendingDeskChildren.length) {
+    const pending = pendingDeskChildren.shift();
+    deskAnchor.add(pending);
+   }
+   updateLampara();
+   updateTeclado();
+   updateRaton();
    ensureMonitorsLoaded();
    updateChair();
    requestRender();
@@ -2649,8 +2986,16 @@ export function initHeroScene() {
   z: -3.96,
   scale: 1.0,
   intensity: 1.0,
-  glowStrength: 1.35, // ↑ halo más presente (era 1.0)
+  glowStrength: 1.35,
   flickerSpeed: 1.0,
+  // ── Ajustes específicos del GLB cargado (Blender → Three.js) ──────────
+  glbScale: 0.35, // el GLB viene en metros de Blender — hay que reducirlo
+  glbRotX: -Math.PI * 0.5, // Blender Z-up → Three Y-up: rotamos 90° en X
+  glbRotY: 0,
+  glbRotZ: 0,
+  glbOffsetX: 0,
+  glbOffsetY: 0,
+  glbOffsetZ: 0,
  };
 
  // ── Máquina de estados ────────────────────────────────────────────────────
@@ -2673,306 +3018,14 @@ export function initHeroScene() {
   BUILD: { duration: 2.8 },
  };
 
- // ── Definición de trazos por letra ────────────────────────────────────────
- //
- // Coordenadas en espacio local de la letra, unidad = 1 = altura de la letra.
- // Cada letra puede tener 1 o más trazos (strokes).
- // Cada trazo es un array de Vector3 que serán control points de CatmullRomCurve3.
- // Las letras se apilarán horizontalmente con un letterSpacing constante.
- //
- // Sistema de coordenadas: X = derecha, Y = arriba, Z = 0 (en pared, desplazado después)
- // Bbox de referencia: x ∈ [0, 0.6], y ∈ [0, 1.0]
-
- const V = (x, y, z = 0) => new THREE.Vector3(x, y, z);
-
- const LETTER_STROKES = {
-  D: [
-   // Palo vertical izquierdo
-   [V(0.05, 0.0), V(0.05, 0.5), V(0.05, 1.0)],
-   // Curva derecha (media luna)
-   [V(0.05, 1.0), V(0.45, 0.95), V(0.62, 0.72), V(0.65, 0.5), V(0.62, 0.28), V(0.45, 0.05), V(0.05, 0.0)],
-  ],
-  A: [
-   // Pata izquierda
-   [V(0.0, 0.0), V(0.12, 0.33), V(0.28, 0.68), V(0.3, 1.0)],
-   // Pata derecha
-   [V(0.6, 0.0), V(0.48, 0.33), V(0.32, 0.68), V(0.3, 1.0)],
-   // Travesaño
-   [V(0.1, 0.42), V(0.3, 0.42), V(0.5, 0.42)],
-  ],
-  V: [
-   // Pata izquierda
-   [V(0.0, 1.0), V(0.12, 0.65), V(0.28, 0.32), V(0.3, 0.0)],
-   // Pata derecha
-   [V(0.6, 1.0), V(0.48, 0.65), V(0.32, 0.32), V(0.3, 0.0)],
-  ],
-  I: [
-   // Palo vertical
-   [V(0.3, 0.0), V(0.3, 0.5), V(0.3, 1.0)],
-   // Serif superior
-   [V(0.1, 1.0), V(0.3, 1.0), V(0.5, 1.0)],
-   // Serif inferior
-   [V(0.1, 0.0), V(0.3, 0.0), V(0.5, 0.0)],
-  ],
-  L: [
-   // Palo vertical
-   [V(0.05, 1.0), V(0.05, 0.5), V(0.05, 0.0)],
-   // Base horizontal
-   [V(0.05, 0.0), V(0.32, 0.0), V(0.58, 0.0)],
-  ],
-  O: [
-   // Elipse cerrada — dividida en dos semicírculos para que sea un tubo continuo
-   [
-    V(0.3, 1.0),
-    V(0.62, 0.92),
-    V(0.72, 0.65),
-    V(0.72, 0.5),
-    V(0.72, 0.35),
-    V(0.62, 0.08),
-    V(0.3, 0.0),
-    V(-0.02, 0.08),
-    V(-0.12, 0.35),
-    V(-0.12, 0.5),
-    V(-0.12, 0.65),
-    V(-0.02, 0.92),
-    V(0.3, 1.0),
-   ],
-  ],
-  N: [
-   // Palo izquierdo
-   [V(0.05, 0.0), V(0.05, 0.5), V(0.05, 1.0)],
-   // Diagonal
-   [V(0.05, 1.0), V(0.22, 0.75), V(0.38, 0.5), V(0.55, 0.25), V(0.58, 0.0)],
-   // Palo derecho
-   [V(0.58, 0.0), V(0.58, 0.5), V(0.58, 1.0)],
-  ],
- };
-
- // Orden de letras en "DAVID LLONA"
- // (espacio entre "DAVID" y "LLONA" se gestiona con letterSpacing extra)
- const WORD_LAYOUT = [
-  { char: "D", idx: 0 },
-  { char: "A", idx: 1 },
-  { char: "V", idx: 2 },
-  { char: "I", idx: 3 },
-  { char: "D", idx: 4 },
-  { char: " " }, // espacio — gap extra
-  { char: "L", idx: 5 },
-  { char: "L", idx: 6 },
-  { char: "O", idx: 7 },
-  { char: "N", idx: 8 },
-  { char: "A", idx: 9 },
- ];
-
- // ── Materiales del tubo ───────────────────────────────────────────────────
- //
- // Dos materiales por trazo (se asignan a un Group con dos Mesh):
- //   coreMat  — MeshStandardMaterial emissive brillante (núcleo del tubo)
- //   glowMat  — MeshStandardMaterial emissive más oscuro + transparente (vidrio)
- //
- // No usamos AdditiveBlending en los tubos — querían ser objetos físicos.
- // El glow se logra por emissiveIntensity alta + la PointLight de rebote.
-
- const neonCoreMats = []; // un material por letra (índice 0–9)
- const neonGlowMats = [];
- const neonGlowSpriteMats = []; // SpriteMaterial por letra para el halo 2D
-
- for (let i = 0; i < NEON_LETTER_COUNT; i++) {
-  neonCoreMats.push(
-   new THREE.MeshStandardMaterial({
-    color: NEON_CORE,
-    emissive: NEON_CORE,
-    emissiveIntensity: 2.1,
-    roughness: 0.0,
-    metalness: 0.0,
-    transparent: false,
-   }),
-  );
-
-  neonGlowMats.push(
-   new THREE.MeshStandardMaterial({
-    color: NEON_TUBE,
-    emissive: NEON_TUBE,
-    emissiveIntensity: 1.2,
-    roughness: 0.15,
-    metalness: 0.0,
-    transparent: true,
-    opacity: 0.55,
-    depthWrite: false,
-    side: THREE.FrontSide,
-   }),
-  );
-
-  // Sprite de halo suave por letra — gradiente radial violeta
-  neonGlowSpriteMats.push(
-   new THREE.SpriteMaterial({
-    map: (() => {
-     const cv = document.createElement("canvas");
-     cv.width = cv.height = 64;
-     const c = cv.getContext("2d");
-     const g = c.createRadialGradient(32, 32, 0, 32, 32, 32);
-     g.addColorStop(0.0, "rgba(160, 120, 255, 0.55)");
-     g.addColorStop(0.4, "rgba(120,  80, 220, 0.20)");
-     g.addColorStop(1.0, "rgba(0,  0, 0, 0.00)");
-     c.fillStyle = g;
-     c.fillRect(0, 0, 64, 64);
-     const t = new THREE.CanvasTexture(cv);
-     t.needsUpdate = true;
-     return t;
-    })(),
-    transparent: true,
-    opacity: 0.0,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-   }),
-  );
- }
-
- // ── Construcción geométrica ───────────────────────────────────────────────
- //
- // letterWidth  = ancho de cada caja de letra en unidades de escena
- // letterHeight = altura
- // letterGap    = espacio entre letras
- // wordGap      = espacio extra entre palabras
- //
- // El Group neonGroup se escala en tick() según neonParams.scale.
-
+ // ── Grupo contenedor del neón ─────────────────────────────────────────────
+ // Antes contenía letras dibujadas a mano; ahora es el padre donde se
+ // añadirá el neon.glb al cargar. Se posiciona/escala desde neonParams.
  const neonGroup = new THREE.Group();
  scene.add(neonGroup);
 
- const LETTER_H = 0.38; // altura de cada letra en unidades de escena
- const LETTER_W = 0.6 * LETTER_H; // ancho proporcional
- const LETTER_GAP = 0.14 * LETTER_H; // espacio entre letras
- const WORD_GAP = 0.3 * LETTER_H; // espacio extra entre palabras
- const TUBE_R_CORE = 0.01; // radio del núcleo (vidrio incandescente)
- const TUBE_R_GLOW = 0.017; // radio del tubo exterior (vidrio coloreado)
- const TUBE_SEGS = 5; // segmentos radiales del tubo (bajo = efecto tubo real)
-
- // Calculamos el ancho total para centrar el letrero
- let totalWidth = 0;
- WORD_LAYOUT.forEach((entry) => {
-  totalWidth += entry.char === " " ? WORD_GAP : LETTER_W + LETTER_GAP;
- });
- totalWidth -= LETTER_GAP; // quitar el gap del último carácter
-
- // Meshes agrupados por letra para animación de intensidad
- const neonLetterGroups = []; // índice = letra idx (0–9)
- for (let i = 0; i < NEON_LETTER_COUNT; i++) {
-  const g = new THREE.Group();
-  neonGroup.add(g);
-  neonLetterGroups.push(g);
- }
-
- // Sprites de glow — uno por letra, posicionado en el centro de la bbox
- const neonGlowSprites = [];
- for (let i = 0; i < NEON_LETTER_COUNT; i++) {
-  const sp = new THREE.Sprite(neonGlowSpriteMats[i]);
-  sp.scale.set(LETTER_W * 2.5, LETTER_H * 2.2, 1);
-  neonGroup.add(sp);
-  neonGlowSprites.push(sp);
- }
-
- // Construir los tubos de cada letra
- let cursorX = -totalWidth * 0.5;
-
- WORD_LAYOUT.forEach((entry) => {
-  if (entry.char === " ") {
-   cursorX += WORD_GAP;
-   return;
-  }
-
-  const lIdx = entry.idx;
-  const strokes = LETTER_STROKES[entry.char];
-  const lGroup = neonLetterGroups[lIdx];
-  const coreMat = neonCoreMats[lIdx];
-  const glowMat = neonGlowMats[lIdx];
-
-  // Centro de la letra en X (para el sprite de glow)
-  const letterCenterX = cursorX + LETTER_W * 0.5;
-
-  strokes.forEach((pts) => {
-   // Escalar puntos del trazo al espacio de escena
-   const scaledPts = pts.map((p) => new THREE.Vector3(cursorX + p.x * LETTER_W, p.y * LETTER_H, p.z));
-
-   const curve = new THREE.CatmullRomCurve3(scaledPts, false, "catmullrom", 0.5);
-   const tubePts = Math.max(20, scaledPts.length * 10);
-
-   // Tubo núcleo (vidrio incandescente)
-   const coreGeo = new THREE.TubeGeometry(curve, tubePts, TUBE_R_CORE, TUBE_SEGS, false);
-   const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-   lGroup.add(coreMesh);
-
-   // Tubo exterior (vidrio coloreado)
-   const glowGeo = new THREE.TubeGeometry(curve, tubePts, TUBE_R_GLOW, TUBE_SEGS, false);
-   const glowMesh = new THREE.Mesh(glowGeo, glowMat);
-   lGroup.add(glowMesh);
-  });
-
-  // Posicionar sprite de glow en el centro vertical de la letra
-  neonGlowSprites[lIdx].position.set(letterCenterX, LETTER_H * 0.5, 0.02);
-
-  cursorX += LETTER_W + LETTER_GAP;
- });
-
- // ── Placa trasera fina (aluminio anodizado oscuro) ─────────────────────────
- //
- // Placa casi negra con un tinte metálico muy sutil.
- // No debe destacar — es el soporte silencioso del letrero.
- const backPlateGeo = new THREE.BoxGeometry(totalWidth + 0.12, LETTER_H + 0.1, 0.008);
- const backPlateMat = new THREE.MeshStandardMaterial({
-  color: "#1a1822",
-  roughness: 0.55,
-  metalness: 0.65,
-  envMapIntensity: 0.2,
- });
- const backPlateMesh = new THREE.Mesh(backPlateGeo, backPlateMat);
- backPlateMesh.position.set(0, LETTER_H * 0.5, -0.018); // 18mm detrás de los tubos
- neonGroup.add(backPlateMesh);
-
- // ── Pines de anclaje — pequeñas esferas de acero ─────────────────────────
- const pinGeo = new THREE.SphereGeometry(0.007, 6, 6);
- const pinMat = new THREE.MeshStandardMaterial({
-  color: "#888898",
-  roughness: 0.4,
-  metalness: 0.9,
- });
- const pinPositionsX = [-totalWidth * 0.5 + 0.06, 0, totalWidth * 0.5 - 0.06];
- pinPositionsX.forEach((px) => {
-  const pin = new THREE.Mesh(pinGeo, pinMat);
-  pin.position.set(px, LETTER_H * 0.5, -0.022);
-  neonGroup.add(pin);
- });
-
- // ── Mancha de contaminación en la pared ───────────────────────────────────
- //
- // Plano pegado a la pared trasera con textura de gradiente radial.
- // Simula el rebote difuso de luz violeta sobre el hormigón.
- const neonWallCv = document.createElement("canvas");
- neonWallCv.width = 256;
- neonWallCv.height = 128;
- (() => {
-  const c = neonWallCv.getContext("2d");
-  const g = c.createRadialGradient(128, 64, 0, 128, 64, 128);
-  g.addColorStop(0.0, "rgba(100, 65, 240, 0.32)");
-  g.addColorStop(0.35, "rgba(75,  45, 180, 0.14)");
-  g.addColorStop(0.7, "rgba(50,  30, 120, 0.05)");
-  g.addColorStop(1.0, "rgba(0,   0,   0, 0.00)");
-  c.fillStyle = g;
-  c.fillRect(0, 0, 256, 128);
- })();
- const neonWallTex = new THREE.CanvasTexture(neonWallCv);
- const neonWallMat = new THREE.MeshBasicMaterial({
-  map: neonWallTex,
-  transparent: true,
-  opacity: 0.0,
-  depthWrite: false,
-  blending: THREE.AdditiveBlending,
-  side: THREE.DoubleSide,
- });
- const neonWallGeo = new THREE.PlaneGeometry(totalWidth * 2.8, LETTER_H * 4.0);
- const neonWallMesh = new THREE.Mesh(neonWallGeo, neonWallMat);
- neonWallMesh.position.set(0, LETTER_H * 0.5, -0.03); // pegado a la pared
- neonGroup.add(neonWallMesh); // forma parte del grupo → se mueve con él
+ // Stub de mancha de pared — el tick aún hace referencia a ella. Vacía.
+ const neonWallMat = { opacity: 0 };
 
  // ── Luces de rebote ───────────────────────────────────────────────────────
  //
@@ -3089,8 +3142,7 @@ export function initHeroScene() {
  const ambientLight = new THREE.AmbientLight("#2e3860", 0.14);
  scene.add(ambientLight);
 
- // Key fría lateral: entra por ventana, recorta bordes. Sin target forzado:
- // apuntar al astronauta convierte el rim en luz frontal que aplana.
+ // Key fría lateral: entra por ventana, recorta bordes.
  const moonLight = new THREE.DirectionalLight("#8a9cff", 1.0);
  moonLight.position.set(-5, 4, 1);
  scene.add(moonLight);
@@ -3099,11 +3151,9 @@ export function initHeroScene() {
  const windowFillLight = new THREE.PointLight("#5a72d8", 0.75, 14, 2);
  windowFillLight.position.set(-4.2, 3.0, 0.5);
  scene.add(windowFillLight);
-
  // WARM KEY del cohete — cálida pero CONTENIDA.
- // distance bajo para que NO se coma toda la escena (como en la ref).
+ // distance bajo para que NO se coma toda la escena.
  const warmLight = new THREE.PointLight("#ff9a52", 2.6, 3.8, 2);
-
  warmLight.position.set(-4.03, 3.09, -2.12);
  scene.add(warmLight);
 
@@ -3142,23 +3192,25 @@ export function initHeroScene() {
  lamparaFlameLight.position.set(-3.74, 2.5, 0.33);
  scene.add(lamparaFlameLight);
 
- // Rebote cálido sobre la superficie de la mesa — ayuda a leer teclado/ratón
- // sin que se note como luz nueva. Decay alto = cae muy rápido fuera del área.
+ // Rebote cálido sobre la superficie de la mesa (zona cohete).
  const deskBounceLight = new THREE.PointLight("#ff9a60", 0.8, 1.9, 2.6);
  deskBounceLight.position.set(-3.5, 2.65, -1.65);
  scene.add(deskBounceLight);
 
- const deskBounceLightR = new THREE.PointLight("#ff8f55", 0.55, 2.4, 2.8);
- deskBounceLightR.position.set(-1.2, 2.55, -1.2);
+ // ── CAMBIO: deskBounceLightR — antes producía un rim duro en la silla.
+ //    Baja intensidad (0.55 → 0.3), color menos saturado, distance más corta,
+ //    y la subo ligeramente en Y para que caiga sobre la mesa, no sobre la
+ //    silla. Ahora se siente como rebote de mesa, no como luz artificial.
+ const deskBounceLightR = new THREE.PointLight("#e69165", 0.3, 1.8, 3.0);
+ deskBounceLightR.position.set(-0.4, 2.75, -1.4);
  scene.add(deskBounceLightR);
 
- // ── FILL CÁLIDO VERTICAL — lado derecho ─────────────────────────────────
- // Rompe el negro muerto sobre el mueble y conecta el rebote cálido
- // inferior con la pared/cuadro. Distance contenida → no alcanza la mesa
- // ni compite con warmLight del cohete. Intensidad mínima a propósito:
- // debe sentirse antes que verse.
- const rightWallFill = new THREE.PointLight("#d07a45", 0.3, 4.2, 2.2);
- rightWallFill.position.set(4.2, 3.8, -2.2);
+ // ── CAMBIO: rightWallFill — era la culpable principal del edge naranja
+ //    en el lado derecho de la silla. Bajo intensidad, ALEJO la luz
+ //    (X +4.2 → +5.0) y subo la Y para que trabaje sobre la pared, no
+ //    sobre el respaldo de la silla.
+ const rightWallFill = new THREE.PointLight("#c97a4a", 0.22, 5.5, 2.4);
+ rightWallFill.position.set(5.0, 4.4, -2.4);
  scene.add(rightWallFill);
 
  /**
@@ -3791,28 +3843,11 @@ export function initHeroScene() {
   projectorBody.position.y = 0.013;
   g.add(projectorBody);
 
-  // Lente emisora — disco cian aditivo sobre el proyector.
-  // Este es el "foco" que está proyectando al perro.
-  const emitterMat = new THREE.MeshBasicMaterial({
-   color: cyanBright,
-   transparent: true,
-   opacity: 0.55,
-   blending: THREE.AdditiveBlending,
-   side: THREE.DoubleSide,
-   depthWrite: false,
-   toneMapped: false,
-  });
-  const emitter = new THREE.Mesh(new THREE.CircleGeometry(0.28, 48), emitterMat);
-  emitter.rotation.x = -Math.PI * 0.5;
-  emitter.position.y = 0.027;
-  g.add(emitter);
-
   // Anillo exterior — borde luminoso del dispositivo.
   const ringMat = new THREE.MeshBasicMaterial({
-   color: cyan,
+   color: "#c8a870",
    transparent: true,
-   opacity: 0.7,
-   blending: THREE.AdditiveBlending,
+   opacity: 0.55, // más sutil — no debe dominar visualmente al sol
    side: THREE.DoubleSide,
    depthWrite: false,
    toneMapped: false,
@@ -3838,7 +3873,7 @@ export function initHeroScene() {
   g.add(scan);
 
   // ── Luz de rebote cian — tiñe muy sutilmente el entorno cercano ────────
-  const holoLight = new THREE.PointLight(cyan, 0.55, 1.9, 2.0);
+  const holoLight = new THREE.PointLight(cyan, 0.7, 1.3, 2.2);
   holoLight.position.set(0, 0.4, 0);
   g.add(holoLight);
 
@@ -3853,14 +3888,15 @@ export function initHeroScene() {
    bodyMat.opacity = 0.5 + breath;
    wireMat.opacity = 0.42 + breath * 0.6;
 
-   // Scan: barrido vertical lento. Fade en extremos para look limpio.
-   const t01 = Math.sin(t * 0.55) * 0.5 + 0.5; // [0,1]
+   // Scan: barrido vertical lento. Fade en extremos.
+   const t01 = Math.sin(t * 0.55) * 0.5 + 0.5;
    scan.position.y = SCAN_MIN + t01 * (SCAN_MAX - SCAN_MIN);
-   const edgeFade = Math.sin(t01 * Math.PI); // atenúa en bordes
+   const edgeFade = Math.sin(t01 * Math.PI);
    scanMat.opacity = 0.25 + edgeFade * 0.3;
 
-   // Luz: micro-flicker orgánico, sin parpadeo evidente
-   holoLight.intensity = 0.55 + Math.sin(t * 2.1) * 0.04;
+   // Micro flicker orgánico
+   holoLight.intensity = 0.7 + Math.sin(t * 2.1) * 0.04;
+   dogBody.rotation.y = t * 0.25;
   };
 
   // Referencias expuestas (dispose ya cubierto por el traverse existente)
@@ -3870,10 +3906,372 @@ export function initHeroScene() {
  }
 
  const dogHologram = createDogHologram();
- // Posición: suelo, delante de la ventana, lado frío de la escena
- dogHologram.position.set(-3.5, 0, 1.2);
- dogHologram.scale.setScalar(0.85);
- scene.add(dogHologram);
+ dogHologram.scale.setScalar(0.59); // más pequeño — sobre la mesa debe sentirse como dispositivo, no escultura
+ // Lo anclamos al deskAnchor si existe, o lo ponemos en cola. Así siempre
+ // viaja con la mesa (misma lógica que cohete/teclado/ratón).
+ const placeDogHologram = () => {
+  if (!deskTopSupport) {
+   // Mesa aún no lista — reintento en el siguiente frame disponible
+   requestAnimationFrame(placeDogHologram);
+   return;
+  }
+  dogHologram.position.set(2.2, deskTopSupport.position.y + 0.01, 0.4);
+ };
+ attachToDesk(dogHologram);
+ placeDogHologram();
+
+ // ═══════════════════════════════════════════════════════════════════════
+ // ORRERY — mueble con maqueta del sistema solar bajo cúpula de cristal
+ // ═══════════════════════════════════════════════════════════════════════
+ //
+ // Pieza de "vitrina de museo" en la esquina derecha. Un mueble bajo
+ // sostiene una cúpula semi-transparente con un sistema solar en
+ // miniatura: sol central emisivo + 2 anillos orbitales + 2 planetas
+ // que orbitan lentamente. La luz cálida interna se escapa por el
+ // cristal y tiñe la pared sin competir con el resto de la escena.
+ //
+ // Movimiento: rotación orbital muy lenta. Presencia, no animación.
+ //
+ function createOrrery() {
+  const g = new THREE.Group();
+
+  // ── Mueble (pedestal) — más grande para acomodar sistema solar completo ─
+  const PEDESTAL_W = 0.9;
+  const PEDESTAL_H = 0.48; // antes 1.25 — display bajo, como mesa de museo
+  const PEDESTAL_D = 0.55;
+
+  const pedestalMat = new THREE.MeshStandardMaterial({
+   color: "#1a1c26",
+   roughness: 0.72,
+   metalness: 0.35,
+  });
+
+  // ── Mueble-base: caja achatada con cantos ámbar ────────────────────────
+  //
+  // Arquitectura en 3 capas para que tenga profundidad real:
+  //   1) Cuerpo oscuro (caja principal) — opaco, mate, da volumen
+  //   2) Cantos perimetrales emisivos — línea ámbar por las 4 aristas de
+  //      arriba. Es el "LED strip" del mueble. La luz nace del objeto.
+  //   3) Tapa fina metálica — donde se apoya el pedestal de la cúpula.
+  //
+  // Altura total ~ 0.15u. Ocupa la misma huella que el pedestal anterior
+  // pero sin altura: prioridad a la luz y a la lectura como objeto sólido.
+  //
+  const BASE_W = PEDESTAL_W * 1.35;
+  const BASE_D = PEDESTAL_D * 1.35;
+  const BASE_H = 0.14;
+
+  // Cuerpo principal — oscuro y mate. Lo que da "volumen sólido".
+  const baseBodyMat = new THREE.MeshStandardMaterial({
+   color: "#15171f",
+   roughness: 0.82,
+   metalness: 0.28,
+  });
+  const baseBody = new THREE.Mesh(new THREE.BoxGeometry(BASE_W, BASE_H, BASE_D), baseBodyMat);
+  baseBody.position.y = BASE_H * 0.5;
+  g.add(baseBody);
+
+  // Tapa metálica superior — plano fino donde se apoya el pedestal.
+  // Ligeramente más pequeña que el cuerpo → crea un rebaje visible donde
+  // se aloja la línea LED. Roughness bajo = refleja un poco el ámbar.
+  const baseTopMat = new THREE.MeshStandardMaterial({
+   color: "#2a2d38",
+   roughness: 0.45,
+   metalness: 0.7,
+  });
+  const baseTop = new THREE.Mesh(new THREE.BoxGeometry(BASE_W * 0.92, 0.008, BASE_D * 0.92), baseTopMat);
+  baseTop.position.y = BASE_H + 0.005;
+  g.add(baseTop);
+
+  // Cantos luminosos perimetrales — 4 barras finas ámbar encajadas en el
+  // rebaje entre cuerpo y tapa. AQUÍ nace la luz del mueble.
+  const edgeLedMat = new THREE.MeshBasicMaterial({
+   color: "#ff9a4a",
+   transparent: true,
+   opacity: 0.95,
+   toneMapped: false,
+  });
+  const LED_T = 0.012; // grosor del canto luminoso
+  const LED_H = 0.018; // altura del canto
+
+  const makeEdgeBar = (w, d, x, z) => {
+   const bar = new THREE.Mesh(new THREE.BoxGeometry(w, LED_H, d), edgeLedMat);
+   // Colocada justo en la junta entre cuerpo y tapa → parece que la luz
+   // sale por la ranura perimetral del mueble.
+   bar.position.set(x, BASE_H - LED_H * 0.35, z);
+   g.add(bar);
+  };
+
+  // Frontal / trasera / laterales
+  makeEdgeBar(BASE_W, LED_T, 0, BASE_D * 0.5 - LED_T * 0.5);
+  makeEdgeBar(BASE_W, LED_T, 0, -BASE_D * 0.5 + LED_T * 0.5);
+  makeEdgeBar(LED_T, BASE_D, BASE_W * 0.5 - LED_T * 0.5, 0);
+  makeEdgeBar(LED_T, BASE_D, -BASE_W * 0.5 + LED_T * 0.5, 0);
+
+  // Luz cálida emitida desde los cantos — baña el pedestal desde abajo
+  // y tiñe el suelo alrededor del mueble. Contenida a 2u.
+  const edgeLight = new THREE.PointLight("#ff9a4a", 1.0, 2.0, 2.4);
+  edgeLight.position.set(0, BASE_H + 0.05, 0);
+  g.add(edgeLight);
+
+  // Rebote tenue en el suelo justo alrededor del mueble — círculo sprite
+  // ámbar aditivo. Da la sensación de que la luz "escurre" por el suelo.
+  const floorGlowCv = document.createElement("canvas");
+  floorGlowCv.width = floorGlowCv.height = 128;
+  {
+   const ctx = floorGlowCv.getContext("2d");
+   const gr = ctx.createRadialGradient(64, 64, 4, 64, 64, 64);
+   gr.addColorStop(0.0, "rgba(255, 154, 74, 0.55)");
+   gr.addColorStop(0.4, "rgba(255, 140, 60, 0.18)");
+   gr.addColorStop(1.0, "rgba(255, 140, 60, 0)");
+   ctx.fillStyle = gr;
+   ctx.fillRect(0, 0, 128, 128);
+  }
+  const floorGlowTex = new THREE.CanvasTexture(floorGlowCv);
+  floorGlowTex.colorSpace = THREE.SRGBColorSpace;
+  const floorGlow = new THREE.Mesh(
+   new THREE.PlaneGeometry(BASE_W * 2.3, BASE_D * 2.3),
+   new THREE.MeshBasicMaterial({
+    map: floorGlowTex,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
+   }),
+  );
+  floorGlow.rotation.x = -Math.PI * 0.5;
+  floorGlow.position.y = 0.002; // casi pegado al suelo
+  g.add(floorGlow);
+
+  const pedestal = new THREE.Mesh(new THREE.BoxGeometry(PEDESTAL_W, PEDESTAL_H, PEDESTAL_D), pedestalMat);
+  pedestal.position.y = BASE_H + PEDESTAL_H * 0.5;
+  g.add(pedestal);
+
+  // Tapa superior: disco metálico
+  const capMat = new THREE.MeshStandardMaterial({
+   color: "#242736",
+   roughness: 0.55,
+   metalness: 0.55,
+  });
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(PEDESTAL_W * 0.48, PEDESTAL_W * 0.48, 0.025, 32), capMat);
+  cap.position.y = BASE_H + PEDESTAL_H + 0.012;
+  g.add(cap);
+
+  // Banda luminosa inferior de la cúpula
+  const stripMat = new THREE.MeshBasicMaterial({
+   color: "#d78a4a",
+   transparent: true,
+   opacity: 0.7,
+   toneMapped: false,
+  });
+  const strip = new THREE.Mesh(new THREE.TorusGeometry(PEDESTAL_W * 0.46, 0.004, 8, 64), stripMat);
+  strip.rotation.x = Math.PI * 0.5;
+  strip.position.y = BASE_H + PEDESTAL_H + 0.024;
+  g.add(strip);
+
+  // ── Cúpula de cristal — grande y MUY transparente para ver el contenido ─
+  const DOME_RADIUS = 0.5;
+  const domeGeo = new THREE.SphereGeometry(DOME_RADIUS, 40, 28, 0, Math.PI * 2, 0, Math.PI * 0.5);
+  const domeMat = new THREE.MeshStandardMaterial({
+   color: "#8ab0e0",
+   roughness: 0.08,
+   metalness: 0.3,
+   transparent: true,
+   opacity: 0.14, // muy transparente → el sistema solar manda
+   depthWrite: false,
+   side: THREE.DoubleSide,
+  });
+  const dome = new THREE.Mesh(domeGeo, domeMat);
+  dome.position.y = BASE_H + PEDESTAL_H + 0.025;
+  g.add(dome);
+
+  // Aro metálico que cierra la cúpula contra el pedestal
+  const domeRingMat = new THREE.MeshStandardMaterial({
+   color: "#3a404f",
+   roughness: 0.4,
+   metalness: 0.75,
+  });
+  const domeRing = new THREE.Mesh(new THREE.TorusGeometry(DOME_RADIUS * 0.98, 0.014, 8, 64), domeRingMat);
+  domeRing.rotation.x = Math.PI * 0.5;
+  domeRing.position.y = BASE_H + PEDESTAL_H + 0.028;
+  g.add(domeRing);
+
+  // ── Contenido del orrery (vive en un grupo para moverlo en conjunto) ────
+  const orreryInner = new THREE.Group();
+  orreryInner.position.y = BASE_H + PEDESTAL_H + 0.06;
+  g.add(orreryInner);
+
+  // ── SOL central — esfera emisiva cálida, más presencia ─────────────────
+  const sunMat = new THREE.MeshBasicMaterial({
+   color: "#ffc877",
+   toneMapped: false,
+  });
+  const sun = new THREE.Mesh(new THREE.SphereGeometry(0.07, 24, 18), sunMat);
+  sun.position.y = 0.2;
+  orreryInner.add(sun);
+
+  // Halo del sol — sprite radial
+  const haloCv = document.createElement("canvas");
+  haloCv.width = haloCv.height = 128;
+  {
+   const ctx = haloCv.getContext("2d");
+   const grad = ctx.createRadialGradient(64, 64, 2, 64, 64, 64);
+   grad.addColorStop(0.0, "rgba(255, 210, 130, 0.95)");
+   grad.addColorStop(0.25, "rgba(250, 170, 90, 0.55)");
+   grad.addColorStop(0.6, "rgba(230, 140, 70, 0.15)");
+   grad.addColorStop(1.0, "rgba(230, 140, 70, 0)");
+   ctx.fillStyle = grad;
+   ctx.fillRect(0, 0, 128, 128);
+  }
+  const haloTex = new THREE.CanvasTexture(haloCv);
+  haloTex.colorSpace = THREE.SRGBColorSpace;
+  const haloMat = new THREE.SpriteMaterial({
+   map: haloTex,
+   transparent: true,
+   depthWrite: false,
+   blending: THREE.AdditiveBlending,
+   toneMapped: false,
+  });
+  const sunHalo = new THREE.Sprite(haloMat);
+  sunHalo.scale.set(0.48, 0.48, 0.48);
+  sunHalo.position.y = 0.2;
+  orreryInner.add(sunHalo);
+
+  // ── Órbitas (anillos guía) — finos, ámbar muy apagado ──────────────────
+  const orbitMat = new THREE.MeshBasicMaterial({
+   color: "#a07850",
+   transparent: true,
+   opacity: 0.55,
+   side: THREE.DoubleSide,
+   depthWrite: false,
+   toneMapped: false,
+  });
+  const makeOrbit = (radius) => {
+   // TorusGeometry (no RingGeometry) — tiene volumen 3D, se ve desde
+   // cualquier ángulo. Un Ring plano de 0.0012 de grosor era invisible
+   // a la distancia de la cámara.
+   const orbit = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.0045, 4, 72), orbitMat);
+   orbit.rotation.x = -Math.PI * 0.5;
+   orbit.position.y = 0.2;
+   orreryInner.add(orbit);
+  };
+
+  // ── 8 PLANETAS — tamaños/distancias/velocidades relativas ──────────────
+  // Distancias escaladas logarítmicamente (si fuera real, Neptuno estaría
+  // fuera de la cúpula). Velocidades ∝ 1/sqrt(radius) como Kepler manda.
+  // Colores aproximados a los reales — identidad del sistema solar.
+  const planetSpecs = [
+   { name: "mercury", color: "#b8a38a", size: 0.035, radius: 0.09, speed: 0.62, phase: 0.0 },
+   { name: "venus", color: "#f0cc8a", size: 0.048, radius: 0.13, speed: 0.46, phase: 1.2 },
+   { name: "earth", color: "#5a9cd8", size: 0.05, radius: 0.17, speed: 0.36, phase: 2.4 },
+   { name: "mars", color: "#d86a4a", size: 0.042, radius: 0.21, speed: 0.28, phase: 3.6 },
+   { name: "jupiter", color: "#e9b878", size: 0.082, radius: 0.26, speed: 0.17, phase: 0.5 },
+   { name: "saturn", color: "#f0d89c", size: 0.072, radius: 0.31, speed: 0.13, phase: 1.8, ring: true },
+   { name: "uranus", color: "#9fd4dc", size: 0.055, radius: 0.37, speed: 0.09, phase: 3.0 },
+   { name: "neptune", color: "#4a7acc", size: 0.055, radius: 0.42, speed: 0.07, phase: 4.3 },
+  ];
+
+  const orreryControls = {
+   planetSize: 0.32,
+   orbitSpeed: 1.15,
+   sunSize: 1.04,
+  };
+
+  // Textura de glow compartida — un solo canvas, 8 sprites la usan.
+  const planetGlowCv = document.createElement("canvas");
+  planetGlowCv.width = planetGlowCv.height = 64;
+  {
+   const ctx = planetGlowCv.getContext("2d");
+   const gr = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+   gr.addColorStop(0.0, "rgba(255,255,255,0.95)");
+   gr.addColorStop(0.35, "rgba(255,255,255,0.35)");
+   gr.addColorStop(1.0, "rgba(255,255,255,0)");
+   ctx.fillStyle = gr;
+   ctx.fillRect(0, 0, 64, 64);
+  }
+  const planetGlowTex = new THREE.CanvasTexture(planetGlowCv);
+  planetGlowTex.colorSpace = THREE.SRGBColorSpace;
+
+  const planets = planetSpecs.map((spec) => {
+   makeOrbit(spec.radius);
+
+   const mat = new THREE.MeshBasicMaterial({
+    color: spec.color,
+    toneMapped: false,
+   });
+   const mesh = new THREE.Mesh(new THREE.SphereGeometry(spec.size, 14, 10), mat);
+   mesh.position.y = 0.2;
+   mesh.renderOrder = 10; // se pinta DESPUÉS de la cúpula transparente
+   orreryInner.add(mesh);
+
+   // Glow aditivo del color del planeta — los hace visibles sobre fondo oscuro
+   const glowMat = new THREE.SpriteMaterial({
+    map: planetGlowTex,
+    color: new THREE.Color(spec.color),
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false,
+    opacity: 0.7,
+   });
+   const glow = new THREE.Sprite(glowMat);
+   glow.scale.setScalar(spec.size * 3.2);
+   glow.renderOrder = 11;
+   mesh.add(glow);
+
+   // Anillo de Saturno — igual que antes
+   if (spec.ring) {
+    const ringMat = new THREE.MeshBasicMaterial({
+     color: "#c8a870",
+     transparent: true,
+     opacity: 0.65,
+     side: THREE.DoubleSide,
+     depthWrite: false,
+     toneMapped: false,
+    });
+    const saturnRing = new THREE.Mesh(new THREE.RingGeometry(spec.size * 1.4, spec.size * 2.1, 48), ringMat);
+    saturnRing.rotation.x = -Math.PI * 0.5 + 0.28;
+    saturnRing.renderOrder = 10;
+    mesh.add(saturnRing);
+   }
+
+   return { mesh, ...spec };
+  });
+
+  // ── Luz interna — más fuerte, el contenido debe leerse ─────────────────
+  const orreryLight = new THREE.PointLight("#ffb060", 2.37, 3.2, 2.0);
+  orreryLight.position.set(0, BASE_H + PEDESTAL_H + 0.26, 0);
+  g.add(orreryLight);
+
+  // ── Update — órbitas + respiración del sol ─────────────────────────────
+  g.userData.update = (t) => {
+   const { planetSize, orbitSpeed, sunSize } = orreryControls;
+   planets.forEach((p) => {
+    const a = t * p.speed * orbitSpeed + p.phase;
+    p.mesh.position.x = Math.cos(a) * p.radius;
+    p.mesh.position.z = Math.sin(a) * p.radius;
+    p.mesh.rotation.y = t * p.speed * orbitSpeed * 3;
+    p.mesh.scale.setScalar(planetSize);
+   });
+   // Sol y halo acompañan el multiplicador propio
+   sun.scale.setScalar(sunSize);
+   sunHalo.scale.setScalar(0.48 * sunSize);
+   // Respiración del halo
+   haloMat.opacity = 0.85 + Math.sin(t * 0.9) * 0.1;
+   // Flicker de la luz interna
+   orreryLight.intensity = 2.37 + Math.sin(t * 1.3) * 0.06;
+  };
+
+  g.userData.orreryLight = orreryLight;
+  g.userData.controls = orreryControls;
+  return g;
+ }
+
+ const orrery = createOrrery();
+ orrery.scale.setScalar(2.05);
+ orrery.position.set(4.5, 0, -3.45);
+ orrery.rotation.y = -0.35;
+ scene.add(orrery);
 
  /**
   * =========================================================
@@ -4021,6 +4419,63 @@ export function initHeroScene() {
   brightness: 0.2,
  };
 
+ // ═══════════════════════════════════════════════════════════════════════
+ // NEÓN DE PARED — carga neon.glb con titileo global.
+ // El GLB tiene 3 mallas (Texto, Texto.001, Texto.002) que actúan como
+ // 3 capas del mismo letrero. Todas parpadean sincronizadas como un
+ // letrero de bar viejo: onda base + gate ocasional + glitches cortos.
+ // ═══════════════════════════════════════════════════════════════════════
+ const neonLoader = new GLTFLoader();
+ let neonModel = null;
+ const neonGlbMats = []; // mallas del GLB con material emissive asignado
+
+ neonLoader.load(
+  "/modelos/neon.glb",
+  (gltf) => {
+   neonModel = gltf.scene;
+
+   neonModel.traverse((child) => {
+    if (!child.isMesh) return;
+
+    // El GLB trae los colores en `emissive` del material original
+    // (baseColor es negro). Conservamos el material tal cual y solo
+    // subimos la intensidad para que brille como neón.
+    const mat = child.material;
+    mat.emissiveIntensity = 2.5;
+    mat.transparent = true;
+    mat.opacity = 0.95;
+    mat.toneMapped = false; // emissive en "bruto" → colores saturados reales
+    mat.roughness = 0.3;
+    mat.metalness = 0.0;
+
+    child.userData.baseIntensity = 2.5;
+
+    // Identificar por el color emissive si es letra AMARILLA (I o A).
+    // Amarillo = R alta, G alta, B muy baja. Tolerancia amplia.
+    const e = mat.emissive;
+    const isYellow = e.r > 0.5 && e.g > 0.4 && e.b < 0.2;
+    child.userData.isFlicker = isYellow;
+
+    neonGlbMats.push(child);
+   });
+
+   // Aplicar orientación y escala desde neonParams
+   neonModel.rotation.set(neonParams.glbRotX, neonParams.glbRotY, neonParams.glbRotZ);
+   neonModel.scale.setScalar(neonParams.glbScale);
+   neonModel.position.set(neonParams.glbOffsetX, neonParams.glbOffsetY, neonParams.glbOffsetZ);
+
+   // DEBUG temporal — expongo al scope global para inspección desde consola
+   window.__neon = neonModel;
+   window.__neonGroup = neonGroup;
+   window.__THREE = THREE;
+
+   neonGroup.add(neonModel);
+   requestRender();
+  },
+  undefined,
+  (err) => console.error("[neon.glb] error:", err),
+ );
+
  const lamparaLoader = new GLTFLoader();
  lamparaLoader.load(
   "/modelos/lampara.glb",
@@ -4046,7 +4501,7 @@ export function initHeroScene() {
    });
 
    // Adjuntar a deskAnchor cuando esté disponible
-   if (deskAnchor) deskAnchor.add(lamparaAnchor);
+   attachToDesk(lamparaAnchor);
    updateLampara();
    // Activar y posicionar las llamas del cohete
    flameGroup.visible = true;
@@ -4159,7 +4614,7 @@ export function initHeroScene() {
     });
    });
 
-   if (deskAnchor) deskAnchor.add(tecladoAnchor);
+   attachToDesk(tecladoAnchor);
    updateTeclado();
    requestRender();
   },
@@ -4224,7 +4679,7 @@ export function initHeroScene() {
     });
    });
 
-   if (deskAnchor) deskAnchor.add(ratonAnchor);
+   attachToDesk(ratonAnchor);
    updateRaton();
    requestRender();
   },
@@ -4433,405 +4888,221 @@ export function initHeroScene() {
  };
 
  if (gui) {
-  // ─────────────────────────────────────────────────────────────────────────
-  // ROOM / OTHER — carpetas originales (debajo de Exterior Scene)
-  // ─────────────────────────────────────────────────────────────────────────
-  const cameraFolder = gui.addFolder("Camera");
-  cameraFolder
-   .add(cameraBase, "x", -10, 10, 0.01)
-   .name("base x")
-   .onChange(() => {
-    buildKeyframes();
+  // ─────────────────────────────────────────────────────────────────────
+  // 💜 NEÓN (letrero de pared)
+  // ─────────────────────────────────────────────────────────────────────
+  const neonFolder = gui.addFolder("💜 Neón");
+
+  // Posición del conjunto (luces + modelo)
+  neonFolder.add(neonParams, "x", -6, 6, 0.01).name("x grupo").onChange(requestRender);
+  neonFolder.add(neonParams, "y", 0, 10, 0.01).name("y grupo").onChange(requestRender);
+  neonFolder.add(neonParams, "z", -8, 2, 0.01).name("z grupo").onChange(requestRender);
+  neonFolder.add(neonParams, "scale", 0.1, 3, 0.01).name("scale grupo").onChange(requestRender);
+  neonFolder.add(neonParams, "intensity", 0, 3, 0.01).name("intensidad").onChange(requestRender);
+  neonFolder.add(neonParams, "glowStrength", 0, 3, 0.01).name("glow").onChange(requestRender);
+
+  // ── Ajustes específicos del GLB (rotación/escala internas) ──────────
+  const applyNeonGlbTransform = () => {
+   if (neonModel) {
+    neonModel.rotation.set(neonParams.glbRotX, neonParams.glbRotY, neonParams.glbRotZ);
+    neonModel.scale.setScalar(neonParams.glbScale);
+    neonModel.position.set(neonParams.glbOffsetX, neonParams.glbOffsetY, neonParams.glbOffsetZ);
     requestRender();
-   });
-
-  cameraFolder
-   .add(cameraBase, "y", 0, 10, 0.01)
-   .name("base y")
-   .onChange(() => {
-    buildKeyframes();
-    requestRender();
-   });
-
-  cameraFolder
-   .add(cameraBase, "z", 0, 20, 0.01)
-   .name("base z")
-   .onChange(() => {
-    buildKeyframes();
-    requestRender();
-   });
-
-  cameraFolder
-   .add(camera, "fov", 20, 90, 1)
-   .name("fov")
-   .onChange(() => {
-    camera.updateProjectionMatrix();
-    requestRender();
-   });
-
-  cameraFolder.add(controls.target, "x", -10, 10, 0.01).name("target x");
-  cameraFolder.add(controls.target, "y", -2, 10, 0.01).name("target y");
-  cameraFolder.add(controls.target, "z", -10, 10, 0.01).name("target z");
-
-  const ambientFolder = gui.addFolder("Ambient Light");
-  const ambientConfig = { color: ambientLight.color.getHexString() };
-
-  ambientFolder.addColor(ambientConfig, "color").onChange((value) => {
-   ambientLight.color.set(value);
-   requestRender();
-  });
-  ambientFolder.add(ambientLight, "intensity", 0, 2, 0.01).onChange(requestRender);
-
-  const moonLightFolder = gui.addFolder("Moon Light");
-  const moonLightConfig = { color: moonLight.color.getHexString() };
-
-  moonLightFolder.addColor(moonLightConfig, "color").onChange((value) => {
-   moonLight.color.set(value);
-   requestRender();
-  });
-  moonLightFolder.add(moonLight.position, "x", -10, 10, 0.01).onChange(requestRender);
-  moonLightFolder.add(moonLight.position, "y", 0, 10, 0.01).onChange(requestRender);
-  moonLightFolder.add(moonLight.position, "z", -10, 10, 0.01).onChange(requestRender);
-  moonLightFolder.add(moonLight, "intensity", 0, 3, 0.01).onChange(requestRender);
-
-  const warmFolder = gui.addFolder("Warm Light");
-  warmFolder.addColor(warmConfig, "color").onChange((value) => {
-   warmLight.color.set(value);
-   requestRender();
-  });
-  warmFolder.add(warmLight.position, "x", -5, 5, 0.01).onChange(requestRender);
-  warmFolder.add(warmLight.position, "y", 0, 5, 0.01).onChange(requestRender);
-  warmFolder.add(warmLight.position, "z", -5, 5, 0.01).onChange(requestRender);
-  warmFolder.add(warmConfig, "baseIntensity", 0, 5, 0.01);
-  warmFolder.add(warmLight, "distance", 0, 20, 0.01).onChange(requestRender);
-  warmFolder.add(warmLight, "decay", 0, 4, 0.01).onChange(requestRender);
-  warmFolder.add(warmConfig, "flicker");
-  warmFolder.add(warmConfig, "flickerAmplitude", 0, 1, 0.01);
-  warmFolder.add(warmConfig, "flickerSpeed", 0, 20, 0.1);
-
-  const fillFolder = gui.addFolder("Fill Light");
-  const fillConfig = { color: fillLight.color.getHexString() };
-
-  fillFolder.addColor(fillConfig, "color").onChange((value) => {
-   fillLight.color.set(value);
-   requestRender();
-  });
-  fillFolder.add(fillLight.position, "x", -10, 10, 0.01).onChange(requestRender);
-  fillFolder.add(fillLight.position, "y", 0, 10, 0.01).onChange(requestRender);
-  fillFolder.add(fillLight.position, "z", -10, 10, 0.01).onChange(requestRender);
-  fillFolder.add(fillLight, "intensity", 0, 3, 0.01).onChange(requestRender);
-
-  const materialsFolder = gui.addFolder("Materials");
-  const materialsConfig = {
-   wallColor: "#2f3140",
-   floorColor: "#1b1d26",
-   deskColor: "#d7d8dd",
-   wallRoughness: wallMaterial.roughness,
-   floorRoughness: floorMaterial.roughness,
-   deskRoughness: deskMaterial.roughness,
+   }
   };
+  neonFolder.add(neonParams, "glbScale", 0.05, 2, 0.001).name("escala GLB").onChange(applyNeonGlbTransform);
+  neonFolder.add(neonParams, "glbRotX", -Math.PI, Math.PI, 0.01).name("rot X").onChange(applyNeonGlbTransform);
+  neonFolder.add(neonParams, "glbRotY", -Math.PI, Math.PI, 0.01).name("rot Y").onChange(applyNeonGlbTransform);
+  neonFolder.add(neonParams, "glbRotZ", -Math.PI, Math.PI, 0.01).name("rot Z").onChange(applyNeonGlbTransform);
+  neonFolder.add(neonParams, "glbOffsetX", -2, 2, 0.01).name("offset X").onChange(applyNeonGlbTransform);
+  neonFolder.add(neonParams, "glbOffsetY", -2, 2, 0.01).name("offset Y").onChange(applyNeonGlbTransform);
+  neonFolder.add(neonParams, "glbOffsetZ", -2, 2, 0.01).name("offset Z").onChange(applyNeonGlbTransform);
 
-  materialsFolder.addColor(materialsConfig, "wallColor").onChange((value) => {
-   wallMaterial.color.set(value);
-   requestRender();
-  });
+  neonFolder.close();
+  // ─────────────────────────────────────────────────────────────────────
+  // 📺 PANTALLAS (monitores)
+  // ─────────────────────────────────────────────────────────────────────
+  const screensFolder = gui.addFolder("📺 Pantallas");
+  screensFolder.add(monitorParams, "scale", 0.5, 4, 0.01).onChange(updateMonitors);
+  screensFolder.add(monitorParams, "brightness", 0, 2, 0.01).onChange(updateMonitors);
+  screensFolder.add(monitorParams, "gap", 0, 4, 0.001).onChange(updateMonitors);
+  screensFolder.add(monitorParams, "leftX", -3, 3, 0.01).onChange(updateMonitors);
+  screensFolder.add(monitorParams, "rightX", -3, 3, 0.01).onChange(updateMonitors);
+  screensFolder.add(monitorParams, "tiltLeftY", -1, 1, 0.001).onChange(updateMonitors);
+  screensFolder.add(monitorParams, "tiltRightY", -1, 1, 0.001).onChange(updateMonitors);
+  screensFolder.add(monitorParams, "yOffset", -1, 1, 0.001).onChange(updateMonitors);
+  screensFolder.add(monitorParams, "zOffset", -1, 1, 0.001).onChange(updateMonitors);
+  screensFolder.add(wireScreen, "fps", 1, 30, 1).name("wire FPS");
+  screensFolder.add(wireScreen, "speed", 0, 4, 0.05).name("wire velocidad");
 
-  materialsFolder.addColor(materialsConfig, "floorColor").onChange((value) => {
-   floorMaterial.color.set(value);
-   requestRender();
-  });
-
-  materialsFolder.addColor(materialsConfig, "deskColor").onChange((value) => {
-   deskMaterial.color.set(value);
-   requestRender();
-  });
-
-  materialsFolder.add(materialsConfig, "wallRoughness", 0, 1, 0.01).onChange((value) => {
-   wallMaterial.roughness = value;
-   requestRender();
-  });
-
-  materialsFolder.add(materialsConfig, "floorRoughness", 0, 1, 0.01).onChange((value) => {
-   floorMaterial.roughness = value;
-   requestRender();
-  });
-
-  materialsFolder.add(materialsConfig, "deskRoughness", 0, 1, 0.01).onChange((value) => {
-   deskMaterial.roughness = value;
-   requestRender();
-  });
-
-  const deskFolder = gui.addFolder("Desk");
-  deskFolder.add(deskParams, "scale", 0.005, 0.1, 0.001).onChange(() => {
-   updateDesk();
-   updateChair();
-  });
-  deskFolder.add(deskParams, "x", -5, 5, 0.01).onChange(() => {
-   updateDesk();
-   updateChair();
-  });
-  deskFolder.add(deskParams, "y", -0.5, 2, 0.01).onChange(() => {
-   updateDesk();
-   updateChair();
-  });
-  deskFolder.add(deskParams, "z", -5, 5, 0.01).onChange(() => {
-   updateDesk();
-   updateChair();
-  });
-  deskFolder.add(deskParams, "rotY", -Math.PI, Math.PI, 0.01).onChange(() => {
-   updateDesk();
-   updateChair();
-  });
-  deskFolder.add(deskParams, "brightness", 0.5, 2, 0.01).onChange(updateDesk);
-
-  deskFolder
-   .add(deskParams, "supportWidth", 0.5, 5, 0.01)
-   .name("support width")
-   .onChange(() => {
-    updateDesk();
-    updateChair();
-   });
-
-  deskFolder
-   .add(deskParams, "supportDepth", 0.5, 3, 0.01)
-   .name("support depth")
-   .onChange(() => {
-    updateDesk();
-    updateChair();
-   });
-
-  deskFolder
-   .add(deskParams, "supportYOffset", -0.05, 0.05, 0.001)
-   .name("support y")
-   .onChange(() => {
-    updateDesk();
-    updateChair();
-   });
-
-  deskFolder.add(deskParams, "showSupport").name("show support").onChange(updateDesk);
-
-  deskFolder.add(deskFixParams, "posX", -10, 10, 0.01).name("fix posX").onChange(updateDesk);
-  deskFolder.add(deskFixParams, "posY", -10, 10, 0.01).name("fix posY").onChange(updateDesk);
-  deskFolder.add(deskFixParams, "posZ", -10, 10, 0.01).name("fix posZ").onChange(updateDesk);
-
-  deskFolder.add(deskFixParams, "rotX", -Math.PI, Math.PI, 0.01).name("fix rotX").onChange(updateDesk);
-  deskFolder.add(deskFixParams, "rotY", -Math.PI, Math.PI, 0.01).name("fix rotY").onChange(updateDesk);
-  deskFolder.add(deskFixParams, "rotZ", -Math.PI, Math.PI, 0.01).name("fix rotZ").onChange(updateDesk);
-
-  const monitorFolder = gui.addFolder("Monitors");
-  monitorFolder.add(monitorParams, "scale", 0.05, 2, 0.001).onChange(updateMonitors);
-  monitorFolder.add(monitorParams, "brightness", 0.2, 2, 0.01).onChange(updateMonitors);
-  monitorFolder.add(monitorParams, "yOffset", -0.2, 0.5, 0.001).onChange(updateMonitors);
-  monitorFolder.add(monitorParams, "zOffset", -1.5, 1.5, 0.001).onChange(updateMonitors);
-  monitorFolder.add(monitorParams, "gap", 0, 5, 0.001).onChange(updateMonitors);
-  monitorFolder.add(monitorParams, "leftX", -2, 2, 0.001).onChange(updateMonitors);
-  monitorFolder.add(monitorParams, "rightX", -2, 2, 0.001).onChange(updateMonitors);
-  monitorFolder.add(monitorParams, "rotX", -Math.PI, Math.PI, 0.001).onChange(updateMonitors);
-  monitorFolder.add(monitorParams, "rotY", -Math.PI, Math.PI, 0.001).onChange(updateMonitors);
-  monitorFolder.add(monitorParams, "rotZ", -Math.PI, Math.PI, 0.001).onChange(updateMonitors);
-  monitorFolder.add(monitorParams, "tiltLeftY", -1, 1, 0.001).onChange(updateMonitors);
-  monitorFolder.add(monitorParams, "tiltRightY", -1, 1, 0.001).onChange(updateMonitors);
-
-  monitorFolder.add(monitorFixParams, "posX", -10, 10, 0.01).name("fix posX").onChange(updateMonitors);
-  monitorFolder.add(monitorFixParams, "posY", -10, 10, 0.01).name("fix posY").onChange(updateMonitors);
-  monitorFolder.add(monitorFixParams, "posZ", -10, 10, 0.01).name("fix posZ").onChange(updateMonitors);
-  monitorFolder.add(monitorFixParams, "rotX", -Math.PI, Math.PI, 0.01).name("fix rotX").onChange(updateMonitors);
-  monitorFolder.add(monitorFixParams, "rotY", -Math.PI, Math.PI, 0.01).name("fix rotY").onChange(updateMonitors);
-  monitorFolder.add(monitorFixParams, "rotZ", -Math.PI, Math.PI, 0.01).name("fix rotZ").onChange(updateMonitors);
-
-  const windowFolder = gui.addFolder("Window");
-  windowFolder.add(windowParams, "x", -10, 0, 0.01).onChange(updateWindow);
-  windowFolder.add(windowParams, "y", 0, 7, 0.01).onChange(updateWindow);
-  windowFolder.add(windowParams, "z", -5, 5, 0.01).onChange(updateWindow);
-  windowFolder.add(windowParams, "width", 1, 6, 0.01).onChange(updateWindow);
-  windowFolder.add(windowParams, "height", 1, 6, 0.01).onChange(updateWindow);
-  windowFolder.add(windowParams, "frameThickness", 0.05, 0.4, 0.01).onChange(updateWindow);
-  windowFolder.add(windowParams, "innerPadding", 0, 0.4, 0.01).onChange(updateWindow);
-  windowFolder.add(windowParams, "frameDepth", 0.01, 0.25, 0.01).onChange(updateWindow);
-  windowFolder.add(windowParams, "glassOffset", -0.1, 0.1, 0.001).onChange(updateWindow);
-  windowFolder.add(windowParams, "revealDepth", 0.05, 1.2, 0.01).onChange(updateWindow);
-  windowFolder.add(windowParams, "revealThickness", 0.02, 0.3, 0.01).onChange(updateWindow);
-  windowFolder.add(windowParams, "sillDepth", 0.05, 0.8, 0.01).onChange(updateWindow);
-  windowFolder.add(windowParams, "sillHeight", 0.02, 0.2, 0.01).onChange(updateWindow);
-  windowFolder.add(windowParams, "mullionWidth", 0.02, 0.2, 0.01).onChange(updateWindow);
-  windowFolder.add(windowParams, "glowWidth", 1, 6, 0.01).onChange(updateWindow);
-  windowFolder.add(windowParams, "glowHeight", 1, 6, 0.01).onChange(updateWindow);
-  windowFolder.add(windowParams, "glowOffset", -1.5, 0.2, 0.001).onChange(updateWindow);
-  windowFolder.addColor(windowParams, "glowColor").onChange(updateWindow);
-
-  const spaceFolder = gui.addFolder("Space");
-  spaceFolder.add(spaceParams, "width", 1, 6, 0.01).name("width").onChange(buildStars);
-  spaceFolder.add(spaceParams, "height", 1, 6, 0.01).name("height").onChange(buildStars);
-  spaceFolder
-   .add(spaceParams, "depth", -2, -0.05, 0.01)
-   .name("depth")
-   .onChange(() => {
-    buildStars();
-    updateSpace();
-   });
-
-  spaceFolder.add(spaceParams, "starsCount", 50, 1200, 1).onChange(buildStars);
-  spaceFolder.add(spaceParams, "starsSpreadZ", 0.2, 4, 0.01).onChange(buildStars);
-
-  spaceFolder.add(spaceParams, "starsSize", 0.005, 0.08, 0.001).onChange(() => {
-   if (starsMaterial) starsMaterial.size = spaceParams.starsSize;
-   requestRender();
-  });
-
-  spaceFolder.addColor(spaceParams, "starsColor").onChange(() => {
-   if (starsMaterial) starsMaterial.color.set(spaceParams.starsColor);
-   requestRender();
-  });
-
-  spaceFolder.add(spaceParams, "moonX", -3, 3, 0.01).onChange(updateSpace);
-  spaceFolder.add(spaceParams, "moonY", -3, 3, 0.01).onChange(updateSpace);
-  spaceFolder.add(spaceParams, "moonZ", -4, 0, 0.01).onChange(updateSpace);
-  spaceFolder.add(spaceParams, "moonRadius", 0.2, 2, 0.01).onChange(updateSpace);
-
-  spaceFolder.addColor(spaceParams, "moonColor").onChange(() => {
-   moonMaterial.color.set(spaceParams.moonColor);
-   requestRender();
-  });
-
-  // ── Silla ────────────────────────────────────────────────────────────
-  const chairFolder = gui.addFolder("Chair");
-  chairFolder.add(chairParams, "scale", 0.01, 5, 0.01).name("scale").onChange(updateChair);
-  chairFolder.add(chairParams, "x", -10, 10, 0.01).name("pos X").onChange(updateChair);
-  chairFolder.add(chairParams, "y", -10, 10, 0.01).name("pos Y").onChange(updateChair);
-  chairFolder.add(chairParams, "z", -10, 10, 0.01).name("pos Z").onChange(updateChair);
-  chairFolder.add(chairParams, "rotY", -Math.PI, Math.PI, 0.01).name("rot Y").onChange(updateChair);
-  chairFolder.add(chairParams, "brightness", 0.1, 5, 0.01).name("brightness").onChange(updateChair);
-  chairFolder.add(chairParams, "groundOffset", -1, 1, 0.001).name("ground offset").onChange(updateChair);
-  chairFolder.add(chairFix, "rotX", -Math.PI, Math.PI, 0.01).name("fix rotX").onChange(updateChair);
-  chairFolder.add(chairFix, "rotY", -Math.PI, Math.PI, 0.01).name("fix rotY").onChange(updateChair);
-  chairFolder.add(chairFix, "rotZ", -Math.PI, Math.PI, 0.01).name("fix rotZ").onChange(updateChair);
-
-  // ── Astronauta ────────────────────────────────────────────────────────
-  const astronautFolder = gui.addFolder("Astronauta");
-  astronautFolder.add(astronautParams, "x", -10, 10, 0.01).name("pos X").onChange(updateAstronaut);
-  astronautFolder.add(astronautParams, "y", -10, 10, 0.01).name("pos Y").onChange(updateAstronaut);
-  astronautFolder.add(astronautParams, "z", -10, 10, 0.01).name("pos Z").onChange(updateAstronaut);
-  astronautFolder.add(astronautParams, "rotX", -Math.PI, Math.PI, 0.01).name("rot X").onChange(updateAstronaut);
-  astronautFolder.add(astronautParams, "rotY", -Math.PI, Math.PI, 0.01).name("rot Y").onChange(updateAstronaut);
-  astronautFolder.add(astronautParams, "rotZ", -Math.PI, Math.PI, 0.01).name("rot Z").onChange(updateAstronaut);
-  astronautFolder.add(astronautParams, "scale", 0.01, 5, 0.01).name("scale").onChange(updateAstronaut);
-  astronautFolder.add(astronautParams, "brightness", 0.1, 5, 0.01).name("brightness").onChange(updateAstronaut);
-  astronautFolder.add(astronautParams, "seatRatio", 0.0, 1.0, 0.01).name("seat ratio").onChange(updateAstronaut);
-
-  // ── Lámpara ───────────────────────────────────────────────────────────
-  const lamparaFolder = gui.addFolder("Lampara");
-  lamparaFolder.add(lamparaParams, "x", -10, 10, 0.01).name("pos X").onChange(updateLampara);
-  lamparaFolder.add(lamparaParams, "y", -10, 10, 0.01).name("pos Y").onChange(updateLampara);
-  lamparaFolder.add(lamparaParams, "z", -10, 10, 0.01).name("pos Z").onChange(updateLampara);
-  lamparaFolder.add(lamparaParams, "rotX", -Math.PI, Math.PI, 0.01).name("rot X").onChange(updateLampara);
-  lamparaFolder.add(lamparaParams, "rotY", -Math.PI, Math.PI, 0.01).name("rot Y").onChange(updateLampara);
-  lamparaFolder.add(lamparaParams, "rotZ", -Math.PI, Math.PI, 0.01).name("rot Z").onChange(updateLampara);
-  lamparaFolder.add(lamparaParams, "scale", 0.01, 5, 0.01).name("scale").onChange(updateLampara);
-  lamparaFolder.add(lamparaParams, "brightness", 0.1, 5, 0.01).name("brightness").onChange(updateLampara);
-
-  // ── Teclado ───────────────────────────────────────────────────────────
-  const tecladoFolder = gui.addFolder("Teclado");
-  tecladoFolder.add(tecladoParams, "x", -10, 10, 0.01).name("pos X").onChange(updateTeclado);
-  tecladoFolder.add(tecladoParams, "y", -10, 10, 0.01).name("pos Y").onChange(updateTeclado);
-  tecladoFolder.add(tecladoParams, "z", -10, 10, 0.01).name("pos Z").onChange(updateTeclado);
-  tecladoFolder.add(tecladoParams, "rotX", -Math.PI, Math.PI, 0.01).name("rot X").onChange(updateTeclado);
-  tecladoFolder.add(tecladoParams, "rotY", -Math.PI, Math.PI, 0.01).name("rot Y").onChange(updateTeclado);
-  tecladoFolder.add(tecladoParams, "rotZ", -Math.PI, Math.PI, 0.01).name("rot Z").onChange(updateTeclado);
-  tecladoFolder.add(tecladoParams, "scale", 0.01, 5, 0.01).name("scale").onChange(updateTeclado);
-  tecladoFolder.add(tecladoParams, "brightness", 0.1, 5, 0.01).name("brightness").onChange(updateTeclado);
-
-  // ── Ratón ─────────────────────────────────────────────────────────────
-  const ratonFolder = gui.addFolder("Raton");
-  ratonFolder.add(ratonParams, "x", -10, 10, 0.01).name("pos X").onChange(updateRaton);
-  ratonFolder.add(ratonParams, "y", -10, 10, 0.01).name("pos Y").onChange(updateRaton);
-  ratonFolder.add(ratonParams, "z", -10, 10, 0.01).name("pos Z").onChange(updateRaton);
-  ratonFolder.add(ratonParams, "rotX", -Math.PI, Math.PI, 0.01).name("rot X").onChange(updateRaton);
-  ratonFolder.add(ratonParams, "rotY", -Math.PI, Math.PI, 0.01).name("rot Y").onChange(updateRaton);
-  ratonFolder.add(ratonParams, "rotZ", -Math.PI, Math.PI, 0.01).name("rot Z").onChange(updateRaton);
-  ratonFolder.add(ratonParams, "scale", 0.01, 5, 0.01).name("scale").onChange(updateRaton);
-  ratonFolder.add(ratonParams, "brightness", 0.1, 5, 0.01).name("brightness").onChange(updateRaton);
-
-  // ── Neón ─────────────────────────────────────────────────────────────────
-  const neonFolder = gui.addFolder("Neon");
-  neonFolder.add(neonParams, "x", -6, 6, 0.01).name("neonX").onChange(requestRender);
-  neonFolder.add(neonParams, "y", 2, 10, 0.01).name("neonY").onChange(requestRender);
-  neonFolder.add(neonParams, "z", -5, -3, 0.01).name("neonZ").onChange(requestRender);
-  neonFolder.add(neonParams, "scale", 0.2, 3, 0.01).name("neonScale").onChange(requestRender);
-  neonFolder.add(neonParams, "intensity", 0.1, 3, 0.05).name("neonIntensity").onChange(requestRender);
-  neonFolder.add(neonParams, "glowStrength", 0.0, 2.0, 0.05).name("neonGlowStrength").onChange(requestRender);
-  neonFolder.add(neonParams, "flickerSpeed", 0.1, 3.0, 0.05).name("neonFlickerSpeed").onChange(requestRender);
-
-  // ── Llama cohete ─────────────────────────────────────────────────────────
-  const flameFolder = gui.addFolder("Rocket Flame");
-  flameFolder.add(flameParams, "rocketFlameIntensity", 0.0, 3.0, 0.05).name("flameIntensity").onChange(requestRender);
-  flameFolder.add(flameParams, "rocketFlameScale", 0.2, 3.0, 0.05).name("flameScale").onChange(requestRender);
-  flameFolder.add(flameParams, "rocketFlickerSpeed", 0.1, 4.0, 0.05).name("flickerSpeed").onChange(requestRender);
-  flameFolder.add(flameParams, "rocketLightIntensity", 0.0, 5.0, 0.05).name("lightIntensity").onChange(requestRender);
-
-  // ── Dog Hologram ────────────────────────────────────────────────────
-  const hologramFolder = gui.addFolder("Dog Hologram");
-  const hologramConfig = {
-   visible: true,
-   x: dogHologram.position.x,
-   y: dogHologram.position.y,
-   z: dogHologram.position.z,
-   scale: 0.85,
-  };
-  hologramFolder.add(hologramConfig, "visible").onChange((v) => {
-   dogHologram.visible = v;
-   requestRender();
-  });
-  hologramFolder.add(hologramConfig, "x", -6, 6, 0.01).onChange((v) => {
-   dogHologram.position.x = v;
-   requestRender();
-  });
-  hologramFolder.add(hologramConfig, "y", 0, 4, 0.01).onChange((v) => {
-   dogHologram.position.y = v;
-   requestRender();
-  });
-  hologramFolder.add(hologramConfig, "z", -4, 4, 0.01).onChange((v) => {
-   dogHologram.position.z = v;
-   requestRender();
-  });
-  hologramFolder.add(hologramConfig, "scale", 0.3, 1.6, 0.01).onChange((v) => {
-   dogHologram.scale.setScalar(v);
-   requestRender();
-  });
-  if (dogHologram.userData.holoLight) {
-   hologramFolder
-    .add(dogHologram.userData.holoLight, "intensity", 0, 2, 0.01)
-    .name("light intensity")
-    .onChange(requestRender);
-  }
-
-  // ── Wall Poster ─────────────────────────────────────────────────────
-  const posterFolder = gui.addFolder("Wall Poster");
-  const posterConfig = {
+  // ─────────────────────────────────────────────────────────────────────
+  // 🖼 CUADRO (poster del eclipse)
+  // ─────────────────────────────────────────────────────────────────────
+  const posterFolder = gui.addFolder("🖼 Cuadro");
+  const posterCfg = {
    x: wallPoster.position.x,
    y: wallPoster.position.y,
    z: wallPoster.position.z,
-   haloOpacity: 0.35, // base idle — se multiplica internamente
-   spotIntensity: 2.2,
   };
-  posterFolder.add(posterConfig, "x", -6, 6, 0.01).onChange((v) => {
+  posterFolder.add(posterCfg, "x", -6, 6, 0.01).onChange((v) => {
    wallPoster.position.x = v;
    posterSpot.position.x = v;
    posterSpot.target.position.x = v;
    requestRender();
   });
-  posterFolder.add(posterConfig, "y", 0, 7, 0.01).onChange((v) => {
+  posterFolder.add(posterCfg, "y", 0, 7, 0.01).onChange((v) => {
    wallPoster.position.y = v;
    posterSpot.target.position.y = v;
    requestRender();
   });
-  posterFolder.add(posterConfig, "z", -4, 0, 0.01).onChange((v) => {
+  posterFolder.add(posterCfg, "z", -5, 0, 0.01).onChange((v) => {
    wallPoster.position.z = v;
    posterSpot.target.position.z = v;
    requestRender();
   });
-  posterFolder.add(posterSpot, "distance", 0.5, 8, 0.1).onChange(requestRender);
+  posterFolder.add(posterSpot, "intensity", 0, 6, 0.01).name("spot intensidad").onChange(requestRender);
   posterFolder.add(posterSpot, "angle", 0.05, Math.PI * 0.45, 0.01).onChange(requestRender);
   posterFolder.add(posterSpot, "penumbra", 0, 1, 0.01).onChange(requestRender);
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 🐕 PERRO HOLOGRAMA
+  // ─────────────────────────────────────────────────────────────────────
+  const dogFolder = gui.addFolder("🐕 Perro");
+  const dogCfg = {
+   visible: dogHologram.visible,
+   x: dogHologram.position.x,
+   y: dogHologram.position.y,
+   z: dogHologram.position.z,
+   scale: dogHologram.scale.x,
+  };
+  dogFolder.add(dogCfg, "visible").onChange((v) => {
+   dogHologram.visible = v;
+   requestRender();
+  });
+  dogFolder.add(dogCfg, "x", -6, 6, 0.01).onChange((v) => {
+   dogHologram.position.x = v;
+   requestRender();
+  });
+  dogFolder.add(dogCfg, "y", -2, 5, 0.01).onChange((v) => {
+   dogHologram.position.y = v;
+   requestRender();
+  });
+  dogFolder.add(dogCfg, "z", -3, 3, 0.01).onChange((v) => {
+   dogHologram.position.z = v;
+   requestRender();
+  });
+  dogFolder.add(dogCfg, "scale", 0.1, 1.5, 0.01).onChange((v) => {
+   dogHologram.scale.setScalar(v);
+   requestRender();
+  });
+  if (dogHologram.userData.holoLight) {
+   dogFolder
+    .add(dogHologram.userData.holoLight, "intensity", 0, 2, 0.01)
+    .name("luz intensidad")
+    .onChange(requestRender);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 🪐 ORRERY (mueble + sistema solar)
+  // ─────────────────────────────────────────────────────────────────────
+  const orreryFolder = gui.addFolder("🪐 Orrery");
+  const orreryCfg = {
+   visible: orrery.visible,
+   x: orrery.position.x,
+   y: orrery.position.y,
+   z: orrery.position.z,
+   rotY: orrery.rotation.y,
+   scale: orrery.scale.x,
+  };
+  orreryFolder.add(orreryCfg, "visible").onChange((v) => {
+   orrery.visible = v;
+   requestRender();
+  });
+  orreryFolder.add(orreryCfg, "x", -6, 6, 0.01).onChange((v) => {
+   orrery.position.x = v;
+   requestRender();
+  });
+  orreryFolder.add(orreryCfg, "y", -1, 5, 0.01).onChange((v) => {
+   orrery.position.y = v;
+   requestRender();
+  });
+  orreryFolder.add(orreryCfg, "z", -4, 3, 0.01).onChange((v) => {
+   orrery.position.z = v;
+   requestRender();
+  });
+  orreryFolder.add(orreryCfg, "rotY", -Math.PI, Math.PI, 0.01).onChange((v) => {
+   orrery.rotation.y = v;
+   requestRender();
+  });
+  orreryFolder.add(orreryCfg, "scale", 0.4, 3.5, 0.01).onChange((v) => {
+   orrery.scale.setScalar(v);
+   requestRender();
+  });
+  if (orrery.userData.orreryLight) {
+   orreryFolder.add(orrery.userData.orreryLight, "intensity", 0, 3, 0.01).name("luz mueble").onChange(requestRender);
+  }
+  if (orrery.userData.controls) {
+   orreryFolder
+    .add(orrery.userData.controls, "planetSize", 0.3, 5, 0.01)
+    .name("planetas tamaño")
+    .onChange(requestRender);
+   orreryFolder
+    .add(orrery.userData.controls, "orbitSpeed", 0, 4, 0.01)
+    .name("velocidad órbitas")
+    .onChange(requestRender);
+   orreryFolder.add(orrery.userData.controls, "sunSize", 0.3, 3, 0.01).name("sol tamaño").onChange(requestRender);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 🚀 COHETE / LÁMPARA (el objeto cálido de la mesa)
+  // ─────────────────────────────────────────────────────────────────────
+  const rocketFolder = gui.addFolder("🚀 Cohete");
+  rocketFolder.add(lamparaParams, "x", -6, 6, 0.01).name("posición X").onChange(updateLampara);
+  rocketFolder.add(lamparaParams, "y", -2, 3, 0.01).name("posición Y").onChange(updateLampara);
+  rocketFolder.add(lamparaParams, "z", -4, 4, 0.01).name("posición Z").onChange(updateLampara);
+  rocketFolder.add(lamparaParams, "rotY", -Math.PI, Math.PI, 0.01).name("rotación Y").onChange(updateLampara);
+  rocketFolder.add(lamparaParams, "scale", 0.05, 1, 0.001).name("tamaño").onChange(updateLampara);
+  rocketFolder.add(lamparaParams, "brightness", 0, 2, 0.01).name("brillo").onChange(updateLampara);
+  rocketFolder.add(warmLight, "intensity", 0, 6, 0.01).name("luz cálida").onChange(requestRender);
+  rocketFolder.add(lamparaFlameLight, "intensity", 0, 4, 0.01).name("llama intensidad").onChange(requestRender);
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 💡 LUCES GLOBALES (habitación)
+  // ─────────────────────────────────────────────────────────────────────
+  const lightsFolder = gui.addFolder("💡 Luces");
+  lightsFolder.add(ambientLight, "intensity", 0, 1, 0.01).name("ambient").onChange(requestRender);
+  lightsFolder.add(moonLight, "intensity", 0, 3, 0.01).name("luna direc.").onChange(requestRender);
+  lightsFolder.add(windowFillLight, "intensity", 0, 2, 0.01).name("ventana fill").onChange(requestRender);
+  lightsFolder.add(moonAreaLight, "intensity", 0, 2, 0.01).name("luna area").onChange(requestRender);
+  lightsFolder.add(rimLight, "intensity", 0, 2, 0.01).name("rim silla").onChange(requestRender);
+  lightsFolder.add(backRimLight, "intensity", 0, 2, 0.01).name("rim trasero").onChange(requestRender);
+  lightsFolder.add(ledUnderDesk, "intensity", 0, 3, 0.01).name("LED mesa").onChange(requestRender);
+  lightsFolder.add(rightWallFill, "intensity", 0, 2, 0.01).name("fill derecha").onChange(requestRender);
+  lightsFolder.add(renderer, "toneMappingExposure", 0, 2, 0.01).name("exposición").onChange(requestRender);
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 🎥 CÁMARA
+  // ─────────────────────────────────────────────────────────────────────
+  const cameraFolder = gui.addFolder("🎥 Cámara");
+  cameraFolder.add(cameraBase, "x", -10, 10, 0.01).name("base X").onChange(requestRender);
+  cameraFolder.add(cameraBase, "y", 0, 10, 0.01).name("base Y").onChange(requestRender);
+  cameraFolder.add(cameraBase, "z", 0, 20, 0.01).name("base Z").onChange(requestRender);
+  cameraFolder
+   .add(camera, "fov", 20, 90, 1)
+   .name("FOV")
+   .onChange(() => {
+    camera.updateProjectionMatrix();
+    requestRender();
+   });
+
+  // Todas las carpetas cerradas al arrancar
+  screensFolder.close();
+  posterFolder.close();
+  dogFolder.close();
+  orreryFolder.close();
+  rocketFolder.close();
+  lightsFolder.close();
+  cameraFolder.close();
  }
 
  /**
@@ -5034,6 +5305,7 @@ export function initHeroScene() {
 
   // Holograma del perro — respiración + scan
   if (dogHologram?.userData.update) dogHologram.userData.update(elapsedTime);
+  if (orrery?.userData?.update) orrery.userData.update(elapsedTime);
 
   // ── Luces de la habitación ────────────────────────────────────────────────
   const roomFade = 1 - clamp01(phase(sp, F2E, F3E));
@@ -5107,109 +5379,85 @@ export function initHeroScene() {
    flameGlowSprite.scale.set(glowS, glowS, 1);
   }
 
-  // ── Neón 3D — sincronizar posición/escala/luz con neonParams ────────────
-  neonGroup.position.set(neonParams.x, neonParams.y, neonParams.z);
-  neonGroup.scale.setScalar(neonParams.scale);
-  neonLight.position.set(neonParams.x, neonParams.y + LETTER_H * neonParams.scale * 0.25, neonParams.z + 0.4);
-  neonLight2.position.set(neonParams.x + 0.5, neonParams.y - LETTER_H * neonParams.scale * 0.15, neonParams.z + 0.3);
-
-  // ── Máquina de estados del neón ──────────────────────────────────────────
-  if (roomFade > 0.05) {
-   neonState.t += (1 / 60) * neonParams.flickerSpeed;
-   const phase_n = neonState.phase;
-
-   if (phase_n === "FULL") {
-    // Respiración global muy sutil (amplitud 0.04) + sparks ocasionales
-    const breathe = 1.0 + Math.sin(elapsedTime * 1.6) * 0.04;
-    for (let i = 0; i < NEON_LETTER_COUNT; i++) {
-     const spark = Math.random() > 0.997 ? 0.82 + Math.random() * 0.15 : breathe;
-     neonState.lit[i] = lerpV(neonState.lit[i], spark, 0.07);
-    }
-
-    if (neonState.t > NEON_PHASES.FULL.duration) {
-     neonState.phase = "FLICKER";
-     neonState.t = 0;
-     for (let i = 0; i < NEON_LETTER_COUNT; i++) {
-      neonState.target[i] = AI_INDICES.includes(i) ? 1.0 : NEON_RESIDUAL;
-     }
-    }
-   } else if (phase_n === "FLICKER") {
-    const progress = Math.min(1, neonState.t / NEON_PHASES.FLICKER.duration);
-    for (let i = 0; i < NEON_LETTER_COUNT; i++) {
-     const isAI = AI_INDICES.includes(i);
-     const tgt = neonState.target[i];
-     const noise = isAI ? 0 : (1 - progress) * (Math.random() > 0.82 ? Math.random() * 0.28 : 0);
-     const spd = isAI ? 0.035 : 0.05;
-     neonState.lit[i] = lerpV(neonState.lit[i], tgt + noise, spd);
-    }
-    if (neonState.t > NEON_PHASES.FLICKER.duration) {
-     neonState.phase = "AI";
-     neonState.t = 0;
-    }
-   } else if (phase_n === "AI") {
-    const pulse = 0.88 + Math.sin(elapsedTime * 1.7 * neonParams.flickerSpeed) * 0.12;
-    for (let i = 0; i < NEON_LETTER_COUNT; i++) {
-     const isAI = AI_INDICES.includes(i);
-     neonState.lit[i] = lerpV(neonState.lit[i], isAI ? pulse : NEON_RESIDUAL, isAI ? 0.1 : 0.03);
-    }
-    neonLight.intensity = 0.5 * pulse * neonParams.glowStrength * roomFade;
-    neonLight2.intensity = 0.22 * pulse * neonParams.glowStrength * roomFade;
-    if (neonState.t > NEON_PHASES.AI.duration) {
-     neonState.phase = "BUILD";
-     neonState.t = 0;
-     neonState.target.fill(1.0);
-    }
-   } else if (phase_n === "BUILD") {
-    const progress = Math.min(1, neonState.t / NEON_PHASES.BUILD.duration);
-    for (let i = 0; i < NEON_LETTER_COUNT; i++) {
-     const delay = i / NEON_LETTER_COUNT;
-     const letProg = Math.max(0, (progress - delay * 0.32) / 0.68);
-     const tgt = Math.min(1.0, letProg * 1.12);
-     const spark = tgt > 0.25 && Math.random() > 0.93 ? tgt * (0.65 + Math.random() * 0.5) : tgt;
-     neonState.lit[i] = lerpV(neonState.lit[i], spark, 0.09);
-    }
-    if (neonState.t > NEON_PHASES.BUILD.duration) {
-     neonState.phase = "FULL";
-     neonState.t = 0;
-     neonState.lit.fill(1.0);
-    }
-   }
-
-   // Aplicar intensidades a materiales por letra
-   const avgLit = neonState.lit.reduce((a, b) => a + b, 0) / NEON_LETTER_COUNT;
-   for (let i = 0; i < NEON_LETTER_COUNT; i++) {
-    const lit = neonState.lit[i];
-    const baseI = neonParams.intensity;
-    // Núcleo: muy brillante al máximo, mínimo residual visible
-    neonCoreMats[i].emissiveIntensity = (NEON_RESIDUAL * 0.8 + lit * 2.8) * baseI * roomFade;
-    // Tubo exterior: más tenue, se apaga más rápido
-    neonGlowMats[i].emissiveIntensity = (NEON_RESIDUAL * 0.4 + lit * 1.6) * baseI * roomFade;
-    neonGlowMats[i].opacity = (0.08 + lit * 0.47) * roomFade;
-    // Sprite de glow por letra
-    neonGlowSpriteMats[i].opacity = lit * 0.38 * neonParams.glowStrength * roomFade;
-   }
-
-   // Luces de rebote (excepto fase AI que ya las controla arriba)
-   if (phase_n !== "AI") {
-    neonLight.intensity = avgLit * 0.75 * neonParams.glowStrength * roomFade;
-    neonLight2.intensity = avgLit * 0.32 * neonParams.glowStrength * roomFade;
-   }
-
-   // Mancha de pared
-   neonWallMat.opacity = avgLit * 0.45 * neonParams.glowStrength * roomFade;
-  } else {
-   // Escena fuera de vista — apagar todo
-   for (let i = 0; i < NEON_LETTER_COUNT; i++) {
-    neonCoreMats[i].emissiveIntensity = 0;
-    neonGlowMats[i].emissiveIntensity = 0;
-    neonGlowMats[i].opacity = 0;
-    neonGlowSpriteMats[i].opacity = 0;
-   }
-   neonLight.intensity = 0;
-   neonLight2.intensity = 0;
-   neonWallMat.opacity = 0;
+  // ── ELIMINAR TODO EL NEÓN DIBUJADO ANTIGUO ────────────────────────────
+  // Ocultamos todos los hijos del neonGroup (letras, placa, pines, sprites,
+  // mancha de pared). El GLB cargado más abajo se añadirá también a
+  // neonGroup y SÍ será visible.
+  while (neonGroup.children.length > 0) {
+   const child = neonGroup.children[0];
+   neonGroup.remove(child);
   }
 
+  // ── Neón 3D (GLB) — posición / luces de rebote / titileo selectivo ─────
+  neonGroup.position.set(neonParams.x, neonParams.y, neonParams.z);
+  neonGroup.scale.setScalar(neonParams.scale);
+  neonLight.position.set(neonParams.x, neonParams.y + 0.3, neonParams.z + 0.4);
+  neonLight2.position.set(neonParams.x + 0.5, neonParams.y - 0.2, neonParams.z + 0.3);
+
+  if (neonModel && neonGlbMats.length && roomFade > 0.05) {
+   // Brillo estable para las letras violetas
+   const stableMult = neonParams.intensity * roomFade;
+
+   // Flicker tipo "fósforo defectuoso" para las letras amarillas (I y A).
+   // Onda rápida + gate ocasional + glitch muy corto.
+   const wave = 0.55 + Math.sin(elapsedTime * 12.1) * 0.45;
+   const gate = Math.sin(elapsedTime * 1.8) > 0.9 ? 0.1 : 1;
+   const glitch = Math.random() > 0.985 ? 0.1 : 1;
+   const flickerMult = wave * gate * glitch * neonParams.intensity * roomFade;
+
+   let avgLit = 0;
+   neonGlbMats.forEach((mesh) => {
+    const base = mesh.userData.baseIntensity || 2.5;
+    if (mesh.userData.isFlicker) {
+     mesh.material.emissiveIntensity = base * flickerMult;
+     avgLit += flickerMult;
+    } else {
+     mesh.material.emissiveIntensity = base * stableMult;
+     avgLit += stableMult;
+    }
+   });
+   avgLit /= Math.max(1, neonGlbMats.length);
+
+   // Luces de rebote violetas sobre la pared
+   neonLight.intensity = avgLit * 0.9 * neonParams.glowStrength * roomFade;
+   neonLight2.intensity = avgLit * 0.4 * neonParams.glowStrength * roomFade;
+  } else {
+   neonLight.intensity = 0;
+   neonLight2.intensity = 0;
+  }
+
+  // ────────────────────────────────────────────────────────────────────
+  // NEÓN GLB — titileo global (tubos y gas defectuoso)
+  //
+  // Patrón de 3 capas superpuestas:
+  //  · wave  → onda base rápida (brillo oscila entre 0.88 y 1.0)
+  //  · gate  → apagón ocasional de medio segundo (0.35× de brillo)
+  //  · glitch→ chasquido puntual muy corto (0.2× de brillo)
+  //
+  // Todo multiplicado por neonParams.intensity y roomFade para que
+  // respete el sistema de fases del scroll existente.
+  // ────────────────────────────────────────────────────────────────────
+  if (neonModel && neonGlbMats.length) {
+   // Brillo estable para todas las letras (I y A incluidas en su base)
+   const stableMult = neonParams.intensity * roomFade;
+
+   // Flicker específico SOLO para letras amarillas (I, A1, A2)
+   const wave = 0.6 + Math.sin(elapsedTime * 11.3) * 0.4;
+   const gate = Math.sin(elapsedTime * 1.8) > 0.9 ? 0.15 : 1;
+   const glitch = Math.random() > 0.985 ? 0.1 : 1;
+   const flickerMult = wave * gate * glitch * neonParams.intensity * roomFade;
+
+   neonGlbMats.forEach((mesh) => {
+    const base = mesh.userData.baseIntensity || 2.0;
+    if (mesh.userData.isFlicker) {
+     // Amarilla → patrón de fósforo defectuoso
+     mesh.material.emissiveIntensity = base * flickerMult;
+    } else {
+     // Violeta → brillo constante
+     mesh.material.emissiveIntensity = base * stableMult;
+    }
+   });
+  }
   // ── Estrellas interiores (ventana) ────────────────────────────────────────
   if (starsPoints && !isMobile) {
    starsPoints.rotation.z = elapsedTime * 0.003;
@@ -5479,6 +5727,18 @@ export function initHeroScene() {
   * =========================================================
   */
  return () => {
+  // Cursor custom — limpieza
+  if (cursorRafId) cancelAnimationFrame(cursorRafId);
+  window.removeEventListener("mousemove", onCursorMove);
+  window.removeEventListener("mouseover", onCursorOver);
+  document.removeEventListener("mouseleave", onCursorLeave);
+  document.removeEventListener("mouseenter", onCursorEnter);
+  if (cursorRing.parentNode) cursorRing.parentNode.removeChild(cursorRing);
+  if (cursorDot.parentNode) cursorDot.parentNode.removeChild(cursorDot);
+  if (cursorStyleEl.parentNode) cursorStyleEl.parentNode.removeChild(cursorStyleEl);
+  document.documentElement.style.removeProperty("cursor");
+  document.body.style.removeProperty("cursor");
+
   window.removeEventListener("scroll", onScroll);
   canvas.removeEventListener("pointermove", onScenePointerMove);
   canvas.removeEventListener("pointerdown", onScenePointerDown);
@@ -5591,6 +5851,15 @@ export function initHeroScene() {
      });
     } else if (child.material) {
      child.material.dispose();
+    }
+   });
+  }
+
+  if (neonModel) {
+   neonModel.traverse((child) => {
+    if (child.isMesh) {
+     if (child.geometry) child.geometry.dispose();
+     if (child.material?.dispose) child.material.dispose();
     }
    });
   }
@@ -5724,38 +5993,44 @@ export function initHeroScene() {
   outerGlowMaterial.dispose();
   moonMaterial.dispose();
 
+  if (orrery) {
+   orrery.traverse((child) => {
+    if (child.isMesh || child.isSprite) {
+     if (child.geometry) child.geometry.dispose();
+     const mats = Array.isArray(child.material) ? child.material : [child.material];
+     mats.forEach((m) => {
+      if (m?.map) m.map.dispose();
+      if (m?.dispose) m.dispose();
+     });
+    }
+   });
+   scene.remove(orrery);
+  }
+
   renderer.dispose();
 
   if (gui) gui.destroy();
 
-  // Neón 3D — tubos, materiales, sprites, luces
-  neonLetterGroups.forEach((lg) => {
-   lg.traverse((child) => {
-    if (!child.isMesh && !child.isSprite) return;
+  // Neón 3D — GLB y luces
+  if (neonModel) {
+   neonModel.traverse((child) => {
+    if (!child.isMesh) return;
     if (child.geometry) child.geometry.dispose();
+    if (child.material?.map) child.material.map.dispose();
+    if (child.material?.dispose) child.material.dispose();
    });
-  });
-  neonCoreMats.forEach((m) => m.dispose());
-  neonGlowMats.forEach((m) => m.dispose());
-  neonGlowSpriteMats.forEach((m) => {
-   if (m.map) m.map.dispose();
-   m.dispose();
-  });
-  scene.remove(backRimLight);
-  backPlateMat.dispose();
-  backPlateGeo.dispose();
-  pinGeo.dispose();
-  pinMat.dispose();
-  neonWallTex.dispose();
-  neonWallMat.dispose();
-  // neonWallGeo se libera al traversar neonGroup (es hijo de él)
+  }
   scene.remove(neonGroup);
+  scene.remove(backRimLight);
   scene.remove(neonLight);
   scene.remove(neonLight2);
   // Luces extra
   scene.remove(windowFillLight);
   scene.remove(lamparaLight);
   scene.remove(rimLight);
+  scene.remove(backRimLight);
+
+  scene.remove(moonAreaLight);
   scene.remove(backRimLight);
 
   scene.remove(moonAreaLight);
