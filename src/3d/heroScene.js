@@ -263,6 +263,22 @@ export function initHeroScene() {
   z: responsiveState.camera.z,
  };
 
+ // ── Multiplicadores de luces editables por GUI ────────────────────────
+ // El tick reescribe las intensidades cada frame (por roomFade).
+ // En vez de pasarle el valor "absoluto" al GUI (se perdería al instante),
+ // exponemos multiplicadores que el tick lee y respeta. Default 1.0 = sin
+ // efecto. Si subes "ambient" a 1.5 → +50 % sobre el valor base.
+ const lightMultipliers = {
+  ambient: 1.0,
+  moonDir: 1.0,
+  windowFill: 1.0,
+  moonArea: 1.0,
+  rimChair: 1.0,
+  rimBack: 1.0,
+  ledDesk: 1.0,
+  rightFill: 1.0,
+ };
+
  const scrollConfig = {
   yFactor: responsiveState.scrollYFactor,
   zFactor: responsiveState.scrollZFactor,
@@ -1656,6 +1672,10 @@ export function initHeroScene() {
 
  const windowSill = new THREE.Mesh(unitBoxGeometry, windowRevealMaterial);
  const outerGlow = new THREE.Mesh(unitPlaneGeometry, outerGlowMaterial);
+ // Glow exterior SIEMPRE detrás del cristal (windowGlass.renderOrder = 20).
+ // Sin esto, al rotar cámara el sort por distancia hace flickering azul
+ // alrededor del marco.
+ outerGlow.renderOrder = 19;
 
  windowGroup.add(
   topFrame,
@@ -2326,6 +2346,94 @@ export function initHeroScene() {
  satGlowSprite.scale.setScalar(0.18);
  satGroup.add(satGlowSprite);
 
+ // ══════════════════════════════════════════════════════════════════════════
+ // ASTEROIDES — añaden profundidad/parallax al exterior espacial
+ // ══════════════════════════════════════════════════════════════════════════
+ //
+ // 7 piezas distribuidas en 3 planos de profundidad para que, al moverse la
+ // cámara, el conjunto respire con parallax real. Posiciones manuales para
+ // NO tapar la luna ni el claim, llenando los huecos del encuadre.
+ //
+ // Material: muy mate, color gris-marrón oscuro (rocoso, sin saturación) y
+ // un emissive cálido casi imperceptible que sugiere luz reflejada de la
+ // luna sin convertir las rocas en faros.
+ //
+ // Geometría: icosaedro nivel 1 con desplazamiento de vértices por ruido,
+ // distinto por seed → cada asteroide es único. Total ≈ 280 vértices entre
+ // los 7. Coste despreciable.
+
+ const asteroidParams = {
+  visible: true,
+  opacityMult: 1.0,
+  emissiveMult: 1.0,
+  rotSpeed: 1.0,
+  driftSpeed: 1.0,
+ };
+
+ const asteroidsGroup = new THREE.Group();
+ asteroidsGroup.visible = false;
+ scene.add(asteroidsGroup);
+
+ // Posiciones cuidadas: lejanos (background, grandes y lentos),
+ // medios (parallax intermedio), cercanos (foreground, pequeños y rápidos).
+ // X se mide desde EXT_X (zona del exterior, X negativo = más profundo).
+ const ASTEROID_SPECS = [
+  // Background — grandes, lentos, lejos
+  { x: EXT_X - 18, y: EXT_Y + 2.6, z: EXT_Z - 3.2, s: 0.28, axis: [0.4, 1.0, 0.6] },
+  { x: EXT_X - 15.5, y: EXT_Y - 2.4, z: EXT_Z + 1.6, s: 0.22, axis: [0.8, 0.5, 0.9] },
+  // Mid — tamaño y velocidad intermedios
+  { x: EXT_X - 9.8, y: EXT_Y + 1.9, z: EXT_Z - 1.6, s: 0.13, axis: [1.0, 0.4, 0.7] },
+  { x: EXT_X - 11, y: EXT_Y - 1.8, z: EXT_Z - 0.4, s: 0.16, axis: [0.6, 0.9, 0.3] },
+  // Foreground — pequeños, rápidos, cerca de cámara
+  { x: EXT_X - 5.5, y: EXT_Y + 2.3, z: EXT_Z + 2.4, s: 0.08, axis: [0.3, 0.8, 1.0] },
+  { x: EXT_X - 5.0, y: EXT_Y - 2.7, z: EXT_Z + 1.9, s: 0.06, axis: [0.7, 0.7, 0.7] },
+  { x: EXT_X - 4.5, y: EXT_Y - 0.6, z: EXT_Z + 2.7, s: 0.05, axis: [0.9, 0.3, 0.5] },
+ ];
+
+ // Geometría única por asteroide (deformada por seed) — look natural
+ function makeAsteroidGeometry(seed) {
+  const geo = new THREE.IcosahedronGeometry(1, 1);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+   const x = pos.getX(i);
+   const y = pos.getY(i);
+   const z = pos.getZ(i);
+   // Pseudo-noise determinista por vértice + seed → cada asteroide
+   // tiene una silueta única pero estable
+   const n = Math.sin(x * 12.9 + y * 78.2 + z * 37.7 + seed * 4.13) * 0.5;
+   const r = 1.0 + n * 0.22;
+   pos.setXYZ(i, x * r, y * r, z * r);
+  }
+  geo.computeVertexNormals();
+  return geo;
+ }
+
+ // Material compartido — una sola dispose en cleanup
+ const asteroidMat = new THREE.MeshStandardMaterial({
+  color: "#3a352e", // gris-marrón rocoso, baja saturación
+  roughness: 0.94, // mate, sin brillos
+  metalness: 0.05,
+  emissive: new THREE.Color("#1a1410"), // recoge "luz lunar" de forma muy sutil
+  emissiveIntensity: 0.18,
+  transparent: true,
+  opacity: 0,
+ });
+
+ const asteroids = ASTEROID_SPECS.map((spec, i) => {
+  const geo = makeAsteroidGeometry(i + 1);
+  const mesh = new THREE.Mesh(geo, asteroidMat);
+  mesh.position.set(spec.x, spec.y, spec.z);
+  mesh.scale.setScalar(spec.s);
+  mesh.userData.axis = new THREE.Vector3(...spec.axis).normalize();
+  // Velocidad inversa al tamaño: piezas pequeñas rotan más rápido
+  mesh.userData.rotSpeed = 0.04 + (1 - spec.s / 0.3) * 0.08;
+  mesh.userData.basePos = new THREE.Vector3(spec.x, spec.y, spec.z);
+  mesh.userData.driftPhase = i * 0.97;
+  mesh.userData.driftAmpY = 0.05 + (i % 3) * 0.04;
+  asteroidsGroup.add(mesh);
+  return mesh;
+ });
+
  // ── Estrella fugaz ─────────────────────────────────────────────────────────
  // Estado: idle → active → idle. Período: 8–20s. Duración: ~0.85s.
  const shootingState = {
@@ -2981,23 +3089,24 @@ export function initHeroScene() {
 
  // ── Parámetros editables por GUI ──────────────────────────────────────────
  const neonParams = {
-  x: 1.2,
-  y: 6.2,
-  z: -3.96,
-  scale: 1.0,
-  intensity: 1.0,
-  glowStrength: 1.35,
+  x: -1.14,
+  y: 6.5,
+  z: -3.88,
+  scale: 0.89,
+  intensity: 0.29,
+  glowStrength: 0, // rebote de PointLights apagado, el glow es por letra
   flickerSpeed: 1.0,
-  // ── Ajustes específicos del GLB cargado (Blender → Three.js) ──────────
-  glbScale: 0.35, // el GLB viene en metros de Blender — hay que reducirlo
-  glbRotX: -Math.PI * 0.5, // Blender Z-up → Three Y-up: rotamos 90° en X
+  glbScale: 0.171,
+  glbRotX: 0,
   glbRotY: 0,
   glbRotZ: 0,
   glbOffsetX: 0,
-  glbOffsetY: 0,
-  glbOffsetZ: 0,
+  glbOffsetY: 2.0,
+  glbOffsetZ: 1.31,
+  // ── Halo por letra (sprite radial por cada mesh) ──────────────────────
+  haloOpacity: 0.53, // presencia del halo individual
+  haloScale: 1.6, // tamaño respecto al bounding de cada letra
  };
-
  // ── Máquina de estados ────────────────────────────────────────────────────
  // "DAVID LLONA" sin espacio = 10 letras (índices 0–9)
  // D(0) A(1) V(2) I(3) D(4) L(5) L(6) O(7) N(8) A(9)
@@ -3031,8 +3140,10 @@ export function initHeroScene() {
  //
  // Dos PointLights ligeramente desplazadas dan un rebote volumétrico.
  // La segunda está más baja y tenue — crea un gradiente natural.
- const neonLight = new THREE.PointLight(NEON_TUBE, 0.75, 7.5, 2);
- const neonLight2 = new THREE.PointLight(NEON_TUBE, 0.42, 5.5, 2.2);
+ // Distancias cortas (4.5 / 3.5) → el rebote violeta se concentra en la
+ // pared detrás del letrero y no contamina escritorio ni robot.
+ const neonLight = new THREE.PointLight(NEON_TUBE, 0.75, 4.5, 2.0);
+ const neonLight2 = new THREE.PointLight(NEON_TUBE, 0.42, 3.5, 2.2);
  scene.add(neonLight);
  scene.add(neonLight2);
 
@@ -3041,31 +3152,6 @@ export function initHeroScene() {
  neonGroup.scale.setScalar(neonParams.scale);
  neonLight.position.set(neonParams.x, neonParams.y + 0.1, neonParams.z + 0.4);
  neonLight2.position.set(neonParams.x + 0.5, neonParams.y - 0.2, neonParams.z + 0.3);
-
- // Stub de compatibilidad para el cleanup existente — variables esperadas
- // por las secciones de GUI tick y dispose que no queremos tocar.
- // neonMesh, neonTexture, neonMat, neonHaloGeo, etc. se eliminan del cleanup
- // a continuación, pero mantenemos las referencias nulas para evitar errores.
- const neonMesh = null; // obsoleto — sustituido por neonGroup
- const neonTexture = null; // obsoleto
- const neonMat = null; // obsoleto
- const neonHaloGeo = null; // obsoleto
- const neonHaloTex = null; // obsoleto
- const neonHaloMat = null; // obsoleto
- const neonHaloMesh = null; // obsoleto
- // neonWallGeo — la geometría real vive dentro de neonGroup y se libera al traversarlo
- // neonWallTex, neonWallMat, neonWallMesh → los nuevos están en neonGroup
-
- // ── Llamas del cohete — propulsión decorativa premium ────────────────────
- //
- // Arquitectura en capas concéntricas desde el núcleo hacia fuera:
- //   L0: núcleo — cono corto blanco-amarillo casi sólido (calor máximo)
- //   L1: media  — cono amarillo-naranja, algo más ancho y largo
- //   L2: exterior — cono naranja-ámbar, el más ancho, muy transparente
- //   L3: glow   — sprite canvas con gradiente radial, AdditiveBlending
- //
- // Todo sale hacia ABAJO (rotation.z = Math.PI en conos, Y negativo en sprite).
- // El sprite actúa como halo suave que "contamina" la mesa con luz cálida.
 
  const flameGroup = new THREE.Group();
  scene.add(flameGroup);
@@ -3915,7 +4001,7 @@ export function initHeroScene() {
    requestAnimationFrame(placeDogHologram);
    return;
   }
-  dogHologram.position.set(2.2, deskTopSupport.position.y + 0.01, 0.4);
+  dogHologram.position.set(3.2, deskTopSupport.position.y + 0.01, 0.2);
  };
  attachToDesk(dogHologram);
  placeDogHologram();
@@ -3985,10 +4071,13 @@ export function initHeroScene() {
 
   // Cantos luminosos perimetrales — 4 barras finas ámbar encajadas en el
   // rebaje entre cuerpo y tapa. AQUÍ nace la luz del mueble.
+  // opacity 0.78 (antes 0.95): a 0.95 + toneMapped:false los cantos saltan
+  // como líneas demasiado brillantes al rotar cámara. 0.78 mantiene
+  // presencia pero deja que el tone mapping del entorno los integre.
   const edgeLedMat = new THREE.MeshBasicMaterial({
    color: "#ff9a4a",
    transparent: true,
-   opacity: 0.95,
+   opacity: 0.78,
    toneMapped: false,
   });
   const LED_T = 0.012; // grosor del canto luminoso
@@ -4419,61 +4508,129 @@ export function initHeroScene() {
   brightness: 0.2,
  };
 
- // ═══════════════════════════════════════════════════════════════════════
- // NEÓN DE PARED — carga neon.glb con titileo global.
- // El GLB tiene 3 mallas (Texto, Texto.001, Texto.002) que actúan como
- // 3 capas del mismo letrero. Todas parpadean sincronizadas como un
- // letrero de bar viejo: onda base + gate ocasional + glitches cortos.
- // ═══════════════════════════════════════════════════════════════════════
+ // ═══════════════════════════════════════════════════════════════════
+ // NEÓN DE PARED — carga neon_22.glb con materiales emissive y titileo.
+ // Pivote físicamente recentrado para que rote/escale en sitio.
+ // ═══════════════════════════════════════════════════════════════════
+
+ // ═══════════════════════════════════════════════════════════════════
+ // NEÓN DE PARED — carga neon_22.glb con materiales emissive y titileo.
+ // Glow atmosférico por LETRA (sprite radial anclado a cada mesh).
+ // ═══════════════════════════════════════════════════════════════════
+
+ // ── Textura del halo (compartida por todos los sprites) ────────────────
+ const neonHaloCanvas = document.createElement("canvas");
+ neonHaloCanvas.width = neonHaloCanvas.height = 256;
+ (() => {
+  const c = neonHaloCanvas.getContext("2d");
+  const g = c.createRadialGradient(128, 128, 0, 128, 128, 128);
+  // Curva suave: núcleo caliente → fade largo. Evita borde duro del halo.
+  g.addColorStop(0.0, "rgba(255, 255, 255, 1.0)");
+  g.addColorStop(0.15, "rgba(200, 160, 255, 0.75)");
+  g.addColorStop(0.4, "rgba(140, 90, 255, 0.25)");
+  g.addColorStop(0.75, "rgba(90, 60, 200, 0.06)");
+  g.addColorStop(1.0, "rgba(80, 50, 180, 0)");
+  c.fillStyle = g;
+  c.fillRect(0, 0, 256, 256);
+ })();
+ const neonHaloTex = new THREE.CanvasTexture(neonHaloCanvas);
+ neonHaloTex.colorSpace = THREE.SRGBColorSpace;
+
+ // Los sprites individuales se crean en el callback del loader, cuando
+ // conocemos el tamaño real de cada mesh del letrero.
+ const neonLetterHalos = []; // {sprite, mesh, baseOpacity, color}
+
  const neonLoader = new GLTFLoader();
  let neonModel = null;
- const neonGlbMats = []; // mallas del GLB con material emissive asignado
+ const neonGlbMats = [];
 
  neonLoader.load(
-  "/modelos/neon.glb",
+  "/modelos/neon_22.glb",
   (gltf) => {
    neonModel = gltf.scene;
+
+   // ── Recentrar geometría físicamente (pivot en el centro del letrero)
+   const box = new THREE.Box3().setFromObject(neonModel);
+   const center = box.getCenter(new THREE.Vector3());
 
    neonModel.traverse((child) => {
     if (!child.isMesh) return;
 
-    // El GLB trae los colores en `emissive` del material original
-    // (baseColor es negro). Conservamos el material tal cual y solo
-    // subimos la intensidad para que brille como neón.
+    child.geometry.translate(-center.x, -center.y, -center.z);
+
     const mat = child.material;
-    mat.emissiveIntensity = 2.5;
-    mat.transparent = true;
-    mat.opacity = 0.95;
-    mat.toneMapped = false; // emissive en "bruto" → colores saturados reales
-    mat.roughness = 0.3;
+
+    // Si el GLB trae el color en baseColor y emissive está en negro, copiamos
+    const emissiveIsBlack = mat.emissive.r < 0.01 && mat.emissive.g < 0.01 && mat.emissive.b < 0.01;
+    if (emissiveIsBlack) mat.emissive.copy(mat.color);
+
+    // Emissive potente pero no quemado. 3.5 es el sweet spot con tonemapping ACES
+    // desactivado (toneMapped=false): el color se ve saturado pero el ojo no
+    // lo lee como blanco puro.
+    mat.emissiveIntensity = 3.5;
+    mat.toneMapped = false;
+    mat.roughness = 0.4;
     mat.metalness = 0.0;
+    mat.transparent = false;
+    mat.opacity = 1.0;
+    mat.needsUpdate = true;
 
-    child.userData.baseIntensity = 2.5;
+    child.userData.baseIntensity = 3.5;
 
-    // Identificar por el color emissive si es letra AMARILLA (I o A).
-    // Amarillo = R alta, G alta, B muy baja. Tolerancia amplia.
+    // Amarillo (I, a) por emissive → titileo de fósforo defectuoso
     const e = mat.emissive;
-    const isYellow = e.r > 0.5 && e.g > 0.4 && e.b < 0.2;
-    child.userData.isFlicker = isYellow;
+    child.userData.isFlicker = e.r > 0.5 && e.g > 0.4 && e.b < 0.25;
 
     neonGlbMats.push(child);
+
+    // ── Halo individual anclado a ESTA letra ─────────────────────────────
+    // Cada letra tiene su propio sprite radial del color de su emissive.
+    // Se escala según el bounding de la letra → letras pequeñas glow
+    // pequeño, letras grandes glow grande. Esto es lo que el ojo lee como
+    // "cada letra emite por sí misma".
+    const letterBox = new THREE.Box3().setFromObject(child);
+    const letterSize = letterBox.getSize(new THREE.Vector3());
+    const maxDim = Math.max(letterSize.x, letterSize.y);
+
+    const haloMat = new THREE.SpriteMaterial({
+     map: neonHaloTex,
+     color: mat.emissive.clone(), // mismo color que la letra
+     transparent: true,
+     opacity: 0,
+     blending: THREE.AdditiveBlending,
+     depthWrite: false,
+     toneMapped: false,
+    });
+    const haloSprite = new THREE.Sprite(haloMat);
+    haloSprite.scale.set(maxDim * 2.5, maxDim * 2.5, 1);
+    // Centrado en la letra, ligeramente detrás en Z (hacia la pared)
+    const letterCenter = letterBox.getCenter(new THREE.Vector3());
+    // Convertimos a coordenadas locales del neonModel para que siga las transforms
+    neonModel.worldToLocal(letterCenter);
+    haloSprite.position.copy(letterCenter);
+    haloSprite.position.z -= 0.02;
+    haloSprite.renderOrder = -1;
+
+    neonModel.add(haloSprite);
+    neonLetterHalos.push({
+     sprite: haloSprite,
+     mesh: child,
+     color: mat.emissive.clone(),
+     isFlicker: child.userData.isFlicker,
+    });
    });
 
-   // Aplicar orientación y escala desde neonParams
+   // Transform desde neonParams
    neonModel.rotation.set(neonParams.glbRotX, neonParams.glbRotY, neonParams.glbRotZ);
    neonModel.scale.setScalar(neonParams.glbScale);
    neonModel.position.set(neonParams.glbOffsetX, neonParams.glbOffsetY, neonParams.glbOffsetZ);
 
-   // DEBUG temporal — expongo al scope global para inspección desde consola
    window.__neon = neonModel;
-   window.__neonGroup = neonGroup;
-   window.__THREE = THREE;
-
    neonGroup.add(neonModel);
    requestRender();
   },
   undefined,
-  (err) => console.error("[neon.glb] error:", err),
+  (err) => console.error("[neon_22.glb] error:", err),
  );
 
  const lamparaLoader = new GLTFLoader();
@@ -4893,13 +5050,30 @@ export function initHeroScene() {
   // ─────────────────────────────────────────────────────────────────────
   const neonFolder = gui.addFolder("💜 Neón");
 
-  // Posición del conjunto (luces + modelo)
-  neonFolder.add(neonParams, "x", -6, 6, 0.01).name("x grupo").onChange(requestRender);
-  neonFolder.add(neonParams, "y", 0, 10, 0.01).name("y grupo").onChange(requestRender);
-  neonFolder.add(neonParams, "z", -8, 2, 0.01).name("z grupo").onChange(requestRender);
-  neonFolder.add(neonParams, "scale", 0.1, 3, 0.01).name("scale grupo").onChange(requestRender);
-  neonFolder.add(neonParams, "intensity", 0, 3, 0.01).name("intensidad").onChange(requestRender);
-  neonFolder.add(neonParams, "glowStrength", 0, 3, 0.01).name("glow").onChange(requestRender);
+  // Posición del conjunto (luces + modelo) — rangos muy amplios
+  neonFolder.add(neonParams, "x", -20, 20, 0.01).name("x grupo").onChange(requestRender);
+  neonFolder.add(neonParams, "y", -10, 25, 0.01).name("y grupo").onChange(requestRender);
+  neonFolder.add(neonParams, "z", -20, 10, 0.01).name("z grupo").onChange(requestRender);
+  neonFolder.add(neonParams, "scale", 0.01, 10, 0.01).name("scale grupo").onChange(requestRender);
+  neonFolder.add(neonParams, "intensity", 0, 10, 0.01).name("intensidad").onChange(requestRender);
+  neonFolder.add(neonParams, "glowStrength", 0, 10, 0.01).name("glow").onChange(requestRender);
+
+  // Halo atmosférico
+  neonFolder.add(neonParams, "haloOpacity", 0, 3, 0.01).name("halo opacidad").onChange(requestRender);
+  neonFolder
+   .add(neonParams, "haloScale", 0.1, 10, 0.05)
+   .name("halo tamaño")
+   .onChange(() => {
+    // Cada halo se re-escala según el bounding de SU letra
+    neonLetterHalos.forEach((h) => {
+     const letterBox = new THREE.Box3().setFromObject(h.mesh);
+     const letterSize = letterBox.getSize(new THREE.Vector3());
+     const maxDim = Math.max(letterSize.x, letterSize.y);
+     const s = maxDim * neonParams.haloScale * 1.5;
+     h.sprite.scale.set(s, s, 1);
+    });
+    requestRender();
+   });
 
   // ── Ajustes específicos del GLB (rotación/escala internas) ──────────
   const applyNeonGlbTransform = () => {
@@ -4910,13 +5084,23 @@ export function initHeroScene() {
     requestRender();
    }
   };
-  neonFolder.add(neonParams, "glbScale", 0.05, 2, 0.001).name("escala GLB").onChange(applyNeonGlbTransform);
-  neonFolder.add(neonParams, "glbRotX", -Math.PI, Math.PI, 0.01).name("rot X").onChange(applyNeonGlbTransform);
-  neonFolder.add(neonParams, "glbRotY", -Math.PI, Math.PI, 0.01).name("rot Y").onChange(applyNeonGlbTransform);
-  neonFolder.add(neonParams, "glbRotZ", -Math.PI, Math.PI, 0.01).name("rot Z").onChange(applyNeonGlbTransform);
-  neonFolder.add(neonParams, "glbOffsetX", -2, 2, 0.01).name("offset X").onChange(applyNeonGlbTransform);
-  neonFolder.add(neonParams, "glbOffsetY", -2, 2, 0.01).name("offset Y").onChange(applyNeonGlbTransform);
-  neonFolder.add(neonParams, "glbOffsetZ", -2, 2, 0.01).name("offset Z").onChange(applyNeonGlbTransform);
+
+  neonFolder.add(neonParams, "glbScale", 0.001, 10, 0.001).name("escala GLB").onChange(applyNeonGlbTransform);
+  neonFolder
+   .add(neonParams, "glbRotX", -Math.PI * 2, Math.PI * 2, 0.01)
+   .name("rot X")
+   .onChange(applyNeonGlbTransform);
+  neonFolder
+   .add(neonParams, "glbRotY", -Math.PI * 2, Math.PI * 2, 0.01)
+   .name("rot Y")
+   .onChange(applyNeonGlbTransform);
+  neonFolder
+   .add(neonParams, "glbRotZ", -Math.PI * 2, Math.PI * 2, 0.01)
+   .name("rot Z")
+   .onChange(applyNeonGlbTransform);
+  neonFolder.add(neonParams, "glbOffsetX", -15, 15, 0.01).name("offset X").onChange(applyNeonGlbTransform);
+  neonFolder.add(neonParams, "glbOffsetY", -15, 15, 0.01).name("offset Y").onChange(applyNeonGlbTransform);
+  neonFolder.add(neonParams, "glbOffsetZ", -15, 15, 0.01).name("offset Z").onChange(applyNeonGlbTransform);
 
   neonFolder.close();
   // ─────────────────────────────────────────────────────────────────────
@@ -4970,7 +5154,7 @@ export function initHeroScene() {
   const dogFolder = gui.addFolder("🐕 Perro");
   const dogCfg = {
    visible: dogHologram.visible,
-   x: dogHologram.position.x,
+   x: 3.93,
    y: dogHologram.position.y,
    z: dogHologram.position.z,
    scale: dogHologram.scale.x,
@@ -4980,7 +5164,7 @@ export function initHeroScene() {
    requestRender();
   });
   dogFolder.add(dogCfg, "x", -6, 6, 0.01).onChange((v) => {
-   dogHologram.position.x = v;
+   dogHologram.position.x = 3.93;
    requestRender();
   });
   dogFolder.add(dogCfg, "y", -2, 5, 0.01).onChange((v) => {
@@ -5069,24 +5253,39 @@ export function initHeroScene() {
   // ─────────────────────────────────────────────────────────────────────
   // 💡 LUCES GLOBALES (habitación)
   // ─────────────────────────────────────────────────────────────────────
+  // Los GUIs ahora editan multiplicadores (no intensidades absolutas) que
+  // el tick respeta cada frame. Rango 0–3: 0=apagado, 1=valor base, >1=más.
   const lightsFolder = gui.addFolder("💡 Luces");
-  lightsFolder.add(ambientLight, "intensity", 0, 1, 0.01).name("ambient").onChange(requestRender);
-  lightsFolder.add(moonLight, "intensity", 0, 3, 0.01).name("luna direc.").onChange(requestRender);
-  lightsFolder.add(windowFillLight, "intensity", 0, 2, 0.01).name("ventana fill").onChange(requestRender);
-  lightsFolder.add(moonAreaLight, "intensity", 0, 2, 0.01).name("luna area").onChange(requestRender);
-  lightsFolder.add(rimLight, "intensity", 0, 2, 0.01).name("rim silla").onChange(requestRender);
-  lightsFolder.add(backRimLight, "intensity", 0, 2, 0.01).name("rim trasero").onChange(requestRender);
-  lightsFolder.add(ledUnderDesk, "intensity", 0, 3, 0.01).name("LED mesa").onChange(requestRender);
-  lightsFolder.add(rightWallFill, "intensity", 0, 2, 0.01).name("fill derecha").onChange(requestRender);
+  lightsFolder.add(lightMultipliers, "ambient", 0, 3, 0.01).name("ambient ×").onChange(requestRender);
+  lightsFolder.add(lightMultipliers, "moonDir", 0, 3, 0.01).name("luna direc. ×").onChange(requestRender);
+  lightsFolder.add(lightMultipliers, "windowFill", 0, 3, 0.01).name("ventana fill ×").onChange(requestRender);
+  lightsFolder.add(lightMultipliers, "moonArea", 0, 3, 0.01).name("luna area ×").onChange(requestRender);
+  lightsFolder.add(lightMultipliers, "rimChair", 0, 3, 0.01).name("rim silla ×").onChange(requestRender);
+  lightsFolder.add(lightMultipliers, "rimBack", 0, 3, 0.01).name("rim trasero ×").onChange(requestRender);
+  lightsFolder.add(lightMultipliers, "ledDesk", 0, 3, 0.01).name("LED mesa ×").onChange(requestRender);
+  lightsFolder.add(lightMultipliers, "rightFill", 0, 3, 0.01).name("fill derecha ×").onChange(requestRender);
   lightsFolder.add(renderer, "toneMappingExposure", 0, 2, 0.01).name("exposición").onChange(requestRender);
 
   // ─────────────────────────────────────────────────────────────────────
   // 🎥 CÁMARA
   // ─────────────────────────────────────────────────────────────────────
+  // Al cambiar cameraBase, hay que reconstruir KP[0] (que se usa en el
+  // tick para interpolar la cámara) o el cambio se pierde al instante.
+  const onCameraBaseChange = () => {
+   if (typeof buildKeyframes === "function") buildKeyframes();
+   // Si estamos en sp=0 (escena 1, sin scroll), reposicionamos la cámara
+   // inmediatamente para que el cambio se vea en vivo.
+   if (typeof currentScrollProgress === "undefined" || currentScrollProgress < 0.01) {
+    camera.position.set(cameraBase.x, cameraBase.y, cameraBase.z);
+    camera.lookAt(controls.target);
+   }
+   requestRender();
+  };
+
   const cameraFolder = gui.addFolder("🎥 Cámara");
-  cameraFolder.add(cameraBase, "x", -10, 10, 0.01).name("base X").onChange(requestRender);
-  cameraFolder.add(cameraBase, "y", 0, 10, 0.01).name("base Y").onChange(requestRender);
-  cameraFolder.add(cameraBase, "z", 0, 20, 0.01).name("base Z").onChange(requestRender);
+  cameraFolder.add(cameraBase, "x", -10, 10, 0.01).name("base X").onChange(onCameraBaseChange);
+  cameraFolder.add(cameraBase, "y", 0, 10, 0.01).name("base Y").onChange(onCameraBaseChange);
+  cameraFolder.add(cameraBase, "z", 0, 20, 0.01).name("base Z").onChange(onCameraBaseChange);
   cameraFolder
    .add(camera, "fov", 20, 90, 1)
    .name("FOV")
@@ -5103,6 +5302,110 @@ export function initHeroScene() {
   rocketFolder.close();
   lightsFolder.close();
   cameraFolder.close();
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 🌌 EXTERIOR (escena espacial — "Diseñando experiencias")
+  // ─────────────────────────────────────────────────────────────────────
+  // Toda la escena del exterior agrupada aquí. Subcarpetas para que el
+  // panel no se sature. Todo arranca cerrado.
+  const exteriorFolder = gui.addFolder("🌌 Exterior");
+
+  // — ✨ Estrellas (4 capas) —
+  const starsFolder = exteriorFolder.addFolder("✨ Estrellas");
+  starsFolder.add(starsParams, "visible").name("visible").onChange(requestRender);
+  starsFolder.add(starsParams, "globalOpacity", 0, 4, 0.01).name("opacidad global").onChange(requestRender);
+  starsFolder.add(starsParams, "parallaxSpeed", 0, 4, 0.01).name("parallax").onChange(requestRender);
+  starsFolder.add(starsParams, "twinkleStrength", 0, 1, 0.01).name("twinkle").onChange(requestRender);
+  starsFolder.add(starsParams, "aOpacity", 0, 1.5, 0.01).name("capa A op").onChange(requestRender);
+  starsFolder.add(starsParams, "bOpacity", 0, 1.5, 0.01).name("capa B op").onChange(requestRender);
+  starsFolder.add(starsParams, "cOpacity", 0, 1.5, 0.01).name("capa C op").onChange(requestRender);
+  starsFolder.close();
+
+  // — 🌕 Luna —
+  const moonExtFolder = exteriorFolder.addFolder("🌕 Luna");
+  moonExtFolder
+   .add(moonParams, "visible")
+   .name("visible")
+   .onChange(() => {
+    extMoon.visible = moonParams.visible;
+    requestRender();
+   });
+  moonExtFolder
+   .add(moonParams, "x", EXT_X - 30, EXT_X + 5, 0.1)
+   .name("x")
+   .onChange(updateMoon);
+  moonExtFolder.add(moonParams, "y", -10, 15, 0.1).name("y").onChange(updateMoon);
+  moonExtFolder.add(moonParams, "z", -10, 10, 0.1).name("z").onChange(updateMoon);
+  moonExtFolder.add(moonParams, "scale", 0.2, 4, 0.05).name("escala").onChange(updateMoon);
+  moonExtFolder.add(moonParams, "opacity", 0, 1, 0.01).name("opacidad").onChange(requestRender);
+  moonExtFolder.add(moonParams, "lightIntensity", 0, 2, 0.01).name("luz").onChange(requestRender);
+  moonExtFolder.addColor(moonParams, "tint").name("tinte").onChange(updateMoon);
+  moonExtFolder.close();
+
+  // — ☁ Nebula —
+  const nebulaFolder = exteriorFolder.addFolder("☁ Nebula");
+  nebulaFolder
+   .add(nebulaParams, "visible")
+   .name("visible")
+   .onChange(() => {
+    nebulaMesh.visible = nebulaParams.visible;
+    requestRender();
+   });
+  nebulaFolder.add(nebulaParams, "opacity", 0, 1, 0.01).name("opacidad").onChange(requestRender);
+  nebulaFolder.add(nebulaParams, "scale", 0.2, 4, 0.05).name("escala").onChange(updateNebula);
+  nebulaFolder.add(nebulaParams, "rotY", -Math.PI, Math.PI, 0.01).name("rot Y").onChange(updateNebula);
+  nebulaFolder.add(nebulaParams, "density", 0.1, 1.5, 0.01).name("densidad").onChange(regenerateNebula);
+  nebulaFolder.add(nebulaParams, "softness", 0, 1, 0.01).name("suavidad").onChange(regenerateNebula);
+  nebulaFolder.addColor(nebulaParams, "colorPrimary").name("color 1").onChange(regenerateNebula);
+  nebulaFolder.addColor(nebulaParams, "colorSecondary").name("color 2").onChange(regenerateNebula);
+  nebulaFolder.close();
+
+  // — 🛸 UFO —
+  const ufoFolder = exteriorFolder.addFolder("🛸 UFO");
+  ufoFolder.add(ufoParams, "visible").name("visible").onChange(requestRender);
+  ufoFolder.add(ufoParams, "scale", 0.1, 2, 0.01).name("escala").onChange(updateUfo);
+  ufoFolder.add(ufoParams, "xOffset", -3, 3, 0.01).name("offset X").onChange(requestRender);
+  ufoFolder.add(ufoParams, "yOffset", -3, 3, 0.01).name("offset Y").onChange(requestRender);
+  ufoFolder.add(ufoParams, "glowIntensity", 0, 4, 0.01).name("glow").onChange(updateUfo);
+  ufoFolder.add(ufoParams, "underLightIntensity", 0, 3, 0.01).name("luz inferior").onChange(updateUfo);
+  ufoFolder.add(ufoParams, "beamOpacityMult", 0, 3, 0.01).name("beam opacidad").onChange(requestRender);
+  ufoFolder.add(ufoParams, "beamWidth", 0.3, 3, 0.01).name("beam ancho").onChange(requestRender);
+  ufoFolder.add(ufoParams, "beamLength", 0.3, 3, 0.01).name("beam alto").onChange(requestRender);
+  ufoFolder.close();
+
+  // — 📝 Claim ("Diseñando experiencias") —
+  const claimFolder = exteriorFolder.addFolder("📝 Claim");
+  claimFolder.add(claimParams, "visible").name("visible").onChange(requestRender);
+  claimFolder
+   .add(claimParams, "x", EXT_X - 10, EXT_X + 5, 0.05)
+   .name("x")
+   .onChange(updateClaim);
+  claimFolder
+   .add(claimParams, "y", EXT_Y - 5, EXT_Y + 5, 0.05)
+   .name("y")
+   .onChange(updateClaim);
+  claimFolder
+   .add(claimParams, "z", EXT_Z - 5, EXT_Z + 5, 0.05)
+   .name("z")
+   .onChange(updateClaim);
+  claimFolder.add(claimParams, "scale", 0.3, 3, 0.01).name("escala").onChange(updateClaim);
+  claimFolder.add(claimParams, "opacityMult", 0, 2, 0.01).name("opacidad").onChange(requestRender);
+  claimFolder.add(claimParams, "glowIntensity", 0, 3, 0.01).name("glow naranja").onChange(updateClaim);
+  claimFolder.add(claimParams, "haloOpacityMult", 0, 3, 0.01).name("halo fondo").onChange(requestRender);
+  claimFolder.addColor(claimParams, "orangeColor").name("color naranja").onChange(updateClaim);
+  claimFolder.add(claimParams, "subtitleVisible").name("subtítulo").onChange(updateClaim);
+  claimFolder.close();
+
+  // — ☄ Asteroides (NUEVO) —
+  const asteroidFolder = exteriorFolder.addFolder("☄ Asteroides");
+  asteroidFolder.add(asteroidParams, "visible").name("visible").onChange(requestRender);
+  asteroidFolder.add(asteroidParams, "opacityMult", 0, 2, 0.01).name("opacidad").onChange(requestRender);
+  asteroidFolder.add(asteroidParams, "emissiveMult", 0, 3, 0.01).name("emissive").onChange(requestRender);
+  asteroidFolder.add(asteroidParams, "rotSpeed", 0, 4, 0.01).name("rotación").onChange(requestRender);
+  asteroidFolder.add(asteroidParams, "driftSpeed", 0, 3, 0.01).name("drift").onChange(requestRender);
+  asteroidFolder.close();
+
+  exteriorFolder.close();
  }
 
  /**
@@ -5314,17 +5617,17 @@ export function initHeroScene() {
    : warmConfig.baseIntensity;
 
   warmLight.intensity = warmBase * roomFade;
-  ambientLight.intensity = 0.14 * roomFade;
-  moonLight.intensity = 1.0 * roomFade;
-  moonAreaLight.intensity = 0.75 * roomFade;
+  ambientLight.intensity = 0.14 * roomFade * lightMultipliers.ambient;
+  moonLight.intensity = 1.0 * roomFade * lightMultipliers.moonDir;
+  moonAreaLight.intensity = 0.75 * roomFade * lightMultipliers.moonArea;
   fillLight.intensity = 0.35 * roomFade;
-  windowFillLight.intensity = 0.75 * roomFade;
-  rimLight.intensity = 0.55 * roomFade;
-  backRimLight.intensity = 0.5 * roomFade;
-  ledUnderDesk.intensity = 1.1 * roomFade;
+  windowFillLight.intensity = 0.75 * roomFade * lightMultipliers.windowFill;
+  rimLight.intensity = 0.55 * roomFade * lightMultipliers.rimChair;
+  backRimLight.intensity = 0.5 * roomFade * lightMultipliers.rimBack;
+  ledUnderDesk.intensity = 1.1 * roomFade * lightMultipliers.ledDesk;
   deskBounceLight.intensity = 0.8 * roomFade;
   deskBounceLightR.intensity = 0.55 * roomFade;
-  rightWallFill.intensity = 0.3 * roomFade;
+  rightWallFill.intensity = 0.3 * roomFade * lightMultipliers.rightFill;
   posterRoomFade = roomFade;
   const posterSpotIntensity = wallPoster.userData.update(elapsedTime, roomFade);
   posterSpot.intensity = posterSpotIntensity * roomFade;
@@ -5379,15 +5682,6 @@ export function initHeroScene() {
    flameGlowSprite.scale.set(glowS, glowS, 1);
   }
 
-  // ── ELIMINAR TODO EL NEÓN DIBUJADO ANTIGUO ────────────────────────────
-  // Ocultamos todos los hijos del neonGroup (letras, placa, pines, sprites,
-  // mancha de pared). El GLB cargado más abajo se añadirá también a
-  // neonGroup y SÍ será visible.
-  while (neonGroup.children.length > 0) {
-   const child = neonGroup.children[0];
-   neonGroup.remove(child);
-  }
-
   // ── Neón 3D (GLB) — posición / luces de rebote / titileo selectivo ─────
   neonGroup.position.set(neonParams.x, neonParams.y, neonParams.z);
   neonGroup.scale.setScalar(neonParams.scale);
@@ -5395,19 +5689,20 @@ export function initHeroScene() {
   neonLight2.position.set(neonParams.x + 0.5, neonParams.y - 0.2, neonParams.z + 0.3);
 
   if (neonModel && neonGlbMats.length && roomFade > 0.05) {
-   // Brillo estable para las letras violetas
    const stableMult = neonParams.intensity * roomFade;
 
-   // Flicker tipo "fósforo defectuoso" para las letras amarillas (I y A).
-   // Onda rápida + gate ocasional + glitch muy corto.
-   const wave = 0.55 + Math.sin(elapsedTime * 12.1) * 0.45;
-   const gate = Math.sin(elapsedTime * 1.8) > 0.9 ? 0.1 : 1;
-   const glitch = Math.random() > 0.985 ? 0.1 : 1;
+   // ── Flicker sutil y lento ─────────────────────────────────────────
+   // Antes: onda a 11.3 rad/s (≈1.8 Hz, nervioso) + gate frecuente.
+   // Ahora: onda a 4.5 rad/s (≈0.7 Hz, respiración lenta) + gate muy
+   // ocasional. Sensación de tubo viejo pero no "luz rota".
+   const wave = 0.82 + Math.sin(elapsedTime * 4.5) * 0.18;
+   const gate = Math.sin(elapsedTime * 0.7) > 0.96 ? 0.55 : 1;
+   const glitch = Math.random() > 0.997 ? 0.5 : 1;
    const flickerMult = wave * gate * glitch * neonParams.intensity * roomFade;
 
    let avgLit = 0;
    neonGlbMats.forEach((mesh) => {
-    const base = mesh.userData.baseIntensity || 2.5;
+    const base = mesh.userData.baseIntensity || 3.5;
     if (mesh.userData.isFlicker) {
      mesh.material.emissiveIntensity = base * flickerMult;
      avgLit += flickerMult;
@@ -5418,46 +5713,25 @@ export function initHeroScene() {
    });
    avgLit /= Math.max(1, neonGlbMats.length);
 
-   // Luces de rebote violetas sobre la pared
-   neonLight.intensity = avgLit * 0.9 * neonParams.glowStrength * roomFade;
-   neonLight2.intensity = avgLit * 0.4 * neonParams.glowStrength * roomFade;
+   // ── Halo por letra: opacidad sigue al emissive de su mesh ──────────
+   // Cada halo hereda el nivel de luz de su letra → si la letra titila,
+   // su halo también. Así se lee que cada tubo emite por sí mismo.
+   neonLetterHalos.forEach((h) => {
+    const m = h.isFlicker ? flickerMult : stableMult;
+    // Sprite.material.opacity controla la fuerza visible del halo.
+    // haloScale controla el tamaño del sprite (aplicado abajo).
+    h.sprite.material.opacity = neonParams.haloOpacity * m;
+   });
+
+   // Luces de rebote (estarán a 0 porque glowStrength=0, pero por si se sube)
+   neonLight.intensity = avgLit * 1.1 * neonParams.glowStrength * roomFade;
+   neonLight2.intensity = avgLit * 0.5 * neonParams.glowStrength * roomFade;
   } else {
    neonLight.intensity = 0;
    neonLight2.intensity = 0;
+   neonLetterHalos.forEach((h) => (h.sprite.material.opacity = 0));
   }
 
-  // ────────────────────────────────────────────────────────────────────
-  // NEÓN GLB — titileo global (tubos y gas defectuoso)
-  //
-  // Patrón de 3 capas superpuestas:
-  //  · wave  → onda base rápida (brillo oscila entre 0.88 y 1.0)
-  //  · gate  → apagón ocasional de medio segundo (0.35× de brillo)
-  //  · glitch→ chasquido puntual muy corto (0.2× de brillo)
-  //
-  // Todo multiplicado por neonParams.intensity y roomFade para que
-  // respete el sistema de fases del scroll existente.
-  // ────────────────────────────────────────────────────────────────────
-  if (neonModel && neonGlbMats.length) {
-   // Brillo estable para todas las letras (I y A incluidas en su base)
-   const stableMult = neonParams.intensity * roomFade;
-
-   // Flicker específico SOLO para letras amarillas (I, A1, A2)
-   const wave = 0.6 + Math.sin(elapsedTime * 11.3) * 0.4;
-   const gate = Math.sin(elapsedTime * 1.8) > 0.9 ? 0.15 : 1;
-   const glitch = Math.random() > 0.985 ? 0.1 : 1;
-   const flickerMult = wave * gate * glitch * neonParams.intensity * roomFade;
-
-   neonGlbMats.forEach((mesh) => {
-    const base = mesh.userData.baseIntensity || 2.0;
-    if (mesh.userData.isFlicker) {
-     // Amarilla → patrón de fósforo defectuoso
-     mesh.material.emissiveIntensity = base * flickerMult;
-    } else {
-     // Violeta → brillo constante
-     mesh.material.emissiveIntensity = base * stableMult;
-    }
-   });
-  }
   // ── Estrellas interiores (ventana) ────────────────────────────────────────
   if (starsPoints && !isMobile) {
    starsPoints.rotation.z = elapsedTime * 0.003;
@@ -5558,6 +5832,21 @@ export function initHeroScene() {
    satBodyMat.opacity = satOp;
    satPanelMat.opacity = satOp * 0.65;
    satGlowMat.opacity = satOp * 0.45;
+
+   // ── Asteroides ────────────────────────────────────────────────────────
+   // Fade-in/out con extBase. Rotación independiente por pieza + drift Y
+   // mínimo para sensación de flotar sin gravedad. delta-time aproximado
+   // (1/60) — los asteroides no necesitan precisión de framerate variable.
+   asteroidsGroup.visible = asteroidParams.visible;
+   const astOp = extBase * asteroidParams.opacityMult;
+   asteroidMat.opacity = astOp;
+   asteroidMat.emissiveIntensity = 0.18 * asteroidParams.emissiveMult * extBase;
+   asteroids.forEach((a) => {
+    a.rotateOnAxis(a.userData.axis, a.userData.rotSpeed * 0.01 * asteroidParams.rotSpeed);
+    a.position.y =
+     a.userData.basePos.y +
+     Math.sin(elapsedTime * 0.15 * asteroidParams.driftSpeed + a.userData.driftPhase) * a.userData.driftAmpY;
+   });
 
    // ── Estrella fugaz ────────────────────────────────────────────────────
    if (!isMobile && extBase > 0.3) {
@@ -5679,6 +5968,8 @@ export function initHeroScene() {
    ufoBeamMat.opacity = 0.0;
    if (ufoInnerLight) ufoInnerLight.intensity = 0.0;
    if (ufoInnerRim) ufoInnerRim.intensity = 0.0;
+   asteroidsGroup.visible = false;
+   asteroidMat.opacity = 0.0;
   }
 
   // ── Bloque B — Claim narrativo (F5: 1.50 → 2.20) ─────────────────────────
@@ -5954,6 +6245,10 @@ export function initHeroScene() {
   satPanelMat.dispose();
   satGlowTex.dispose();
   satGlowMat.dispose();
+  // Asteroides — geometría única por pieza, material compartido
+  asteroids.forEach((a) => a.geometry.dispose());
+  asteroidMat.dispose();
+  scene.remove(asteroidsGroup);
   // Estrella fugaz
   shootLineGeo.dispose();
   shootLineMat.dispose();
@@ -6020,6 +6315,11 @@ export function initHeroScene() {
     if (child.material?.dispose) child.material.dispose();
    });
   }
+  // Halos por letra del neón (sprites individuales)
+  neonLetterHalos.forEach((h) => {
+   if (h.sprite.material) h.sprite.material.dispose();
+  });
+  if (neonHaloTex) neonHaloTex.dispose();
   scene.remove(neonGroup);
   scene.remove(backRimLight);
   scene.remove(neonLight);

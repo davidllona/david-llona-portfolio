@@ -3,7 +3,7 @@ import { Hero } from './components/Hero'
 import { Projects } from './components/Projects'
 import { InteractiveLab } from './components/InteractiveLab'
 import { About } from './components/About'
-// import { Contact } from './components/Contact'
+import { Contact } from './components/Contact'
 import { SpeedInsights } from "@vercel/speed-insights/react"
 
 
@@ -15,7 +15,7 @@ function App() {
         <Projects />
         <InteractiveLab />
         <About />
-        {/* <Contact /> */}
+        <Contact />
       </main>
       <SpeedInsights />
     </div>

@@ -17,15 +17,20 @@ export function Hero() {
   useEffect(() => {
     const cleanup = initHeroScene(wrapperRef.current);
 
-const onScroll = () => {
-      if (!hintRef.current) return;
-      // Mostrar totalmente hasta sp=0.25, fade hasta sp=0.75 (cuando llegas
-      // a la ventana), luego invisible. Coincide con las fases F2 del 3D.
-      const sp = window.scrollY / window.innerHeight;
-      let op;
-      if (sp < 0.25) op = 1;
-      else if (sp < 0.75) op = 1 - (sp - 0.25) / 0.5;
-      else op = 0;
+    const onScroll = () => {
+      if (!hintRef.current || !wrapperRef.current) return;
+
+      // Progreso real del wrapper (sticky 100vh dentro de 380vh ⇒ ~280vh
+      // de rango de scroll). Mucho más fiable que scrollY absoluto: no se
+      // descalibra entre pantallas con distinto innerHeight.
+      const rect = wrapperRef.current.getBoundingClientRect();
+      const range = rect.height - window.innerHeight;
+      const scrolled = Math.max(0, -rect.top);
+      const progress = range > 0 ? scrolled / range : 0;
+
+      // Fade-out completo al ~14% del progreso. La cámara sale por la
+      // ventana hacia el ~29%, así que el hint queda fuera bastante antes.
+      const op = Math.max(0, 1 - progress * 7);
       hintRef.current.style.opacity = String(op);
     };
 
@@ -81,31 +86,28 @@ const onScroll = () => {
         </div>
 
         <style>{`
-.hero-scroll-hint {
+          .hero-scroll-hint {
             position: absolute;
-            bottom: 48px;
+            bottom: 42px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 14px;
+            gap: 12px;
             pointer-events: none;
             user-select: none;
-            color: rgba(255, 200, 145, 1);
+            color: rgba(255, 180, 120, 0.75);
             animation: hero-hint-fadein 1.4s ease-out 0.6s both;
-            transition: opacity 0.18s linear;
           }
 
           .hero-scroll-hint__label {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            font-size: 12px;
-            font-weight: 500;
-            letter-spacing: 0.42em;
-            color: rgba(255, 230, 205, 1);
-            text-shadow:
-              0 0 12px rgba(255, 170, 100, 0.55),
-              0 0 24px rgba(255, 140, 80, 0.35);
+            font-size: 11px;
+            font-weight: 400;
+            letter-spacing: 0.38em;
+            color: rgba(235, 220, 200, 0.8);
+            text-shadow: 0 0 18px rgba(255, 160, 90, 0.25);
             animation: hero-hint-breathe 3.2s ease-in-out infinite;
           }
 
@@ -134,9 +136,9 @@ const onScroll = () => {
             to   { opacity: 1; transform: translate(-50%, 0); }
           }
 
-@keyframes hero-hint-breathe {
-            0%, 100% { opacity: 0.82; }
-            50%      { opacity: 1;    }
+          @keyframes hero-hint-breathe {
+            0%, 100% { opacity: 0.65; }
+            50%      { opacity: 0.95; }
           }
 
           @keyframes hero-hint-arrow {
