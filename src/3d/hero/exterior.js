@@ -94,24 +94,25 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
  const starsParams = {
   visible: true,
   globalOpacity: 2.0,
-  twinkleStrength: 0.15, // 0 = off
+  twinkleStrength: 0.3, // antes 0.15 — más vivo, sensación de "señal latente"
   parallaxSpeed: 1.25,
 
-  // Capa A — lejana
+  // Capa A — lejana. Tamaño desktop +30% para que el fondo se sienta
+  // realmente vasto en lugar de "limpio". En mobile ya estaba bien.
   aCount: isMobile ? 550 : 2200,
-  aSize: isMobile ? 0.07 : 0.055,
+  aSize: isMobile ? 0.07 : 0.072,
   aOpacity: 0.78,
   aTint: "#b8cdff",
 
-  // Capa B — media
+  // Capa B — media. +30% desktop.
   bCount: isMobile ? 140 : 550,
-  bSize: isMobile ? 0.12 : 0.095,
+  bSize: isMobile ? 0.12 : 0.124,
   bOpacity: 0.9,
   bTint: "#e8efff",
 
-  // Capa C — cercana (brillantes)
+  // Capa C — cercana (brillantes). +30% desktop.
   cCount: isMobile ? 22 : 90,
-  cSize: isMobile ? 0.18 : 0.15,
+  cSize: isMobile ? 0.18 : 0.195,
   cOpacity: 0.95,
   cTint: "#fff4e8",
 
@@ -560,8 +561,13 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
  // distinto por seed → cada asteroide es único. Total ≈ 280 vértices entre
  // los 7. Coste despreciable.
 
+ // Asteroides desactivados por defecto. Sobre fondo negro y sin luz
+ // direccional fuerte, se leían como manchas oscuras que distraían
+ // de la composición principal (claim + UFO + luna). Se mantienen los
+ // params y la geometría para reactivarlos desde el GUI si en el futuro
+ // se añade iluminación que los justifique.
  const asteroidParams = {
-  visible: true,
+  visible: false,
   opacityMult: 1.0,
   emissiveMult: 1.0,
   rotSpeed: 1.0,
@@ -1390,22 +1396,42 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
   // Visibilidad controlada por claimParams.visible
   const claimVisMult = claimParams.visible ? claimParams.opacityMult : 0.0;
 
-  // Texto
+  // ── Pulso de aparición — "señal sintonizándose" ──────────────────────────
+  // Cuando el claim entra (claimFI sube de 0 a 1), aplicamos un boost
+  // temporal de halo + glow + scale que sobrepasa el plateau y se asienta.
+  // El efecto vive solo durante el fade-in (claimFI < 1) — una vez asentado
+  // el claim, el pulso desaparece y queda el estado normal.
+  //
+  // Curva: peak en claimFI = 0.4 (cuando el texto está medio formado),
+  // fade a 0 en claimFI = 1.0 (asentado).
+  const tunePulse =
+   claimFI > 0 && claimFI < 1
+    ? Math.sin(claimFI * Math.PI) // 0 → 1 → 0 a lo largo del fade-in
+    : 0;
+
+  // Texto — opacidad normal, sin boost (el "evento" está en halo/scale/glow)
   extPlaneAMat.opacity = claimOp * claimVisMult;
 
-  // Halo elíptico de fondo
-  extPlaneHaloMat.opacity = claimOp * 0.62 * claimVisMult * claimParams.haloOpacityMult;
+  // Halo elíptico de fondo — durante el pulso entra al 1.5x de intensidad
+  const haloBoost = 1.0 + tunePulse * 0.5;
+  extPlaneHaloMat.opacity = claimOp * 0.62 * claimVisMult * claimParams.haloOpacityMult * haloBoost;
 
-  // Scale de entrada sutil: 0.95 → 1.0 durante fade-in, multiplicado por params.scale
-  const claimScaleAnim = lerpV(0.95, 1.0, claimFI) * claimParams.scale;
+  // Scale con overshoot sutil: el claim "rebota" al sintonizar.
+  //   - sin pulso: 0.95 → 1.0 (entrada lineal)
+  //   - con pulso: 0.95 → 1.06 (peak) → 1.0 (asentado)
+  // El extra de 0.06 en el peak es lo que se siente como "click" de señal.
+  const scaleOvershoot = tunePulse * 0.06;
+  const claimScaleAnim = (lerpV(0.95, 1.0, claimFI) + scaleOvershoot) * claimParams.scale;
   extPlaneA.scale.setScalar(claimScaleAnim);
   extPlaneHalo.scale.setScalar(claimScaleAnim);
   extGlowPlane.scale.setScalar(claimScaleAnim);
 
-  // Glow naranja vivo — pulso modulado por claimParams.glowIntensity
+  // Glow naranja vivo — pulso normal modulado por claimParams.glowIntensity,
+  // potenciado durante el momento de sintonización (boost x2.5 en el peak).
   if (claimOp > 0.01 && claimParams.visible) {
    const glowPulse = 0.025 + Math.sin(elapsedTime * 0.55) * 0.013;
-   extGlowMat.opacity = claimOp * glowPulse * claimParams.glowIntensity * claimParams.opacityMult;
+   const glowTuneBoost = 1.0 + tunePulse * 1.5; // peak: x2.5, asentado: x1
+   extGlowMat.opacity = claimOp * glowPulse * claimParams.glowIntensity * claimParams.opacityMult * glowTuneBoost;
   } else {
    extGlowMat.opacity = 0.0;
   }

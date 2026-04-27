@@ -719,6 +719,287 @@ function createMiniStars({ count = 100, spreadX = 4, spreadY = 4, spreadZ = 4, s
  };
 }
 
+/**
+ * =========================================================
+ * FONDO DE ESTRELLAS PARA PROJECTS
+ * =========================================================
+ * Mismo sistema que el Lab para mantener continuidad visual
+ * (un solo "universo" a lo largo del portfolio), pero ajustado
+ * al contexto de Projects:
+ *
+ *  – La cámara está sticky, así que NO hay scroll-parallax
+ *    (las estrellas no se desplazan en Y al hacer scroll).
+ *  – Densidad reducida (1800/700/60 vs 2200/900/90) para que
+ *    la pantalla CRT siga siendo la protagonista.
+ *  – Opacidad de las estrellas brillantes recortada para no
+ *    competir con el monitor.
+ * =========================================================
+ */
+export function initProjectsStarsScene() {
+ const canvas = document.querySelector("#projects-stars-canvas");
+
+ if (!canvas) {
+  console.warn("[ProjectsStars] No se encontró #projects-stars-canvas");
+  return;
+ }
+
+ // Ancla al sticky directo (100vh). El wrapper exterior tiene 550vh
+ // y no nos sirve para dimensionar el canvas.
+ const stickyEl = canvas.parentElement;
+ if (!stickyEl) return;
+
+ const scene = new THREE.Scene();
+
+ const sizes = {
+  width: stickyEl.clientWidth,
+  height: stickyEl.clientHeight,
+ };
+
+ const camera = new THREE.PerspectiveCamera(60, sizes.width / sizes.height, 0.1, 100);
+ camera.position.z = 12;
+ scene.add(camera);
+
+ const renderer = new THREE.WebGLRenderer({
+  canvas,
+  alpha: true,
+  antialias: true,
+ });
+
+ renderer.setSize(sizes.width, sizes.height);
+ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+ renderer.setClearColor("#03030a", 1);
+
+ // ── Texture de estrella (idéntica al Lab) ────────────────
+ const starTexture = (() => {
+  const size = 128;
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const cx = c.getContext("2d");
+  const g = cx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.18, "rgba(255,255,255,0.95)");
+  g.addColorStop(0.35, "rgba(255,255,255,0.45)");
+  g.addColorStop(0.65, "rgba(255,255,255,0.12)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  cx.fillStyle = g;
+  cx.fillRect(0, 0, size, size);
+  const t = new THREE.CanvasTexture(c);
+  t.needsUpdate = true;
+  return t;
+ })();
+
+ const applyScale = (m) => {
+  m.onBeforeCompile = (s) => {
+   s.vertexShader = s.vertexShader
+    .replace("#include <common>", "#include <common>\nattribute float aScale;")
+    .replace(
+     "gl_PointSize = size * ( scale / - mvPosition.z );",
+     "gl_PointSize = size * aScale * ( scale / - mvPosition.z );",
+    );
+   m.userData.shader = s;
+  };
+  m.needsUpdate = true;
+ };
+
+ const color = new THREE.Color();
+
+ // ── Capa 1: estrellas medias ─────────────────────────────
+ const starsCount = 1800;
+ const sPos = new Float32Array(starsCount * 3);
+ const sCol = new Float32Array(starsCount * 3);
+ const sScale = new Float32Array(starsCount);
+
+ for (let i = 0; i < starsCount; i++) {
+  const i3 = i * 3;
+  sPos[i3] = (Math.random() - 0.5) * 34;
+  sPos[i3 + 1] = (Math.random() - 0.5) * 22;
+  sPos[i3 + 2] = -10 + Math.random() * 20;
+
+  const r = Math.random();
+  if (r < 0.72) color.set("#ffffff");
+  else if (r < 0.88) color.set("#cfe7ff");
+  else if (r < 0.96) color.set("#ffd6a5");
+  else color.set("#fb923c");
+
+  sCol[i3] = color.r;
+  sCol[i3 + 1] = color.g;
+  sCol[i3 + 2] = color.b;
+
+  const sr = Math.random();
+  if (sr < 0.75) sScale[i] = 0.6 + Math.random() * 0.5;
+  else if (sr < 0.95) sScale[i] = 1.2 + Math.random() * 0.8;
+  else sScale[i] = 2.2 + Math.random() * 1.8;
+ }
+
+ const sGeo = new THREE.BufferGeometry();
+ sGeo.setAttribute("position", new THREE.BufferAttribute(sPos, 3));
+ sGeo.setAttribute("color", new THREE.BufferAttribute(sCol, 3));
+ sGeo.setAttribute("aScale", new THREE.BufferAttribute(sScale, 1));
+
+ const sMat = new THREE.PointsMaterial({
+  map: starTexture,
+  size: 0.12,
+  sizeAttenuation: true,
+  vertexColors: true,
+  transparent: true,
+  opacity: 0.85,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+ });
+ applyScale(sMat);
+ const stars = new THREE.Points(sGeo, sMat);
+ scene.add(stars);
+
+ // ── Capa 2: estrellas lejanas ────────────────────────────
+ const farCount = 700;
+ const fPos = new Float32Array(farCount * 3);
+ const fCol = new Float32Array(farCount * 3);
+ const fScale = new Float32Array(farCount);
+
+ for (let i = 0; i < farCount; i++) {
+  const i3 = i * 3;
+  fPos[i3] = (Math.random() - 0.5) * 42;
+  fPos[i3 + 1] = (Math.random() - 0.5) * 28;
+  fPos[i3 + 2] = -8 - Math.random() * 12;
+
+  const r = Math.random();
+  if (r < 0.8) color.set("#ffffff");
+  else if (r < 0.92) color.set("#dbeafe");
+  else color.set("#fdba74");
+
+  fCol[i3] = color.r;
+  fCol[i3 + 1] = color.g;
+  fCol[i3 + 2] = color.b;
+  fScale[i] = 0.45 + Math.random() * 0.45;
+ }
+
+ const fGeo = new THREE.BufferGeometry();
+ fGeo.setAttribute("position", new THREE.BufferAttribute(fPos, 3));
+ fGeo.setAttribute("color", new THREE.BufferAttribute(fCol, 3));
+ fGeo.setAttribute("aScale", new THREE.BufferAttribute(fScale, 1));
+
+ const fMat = new THREE.PointsMaterial({
+  map: starTexture,
+  size: 0.07,
+  sizeAttenuation: true,
+  vertexColors: true,
+  transparent: true,
+  opacity: 0.36,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+ });
+ applyScale(fMat);
+ const farStars = new THREE.Points(fGeo, fMat);
+ scene.add(farStars);
+
+ // ── Capa 3: estrellas brillantes (más contenidas que en Lab) ─
+ const brightCount = 60;
+ const bPos = new Float32Array(brightCount * 3);
+ const bCol = new Float32Array(brightCount * 3);
+ const bScale = new Float32Array(brightCount);
+
+ for (let i = 0; i < brightCount; i++) {
+  const i3 = i * 3;
+  bPos[i3] = (Math.random() - 0.5) * 30;
+  bPos[i3 + 1] = (Math.random() - 0.5) * 18;
+  bPos[i3 + 2] = -6 + Math.random() * 12;
+
+  const r = Math.random();
+  if (r < 0.55) color.set("#ffffff");
+  else if (r < 0.8) color.set("#dbeafe");
+  else color.set("#fdba74");
+
+  bCol[i3] = color.r;
+  bCol[i3 + 1] = color.g;
+  bCol[i3 + 2] = color.b;
+  bScale[i] = 2.4 + Math.random() * 2.2;
+ }
+
+ const bGeo = new THREE.BufferGeometry();
+ bGeo.setAttribute("position", new THREE.BufferAttribute(bPos, 3));
+ bGeo.setAttribute("color", new THREE.BufferAttribute(bCol, 3));
+ bGeo.setAttribute("aScale", new THREE.BufferAttribute(bScale, 1));
+
+ const bMat = new THREE.PointsMaterial({
+  map: starTexture,
+  size: 0.17,
+  sizeAttenuation: true,
+  vertexColors: true,
+  transparent: true,
+  opacity: 0.78,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+ });
+ applyScale(bMat);
+ const brightStars = new THREE.Points(bGeo, bMat);
+ scene.add(brightStars);
+
+ // ── Animación: rotación temporal + parallax suave de cursor ─
+ // Sin scroll-parallax: la cámara está sticky, las estrellas
+ // tampoco deben desplazarse en Y al hacer scroll.
+ const cursor = { x: 0, y: 0 };
+ const clock = new THREE.Clock();
+ let animationId = null;
+
+ const onResize = () => {
+  sizes.width = stickyEl.clientWidth;
+  sizes.height = stickyEl.clientHeight;
+  camera.aspect = sizes.width / sizes.height;
+  camera.updateProjectionMatrix();
+  renderer.setSize(sizes.width, sizes.height);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+ };
+
+ const onMouseMove = (e) => {
+  cursor.x = e.clientX / window.innerWidth - 0.5;
+  cursor.y = e.clientY / window.innerHeight - 0.5;
+ };
+
+ window.addEventListener("resize", onResize);
+ window.addEventListener("mousemove", onMouseMove);
+
+ const tick = () => {
+  const t = clock.getElapsedTime();
+
+  stars.rotation.y = t * 0.008;
+  stars.rotation.x = t * 0.004;
+
+  farStars.rotation.y = -t * 0.003;
+  farStars.rotation.x = t * 0.0012;
+
+  brightStars.rotation.y = t * 0.005;
+  brightStars.rotation.x = t * 0.0025;
+
+  // Parallax muy sutil con el cursor — da vida sin distraer
+  camera.position.x += (cursor.x * 0.6 - camera.position.x) * 0.02;
+  camera.position.y += (-cursor.y * 0.45 - camera.position.y) * 0.02;
+
+  // Pulso lento de las brillantes
+  bMat.opacity = 0.74 + Math.sin(t * 1.2) * 0.05;
+
+  renderer.render(scene, camera);
+  animationId = window.requestAnimationFrame(tick);
+ };
+
+ tick();
+
+ return () => {
+  window.removeEventListener("resize", onResize);
+  window.removeEventListener("mousemove", onMouseMove);
+  if (animationId) window.cancelAnimationFrame(animationId);
+
+  sGeo.dispose();
+  sMat.dispose();
+  fGeo.dispose();
+  fMat.dispose();
+  bGeo.dispose();
+  bMat.dispose();
+  starTexture.dispose();
+  renderer.dispose();
+ };
+}
+
 function disposeScene(scene) {
  scene.traverse((child) => {
   if (child.geometry) {

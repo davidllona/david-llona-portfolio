@@ -14,14 +14,21 @@ import * as THREE from "three";
  */
 
 // ── Proyectos ──────────────────────────────────────────────
+// Cada proyecto admite hasta 3 imágenes para componer un collage
+// tipo "ficha de archivo": principal + detalle/estudio.
+// Si solo hay 1 imagen se muestra grande sola; si hay 2 se reparten
+// en proporción 60/40; si hay 3, una grande + dos apiladas.
 const PROJECTS = [
  {
   id: 0,
   name: "TemyPlast Configurator",
   year: "2026",
   tagline: "Simulador visual de alfombras a medida",
+  description:
+   "Configurador 3D donde el cliente elige medidas, color y diseño de alfombra y obtiene en tiempo real una vista realista del producto antes de pedir presupuesto. Pensado para reducir dudas y agilizar el cierre de venta.",
+  tags: ["3D Web", "Configurador", "E-commerce"],
   color: "#c97a36",
-  image: "/images/projects/diploma3d.png",
+  images: ["/images/projects/diploma3d.png", "/images/projects/diploma3d.png", "/images/projects/diploma3d.png"],
   link: "https://temyplast.com",
  },
  {
@@ -29,8 +36,11 @@ const PROJECTS = [
   name: "Diploma3D System",
   year: "2026",
   tagline: "Generación dinámica de diplomas en 3D",
+  description:
+   "Sistema que genera diplomas personalizados en 3D combinando textura, tipografía y firma digital. Cada diploma se renderiza al vuelo según los datos del estudiante, listo para descargar o imprimir.",
+  tags: ["Three.js", "Procedural", "Plantillas"],
   color: "#5b8cff",
-  image: "/images/projects/diploma3d.png",
+  images: ["/images/projects/diploma3d.png", "/images/projects/diploma3d.png"],
   link: null,
  },
  {
@@ -38,8 +48,11 @@ const PROJECTS = [
   name: "Space Portfolio",
   year: "2026",
   tagline: "Experiencia interactiva en Three.js narrativa",
+  description:
+   "Este mismo portfolio. Una narrativa espacial donde cada sección es una escena: laboratorio, archivo de transmisión, contacto. Iluminación, scroll y profundidad como lenguaje en lugar de texto.",
+  tags: ["Three.js", "Narrativa", "Cinemático"],
   color: "#ff6b4a",
-  image: "/images/projects/diploma3d.png",
+  images: ["/images/projects/diploma3d.png", "/images/projects/diploma3d.png", "/images/projects/diploma3d.png"],
   link: null,
  },
  {
@@ -47,8 +60,11 @@ const PROJECTS = [
   name: "Interactive Room",
   year: "2025–2026",
   tagline: "Escena 3D reactiva con scroll y luz",
+  description:
+   "Una habitación 3D donde la luz, los objetos y la cámara responden al scroll y al cursor. Un experimento sobre cómo el espacio puede contar una historia sin necesidad de explicarla con texto.",
+  tags: ["Three.js", "Scroll-driven", "Iluminación"],
   color: "#7bd389",
-  image: "/images/projects/diploma3d.png",
+  images: ["/images/projects/diploma3d.png", "/images/projects/diploma3d.png"],
   link: null,
  },
 ];
@@ -118,32 +134,68 @@ export function initProjectsScene(canvas) {
  };
 
  // ── Precarga ────────────────────────────────────────────
+ // screen.images[i]        → array de Image() de cada proyecto
+ // screen.imagesLoaded[i]  → array de booleans paralelos
+ //
+ // Usamos un caché por URL: cuando varias entradas comparten
+ // la misma imagen (caso muy frecuente), reutilizamos el Image
+ // ya cargado en lugar de crear instancias nuevas. Esto evita
+ // race conditions con la caché del navegador (algunos browsers
+ // no disparan onload de forma consistente para el mismo src).
+ const imageCache = new Map();
+
  PROJECTS.forEach((p, i) => {
-  screen.imagesLoaded[i] = false;
+  screen.images[i] = [];
+  screen.imagesLoaded[i] = [];
 
-  const img = new Image();
+  p.images.forEach((src, j) => {
+   // Caso 1: la URL ya está en el caché
+   if (imageCache.has(src)) {
+    const entry = imageCache.get(src);
+    screen.images[i][j] = entry.img;
+    screen.imagesLoaded[i][j] = entry.loaded;
 
-  img.onload = () => {
-   screen.imagesLoaded[i] = true;
-   console.log("[ProjectsScene] Imagen cargada OK:", p.image, img.naturalWidth, img.naturalHeight);
-   requestRender();
-  };
+    // Si aún no terminó de cargar, registramos un callback
+    if (!entry.loaded) {
+     entry.waiters.push(() => {
+      screen.imagesLoaded[i][j] = true;
+      requestRender();
+     });
+    }
+    return;
+   }
 
-  img.onerror = () => {
-   screen.imagesLoaded[i] = false;
-   console.error("[ProjectsScene] Error cargando imagen:", p.image);
-  };
+   // Caso 2: URL nueva — creamos Image y lo registramos en el caché
+   screen.imagesLoaded[i][j] = false;
+   const img = new Image();
+   const entry = { img, loaded: false, waiters: [] };
+   imageCache.set(src, entry);
 
-  img.src = p.image;
-  screen.images[i] = img;
+   img.onload = () => {
+    entry.loaded = true;
+    screen.imagesLoaded[i][j] = true;
+    // Notificar a todos los slots que comparten esta URL
+    entry.waiters.forEach((cb) => cb());
+    entry.waiters = [];
+    requestRender();
+   };
+
+   img.onerror = () => {
+    screen.imagesLoaded[i][j] = false;
+    console.error("[ProjectsScene] Error cargando imagen:", src);
+   };
+
+   img.src = src;
+   screen.images[i][j] = img;
+  });
  });
 
  // ══════════════════════════════════════════════════════
  // SCENE
  // ══════════════════════════════════════════════════════
  const scene = new THREE.Scene();
- scene.background = new THREE.Color("#03030a");
- scene.fog = new THREE.FogExp2("#03030a", 0.13);
+ // Sin background ni fog: el canvas es transparente y deja ver
+ // las estrellas que hay detrás (initProjectsStarsScene).
 
  const sizes = {
   width: canvas.clientWidth || window.innerWidth,
@@ -164,7 +216,7 @@ export function initProjectsScene(canvas) {
  const renderer = new THREE.WebGLRenderer({
   canvas,
   antialias: true,
-  alpha: false,
+  alpha: true,
   stencil: false,
   depth: true,
   powerPreference: "high-performance",
@@ -172,32 +224,14 @@ export function initProjectsScene(canvas) {
  renderer.setSize(sizes.width, sizes.height);
  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
  renderer.outputColorSpace = THREE.SRGBColorSpace;
+ renderer.setClearColor(0x000000, 0);
  renderer.shadowMap.enabled = false;
 
  // ══════════════════════════════════════════════════════
- // POLVO ESPACIAL
+ // (POLVO ESPACIAL eliminado — ahora hay estrellas reales
+ //  detrás del canvas, el polvo era redundante y restaba
+ //  protagonismo a la pantalla CRT.)
  // ══════════════════════════════════════════════════════
- const DUST_N = 380;
- const dPos = new Float32Array(DUST_N * 3);
- const dAlpha = new Float32Array(DUST_N); // opacidades individuales
- for (let i = 0; i < DUST_N; i++) {
-  dPos[i * 3] = (Math.random() - 0.5) * 18;
-  dPos[i * 3 + 1] = (Math.random() - 0.5) * 12;
-  dPos[i * 3 + 2] = (Math.random() - 0.5) * 14 - 1;
-  dAlpha[i] = Math.random();
- }
- const dustGeo = new THREE.BufferGeometry();
- dustGeo.setAttribute("position", new THREE.BufferAttribute(dPos, 3));
- const dustMat = new THREE.PointsMaterial({
-  color: "#1e2440",
-  size: 0.018,
-  transparent: true,
-  opacity: 0.45,
-  depthWrite: false,
-  sizeAttenuation: true,
- });
- const dustPoints = new THREE.Points(dustGeo, dustMat);
- scene.add(dustPoints);
 
  // ══════════════════════════════════════════════════════
  // HALO DE FONDO — plano grande detrás de la pantalla
@@ -506,9 +540,9 @@ export function initProjectsScene(canvas) {
    ctx.fillRect(x, y, w, h);
   }
 
-  // Fragmentos de imagen (si cargada)
-  if (screen.imagesLoaded[idx]) {
-   const img = screen.images[idx];
+  // Fragmentos de imagen principal (si cargada)
+  if (screen.imagesLoaded[idx]?.[0]) {
+   const img = screen.images[idx][0];
    const slices = Math.floor(intensity * 6);
    for (let i = 0; i < slices; i++) {
     const sy = Math.random() * img.naturalHeight;
@@ -568,149 +602,341 @@ export function initProjectsScene(canvas) {
   }
  }
 
- // ── Imagen con escáner ───────────────────────────────────
- function drawImage(idx, revealP) {
-  if (!screen.imagesLoaded[idx]) {
-   // Placeholder de "cargando"
-   const MX = 44,
-    MY = 60;
-   const IW = TEX_W - MX * 2,
-    IH = Math.round(IW * 0.5);
-   ctx.strokeStyle = h2r(C.dim2, 0.5);
-   ctx.lineWidth = 1;
-   ctx.strokeRect(MX, MY, IW, IH);
+ // ── Util: wrap de texto en líneas según ancho ────────────
+ function wrapText(text, maxW, font) {
+  ctx.font = font;
+  const words = text.split(" ");
+  const lines = [];
+  let current = "";
+
+  for (const w of words) {
+   const test = current ? current + " " + w : w;
+   if (ctx.measureText(test).width <= maxW) {
+    current = test;
+   } else {
+    if (current) lines.push(current);
+    current = w;
+   }
+  }
+  if (current) lines.push(current);
+  return lines;
+ }
+
+ // ── Imagen principal ─────────────────────────────────────
+ // Ancho completo, marco fino, escáner durante el reveal.
+ // Mantiene la presencia cinematográfica del monitor que tenía
+ // la versión anterior.
+ function drawMainImage(img, loaded, x, y, w, h, revealP, color) {
+  // Marco fino
+  ctx.strokeStyle = h2r(C.dim, 0.75);
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, y, w, h);
+
+  if (!loaded || !img) {
+   ctx.fillStyle = h2r(C.dim, 0.1);
+   ctx.fillRect(x + 1, y + 1, w - 2, h - 2);
    ctx.font = `12px ${FM}`;
-   ctx.fillStyle = h2r(C.dim2, 0.6);
-   ctx.fillText("[ CARGANDO IMAGEN... ]", MX + IW * 0.5 - 80, MY + IH * 0.5);
+   ctx.fillStyle = h2r(C.dim2, 0.55);
+   const txt = "[ CARGANDO IMAGEN... ]";
+   const tw = ctx.measureText(txt).width;
+   ctx.fillText(txt, x + (w - tw) / 2, y + h / 2);
    return;
   }
 
-  const img = screen.images[idx];
-  const MX = 44,
-   MY = 60;
-  const IW = TEX_W - MX * 2;
-  const IH = Math.round(IW * 0.5);
-  const revH = Math.round(IH * revealP);
+  const revH = Math.round(h * Math.min(1, Math.max(0, revealP)));
 
-  // Imagen recortada con reveal top→bottom
   ctx.save();
   ctx.beginPath();
-  ctx.rect(MX, MY, IW, revH);
+  ctx.rect(x, y, w, revH);
   ctx.clip();
-  ctx.drawImage(img, MX, MY, IW, IH);
+
+  // Cover-fit: la imagen llena la caja sin deformarse
+  const imgRatio = img.naturalWidth / img.naturalHeight;
+  const boxRatio = w / h;
+  let dw, dh, dx, dy;
+  if (imgRatio > boxRatio) {
+   dh = h;
+   dw = h * imgRatio;
+   dx = x - (dw - w) / 2;
+   dy = y;
+  } else {
+   dw = w;
+   dh = w / imgRatio;
+   dx = x;
+   dy = y - (dh - h) / 2;
+  }
+  ctx.drawImage(img, dx, dy, dw, dh);
   ctx.restore();
 
-  // Overlay muy sutil para integrar imagen con pantalla
+  // Overlay sutil para integrar con la pantalla CRT
   ctx.fillStyle = "rgba(2,2,10,0.32)";
-  ctx.fillRect(MX, MY, IW, IH);
+  ctx.fillRect(x, y, w, h);
 
-  // Borde fino alrededor de la imagen
-  ctx.strokeStyle = h2r(C.dim, 0.8);
-  ctx.lineWidth = 1;
-  ctx.strokeRect(MX, MY, IW, IH);
-
-  // Línea de escáner animada
+  // Línea de escáner durante el reveal
   if (revealP < 1) {
-   const scanY = MY + revH;
-   const sg = ctx.createLinearGradient(MX, scanY - 12, MX, scanY + 4);
+   const scanY = y + revH;
+   const sg = ctx.createLinearGradient(x, scanY - 12, x, scanY + 4);
    sg.addColorStop(0, "rgba(56,216,240,0)");
    sg.addColorStop(0.6, "rgba(56,216,240,0.9)");
    sg.addColorStop(1, "rgba(56,216,240,0)");
    ctx.fillStyle = sg;
-   ctx.fillRect(MX, scanY - 12, IW, 16);
+   ctx.fillRect(x, scanY - 12, w, 16);
 
-   // Coordenadas de escáner (decorativo)
+   // Coordenadas de escáner
    ctx.font = `10px ${FM}`;
    ctx.fillStyle = h2r(C.cyan, 0.6);
    ctx.fillText(
     `ESCANEO  ${Math.round(revealP * 100)
      .toString()
      .padStart(3, "0")}%`,
-    MX + IW - 80,
+    x + w - 80,
     scanY - 3,
    );
   }
  }
 
- // ── Datos del proyecto ───────────────────────────────────
+ // ── Polaroid superpuesta ─────────────────────────────────
+ // Imagen pequeña con marco oscuro y borde blanco translúcido.
+ // Una pequeña marca del color del proyecto en la esquina superior
+ // izquierda actúa como "tab de archivo", evitando el conflicto
+ // cromático que aparecía cuando todo el borde era de color.
+ function drawPolaroid(img, loaded, x, y, w, h, label, sublabel, revealP, color) {
+  // Sombra muy sutil — no compite con la imagen principal
+  ctx.fillStyle = "rgba(0,0,0,0.42)";
+  ctx.fillRect(x + 2, y + 3, w, h);
+
+  // Marco exterior — fondo oscuro tipo dorso de fotografía CRT
+  ctx.fillStyle = "#0a0c14";
+  ctx.fillRect(x, y, w, h);
+
+  // Borde fino blanco translúcido — neutro, integra mejor con
+  // cualquier contenido detrás (el borde de color daba conflicto
+  // cromático cuando la imagen de fondo era saturada).
+  ctx.strokeStyle = "rgba(255,255,255,0.32)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+
+  // Zona interior de la imagen (deja espacio inferior para etiqueta)
+  const PAD = 4;
+  const LABEL_H = 11;
+  const ix = x + PAD;
+  const iy = y + PAD;
+  const iw = w - PAD * 2;
+  const ih = h - PAD * 2 - LABEL_H;
+
+  if (loaded && img) {
+   const revH = Math.round(ih * Math.min(1, Math.max(0, revealP)));
+
+   ctx.save();
+   ctx.beginPath();
+   ctx.rect(ix, iy, iw, revH);
+   ctx.clip();
+
+   const imgRatio = img.naturalWidth / img.naturalHeight;
+   const boxRatio = iw / ih;
+   let dw, dh, dx, dy;
+   if (imgRatio > boxRatio) {
+    dh = ih;
+    dw = ih * imgRatio;
+    dx = ix - (dw - iw) / 2;
+    dy = iy;
+   } else {
+    dw = iw;
+    dh = iw / imgRatio;
+    dx = ix;
+    dy = iy - (dh - ih) / 2;
+   }
+   ctx.drawImage(img, dx, dy, dw, dh);
+   ctx.restore();
+
+   // Overlay sutil
+   ctx.fillStyle = "rgba(2,2,10,0.30)";
+   ctx.fillRect(ix, iy, iw, ih);
+  } else {
+   ctx.fillStyle = h2r(C.dim, 0.18);
+   ctx.fillRect(ix, iy, iw, ih);
+  }
+
+  // Tab de color del proyecto — pequeña marca en la esquina sup.izq
+  // (sustituye al borde de color que generaba conflicto cromático)
+  ctx.fillStyle = h2r(color, 0.95);
+  ctx.fillRect(x, y, 14, 2);
+
+  // Etiqueta inferior dentro del marco
+  ctx.font = `8px ${FM}`;
+  ctx.fillStyle = h2r(color, 0.9);
+  ctx.fillText(label, x + PAD, y + h - 4);
+
+  ctx.fillStyle = h2r(C.dim2, 0.75);
+  ctx.fillText("/ " + sublabel, x + PAD + ctx.measureText(label).width + 4, y + h - 4);
+ }
+
+ // ── Collage: imagen grande + polaroids superpuestas ──────
+ // Estructura: una imagen principal a ancho completo y, sobre
+ // ella en la esquina inferior derecha, 1-2 polaroids pequeñas.
+ // Distintos tamaños entre las polaroids para crear jerarquía
+ // (la #02 más grande como "detalle principal", la #03 más pequeña
+ // asomando como "referencia adicional"). Aparecen con retraso
+ // respecto al reveal de la principal.
+ function drawCollage(idx, revealP) {
+  const p = PROJECTS[idx];
+  const imgs = screen.images[idx] || [];
+  const loaded = screen.imagesLoaded[idx] || [];
+
+  // Imagen principal — ancho completo, más alta que antes
+  const SX = 44;
+  const MAIN_Y = 60;
+  const MAIN_W = TEX_W - SX * 2;
+  const MAIN_H = 330;
+
+  drawMainImage(imgs[0], loaded[0], SX, MAIN_Y, MAIN_W, MAIN_H, revealP, p.color);
+
+  // Polaroids superpuestas — esquina inferior derecha
+  // Anclaje al borde derecho/inferior de la imagen principal
+  const POL_RIGHT = SX + MAIN_W - 16;
+  const POL_BOTTOM = MAIN_Y + MAIN_H - 16;
+
+  // Tamaños DIFERENTES para crear jerarquía (la 02 manda)
+  const POL2_W = 115;
+  const POL2_H = 82;
+  const POL3_W = 88;
+  const POL3_H = 62;
+
+  // Aparecen cuando el reveal de la principal está avanzado
+  const polReveal = Math.max(0, (revealP - 0.55) / 0.45);
+
+  if (polReveal > 0) {
+   // #03 (más pequeña, asoma por arriba-izquierda de la #02)
+   if (imgs.length >= 3) {
+    drawPolaroid(
+     imgs[2],
+     loaded[2],
+     POL_RIGHT - POL2_W - POL3_W * 0.55,
+     POL_BOTTOM - POL2_H - POL3_H * 0.55,
+     POL3_W,
+     POL3_H,
+     "03",
+     "ESTUDIO",
+     polReveal,
+     p.color,
+    );
+   }
+
+   // #02 (más grande, esquina inferior derecha)
+   if (imgs.length >= 2) {
+    drawPolaroid(
+     imgs[1],
+     loaded[1],
+     POL_RIGHT - POL2_W,
+     POL_BOTTOM - POL2_H,
+     POL2_W,
+     POL2_H,
+     "02",
+     "DETALLE",
+     polReveal,
+     p.color,
+    );
+   }
+  }
+ }
+
+ // ── Datos del proyecto (debajo de la imagen) ─────────────
+ // Layout vertical: nombre + año en una línea, tagline y
+ // descripción larga. Mantiene la jerarquía de la versión
+ // original pero con descripción explicativa más extensa.
  function drawData(idx, fade, elapsed) {
   const p = PROJECTS[idx];
   const SX = 44;
-  const IH = Math.round((TEX_W - SX * 2) * 0.5);
-  const IY = 60;
-  const DATA_TOP = IY + IH + 22;
+  const MAIN_Y = 60;
+  const MAIN_H = 330;
+  const MAIN_BOTTOM = MAIN_Y + MAIN_H; // 390
 
-  // ── Header: número de transmisión ──────────────────────
-  ctx.fillStyle = h2r(C.dim, fade * 1.0);
-  ctx.fillRect(SX, IY - 14, TEX_W - SX * 2, 1);
+  // ── Header: transmisión + estado de señal ─────────────
+  const headerY = 36;
+
+  ctx.fillStyle = h2r(C.dim, fade * 0.8);
+  ctx.fillRect(SX, headerY + 8, TEX_W - SX * 2, 1);
 
   ctx.font = `10px ${FM}`;
-  ctx.fillStyle = h2r(p.color, fade * 1.0); // de 0.85 → 1.0
-  ctx.fillText("TRANSMISIÓN", SX, IY - 2);
+  ctx.fillStyle = h2r(p.color, fade);
+  ctx.fillText("TRANSMISIÓN", SX, headerY);
 
   ctx.font = `bold 10px ${FM}`;
-  ctx.fillStyle = h2r(C.white, fade * 1.0); // de 0.9 → 1.0
-  ctx.fillText(`0${idx + 1}`, SX + 98, IY - 2);
+  ctx.fillStyle = h2r(C.white, fade);
+  ctx.fillText(`0${idx + 1}`, SX + 98, headerY);
 
   ctx.font = `10px ${FM}`;
-  ctx.fillStyle = h2r(C.dim2, fade * 0.9); // de 0.7 → 0.9
-  ctx.fillText(`/ 04`, SX + 118, IY - 2);
+  ctx.fillStyle = h2r(C.dim2, fade * 0.85);
+  ctx.fillText("/ 04", SX + 118, headerY);
 
-  // Estado de señal (derecha)
+  // Status (derecha, con pulso)
   const statusX = TEX_W - SX - 120;
   const sigPulse = Math.sin(elapsed * 3.5) * 0.5 + 0.5;
   ctx.font = `10px ${FM}`;
-  ctx.fillStyle = h2r(C.green, fade * (0.7 + sigPulse * 0.3)); // de 0.5 → 0.7 base
-  ctx.fillText("● SEÑAL ESTABLE", statusX, IY - 2);
+  ctx.fillStyle = h2r(C.green, fade * (0.65 + sigPulse * 0.3));
+  ctx.fillText("● SEÑAL ESTABLE", statusX, headerY);
 
-  // ── Zona inferior ──────────────────────────────────────
-  const bottomZone = TEX_H - 30;
-  const nameY = bottomZone - 112;
+  // ── Bloque de datos: arranca debajo de la imagen ──────
+  let DY = MAIN_BOTTOM + 28;
 
-  ctx.fillStyle = h2r(C.dim, fade * 0.8);
-  ctx.fillRect(SX, DATA_TOP - 4, TEX_W - SX * 2, 1);
+  // Línea separadora encima del nombre
+  ctx.fillStyle = h2r(C.dim, fade * 0.7);
+  ctx.fillRect(SX, DY - 16, TEX_W - SX * 2, 1);
 
   // Nombre — protagonista tipográfico
-  ctx.font = `bold 26px ${FM}`;
-  ctx.fillStyle = h2r(C.white, fade * 1.0); // de fade → fade*1.0 explícito
-  ctx.fillText(p.name, SX, nameY);
-
-  // Línea de acento
+  ctx.font = `bold 22px ${FM}`;
+  ctx.fillStyle = h2r(C.white, fade);
+  ctx.fillText(p.name, SX, DY);
   const nameW = ctx.measureText(p.name).width;
-  ctx.fillStyle = h2r(p.color, fade * 0.9); // de 0.7 → 0.9
-  ctx.fillRect(SX, nameY + 5, nameW, 2);
 
-  // Año
+  // Año al lado del nombre
   ctx.font = `11px ${FM}`;
-  ctx.fillStyle = h2r(p.color, fade * 1.0); // de 0.9 → 1.0
-  ctx.fillText(p.year, SX + nameW + 16, nameY);
+  ctx.fillStyle = h2r(p.color, fade);
+  ctx.fillText(p.year, SX + nameW + 16, DY);
+
+  // Línea de acento bajo el nombre
+  ctx.fillStyle = h2r(p.color, fade * 0.9);
+  ctx.fillRect(SX, DY + 6, nameW, 2);
+
+  DY += 28;
 
   // Tagline
   ctx.font = `13px ${FM}`;
-  ctx.fillStyle = h2r(C.offwhite, fade * 0.92); // de 0.72 → 0.92
-  ctx.fillText(p.tagline, SX, nameY + 28);
+  ctx.fillStyle = h2r(C.offwhite, fade * 0.92);
+  ctx.fillText(p.tagline, SX, DY);
+  DY += 22;
 
-  // Separador
-  ctx.fillStyle = h2r(C.dim, fade * 0.6);
-  ctx.fillRect(SX, bottomZone - 48, TEX_W - SX * 2, 1);
+  // Descripción larga (ancho recortado para no chocar con el watermark "0X")
+  const DESC_W = TEX_W - SX * 2 - 140;
+  const descLines = wrapText(p.description, DESC_W, `11px ${FM}`).slice(0, 3);
+  ctx.font = `11px ${FM}`;
+  ctx.fillStyle = h2r(C.offwhite, fade * 0.78);
+  descLines.forEach((line, i) => {
+   ctx.fillText(line, SX, DY + i * 16);
+  });
 
-  // Link / CTA
+  // ── Footer ─────────────────────────────────────────────
+  const footerY = TEX_H - 26;
+
+  ctx.fillStyle = h2r(C.dim, fade * 0.55);
+  ctx.fillRect(SX, footerY - 14, TEX_W - SX * 2, 1);
+
   if (p.link) {
    ctx.font = `11px ${FM}`;
-   ctx.fillStyle = h2r(C.cyan, fade * 1.0); // de 0.9 → 1.0
-   ctx.fillText("▶", SX, bottomZone - 26);
-   ctx.fillStyle = h2r(C.cyan, fade * 0.88); // de 0.75 → 0.88
-   ctx.fillText(p.link, SX + 18, bottomZone - 26);
+   ctx.fillStyle = h2r(C.cyan, fade);
+   ctx.fillText("▶", SX, footerY);
+   ctx.fillStyle = h2r(C.cyan, fade * 0.9);
+   ctx.fillText(p.link, SX + 18, footerY);
   } else {
    ctx.font = `10px ${FM}`;
-   ctx.fillStyle = h2r(C.dim2, fade * 0.85); // de 0.7 → 0.85
-   ctx.fillText("ARCHIVO  ·  AÚN NO DESPLEGADO", SX, bottomZone - 26);
+   ctx.fillStyle = h2r(C.dim2, fade * 0.85);
+   ctx.fillText("ARCHIVO  ·  AÚN NO DESPLEGADO", SX, footerY);
   }
 
-  // Watermark decorativo
+  // Watermark del número — inferior derecha
   ctx.font = `bold 96px ${FM}`;
-  ctx.fillStyle = h2r(p.color, fade * 0.055); // de 0.04 → 0.055
-  ctx.fillText(`0${idx + 1}`, TEX_W - 160, TEX_H - 20);
+  ctx.fillStyle = h2r(p.color, fade * 0.06);
+  ctx.fillText(`0${idx + 1}`, TEX_W - 160, TEX_H - 18);
  }
 
  // ── Render principal ─────────────────────────────────────
@@ -758,13 +984,13 @@ export function initProjectsScene(canvas) {
 
    case "reveal":
    case "done": {
-    const pStart = SCROLL_P_START + proj * SCROLL_P_SPAN;
-    const pEnd = pStart + SCROLL_P_SPAN;
-    const pNorm = Math.max(0, Math.min(1, (scrollNorm - pStart) / (pEnd - pStart)));
-    const revealP = Math.max(0, (pNorm - 0.28) / 0.72);
-    const fadeIn = screen.entryPhase === "done" ? 1.0 : Math.min(1, 1 - screen.entryTimer / ENTRY_REVEAL_DUR);
+    // revealP va atado al timer de la fase REVEAL, NO al scroll.
+    // Así la imagen se completa al terminar la secuencia de entrada
+    // (~0.5s después de STABILIZE), sin necesidad de seguir scrolleando.
+    const revealP = screen.entryPhase === "done" ? 1 : Math.min(1, 1 - screen.entryTimer / ENTRY_REVEAL_DUR);
+    const fadeIn = revealP;
 
-    drawImage(proj, revealP);
+    drawCollage(proj, revealP);
     drawData(proj, fadeIn, elapsed);
     drawNoise(0.12 * (1 - fadeIn * 0.7), elapsed);
     break;
@@ -988,15 +1214,7 @@ export function initProjectsScene(canvas) {
    innerGlowMat.opacity = lerp(innerGlowMat.opacity, 0.0, 0.04);
   }
 
-  // ── Polvo ────────────────────────────────────────────
-  dustPoints.rotation.y = elapsed * 0.006;
-  dustPoints.rotation.x = elapsed * 0.0025;
-  // El polvo se tintifica ligeramente con el color del proyecto
-  if (screen.activeProject >= 0) {
-   dustMat.color.lerp(new THREE.Color(PROJECTS[screen.activeProject].color).multiplyScalar(0.18), 0.02);
-  } else {
-   dustMat.color.lerp(new THREE.Color("#1e2440"), 0.02);
-  }
+  // ── (Polvo eliminado — ver arriba) ───────────────────
 
   // ── LED ──────────────────────────────────────────────
   const ledOn = Math.floor(elapsed / 1.0) % 2 === 0;
@@ -1033,8 +1251,6 @@ export function initProjectsScene(canvas) {
   obs.disconnect();
   if (animFrameId) cancelAnimationFrame(animFrameId);
 
-  dustGeo.dispose();
-  dustMat.dispose();
   haloGeo.dispose();
   haloMat.dispose();
   bodyGeo.dispose();
