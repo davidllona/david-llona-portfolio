@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { initProjectsScene } from "../3d/projectsScene";
 import { initProjectsStarsScene } from "../3d/labStarsScene";
+import { attachProjectsGUI, onGuiReady } from "../3d/hero/gui";
 
 export function Projects() {
  const canvasRef = useRef(null);
@@ -12,7 +13,16 @@ export function Projects() {
   const cleanupScene = initProjectsScene(canvas);
   const cleanupStars = initProjectsStarsScene();
 
+  // Suscripción al broker del GUI (vive dentro de ./3d/hero/gui).
+  // Si heroScene ya creó el GUI, el callback se ejecuta de inmediato.
+  // Si aún no, queda en cola y se dispara en cuanto setGui() lo
+  // registre. Sin polling, sin window.__*.
+  const offGuiReady = onGuiReady((gui) => {
+   if (cleanupScene) attachProjectsGUI(gui, cleanupScene);
+  });
+
   return () => {
+   offGuiReady();
    if (cleanupScene) cleanupScene();
    if (cleanupStars) cleanupStars();
   };

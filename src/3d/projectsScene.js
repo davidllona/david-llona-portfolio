@@ -75,18 +75,9 @@ const SCROLL_P_SPAN = 0.19;
 const SCROLL_CAM_START = 0.04;
 const SCROLL_CAM_END = 0.13;
 
-// ── Entrada de cámara al inicio de la escena (materialización desde el vacío)
-// La cámara empieza más atrás y se acerca suavemente durante el boot
-const CAM_ENTRY_START = 7.5; // posición inicial (más atrás = más vacío)
-
-// ── Secuencia de entrada por proyecto ─────────────────────
-// Cada proyecto pasa por 4 fases al ser detectado:
-// DETECT → GLITCH → STABILIZE → REVEAL
-// Los timers son en segundos
-const ENTRY_DETECT_DUR = 0.3; // "SEÑAL DETECTADA" parpadeante
-const ENTRY_GLITCH_DUR = 0.55; // interferencia
-const ENTRY_STABILIZE_DUR = 0.4; // barre de color sólido
-const ENTRY_REVEAL_DUR = 0.5; // fade in contenido
+// Nota: los antiguos CAM_ENTRY_START / ENTRY_*_DUR ahora viven dentro
+// de initProjectsScene como cameraParamsP.entryStart y entryParams.*
+// para que el GUI pueda tunearlos en vivo.
 
 export function initProjectsScene(canvas) {
  if (!canvas) {
@@ -94,7 +85,85 @@ export function initProjectsScene(canvas) {
   return () => {};
  }
 
- // ── Estado general ──────────────────────────────────────
+ // ══════════════════════════════════════════════════════
+ // PARÁMETROS TUNEABLES (expuestos al GUI)
+ // ══════════════════════════════════════════════════════
+ // Estos objetos se mutan en vivo desde el GUI. Las funciones de
+ // dibujo leen de ellos cada frame, así los sliders responden al
+ // momento sin necesidad de reinicializar la escena.
+
+ const layoutParams = {
+  mainTop: 60, // margen superior de la imagen principal
+  mainHeight: 330, // altura de la imagen principal (canvas 2D, 0–576)
+  mainMarginX: 44, // margen lateral del contenido del CRT
+ };
+
+ // Tipografía y espaciado del bloque de texto. Colores se mantienen
+ // semánticos (paleta C.* + p.color) para preservar coherencia entre
+ // proyectos: editar opacidades sí, pero no colores absolutos.
+ const textParams = {
+  // ── Header (TRANSMISIÓN / SEÑAL ESTABLE) ─────────────
+  headerY: 36,
+  headerSize: 10,
+
+  // ── Nombre del proyecto ──────────────────────────────
+  nameTopGap: 52, // separación entre la imagen y el nombre
+  nameSeparatorGap: 34, // separación entre la línea horizontal y el nombre
+  nameSize: 22,
+  nameBold: true,
+  nameOpacity: 1.0,
+  nameAccentH: 2, // grosor de la línea de acento bajo el nombre
+  nameAccentOpacity: 0.9,
+
+  // ── Tagline ──────────────────────────────────────────
+  taglineSize: 13,
+  taglineOpacity: 0.92,
+  taglineGap: 28, // separación nombre → tagline
+
+  // ── Descripción ──────────────────────────────────────
+  descSize: 11,
+  descOpacity: 0.78,
+  descGap: 22, // separación tagline → descripción
+  descLineHeight: 16,
+  descMaxLines: 3,
+  descRightMargin: 140, // espacio reservado al watermark
+
+  // ── Footer (link / ARCHIVO · AÚN NO DESPLEGADO) ──────
+  footerSize: 11,
+  footerOpacity: 0.9,
+  footerBottomY: 26, // distancia desde el borde inferior
+
+  // ── Watermark "0X" ───────────────────────────────────
+  watermarkSize: 96,
+  watermarkOpacity: 0.06,
+  watermarkOffsetX: 160, // desde el borde derecho
+  watermarkOffsetY: 18, // desde el borde inferior
+ };
+
+ const lightParams = {
+  baseIntensity: 4.5, // intensidad base de la luz reactiva frontal
+  haloIntensity: 0.85, // intensidad del halo ambiental cuando hay proyecto
+  pulseStrength: 2.0, // fuerza del pulso al detectar nuevo proyecto
+ };
+
+ const cameraParamsP = {
+  camFar: 5.2, // z de la cámara antes de hacer scroll dentro del proyecto
+  camNear: 3.0, // z al final del rango del proyecto
+  entryStart: 7.5, // z inicial durante el boot (más atrás = más vacío)
+  floatAmplY: 0.04, // amplitud de flotación vertical
+  floatAmplX: 0.018, // amplitud de flotación horizontal
+ };
+
+ const entryParams = {
+  detectDur: 0.3, // duración fase DETECT
+  glitchDur: 0.55, // duración fase GLITCH
+  stabilizeDur: 0.4, // duración fase STABILIZE
+  revealDur: 0.5, // duración fase REVEAL
+ };
+
+ // ══════════════════════════════════════════════════════
+ // Estado general
+ // ══════════════════════════════════════════════════════
  let resizeTimeout = null;
  let animFrameId = null;
  let isRendering = false;
@@ -110,6 +179,7 @@ export function initProjectsScene(canvas) {
   bootDone: false,
   activeProject: -1,
   prevActive: -1,
+  lastChangeTime: -999, // tiempo del último cambio de proyecto (para debounce de scroll rápido)
 
   // Secuencia de entrada
   entryPhase: "idle", // idle | detect | glitch | stabilize | reveal | done
@@ -203,14 +273,15 @@ export function initProjectsScene(canvas) {
  };
 
  // ── Cámara ──────────────────────────────────────────────
- // FOV más estrecho = pantalla más grande y presente
- const CAM_FAR = 5.2;
- const CAM_NEAR = 3.0;
-
+ // Las z's reales se leen de cameraParamsP en cada frame (GUI en vivo).
+ // Estas constantes solo se usan para el setup inicial.
  const camera = new THREE.PerspectiveCamera(36, sizes.width / sizes.height, 0.1, 60);
- // Empieza más atrás — se acerca durante el boot, como si emergiera del vacío
- camera.position.set(0, 0.05, CAM_ENTRY_START);
+ camera.position.set(0, 0.05, cameraParamsP.entryStart);
  scene.add(camera);
+
+ // (camScale se aplicará en cuanto se ejecute applyResponsiveLayout
+ // más abajo; aquí lo dejamos en la posición base para mantener el
+ // orden de inicialización limpio.)
 
  // ── Renderer ────────────────────────────────────────────
  const renderer = new THREE.WebGLRenderer({
@@ -226,6 +297,61 @@ export function initProjectsScene(canvas) {
  renderer.outputColorSpace = THREE.SRGBColorSpace;
  renderer.setClearColor(0x000000, 0);
  renderer.shadowMap.enabled = false;
+
+ // ══════════════════════════════════════════════════════
+ // LAYOUT RESPONSIVO
+ // ══════════════════════════════════════════════════════
+ //
+ // El CRT mide 3.0×1.8 unidades de mundo (definido más abajo en
+ // SW/SH). Con cámara fija a z=3.0 y FOV 36°, en aspects estrechos
+ // la pantalla se sale del frame.
+ //
+ // En lugar de escalar la geometría (que rompería el rig de luces),
+ // calculamos la Z mínima a la que el CRT entra con margen, y
+ // aplicamos un multiplicador `camScale` sobre los valores del GUI.
+ //
+ //   camScale  → multiplica camera.position.z para que el CRT siempre
+ //               quepa con margen, sin importar el aspect.
+ //   textScale → multiplica el tamaño base del texto en canvas2D
+ //               para compensar la pérdida visual cuando la cámara
+ //               se aleja en mobile.
+ //
+ // Si el aspect es desktop (≥1.4), camScale=1 y textScale=1: el GUI
+ // del usuario manda al 100%. En mobile el sistema garantiza fit.
+
+ const SW_RESP = 3.0;
+ const SH_RESP = 1.8;
+
+ let camScale = 1.0;
+ let textScale = 1.0;
+
+ function applyResponsiveLayout() {
+  const aspect = sizes.width / sizes.height;
+  const fovRad = (36 * Math.PI) / 180;
+
+  // Margen alrededor del CRT.
+  // En desktop wide (≥1.4) usamos un margen pequeño para que el setup
+  // del GUI mande al 100% (camScale=1.0). En aspects estrechos
+  // aplicamos margen más generoso para que el CRT no quede comido
+  // por los bordes.
+  const marginFactor = aspect >= 1.4 ? 1.04 : 1.08;
+
+  // Z mínima para que el CRT quepa en altura y anchura
+  const minZHeight = (SH_RESP * marginFactor) / (2 * Math.tan(fovRad / 2));
+  const minZWidth = (SW_RESP * marginFactor) / (2 * Math.tan(fovRad / 2) * aspect);
+  const fitZ = Math.max(minZHeight, minZWidth);
+
+  // Escala respecto a la Z "cercana" del GUI
+  camScale = Math.max(1, fitZ / cameraParamsP.camNear);
+
+  // Compensación tipográfica para mobile
+  if (aspect < 0.7) textScale = 1.55;
+  else if (aspect < 1.0) textScale = 1.3;
+  else if (aspect < 1.4) textScale = 1.12;
+  else textScale = 1.0;
+ }
+
+ applyResponsiveLayout();
 
  // ══════════════════════════════════════════════════════
  // (POLVO ESPACIAL eliminado — ahora hay estrellas reales
@@ -465,8 +591,9 @@ export function initProjectsScene(canvas) {
    { t: "DESPLÁZATE PARA RECIBIR  ↓", c: C.cyan, d: 0.84, bold: false },
   ];
 
-  const FS = 15;
-  const LH = 31;
+  // En mobile escalamos también el boot — si no, queda invisible
+  const FS = 15 * textScale;
+  const LH = 31 * textScale;
   const SX = 44;
   const SY = 102;
 
@@ -494,7 +621,7 @@ export function initProjectsScene(canvas) {
  // ── Fase DETECT ─────────────────────────────────────────
  function drawDetect(timer, idx) {
   const p = PROJECTS[idx];
-  const t = 1 - timer / ENTRY_DETECT_DUR;
+  const t = 1 - timer / entryParams.detectDur;
 
   // Fondo muy oscuro con tinte del color del proyecto
   ctx.fillStyle = h2r(p.color, 0.04);
@@ -525,7 +652,7 @@ export function initProjectsScene(canvas) {
 
  // ── Fase GLITCH ─────────────────────────────────────────
  function drawGlitch(timer, idx) {
-  const intensity = timer / ENTRY_GLITCH_DUR;
+  const intensity = timer / entryParams.glitchDur;
   const p = PROJECTS[idx];
 
   // Bloques de color (interferencia de imagen)
@@ -578,7 +705,7 @@ export function initProjectsScene(canvas) {
  // ── Fase STABILIZE ──────────────────────────────────────
  function drawStabilize(timer, idx) {
   const p = PROJECTS[idx];
-  const t = 1 - timer / ENTRY_STABILIZE_DUR; // 0→1
+  const t = 1 - timer / entryParams.stabilizeDur; // 0→1
   const ease = easeOut(t);
 
   // Barre horizontal que limpia la pantalla con el color del proyecto
@@ -695,248 +822,143 @@ export function initProjectsScene(canvas) {
   }
  }
 
- // ── Polaroid superpuesta ─────────────────────────────────
- // Imagen pequeña con marco oscuro y borde blanco translúcido.
- // Una pequeña marca del color del proyecto en la esquina superior
- // izquierda actúa como "tab de archivo", evitando el conflicto
- // cromático que aparecía cuando todo el borde era de color.
- function drawPolaroid(img, loaded, x, y, w, h, label, sublabel, revealP, color) {
-  // Sombra muy sutil — no compite con la imagen principal
-  ctx.fillStyle = "rgba(0,0,0,0.42)";
-  ctx.fillRect(x + 2, y + 3, w, h);
-
-  // Marco exterior — fondo oscuro tipo dorso de fotografía CRT
-  ctx.fillStyle = "#0a0c14";
-  ctx.fillRect(x, y, w, h);
-
-  // Borde fino blanco translúcido — neutro, integra mejor con
-  // cualquier contenido detrás (el borde de color daba conflicto
-  // cromático cuando la imagen de fondo era saturada).
-  ctx.strokeStyle = "rgba(255,255,255,0.32)";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-
-  // Zona interior de la imagen (deja espacio inferior para etiqueta)
-  const PAD = 4;
-  const LABEL_H = 11;
-  const ix = x + PAD;
-  const iy = y + PAD;
-  const iw = w - PAD * 2;
-  const ih = h - PAD * 2 - LABEL_H;
-
-  if (loaded && img) {
-   const revH = Math.round(ih * Math.min(1, Math.max(0, revealP)));
-
-   ctx.save();
-   ctx.beginPath();
-   ctx.rect(ix, iy, iw, revH);
-   ctx.clip();
-
-   const imgRatio = img.naturalWidth / img.naturalHeight;
-   const boxRatio = iw / ih;
-   let dw, dh, dx, dy;
-   if (imgRatio > boxRatio) {
-    dh = ih;
-    dw = ih * imgRatio;
-    dx = ix - (dw - iw) / 2;
-    dy = iy;
-   } else {
-    dw = iw;
-    dh = iw / imgRatio;
-    dx = ix;
-    dy = iy - (dh - ih) / 2;
-   }
-   ctx.drawImage(img, dx, dy, dw, dh);
-   ctx.restore();
-
-   // Overlay sutil
-   ctx.fillStyle = "rgba(2,2,10,0.30)";
-   ctx.fillRect(ix, iy, iw, ih);
-  } else {
-   ctx.fillStyle = h2r(C.dim, 0.18);
-   ctx.fillRect(ix, iy, iw, ih);
-  }
-
-  // Tab de color del proyecto — pequeña marca en la esquina sup.izq
-  // (sustituye al borde de color que generaba conflicto cromático)
-  ctx.fillStyle = h2r(color, 0.95);
-  ctx.fillRect(x, y, 14, 2);
-
-  // Etiqueta inferior dentro del marco
-  ctx.font = `8px ${FM}`;
-  ctx.fillStyle = h2r(color, 0.9);
-  ctx.fillText(label, x + PAD, y + h - 4);
-
-  ctx.fillStyle = h2r(C.dim2, 0.75);
-  ctx.fillText("/ " + sublabel, x + PAD + ctx.measureText(label).width + 4, y + h - 4);
- }
-
- // ── Collage: imagen grande + polaroids superpuestas ──────
- // Estructura: una imagen principal a ancho completo y, sobre
- // ella en la esquina inferior derecha, 1-2 polaroids pequeñas.
- // Distintos tamaños entre las polaroids para crear jerarquía
- // (la #02 más grande como "detalle principal", la #03 más pequeña
- // asomando como "referencia adicional"). Aparecen con retraso
- // respecto al reveal de la principal.
+ // ── Imagen del proyecto ─────────────────────────────────
+ // Una única imagen a ancho completo. Las polaroids superpuestas
+ // se eliminaron — competían visualmente con la imagen principal.
+ // (drawPolaroid sigue arriba por si en el futuro se reintroduce
+ // alguna variante de collage.)
  function drawCollage(idx, revealP) {
   const p = PROJECTS[idx];
   const imgs = screen.images[idx] || [];
   const loaded = screen.imagesLoaded[idx] || [];
 
-  // Imagen principal — ancho completo, más alta que antes
-  const SX = 44;
-  const MAIN_Y = 60;
+  const SX = layoutParams.mainMarginX;
+  const MAIN_Y = layoutParams.mainTop;
   const MAIN_W = TEX_W - SX * 2;
-  const MAIN_H = 330;
+  const MAIN_H = layoutParams.mainHeight;
 
   drawMainImage(imgs[0], loaded[0], SX, MAIN_Y, MAIN_W, MAIN_H, revealP, p.color);
-
-  // Polaroids superpuestas — esquina inferior derecha
-  // Anclaje al borde derecho/inferior de la imagen principal
-  const POL_RIGHT = SX + MAIN_W - 16;
-  const POL_BOTTOM = MAIN_Y + MAIN_H - 16;
-
-  // Tamaños DIFERENTES para crear jerarquía (la 02 manda)
-  const POL2_W = 115;
-  const POL2_H = 82;
-  const POL3_W = 88;
-  const POL3_H = 62;
-
-  // Aparecen cuando el reveal de la principal está avanzado
-  const polReveal = Math.max(0, (revealP - 0.55) / 0.45);
-
-  if (polReveal > 0) {
-   // #03 (más pequeña, asoma por arriba-izquierda de la #02)
-   if (imgs.length >= 3) {
-    drawPolaroid(
-     imgs[2],
-     loaded[2],
-     POL_RIGHT - POL2_W - POL3_W * 0.55,
-     POL_BOTTOM - POL2_H - POL3_H * 0.55,
-     POL3_W,
-     POL3_H,
-     "03",
-     "ESTUDIO",
-     polReveal,
-     p.color,
-    );
-   }
-
-   // #02 (más grande, esquina inferior derecha)
-   if (imgs.length >= 2) {
-    drawPolaroid(
-     imgs[1],
-     loaded[1],
-     POL_RIGHT - POL2_W,
-     POL_BOTTOM - POL2_H,
-     POL2_W,
-     POL2_H,
-     "02",
-     "DETALLE",
-     polReveal,
-     p.color,
-    );
-   }
-  }
  }
 
  // ── Datos del proyecto (debajo de la imagen) ─────────────
  // Layout vertical: nombre + año en una línea, tagline y
  // descripción larga. Mantiene la jerarquía de la versión
  // original pero con descripción explicativa más extensa.
+ //
+ // textScale (responsive) multiplica los tamaños base. En desktop
+ // = 1.0, en mobile sube a ~1.55 para compensar la reducción visual
+ // del CRT cuando la cámara se aleja para hacer fit.
  function drawData(idx, fade, elapsed) {
   const p = PROJECTS[idx];
-  const SX = 44;
-  const MAIN_Y = 60;
-  const MAIN_H = 330;
-  const MAIN_BOTTOM = MAIN_Y + MAIN_H; // 390
+  const SX = layoutParams.mainMarginX;
+  const MAIN_Y = layoutParams.mainTop;
+  const MAIN_H = layoutParams.mainHeight;
+  const MAIN_BOTTOM = MAIN_Y + MAIN_H;
+  const T = textParams;
+  const ts = textScale; // alias corto
 
   // ── Header: transmisión + estado de señal ─────────────
-  const headerY = 36;
+  const headerY = T.headerY;
+  const hSize = T.headerSize * ts;
+  const hFont = `${hSize}px ${FM}`;
 
   ctx.fillStyle = h2r(C.dim, fade * 0.8);
   ctx.fillRect(SX, headerY + 8, TEX_W - SX * 2, 1);
 
-  ctx.font = `10px ${FM}`;
+  ctx.font = hFont;
   ctx.fillStyle = h2r(p.color, fade);
   ctx.fillText("TRANSMISIÓN", SX, headerY);
 
-  ctx.font = `bold 10px ${FM}`;
-  ctx.fillStyle = h2r(C.white, fade);
-  ctx.fillText(`0${idx + 1}`, SX + 98, headerY);
+  // Posición del número 0X relativa al ancho real de "TRANSMISIÓN"
+  // (así escala bien si cambias headerSize)
+  const labelW = ctx.measureText("TRANSMISIÓN").width;
 
-  ctx.font = `10px ${FM}`;
+  ctx.font = `bold ${hSize}px ${FM}`;
+  ctx.fillStyle = h2r(C.white, fade);
+  ctx.fillText(`0${idx + 1}`, SX + labelW + 8, headerY);
+
+  ctx.font = hFont;
   ctx.fillStyle = h2r(C.dim2, fade * 0.85);
-  ctx.fillText("/ 04", SX + 118, headerY);
+  ctx.fillText("/ 04", SX + labelW + 28, headerY);
 
   // Status (derecha, con pulso)
-  const statusX = TEX_W - SX - 120;
+  // Posición ajustada a textScale para que no se salga del margen
+  const statusX = TEX_W - SX - 120 * ts;
   const sigPulse = Math.sin(elapsed * 3.5) * 0.5 + 0.5;
-  ctx.font = `10px ${FM}`;
+  ctx.font = hFont;
   ctx.fillStyle = h2r(C.green, fade * (0.65 + sigPulse * 0.3));
   ctx.fillText("● SEÑAL ESTABLE", statusX, headerY);
 
   // ── Bloque de datos: arranca debajo de la imagen ──────
-  let DY = MAIN_BOTTOM + 28;
+  let DY = MAIN_BOTTOM + T.nameTopGap;
 
   // Línea separadora encima del nombre
   ctx.fillStyle = h2r(C.dim, fade * 0.7);
-  ctx.fillRect(SX, DY - 16, TEX_W - SX * 2, 1);
+  ctx.fillRect(SX, DY - T.nameSeparatorGap, TEX_W - SX * 2, 1);
 
   // Nombre — protagonista tipográfico
-  ctx.font = `bold 22px ${FM}`;
-  ctx.fillStyle = h2r(C.white, fade);
+  const nameSize = T.nameSize * ts;
+  const nameWeight = T.nameBold ? "bold " : "";
+  ctx.font = `${nameWeight}${nameSize}px ${FM}`;
+  ctx.fillStyle = h2r(C.white, fade * T.nameOpacity);
   ctx.fillText(p.name, SX, DY);
   const nameW = ctx.measureText(p.name).width;
 
-  // Año al lado del nombre
-  ctx.font = `11px ${FM}`;
+  // Año al lado del nombre (escala con el tamaño del nombre)
+  const yearSize = Math.max(9, Math.round(nameSize * 0.5));
+  ctx.font = `${yearSize}px ${FM}`;
   ctx.fillStyle = h2r(p.color, fade);
   ctx.fillText(p.year, SX + nameW + 16, DY);
 
   // Línea de acento bajo el nombre
-  ctx.fillStyle = h2r(p.color, fade * 0.9);
-  ctx.fillRect(SX, DY + 6, nameW, 2);
+  ctx.fillStyle = h2r(p.color, fade * T.nameAccentOpacity);
+  ctx.fillRect(SX, DY + 6, nameW, T.nameAccentH);
 
-  DY += 28;
+  DY += T.taglineGap;
 
   // Tagline
-  ctx.font = `13px ${FM}`;
-  ctx.fillStyle = h2r(C.offwhite, fade * 0.92);
+  const taglineSize = T.taglineSize * ts;
+  ctx.font = `${taglineSize}px ${FM}`;
+  ctx.fillStyle = h2r(C.offwhite, fade * T.taglineOpacity);
   ctx.fillText(p.tagline, SX, DY);
-  DY += 22;
+  DY += T.descGap;
 
-  // Descripción larga (ancho recortado para no chocar con el watermark "0X")
-  const DESC_W = TEX_W - SX * 2 - 140;
-  const descLines = wrapText(p.description, DESC_W, `11px ${FM}`).slice(0, 3);
-  ctx.font = `11px ${FM}`;
-  ctx.fillStyle = h2r(C.offwhite, fade * 0.78);
+  // Descripción larga (ancho recortado para no chocar con el watermark)
+  const descSize = T.descSize * ts;
+  const descLineHeight = T.descLineHeight * ts;
+  // En mobile reducimos líneas máximas para que no se solape con el footer
+  const maxLines = ts > 1.25 ? Math.max(2, T.descMaxLines - 1) : T.descMaxLines;
+  const DESC_W = TEX_W - SX * 2 - T.descRightMargin * ts;
+  const descLines = wrapText(p.description, DESC_W, `${descSize}px ${FM}`).slice(0, maxLines);
+  ctx.font = `${descSize}px ${FM}`;
+  ctx.fillStyle = h2r(C.offwhite, fade * T.descOpacity);
   descLines.forEach((line, i) => {
-   ctx.fillText(line, SX, DY + i * 16);
+   ctx.fillText(line, SX, DY + i * descLineHeight);
   });
 
   // ── Footer ─────────────────────────────────────────────
-  const footerY = TEX_H - 26;
+  const footerY = TEX_H - T.footerBottomY;
+  const footerSize = T.footerSize * ts;
 
   ctx.fillStyle = h2r(C.dim, fade * 0.55);
   ctx.fillRect(SX, footerY - 14, TEX_W - SX * 2, 1);
 
   if (p.link) {
-   ctx.font = `11px ${FM}`;
-   ctx.fillStyle = h2r(C.cyan, fade);
+   ctx.font = `${footerSize}px ${FM}`;
+   ctx.fillStyle = h2r(C.cyan, fade * T.footerOpacity);
    ctx.fillText("▶", SX, footerY);
-   ctx.fillStyle = h2r(C.cyan, fade * 0.9);
    ctx.fillText(p.link, SX + 18, footerY);
   } else {
-   ctx.font = `10px ${FM}`;
-   ctx.fillStyle = h2r(C.dim2, fade * 0.85);
+   ctx.font = `${Math.max(9, footerSize - 1)}px ${FM}`;
+   ctx.fillStyle = h2r(C.dim2, fade * T.footerOpacity * 0.94);
    ctx.fillText("ARCHIVO  ·  AÚN NO DESPLEGADO", SX, footerY);
   }
 
   // Watermark del número — inferior derecha
-  ctx.font = `bold 96px ${FM}`;
-  ctx.fillStyle = h2r(p.color, fade * 0.06);
-  ctx.fillText(`0${idx + 1}`, TEX_W - 160, TEX_H - 18);
+  const watermarkSize = T.watermarkSize * ts;
+  ctx.font = `bold ${watermarkSize}px ${FM}`;
+  ctx.fillStyle = h2r(p.color, fade * T.watermarkOpacity);
+  ctx.fillText(`0${idx + 1}`, TEX_W - T.watermarkOffsetX * ts, TEX_H - T.watermarkOffsetY);
  }
 
  // ── Render principal ─────────────────────────────────────
@@ -987,7 +1009,7 @@ export function initProjectsScene(canvas) {
     // revealP va atado al timer de la fase REVEAL, NO al scroll.
     // Así la imagen se completa al terminar la secuencia de entrada
     // (~0.5s después de STABILIZE), sin necesidad de seguir scrolleando.
-    const revealP = screen.entryPhase === "done" ? 1 : Math.min(1, 1 - screen.entryTimer / ENTRY_REVEAL_DUR);
+    const revealP = screen.entryPhase === "done" ? 1 : Math.min(1, 1 - screen.entryTimer / entryParams.revealDur);
     const fadeIn = revealP;
 
     drawCollage(proj, revealP);
@@ -1042,6 +1064,7 @@ export function initProjectsScene(canvas) {
    camera.updateProjectionMatrix();
    renderer.setSize(sizes.width, sizes.height);
    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+   applyResponsiveLayout();
    requestRender();
   }, 80);
  };
@@ -1097,37 +1120,68 @@ export function initProjectsScene(canvas) {
    }
   }
 
-  // El índice activo solo puede avanzar de uno en uno.
-  // Si el scroll objetivo es mayor que prevActive+1, avanzamos
-  // solo hasta prevActive+1 — el siguiente tick avanzará más.
-  // Esto garantiza que la secuencia de entrada se ejecuta siempre.
-  let newActive = screen.prevActive;
+  // ─────────────────────────────────────────────────────
+  // CONVERGENCIA DIRECTA AL TARGET (anti-bug scroll rápido)
+  // ─────────────────────────────────────────────────────
+  //
+  // El sistema SIEMPRE converge al scrollTarget real del usuario.
+  // No encolamos pasos intermedios — eso era lo que dejaba el CRT
+  // 5–7s por detrás tras un scroll fuerte.
+  //
+  // Reglas de transición:
+  //  · animación previa terminada → cambiar libremente al target
+  //  · animación a medio + salto ≥2 → abortar y saltar (no podemos
+  //    hacer esperar al usuario, ya pasó dos proyectos atrás)
+  //  · animación a medio + salto 1 → esperar a que termine
+  //
+  // Reglas de animación de entrada:
+  //  · scroll lento (1 paso, sin cambios recientes) → secuencia
+  //    cinematográfica completa (detect→glitch→stabilize→reveal)
+  //  · scroll rápido (salto ≥2, cambio reciente, o aborto) →
+  //    reveal corto sin glitch, mantiene la fluidez
 
-  if (scrollTarget > screen.prevActive) {
-   // Solo avanzar si la secuencia de entrada del proyecto actual terminó
-   const entryDone = screen.entryPhase === "done" || screen.entryPhase === "idle";
+  const entryDone = screen.entryPhase === "done" || screen.entryPhase === "idle";
+  const distance = Math.abs(scrollTarget - screen.prevActive);
+  const timeSinceLastChange = elapsed - screen.lastChangeTime;
+
+  let newActive = screen.prevActive;
+  let abortedMidAnim = false;
+
+  if (scrollTarget !== screen.prevActive) {
    if (entryDone) {
-    newActive = screen.prevActive + 1; // avanzar un paso
+    newActive = scrollTarget;
+   } else if (distance >= 2) {
+    // El usuario ya pasó dos o más — abortamos y saltamos
+    newActive = scrollTarget;
+    abortedMidAnim = true;
    }
-  } else if (scrollTarget < screen.prevActive) {
-   // Al hacer scroll hacia atrás: retrocede libremente
-   newActive = scrollTarget;
   }
 
-  // Clamp al rango válido
   newActive = Math.max(-1, Math.min(PROJECTS.length - 1, newActive));
 
-  // ── Cambio de proyecto → reinicia secuencia de entrada
   if (newActive !== screen.prevActive) {
+   const isFastScroll = distance >= 2 || timeSinceLastChange < 0.8 || abortedMidAnim;
+
    screen.prevActive = newActive;
    screen.activeProject = newActive;
+   screen.lastChangeTime = elapsed;
+
    if (newActive >= 0) {
-    screen.entryPhase = "detect";
-    screen.entryTimer = ENTRY_DETECT_DUR;
+    if (isFastScroll) {
+     // Modo rápido — reveal directo, sin detect/glitch
+     screen.entryPhase = "reveal";
+     screen.entryTimer = entryParams.revealDur * 0.4;
+     screen.lightPulse = 0.35;
+    } else {
+     // Modo normal — secuencia cinematográfica completa
+     screen.entryPhase = "detect";
+     screen.entryTimer = entryParams.detectDur;
+     screen.lightPulse = 1.0;
+    }
     screen.lightColorTarget.set(PROJECTS[newActive].color);
-    screen.lightPulse = 1.0;
    } else {
     screen.entryPhase = "idle";
+    screen.entryTimer = 0;
     screen.lightColorTarget.set("#0a0e2a");
    }
   }
@@ -1141,15 +1195,15 @@ export function initProjectsScene(canvas) {
     switch (screen.entryPhase) {
      case "detect":
       screen.entryPhase = "glitch";
-      screen.entryTimer = ENTRY_GLITCH_DUR;
+      screen.entryTimer = entryParams.glitchDur;
       break;
      case "glitch":
       screen.entryPhase = "stabilize";
-      screen.entryTimer = ENTRY_STABILIZE_DUR;
+      screen.entryTimer = entryParams.stabilizeDur;
       break;
      case "stabilize":
       screen.entryPhase = "reveal";
-      screen.entryTimer = ENTRY_REVEAL_DUR;
+      screen.entryTimer = entryParams.revealDur;
       break;
      case "reveal":
       screen.entryPhase = "done";
@@ -1160,31 +1214,31 @@ export function initProjectsScene(canvas) {
   }
 
   // ── Cámara ───────────────────────────────────────────
-  // Durante el boot la cámara se aproxima desde el vacío hasta CAM_FAR
-  // Después el scroll la lleva de CAM_FAR a CAM_NEAR
+  // Z's leídas en vivo de cameraParamsP (tuneables vía GUI).
+  // camScale (responsive) garantiza que el CRT entra en frame en
+  // cualquier aspect — en desktop = 1.0, en mobile sube según aspect.
   if (!screen.bootDone) {
-   // Aproximación suave durante el boot: CAM_ENTRY_START → CAM_FAR
    const bootEase =
     screen.bootProgress < 0.5
      ? 4 * screen.bootProgress * screen.bootProgress * screen.bootProgress
      : 1 - Math.pow(-2 * screen.bootProgress + 2, 3) / 2;
-   camera.position.z = lerp(CAM_ENTRY_START, CAM_FAR, bootEase);
+   camera.position.z = lerp(cameraParamsP.entryStart, cameraParamsP.camFar, bootEase) * camScale;
   } else {
    const camT = easeIO(Math.min(1, Math.max(0, (sNorm - SCROLL_CAM_START) / (SCROLL_CAM_END - SCROLL_CAM_START))));
-   camera.position.z = lerp(CAM_FAR, CAM_NEAR, camT);
+   camera.position.z = lerp(cameraParamsP.camFar, cameraParamsP.camNear, camT) * camScale;
   }
   // Flotación muy suave — da vida sin distraer
-  camera.position.y = 0.05 + Math.sin(elapsed * 0.28) * 0.04;
-  camera.position.x = Math.sin(elapsed * 0.15) * 0.018;
+  camera.position.y = 0.05 + Math.sin(elapsed * 0.28) * cameraParamsP.floatAmplY;
+  camera.position.x = Math.sin(elapsed * 0.15) * cameraParamsP.floatAmplX;
 
   // ── Luces reactivas ──────────────────────────────────
   screen.lightColor.lerp(screen.lightColorTarget, 0.03);
 
   screen.lightPulse = Math.max(0, screen.lightPulse - delta * 1.4);
-  const pulseBoost = screen.lightPulse * 2.0;
+  const pulseBoost = screen.lightPulse * lightParams.pulseStrength;
 
-  // Intensidad más alta — carcasa recibe color visible y la pantalla brilla
-  const baseInt = screen.activeProject >= 0 ? 4.5 : 0.0;
+  // Intensidad reactiva (carcasa recibe color y la pantalla brilla)
+  const baseInt = screen.activeProject >= 0 ? lightParams.baseIntensity : 0.0;
   const targetInt = baseInt + pulseBoost;
   reactiveLight.intensity = lerp(reactiveLight.intensity, targetInt, 0.05);
   reactiveLight.color.copy(screen.lightColor);
@@ -1199,7 +1253,11 @@ export function initProjectsScene(canvas) {
     : new THREE.Color("#1a2040"),
    0.025,
   );
-  haloLight.intensity = lerp(haloLight.intensity, screen.activeProject >= 0 ? 0.85 : 0.4, 0.03);
+  haloLight.intensity = lerp(
+   haloLight.intensity,
+   screen.activeProject >= 0 ? lightParams.haloIntensity : lightParams.haloIntensity * 0.47,
+   0.03,
+  );
 
   // Flicker sutil
   if (screen.activeProject >= 0 && screen.entryPhase === "done") {
@@ -1244,7 +1302,10 @@ export function initProjectsScene(canvas) {
  // ══════════════════════════════════════════════════════
  // CLEANUP
  // ══════════════════════════════════════════════════════
- return () => {
+ // Devolvemos la función de cleanup (compatibilidad con el uso
+ // actual de Projects.jsx) pero le adjuntamos referencias a los
+ // params y a requestRender para que el GUI pueda enchucharse.
+ const cleanup = () => {
   window.removeEventListener("scroll", onScroll);
   window.removeEventListener("resize", onResize);
   document.removeEventListener("visibilitychange", onVis);
@@ -1266,4 +1327,14 @@ export function initProjectsScene(canvas) {
   scTex.dispose();
   renderer.dispose();
  };
+
+ // Exponemos los objetos de params para attachProjectsGUI(gui, refs)
+ cleanup.layoutParams = layoutParams;
+ cleanup.textParams = textParams;
+ cleanup.lightParams = lightParams;
+ cleanup.cameraParamsP = cameraParamsP;
+ cleanup.entryParams = entryParams;
+ cleanup.requestRender = requestRender;
+
+ return cleanup;
 }

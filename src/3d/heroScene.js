@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import GUI from "lil-gui";
-import { attachHeroGUI } from "./hero/gui";
+import { attachHeroGUI, setGui, clearGui } from "./hero/gui";
 import { buildExterior } from "./hero/exterior";
 import { easeIn3, easeOut3, easeIO3, clamp01, lerpV, phase } from "./hero/math";
 import { buildNeon, buildDogHologram, buildOrrery } from "./hero/interactives";
@@ -187,6 +187,9 @@ export function initHeroScene(wrapperEl) {
  const DEBUG = true;
  const gui = DEBUG ? new GUI() : null;
  if (gui) gui.close();
+ // Publicar la instancia para que otras escenas (Projects, etc.)
+ // puedan engancharle sus propios folders sin acoplarse a heroScene.
+ if (gui) setGui(gui);
 
  /**
   * =========================================================
@@ -1201,5 +1204,12 @@ export function initHeroScene(wrapperEl) {
   [wallColorTex, wallNormalTex, wallRoughTex, wallAOTex].forEach((t) => {
    if (t) t.dispose();
   });
+
+  // Liberar el broker para que el HMR de Vite no deje colgando
+  // referencias a un GUI viejo cuando initHeroScene se remonta.
+  if (gui) {
+   gui.destroy();
+   clearGui();
+  }
  };
 }

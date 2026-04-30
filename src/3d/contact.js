@@ -548,7 +548,7 @@ export function initContactScene(container, onBeaconReady) {
  window.addEventListener("resize", onResize);
 
  // ── Cleanup ───────────────────────────────────────────────────────────────
- return function cleanup() {
+ const cleanup = function () {
   cancelAnimationFrame(rafId);
   window.removeEventListener("resize", onResize);
   observer.disconnect();
@@ -599,4 +599,29 @@ export function initContactScene(container, onBeaconReady) {
   renderer.dispose();
   if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
  };
+
+ // ── Refs vivas para el GUI broker ────────────────────────────────────────
+ // El attachContactGUI las usa para mutar la escena en vivo desde lil-gui.
+ // P es el objeto fuente: las funciones del loop ya lo leen cada frame, así
+ // que para esos params (pulseSpeed, glowIntensity, starsDrift, nebulaOpacity,
+ // astroRotY) cambiar P basta. Para los que se aplican una sola vez al setup
+ // (posiciones, escalas, opacidades de stars/footprints) el GUI llama a las
+ // refs directamente vía onChange.
+ cleanup.P = P;
+ cleanup.refs = {
+  beaconGroup,
+  beaconPL,
+  astronautRoot: () => astronautRoot, // accessor — el modelo se carga async
+  moon,
+  moonMat,
+  moonHalo,
+  moonHaloMat,
+  ambient,
+  rimLight,
+  footprintMeshes,
+  starsMatA,
+  starsMatB,
+ };
+
+ return cleanup;
 }

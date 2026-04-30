@@ -257,9 +257,359 @@ export function initLabStarsScene() {
  const brightStars = new THREE.Points(brightGeometry, brightMaterial);
  scene.add(brightStars);
 
+ // ══════════════════════════════════════════════════════
+ // CONSTELACIONES INTERACTIVAS
+ // ══════════════════════════════════════════════════════
+ //
+ // 3 constelaciones latentes en zonas estratégicas del campo
+ // estelar. Permanecen invisibles hasta que el cursor entra en
+ // su radio de activación. Una vez activas, "señales de luz"
+ // recorren sus líneas y al impactar con cada estrella ancla
+ // producen un destello que expande y se desvanece.
+ //
+ // Lectura conceptual:
+ //   · onda  → guiño al shader de agua del lab
+ //   · órbita → exploración / espacio
+ //   · grafo → interactividad / nodos conectados
+ //
+ // Diseño:
+ //   · estáticas en world space (no rotan con el cosmos —
+ //     son landmarks deliberados, no ruido de fondo)
+ //   · activación por proximidad cursor↔NDC con smoothstep
+ //   · señales y destellos vienen de pools fijos (sin GC)
+ //   · disposición: en márgenes, lejos del HTML central
+
+ // ── Definición de formas ────────────────────────────────
+ const _v3 = new THREE.Vector3();
+ const _proj = new THREE.Vector3();
+
+ function makeWaveAnchors() {
+  // 7 puntos a lo largo de una sinusoide
+  const arr = [];
+  for (let i = 0; i < 7; i++) {
+   const u = i / 6;
+   arr.push(new THREE.Vector3((u - 0.5) * 4.2, Math.sin(u * Math.PI * 2) * 0.85, (Math.random() - 0.5) * 0.3));
+  }
+  return arr;
+ }
+
+ function makeOrbitAnchors() {
+  // 6 puntos en elipse, conectados en bucle
+  const arr = [];
+  for (let i = 0; i < 6; i++) {
+   const a = (i / 6) * Math.PI * 2 - Math.PI * 0.25;
+   arr.push(new THREE.Vector3(Math.cos(a) * 1.7, Math.sin(a) * 1.05, (Math.random() - 0.5) * 0.4));
+  }
+  return arr;
+ }
+
+ function makeGraphAnchors() {
+  // 5 nodos con conexiones cruzadas — forma de grafo
+  return [
+   new THREE.Vector3(0, 1.25, 0),
+   new THREE.Vector3(-1.55, 0.05, 0.2),
+   new THREE.Vector3(1.55, 0.05, -0.2),
+   new THREE.Vector3(-0.85, -1.3, 0.15),
+   new THREE.Vector3(0.85, -1.3, -0.15),
+  ];
+ }
+
+ // Posiciones en world space — alejadas del centro para no pisar
+ // el contenido HTML. Se distribuyen en distintas profundidades
+ // para que el parallax del cursor las separe sutilmente.
+ const constellationDefs = [
+  {
+   name: "wave",
+   center: new THREE.Vector3(-9, 5, -1.5),
+   color: new THREE.Color("#4ad0ff"),
+   anchors: makeWaveAnchors(),
+   connections: [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 4],
+    [4, 5],
+    [5, 6],
+   ],
+   activationRadius: 0.6, // en NDC
+  },
+  {
+   name: "orbit",
+   center: new THREE.Vector3(10, -1, -2.5),
+   color: new THREE.Color("#ffa66d"),
+   anchors: makeOrbitAnchors(),
+   connections: [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 4],
+    [4, 5],
+    [5, 0],
+   ],
+   activationRadius: 0.55,
+  },
+  {
+   name: "graph",
+   center: new THREE.Vector3(-6, -6, -1),
+   color: new THREE.Color("#cad8ff"),
+   anchors: makeGraphAnchors(),
+   connections: [
+    [0, 1],
+    [0, 2],
+    [1, 2],
+    [1, 3],
+    [2, 4],
+    [3, 4],
+    [0, 3],
+    [0, 4],
+   ],
+   activationRadius: 0.55,
+  },
+ ];
+
+ // ── Construcción de cada constelación ──────────────────
+ function buildConstellation(def) {
+  const group = new THREE.Group();
+  group.position.copy(def.center);
+
+  // Anchor stars: sprites con la misma textura que el campo
+  // de fondo, así no se nota que son objetos distintos.
+  const anchorSprites = def.anchors.map((relPos) => {
+   const mat = new THREE.SpriteMaterial({
+    map: starTexture,
+    color: def.color.clone(),
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+   });
+   const s = new THREE.Sprite(mat);
+   s.position.copy(relPos);
+   s.scale.setScalar(0.55);
+   s.userData.baseScale = 0.55;
+   s.userData.flashTimer = 0;
+   group.add(s);
+   return s;
+  });
+
+  // Líneas: un único LineSegments con todos los pares
+  const positions = new Float32Array(def.connections.length * 2 * 3);
+  for (let i = 0; i < def.connections.length; i++) {
+   const [a, b] = def.connections[i];
+   const aPos = def.anchors[a];
+   const bPos = def.anchors[b];
+   positions[i * 6 + 0] = aPos.x;
+   positions[i * 6 + 1] = aPos.y;
+   positions[i * 6 + 2] = aPos.z;
+   positions[i * 6 + 3] = bPos.x;
+   positions[i * 6 + 4] = bPos.y;
+   positions[i * 6 + 5] = bPos.z;
+  }
+  const lineGeo = new THREE.BufferGeometry();
+  lineGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+
+  const lineMat = new THREE.LineBasicMaterial({
+   color: def.color,
+   transparent: true,
+   opacity: 0,
+   blending: THREE.AdditiveBlending,
+   depthWrite: false,
+  });
+
+  const lines = new THREE.LineSegments(lineGeo, lineMat);
+  group.add(lines);
+
+  scene.add(group);
+
+  return {
+   def,
+   group,
+   anchors: anchorSprites,
+   lines,
+   lineGeo,
+   lineMat,
+   activation: 0,
+   signalTimer: 0.4,
+  };
+ }
+
+ const constellations = constellationDefs.map(buildConstellation);
+
+ // ── Pool de señales (light traveling along lines) ──────
+ const SIGNAL_POOL = 6;
+ const signalPool = [];
+ for (let i = 0; i < SIGNAL_POOL; i++) {
+  const mat = new THREE.SpriteMaterial({
+   map: starTexture,
+   color: 0xffffff,
+   transparent: true,
+   opacity: 0,
+   depthWrite: false,
+   blending: THREE.AdditiveBlending,
+  });
+  const s = new THREE.Sprite(mat);
+  s.scale.setScalar(0.4);
+  s.visible = false;
+  scene.add(s);
+  signalPool.push({ sprite: s, mat, c: null, fromIdx: 0, toIdx: 0, t: 0, active: false });
+ }
+
+ function spawnSignal(c) {
+  const free = signalPool.find((s) => !s.active);
+  if (!free || c.def.connections.length === 0) return;
+  const conn = c.def.connections[Math.floor(Math.random() * c.def.connections.length)];
+  free.active = true;
+  free.c = c;
+  free.fromIdx = conn[0];
+  free.toIdx = conn[1];
+  free.t = 0;
+  free.mat.color.copy(c.def.color).lerp(new THREE.Color(0xffffff), 0.4);
+  free.sprite.visible = true;
+ }
+
+ // ── Pool de destellos (impact bursts) ──────────────────
+ const BURST_POOL = 10;
+ const burstPool = [];
+ for (let i = 0; i < BURST_POOL; i++) {
+  const mat = new THREE.SpriteMaterial({
+   map: starTexture,
+   color: 0xffffff,
+   transparent: true,
+   opacity: 0,
+   depthWrite: false,
+   blending: THREE.AdditiveBlending,
+  });
+  const s = new THREE.Sprite(mat);
+  s.visible = false;
+  scene.add(s);
+  burstPool.push({ sprite: s, mat, life: 0, active: false });
+ }
+
+ function spawnBurst(worldPos, color) {
+  const free = burstPool.find((b) => !b.active);
+  if (!free) return;
+  free.active = true;
+  free.life = 1.0;
+  free.sprite.position.copy(worldPos);
+  free.mat.color.copy(color).lerp(new THREE.Color(0xffffff), 0.5);
+  free.sprite.visible = true;
+ }
+
+ // ── Update por frame ───────────────────────────────────
+ // Se llama desde tick() después de actualizar la cámara,
+ // para que la proyección a NDC use el camera.position
+ // ya panneada por el cursor.
+ function updateConstellations(dt, elapsed) {
+  // Cursor en NDC (-1..1). cursor.x ya está en -0.5..0.5,
+  // multiplicamos *2 y flipeamos Y (screen-y va al revés).
+  const curNdcX = cursor.x * 2;
+  const curNdcY = -cursor.y * 2;
+
+  for (const c of constellations) {
+   // Proyectar centro a NDC (incluye el pan de cámara automático)
+   _proj.copy(c.def.center).project(camera);
+
+   const dx = _proj.x - curNdcX;
+   const dy = _proj.y - curNdcY;
+   const dist = Math.sqrt(dx * dx + dy * dy);
+
+   // Smoothstep: outer = empieza a aparecer, inner = llena
+   const outer = c.def.activationRadius;
+   const inner = outer * 0.35;
+   let t = (outer - dist) / (outer - inner);
+   t = Math.max(0, Math.min(1, t));
+   const target = t * t * (3 - 2 * t);
+
+   // Suavizar el cambio (evita flicker si el cursor entra y sale rápido)
+   c.activation += (target - c.activation) * 0.09;
+
+   // Aplicar a líneas y anchors
+   const a = c.activation;
+   c.lineMat.opacity = a * 0.5;
+
+   // Breath sutil — respiración temporal para que las estrellas
+   // ancla no se sientan estáticas cuando están reveladas
+   for (const sp of c.anchors) {
+    const breath = 0.88 + Math.sin(elapsed * 1.6 + sp.position.x * 1.8) * 0.08;
+    let op = a * breath;
+
+    // Flash superpuesto si la estrella fue impactada por una señal
+    if (sp.userData.flashTimer > 0) {
+     sp.userData.flashTimer = Math.max(0, sp.userData.flashTimer - dt);
+     const flash = sp.userData.flashTimer / 0.45;
+     sp.scale.setScalar(sp.userData.baseScale * (1 + flash * 1.8));
+     op = Math.min(1, op + flash * 0.7);
+    } else {
+     sp.scale.setScalar(sp.userData.baseScale);
+    }
+
+    sp.material.opacity = op;
+   }
+
+   // Spawn de señales solo cuando la activación está alta
+   if (a > 0.78) {
+    c.signalTimer -= dt;
+    if (c.signalTimer <= 0) {
+     spawnSignal(c);
+     c.signalTimer = 0.85 + Math.random() * 1.3;
+    }
+   } else {
+    // Reset del timer para que al activarse próximamente
+    // dispare casi de inmediato (sensación de "se enciende")
+    c.signalTimer = 0.25;
+   }
+  }
+
+  // Update señales viajando por las líneas
+  for (const s of signalPool) {
+   if (!s.active) continue;
+   s.t += dt * 1.6; // ~0.62s para recorrer una línea
+
+   if (s.t >= 1) {
+    // Impacto — destello + flash en la estrella destino
+    const target = s.c.anchors[s.toIdx];
+    target.getWorldPosition(_v3);
+    spawnBurst(_v3, s.c.def.color);
+    target.userData.flashTimer = 0.45;
+    s.active = false;
+    s.sprite.visible = false;
+    continue;
+   }
+
+   // Posición a lo largo de la línea (espacio local del grupo)
+   const ap = s.c.def.anchors[s.fromIdx];
+   const bp = s.c.def.anchors[s.toIdx];
+   _v3.lerpVectors(ap, bp, s.t);
+   s.c.group.localToWorld(_v3);
+   s.sprite.position.copy(_v3);
+
+   // Brillo: pico en la mitad del recorrido
+   const fade = Math.sin(s.t * Math.PI);
+   s.mat.opacity = fade * 0.95 * Math.max(0.4, s.c.activation);
+   s.sprite.scale.setScalar(0.32 + fade * 0.32);
+  }
+
+  // Update destellos
+  for (const b of burstPool) {
+   if (!b.active) continue;
+   b.life -= dt * 1.7; // ~0.59s
+   if (b.life <= 0) {
+    b.active = false;
+    b.sprite.visible = false;
+    continue;
+   }
+   const k = 1 - b.life; // 0→1
+   // Expansión rápida
+   b.sprite.scale.setScalar(0.4 + k * 2.6);
+   // Fade cuadrático (sale fuerte y se apaga rápido)
+   b.mat.opacity = b.life * b.life * 1.25;
+  }
+ }
+
  const cursor = { x: 0, y: 0 };
  let scrollY = window.scrollY;
  const clock = new THREE.Clock();
+ let lastElapsed = 0;
  let animationId = null;
 
  const handleResize = () => {
@@ -288,6 +638,8 @@ export function initLabStarsScene() {
 
  const tick = () => {
   const elapsedTime = clock.getElapsedTime();
+  const dt = Math.min(Math.max(elapsedTime - lastElapsed, 0), 0.05);
+  lastElapsed = elapsedTime;
 
   stars.rotation.y = elapsedTime * 0.01;
   stars.rotation.x = elapsedTime * 0.005;
@@ -306,6 +658,11 @@ export function initLabStarsScene() {
   camera.position.y += (-cursor.y * 0.6 - camera.position.y) * 0.02;
 
   brightMaterial.opacity = 0.82 + Math.sin(elapsedTime * 1.4) * 0.06;
+
+  // Constelaciones — se actualizan después del pan de cámara
+  // para que la proyección a NDC sea coherente con lo que ve
+  // el usuario.
+  updateConstellations(dt, elapsedTime);
 
   renderer.render(scene, camera);
   animationId = window.requestAnimationFrame(tick);
@@ -329,6 +686,23 @@ export function initLabStarsScene() {
   brightGeometry.dispose();
   brightMaterial.dispose();
   starTexture.dispose();
+
+  // Constelaciones, señales y bursts
+  for (const c of constellations) {
+   for (const sp of c.anchors) sp.material.dispose();
+   c.lineGeo.dispose();
+   c.lineMat.dispose();
+   scene.remove(c.group);
+  }
+  for (const s of signalPool) {
+   s.mat.dispose();
+   scene.remove(s.sprite);
+  }
+  for (const b of burstPool) {
+   b.mat.dispose();
+   scene.remove(b.sprite);
+  }
+
   renderer.dispose();
  };
 }
@@ -996,6 +1370,379 @@ export function initProjectsStarsScene() {
   bGeo.dispose();
   bMat.dispose();
   starTexture.dispose();
+  renderer.dispose();
+ };
+}
+
+/**
+ * =========================================================
+ * LAB ROOM SCENE — "El observatorio" (primera persona)
+ * =========================================================
+ * Cabina desde la que se EMITEN las transmisiones que llegan
+ * a Projects. La cámara está fija en posición de operador,
+ * mirando hacia fuera a través de una ventana enmarcada.
+ *
+ * Composición de la escena:
+ *  – Marco de la ventana (geometría real, oscura, en primer plano)
+ *  – Cristal sutil con leve reflejo
+ *  – Nebula lejana azulada
+ *  – Asteroides flotando con movimiento lento (dan profundidad)
+ *  – Estrellas detrás (campo profundo)
+ *
+ * Los displays HUD (agua + vídeos) van encima en HTML, dentro
+ * del marco de la ventana. La escena 3D solo provee el "fuera".
+ * =========================================================
+ */
+export function initLabRoomScene() {
+ const canvas = document.querySelector("#lab-room-canvas");
+ if (!canvas) {
+  console.warn("[LabRoom] No se encontró #lab-room-canvas");
+  return;
+ }
+
+ const parent = canvas.parentElement;
+ if (!parent) return;
+
+ const scene = new THREE.Scene();
+
+ const sizes = {
+  width: parent.clientWidth,
+  height: parent.clientHeight,
+ };
+
+ // Cámara: FOV ancho para sensación inmersiva, posición de operador
+ const camera = new THREE.PerspectiveCamera(58, sizes.width / sizes.height, 0.1, 200);
+ camera.position.set(0, 0, 0);
+ camera.lookAt(0, 0, -10);
+ scene.add(camera);
+
+ const renderer = new THREE.WebGLRenderer({
+  canvas,
+  alpha: true,
+  antialias: true,
+ });
+ renderer.setSize(sizes.width, sizes.height);
+ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+ renderer.setClearColor(0x000000, 0);
+
+ // ── Luz tenue para los asteroides ────────────────────────
+ const ambient = new THREE.AmbientLight(0x1a2a4a, 0.45);
+ scene.add(ambient);
+
+ // Luz direccional ámbar muy suave — tiñe los asteroides como
+ // si reflejaran la luz interior del observatorio
+ const keyLight = new THREE.DirectionalLight(0xfdba74, 0.35);
+ keyLight.position.set(2, 1, 4);
+ scene.add(keyLight);
+
+ // Luz fría desde la dirección de la nebula
+ const rimLight = new THREE.DirectionalLight(0x4a7fc4, 0.6);
+ rimLight.position.set(-3, 0, -8);
+ scene.add(rimLight);
+
+ // ══════════════════════════════════════════════════════
+ // NEBULA LEJANA (sprite con textura procedural)
+ // ══════════════════════════════════════════════════════
+ const nebulaTexture = (() => {
+  const size = 256;
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const cx = c.getContext("2d");
+
+  // Fondo radial con dos colores
+  const g = cx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0, "rgba(80,120,200,0.55)");
+  g.addColorStop(0.4, "rgba(60,90,160,0.28)");
+  g.addColorStop(0.75, "rgba(40,60,110,0.10)");
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  cx.fillStyle = g;
+  cx.fillRect(0, 0, size, size);
+
+  // Manchas irregulares para textura
+  for (let i = 0; i < 60; i++) {
+   const x = Math.random() * size;
+   const y = Math.random() * size;
+   const r = 12 + Math.random() * 30;
+   const dx = x - size / 2;
+   const dy = y - size / 2;
+   const dist = Math.sqrt(dx * dx + dy * dy);
+   if (dist > size * 0.42) continue;
+   const alpha = (1 - dist / (size * 0.5)) * 0.18;
+   const grad = cx.createRadialGradient(x, y, 0, x, y, r);
+   grad.addColorStop(0, `rgba(120,160,220,${alpha})`);
+   grad.addColorStop(1, "rgba(120,160,220,0)");
+   cx.fillStyle = grad;
+   cx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+
+  const t = new THREE.CanvasTexture(c);
+  t.needsUpdate = true;
+  return t;
+ })();
+
+ const nebulaMat = new THREE.SpriteMaterial({
+  map: nebulaTexture,
+  transparent: true,
+  opacity: 0.55,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+ });
+ const nebula = new THREE.Sprite(nebulaMat);
+ nebula.scale.set(60, 40, 1);
+ nebula.position.set(-8, -2, -45);
+ scene.add(nebula);
+
+ // Nebula secundaria más pequeña, otro lado
+ const nebula2 = new THREE.Sprite(nebulaMat.clone());
+ nebula2.material.opacity = 0.32;
+ nebula2.scale.set(35, 25, 1);
+ nebula2.position.set(12, 4, -38);
+ scene.add(nebula2);
+
+ // ══════════════════════════════════════════════════════
+ // ASTEROIDES FLOTANTES
+ // ══════════════════════════════════════════════════════
+ // Pocos (8), low-poly, con movimiento muy lento. Dan parallax
+ // y escala. Distribuidos en distintas profundidades.
+ const asteroids = [];
+ const ASTEROID_COUNT = 8;
+
+ for (let i = 0; i < ASTEROID_COUNT; i++) {
+  // Geometría irregular (icosahedron deformado)
+  const baseRadius = 0.25 + Math.random() * 0.55;
+  const geo = new THREE.IcosahedronGeometry(baseRadius, 0);
+  // Deformar vértices para irregularidad
+  const pos = geo.attributes.position;
+  for (let v = 0; v < pos.count; v++) {
+   const x = pos.getX(v);
+   const y = pos.getY(v);
+   const z = pos.getZ(v);
+   const noise = (Math.random() - 0.5) * 0.25;
+   pos.setXYZ(v, x * (1 + noise), y * (1 + noise), z * (1 + noise));
+  }
+  geo.computeVertexNormals();
+
+  const mat = new THREE.MeshStandardMaterial({
+   color: 0x3a3530,
+   roughness: 0.95,
+   metalness: 0.05,
+   flatShading: true,
+  });
+
+  const mesh = new THREE.Mesh(geo, mat);
+
+  // Distribución: a los lados (no en el centro, para no tapar
+  // el contenido HTML que va dentro del frame)
+  const side = Math.random() > 0.5 ? 1 : -1;
+  mesh.position.set(side * (3 + Math.random() * 6), (Math.random() - 0.5) * 5, -8 - Math.random() * 18);
+
+  mesh.userData.driftX = (Math.random() - 0.5) * 0.0006;
+  mesh.userData.driftY = (Math.random() - 0.5) * 0.0004;
+  mesh.userData.rotSpeed = (Math.random() - 0.5) * 0.003;
+  mesh.userData.rotAxis = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+  mesh.userData.bobPhase = Math.random() * Math.PI * 2;
+  mesh.userData.basePos = mesh.position.clone();
+
+  scene.add(mesh);
+  asteroids.push(mesh);
+ }
+
+ // ══════════════════════════════════════════════════════
+ // CAMPO ESTELAR (más profundo que el de fondo)
+ // ══════════════════════════════════════════════════════
+ const starTex = (() => {
+  const s = 64;
+  const c = document.createElement("canvas");
+  c.width = s;
+  c.height = s;
+  const cx = c.getContext("2d");
+  const g = cx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.3, "rgba(255,255,255,0.5)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  cx.fillStyle = g;
+  cx.fillRect(0, 0, s, s);
+  const t = new THREE.CanvasTexture(c);
+  return t;
+ })();
+
+ const STAR_N = 800;
+ const starPos = new Float32Array(STAR_N * 3);
+ const starCol = new Float32Array(STAR_N * 3);
+ const starColor = new THREE.Color();
+ for (let i = 0; i < STAR_N; i++) {
+  const i3 = i * 3;
+  starPos[i3] = (Math.random() - 0.5) * 80;
+  starPos[i3 + 1] = (Math.random() - 0.5) * 50;
+  starPos[i3 + 2] = -30 - Math.random() * 60;
+
+  const r = Math.random();
+  if (r < 0.85) starColor.set("#ffffff");
+  else if (r < 0.95) starColor.set("#cfe7ff");
+  else starColor.set("#fdba74");
+  starCol[i3] = starColor.r;
+  starCol[i3 + 1] = starColor.g;
+  starCol[i3 + 2] = starColor.b;
+ }
+ const starGeo = new THREE.BufferGeometry();
+ starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
+ starGeo.setAttribute("color", new THREE.BufferAttribute(starCol, 3));
+ const starMat = new THREE.PointsMaterial({
+  map: starTex,
+  size: 0.18,
+  sizeAttenuation: true,
+  vertexColors: true,
+  transparent: true,
+  opacity: 0.85,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+ });
+ const stars = new THREE.Points(starGeo, starMat);
+ scene.add(stars);
+
+ // ══════════════════════════════════════════════════════
+ // ESTRELLA FUGAZ ocasional
+ // ══════════════════════════════════════════════════════
+ const shooting = {
+  mesh: null,
+  active: false,
+  velocity: new THREE.Vector3(),
+  life: 0,
+  cooldown: 4 + Math.random() * 8,
+ };
+
+ const shootGeo = new THREE.BufferGeometry();
+ const shootPos = new Float32Array(2 * 3);
+ shootGeo.setAttribute("position", new THREE.BufferAttribute(shootPos, 3));
+ const shootMat = new THREE.LineBasicMaterial({
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0,
+  blending: THREE.AdditiveBlending,
+ });
+ shooting.mesh = new THREE.Line(shootGeo, shootMat);
+ scene.add(shooting.mesh);
+
+ function startShootingStar() {
+  shooting.active = true;
+  shooting.life = 1.0;
+  shooting.mesh.position.set(-15 + Math.random() * 8, 3 + Math.random() * 5, -22 - Math.random() * 12);
+  shooting.velocity.set(0.18 + Math.random() * 0.08, -0.06 - Math.random() * 0.04, 0.02);
+ }
+
+ // ══════════════════════════════════════════════════════
+ // INTERACCIÓN: parallax suave con el cursor
+ // ══════════════════════════════════════════════════════
+ const cursor = { x: 0, y: 0 };
+ const cursorTarget = { x: 0, y: 0 };
+
+ const onMouseMove = (e) => {
+  const rect = parent.getBoundingClientRect();
+  cursorTarget.x = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
+  cursorTarget.y = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
+ };
+ window.addEventListener("mousemove", onMouseMove);
+
+ // ══════════════════════════════════════════════════════
+ // RESIZE
+ // ══════════════════════════════════════════════════════
+ const onResize = () => {
+  sizes.width = parent.clientWidth;
+  sizes.height = parent.clientHeight;
+  camera.aspect = sizes.width / sizes.height;
+  camera.updateProjectionMatrix();
+  renderer.setSize(sizes.width, sizes.height);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+ };
+ window.addEventListener("resize", onResize);
+
+ // ══════════════════════════════════════════════════════
+ // TICK
+ // ══════════════════════════════════════════════════════
+ const clock = new THREE.Clock();
+ let animId = null;
+
+ const tick = () => {
+  const elapsed = clock.getElapsedTime();
+  const dt = Math.min(clock.getDelta() || 1 / 60, 0.05);
+
+  // Parallax cámara (muy sutil — la cámara casi no se mueve,
+  // solo gira ligeramente para sensación de "operador atento")
+  cursor.x += (cursorTarget.x - cursor.x) * 0.04;
+  cursor.y += (cursorTarget.y - cursor.y) * 0.04;
+  camera.rotation.y = -cursor.x * 0.04;
+  camera.rotation.x = cursor.y * 0.025;
+
+  // Asteroides: drift + bob + rotación propia
+  for (const a of asteroids) {
+   a.position.x = a.userData.basePos.x + Math.sin(elapsed * 0.15 + a.userData.bobPhase) * 0.3;
+   a.position.y = a.userData.basePos.y + Math.cos(elapsed * 0.12 + a.userData.bobPhase) * 0.25;
+   a.userData.basePos.x += a.userData.driftX;
+   a.userData.basePos.y += a.userData.driftY;
+   // Rotación lenta sobre eje propio
+   a.rotateOnAxis(a.userData.rotAxis, a.userData.rotSpeed);
+
+   // Wrap horizontal: si se va muy lejos, vuelve por el otro lado
+   if (Math.abs(a.userData.basePos.x) > 12) {
+    a.userData.basePos.x = -Math.sign(a.userData.basePos.x) * 12;
+   }
+  }
+
+  // Nebula: rotación muy lenta para sensación viva
+  nebula.material.rotation = elapsed * 0.005;
+  nebula2.material.rotation = -elapsed * 0.003;
+
+  // Estrellas: rotación casi imperceptible
+  stars.rotation.y = elapsed * 0.002;
+
+  // Estrella fugaz
+  if (shooting.active) {
+   shooting.life -= dt * 1.5;
+   shooting.mesh.position.add(shooting.velocity);
+   shootMat.opacity = Math.max(0, shooting.life) * 0.85;
+   // Trail: dos puntos, el segundo arrastrado hacia atrás
+   shootPos[0] = 0;
+   shootPos[1] = 0;
+   shootPos[2] = 0;
+   shootPos[3] = -shooting.velocity.x * 8;
+   shootPos[4] = -shooting.velocity.y * 8;
+   shootPos[5] = -shooting.velocity.z * 8;
+   shootGeo.attributes.position.needsUpdate = true;
+   if (shooting.life <= 0) {
+    shooting.active = false;
+    shooting.cooldown = 6 + Math.random() * 10;
+   }
+  } else {
+   shooting.cooldown -= dt;
+   if (shooting.cooldown <= 0) startShootingStar();
+  }
+
+  renderer.render(scene, camera);
+  animId = requestAnimationFrame(tick);
+ };
+ tick();
+
+ // ══════════════════════════════════════════════════════
+ // CLEANUP
+ // ══════════════════════════════════════════════════════
+ return () => {
+  window.removeEventListener("resize", onResize);
+  window.removeEventListener("mousemove", onMouseMove);
+  if (animId) cancelAnimationFrame(animId);
+
+  for (const a of asteroids) {
+   a.geometry.dispose();
+   a.material.dispose();
+  }
+  nebula.material.dispose();
+  nebula2.material.dispose();
+  nebulaTexture.dispose();
+  starGeo.dispose();
+  starMat.dispose();
+  starTex.dispose();
+  shootGeo.dispose();
+  shootMat.dispose();
   renderer.dispose();
  };
 }

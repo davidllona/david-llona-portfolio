@@ -1,6 +1,65 @@
 import * as THREE from "three";
 
 /**
+ * ─────────────────────────────────────────────────────────────────────────
+ * GUI BROKER (productor / consumidor)
+ * ─────────────────────────────────────────────────────────────────────────
+ * heroScene.js es el único sitio que CREA la instancia de lil-gui.
+ * Otras escenas (Projects, futuros laboratorios, etc.) la CONSUMEN para
+ * añadir sus propios folders.
+ *
+ * Patrón:
+ *
+ *   // En heroScene.js (productor) — UNA vez, después de `new GUI()`:
+ *   import { setGui } from "./hero/gui";
+ *   setGui(gui);
+ *
+ *   // En cualquier consumidor (Projects.jsx, etc.):
+ *   import { onGuiReady, attachProjectsGUI } from "../3d/hero/gui";
+ *   const off = onGuiReady((gui) => attachProjectsGUI(gui, refs));
+ *   // ... y en cleanup: off();
+ *
+ * Si el productor ya creó el GUI antes de que el consumidor se monte,
+ * el callback se ejecuta inmediatamente. Si no, queda en cola hasta
+ * que setGui() lo dispare. Sin polling, sin window globals.
+ */
+let _gui = null;
+let _waiters = [];
+
+export function setGui(gui) {
+ _gui = gui;
+ const queue = _waiters;
+ _waiters = [];
+ queue.forEach((cb) => {
+  try {
+   cb(gui);
+  } catch (err) {
+   console.error("[gui broker] error en callback:", err);
+  }
+ });
+}
+
+export function getGui() {
+ return _gui;
+}
+
+export function onGuiReady(cb) {
+ if (_gui) {
+  cb(_gui);
+  return () => {};
+ }
+ _waiters.push(cb);
+ return () => {
+  _waiters = _waiters.filter((w) => w !== cb);
+ };
+}
+
+export function clearGui() {
+ _gui = null;
+ _waiters = [];
+}
+
+/**
  * attachHeroGUI
  * ─────────────────────────────────────────────────────────────────────────
  * Engancha todos los folders de debug a la instancia `gui` de lil-gui que
@@ -453,4 +512,322 @@ export function attachHeroGUI(gui, refs) {
  asteroidFolder.close();
 
  exteriorFolder.close();
+}
+
+/**
+ * attachProjectsGUI
+ * ─────────────────────────────────────────────────────────────────────────
+ * Mismo patrón que attachHeroGUI: consumidor puro. Recibe la instancia de
+ * lil-gui creada por heroScene y los params expuestos por initProjectsScene
+ * (cleanup.layoutParams, cleanup.lightParams, etc.).
+ *
+ * Uso:
+ *   const cleanupProjects = initProjectsScene(canvas);
+ *   attachProjectsGUI(gui, cleanupProjects);
+ *
+ * @param {GUI}    gui   Instancia de lil-gui ya creada en heroScene.
+ * @param {object} refs  El cleanup devuelto por initProjectsScene
+ *                       (lleva adjuntos los params y requestRender).
+ */
+export function attachProjectsGUI(gui, refs) {
+ const { layoutParams, textParams, lightParams, cameraParamsP, entryParams, requestRender } = refs;
+
+ // ─────────────────────────────────────────────────────────────────────
+ // 📂 PROJECTS — folder padre que agrupa todos los controles
+ // ─────────────────────────────────────────────────────────────────────
+ const projectsFolder = gui.addFolder("📂 Projects");
+
+ // — 📺 Layout pantalla —
+ const layoutFolder = projectsFolder.addFolder("📺 Layout pantalla");
+ layoutFolder.add(layoutParams, "mainTop", 30, 120, 1).name("margen superior").onChange(requestRender);
+ layoutFolder.add(layoutParams, "mainHeight", 180, 480, 1).name("altura imagen").onChange(requestRender);
+ layoutFolder.add(layoutParams, "mainMarginX", 20, 80, 1).name("margen lateral").onChange(requestRender);
+ layoutFolder.close();
+
+ // — 📝 Texto — agrupado en sub-sub-folders por bloque
+ const textFolder = projectsFolder.addFolder("📝 Texto");
+
+ // ── Header (TRANSMISIÓN / SEÑAL ESTABLE) ──
+ const tHeader = textFolder.addFolder("Header");
+ tHeader.add(textParams, "headerY", 20, 80, 1).name("offset Y").onChange(requestRender);
+ tHeader.add(textParams, "headerSize", 7, 16, 1).name("tamaño").onChange(requestRender);
+ tHeader.close();
+
+ // ── Nombre del proyecto ──
+ const tName = textFolder.addFolder("Nombre");
+ tName.add(textParams, "nameTopGap", 10, 80, 1).name("padding superior").onChange(requestRender);
+ tName.add(textParams, "nameSeparatorGap", 0, 60, 1).name("padding línea ↑").onChange(requestRender);
+ tName.add(textParams, "nameSize", 12, 40, 1).name("tamaño").onChange(requestRender);
+ tName.add(textParams, "nameBold").name("bold").onChange(requestRender);
+ tName.add(textParams, "nameOpacity", 0, 1, 0.01).name("opacidad").onChange(requestRender);
+ tName.add(textParams, "nameAccentH", 0, 6, 1).name("acento grosor").onChange(requestRender);
+ tName.add(textParams, "nameAccentOpacity", 0, 1, 0.01).name("acento opacidad").onChange(requestRender);
+ tName.close();
+
+ // ── Tagline ──
+ const tTag = textFolder.addFolder("Tagline");
+ tTag.add(textParams, "taglineSize", 8, 22, 1).name("tamaño").onChange(requestRender);
+ tTag.add(textParams, "taglineOpacity", 0, 1, 0.01).name("opacidad").onChange(requestRender);
+ tTag.add(textParams, "taglineGap", 14, 60, 1).name("separación arriba").onChange(requestRender);
+ tTag.close();
+
+ // ── Descripción ──
+ const tDesc = textFolder.addFolder("Descripción");
+ tDesc.add(textParams, "descSize", 8, 18, 1).name("tamaño").onChange(requestRender);
+ tDesc.add(textParams, "descOpacity", 0, 1, 0.01).name("opacidad").onChange(requestRender);
+ tDesc.add(textParams, "descGap", 12, 50, 1).name("separación arriba").onChange(requestRender);
+ tDesc.add(textParams, "descLineHeight", 11, 28, 1).name("interlineado").onChange(requestRender);
+ tDesc.add(textParams, "descMaxLines", 1, 6, 1).name("líneas máx").onChange(requestRender);
+ tDesc.add(textParams, "descRightMargin", 0, 280, 1).name("margen derecho").onChange(requestRender);
+ tDesc.close();
+
+ // ── Footer ──
+ const tFoot = textFolder.addFolder("Footer");
+ tFoot.add(textParams, "footerSize", 8, 18, 1).name("tamaño").onChange(requestRender);
+ tFoot.add(textParams, "footerOpacity", 0, 1, 0.01).name("opacidad").onChange(requestRender);
+ tFoot.add(textParams, "footerBottomY", 10, 60, 1).name("offset desde abajo").onChange(requestRender);
+ tFoot.close();
+
+ // ── Watermark "0X" ──
+ const tWm = textFolder.addFolder("Watermark 0X");
+ tWm.add(textParams, "watermarkSize", 40, 180, 1).name("tamaño").onChange(requestRender);
+ tWm.add(textParams, "watermarkOpacity", 0, 0.4, 0.01).name("opacidad").onChange(requestRender);
+ tWm.add(textParams, "watermarkOffsetX", 60, 320, 1).name("offset X").onChange(requestRender);
+ tWm.add(textParams, "watermarkOffsetY", 0, 80, 1).name("offset Y").onChange(requestRender);
+ tWm.close();
+
+ textFolder.close();
+
+ // — 💡 Luces reactivas —
+ const lightsFolder = projectsFolder.addFolder("💡 Luces reactivas");
+ lightsFolder.add(lightParams, "baseIntensity", 0, 10, 0.1).name("intensidad base").onChange(requestRender);
+ lightsFolder.add(lightParams, "haloIntensity", 0, 3, 0.05).name("halo ambiental").onChange(requestRender);
+ lightsFolder.add(lightParams, "pulseStrength", 0, 5, 0.1).name("pulso entrada").onChange(requestRender);
+ lightsFolder.close();
+
+ // — 🎥 Cámara —
+ const camFolder = projectsFolder.addFolder("🎥 Cámara");
+ camFolder.add(cameraParamsP, "camFar", 3, 10, 0.1).name("z far (entrada)").onChange(requestRender);
+ camFolder.add(cameraParamsP, "camNear", 1, 6, 0.1).name("z near (final)").onChange(requestRender);
+ camFolder.add(cameraParamsP, "entryStart", 5, 15, 0.1).name("z arranque boot").onChange(requestRender);
+ camFolder.add(cameraParamsP, "floatAmplY", 0, 0.2, 0.005).name("flotación Y").onChange(requestRender);
+ camFolder.add(cameraParamsP, "floatAmplX", 0, 0.1, 0.002).name("flotación X").onChange(requestRender);
+ camFolder.close();
+
+ // — ⏱ Secuencia de entrada (DETECT → GLITCH → STABILIZE → REVEAL) —
+ const entryFolder = projectsFolder.addFolder("⏱ Secuencia de entrada");
+ entryFolder.add(entryParams, "detectDur", 0, 1, 0.05).name("detect").onChange(requestRender);
+ entryFolder.add(entryParams, "glitchDur", 0, 1.5, 0.05).name("glitch").onChange(requestRender);
+ entryFolder.add(entryParams, "stabilizeDur", 0, 1, 0.05).name("stabilize").onChange(requestRender);
+ entryFolder.add(entryParams, "revealDur", 0.1, 2, 0.05).name("reveal").onChange(requestRender);
+ entryFolder.close();
+
+ projectsFolder.close();
+}
+
+/**
+ * attachContactGUI
+ * ─────────────────────────────────────────────────────────────────────────
+ * Mismo patrón que attachHeroGUI / attachProjectsGUI. Recibe el cleanup
+ * devuelto por initContactScene (lleva adjuntos cleanup.P y cleanup.refs).
+ *
+ * El loop de contact.js es continuo y lee P cada frame, así que para los
+ * params dinámicos (pulse, drift, glow, opacidades animadas) basta con
+ * mutar P. Para los que se aplican una sola vez al setup (posiciones,
+ * escalas, opacidades fijas) usamos onChange para mutar la ref viva.
+ *
+ * Tercer parámetro opcional `uiHooks`: permite tunear los TEXTOS de la
+ * sección Contact desde el GUI. lil-gui muta `uiHooks.uiParams` directamente
+ * y dispara `uiHooks.onUIChange()` para que React re-renderice. Si no se
+ * pasa, el folder de textos no se monta.
+ *
+ * Uso desde Contact.jsx:
+ *   const cleanup = initContactScene(mountRef.current, ...);
+ *   onGuiReady((gui) => attachContactGUI(gui, cleanup, {
+ *     uiParams: uiParamsRef.current,
+ *     onUIChange: forceRender,
+ *   }));
+ *
+ * @param {GUI}     gui      Instancia de lil-gui ya creada en heroScene.
+ * @param {object}  cleanup  Cleanup devuelto por initContactScene
+ *                           (con .P y .refs adjuntos).
+ * @param {object} [uiHooks] { uiParams, onUIChange } — opcional.
+ */
+export function attachContactGUI(gui, cleanup, uiHooks) {
+ const P = cleanup.P;
+ const r = cleanup.refs;
+
+ // ─────────────────────────────────────────────────────────────────────
+ // 📞 CONTACT — folder padre
+ // ─────────────────────────────────────────────────────────────────────
+ const contactFolder = gui.addFolder("📞 Contact");
+
+ // — 🛸 Beacon —
+ const beaconFolder = contactFolder.addFolder("🛸 Beacon");
+ beaconFolder
+  .add(P, "beaconX", -3, 3, 0.01)
+  .name("posición X")
+  .onChange((v) => (r.beaconGroup.position.x = v));
+ beaconFolder
+  .add(P, "beaconY", -2, 3, 0.01)
+  .name("posición Y")
+  .onChange((v) => (r.beaconGroup.position.y = v));
+ beaconFolder
+  .add(P, "beaconZ", -2, 2, 0.01)
+  .name("posición Z")
+  .onChange((v) => (r.beaconGroup.position.z = v));
+ beaconFolder.add(P, "glowIntensity", 0, 6, 0.05).name("glow intensidad");
+ beaconFolder.add(P, "pulseSpeed", 0.5, 6, 0.05).name("velocidad pulso");
+ beaconFolder.close();
+
+ // — 👨‍🚀 Astronauta —
+ const astroFolder = contactFolder.addFolder("👨‍🚀 Astronauta");
+ // El astronauta se carga async, así que el accessor puede devolver null
+ // los primeros frames — los onChange solo intentan mutar si existe.
+ astroFolder
+  .add(P, "astroX", -3, 3, 0.01)
+  .name("posición X")
+  .onChange((v) => {
+   const a = r.astronautRoot();
+   if (a) a.position.x = v;
+  });
+ astroFolder
+  .add(P, "astroY", -2, 3, 0.01)
+  .name("posición Y (base)")
+  .onChange(() => {
+   /* el loop la lee cada frame en idleAstronaut */
+  });
+ astroFolder
+  .add(P, "astroZ", -2, 2, 0.01)
+  .name("posición Z")
+  .onChange((v) => {
+   const a = r.astronautRoot();
+   if (a) a.position.z = v;
+  });
+ astroFolder
+  .add(P, "astroScale", 0.1, 1.2, 0.01)
+  .name("escala")
+  .onChange((v) => {
+   const a = r.astronautRoot();
+   if (a) a.scale.setScalar(v);
+  });
+ astroFolder
+  .add(P, "astroRotY", -1, 1, 0.01)
+  .name("rotación Y (·π)")
+  .onChange(() => {
+   /* lo lee idleAstronaut */
+  });
+ astroFolder.close();
+
+ // — 🌙 Luna —
+ const moonFolder = contactFolder.addFolder("🌙 Luna");
+ moonFolder
+  .add(P, "moonY", -15, 0, 0.05)
+  .name("posición Y")
+  .onChange((v) => {
+   r.moon.position.y = v;
+   r.moonHalo.position.y = v;
+  });
+ moonFolder
+  .add(P, "moonScale", 0.4, 2, 0.01)
+  .name("escala")
+  .onChange((v) => r.moon.scale.setScalar(v));
+ moonFolder
+  .add(P, "moonEmissive", 0, 1, 0.01)
+  .name("emisión")
+  .onChange((v) => (r.moonMat.emissiveIntensity = v));
+ moonFolder
+  .add(P, "moonHaloOp", 0, 1.5, 0.01)
+  .name("halo opacidad")
+  .onChange((v) => (r.moonHaloMat.opacity = v));
+ moonFolder.close();
+
+ // — ✨ Estrellas y nebulosa —
+ const starsFolder = contactFolder.addFolder("✨ Estrellas");
+ starsFolder
+  .add(P, "starsOpacity", 0, 1, 0.01)
+  .name("opacidad pequeñas")
+  .onChange((v) => {
+   r.starsMatA.opacity = v;
+   r.starsMatB.opacity = Math.min(1, v + 0.18);
+  });
+ starsFolder.add(P, "starsDrift", 0, 0.05, 0.001).name("drift");
+ starsFolder.add(P, "nebulaOpacity", 0, 1.5, 0.01).name("nebulosa opacidad");
+ starsFolder.close();
+
+ // — 💡 Luces ambientales —
+ const lightsFolder = contactFolder.addFolder("💡 Luces");
+ lightsFolder
+  .add(P, "ambientInt", 0, 1, 0.01)
+  .name("ambient")
+  .onChange((v) => (r.ambient.intensity = v));
+ lightsFolder
+  .add(P, "rimInt", 0, 2, 0.01)
+  .name("rim")
+  .onChange((v) => (r.rimLight.intensity = v));
+ lightsFolder.close();
+
+ // — 👣 Huellas —
+ const fpFolder = contactFolder.addFolder("👣 Huellas");
+ fpFolder
+  .add(P, "footprintOp", 0, 1, 0.01)
+  .name("opacidad")
+  .onChange((v) => {
+   // Cada huella tiene su propia opacidad base; aplicamos como factor
+   r.footprintMeshes.forEach(({ mat }, idx) => {
+    const base = 0.25 + (idx / r.footprintMeshes.length) * 0.55;
+    mat.opacity = base * v;
+   });
+  });
+ fpFolder.close();
+
+ // — 📝 Textos (solo si Contact.jsx pasó los hooks de UI) —
+ // Edición en vivo de strings y tamaños tipográficos. lil-gui muta
+ // uiParams directamente y `onUIChange()` fuerza un re-render de React.
+ if (uiHooks && uiHooks.uiParams && typeof uiHooks.onUIChange === "function") {
+  const u = uiHooks.uiParams;
+  const ping = uiHooks.onUIChange;
+
+  const textsFolder = contactFolder.addFolder("📝 Textos");
+
+  // ── Título ────────────────────────────────────────
+  const tTitle = textsFolder.addFolder("Título");
+  tTitle.add(u, "titleText").name("texto").onChange(ping);
+  tTitle.add(u, "titlePunct").name("puntuación").onChange(ping);
+  tTitle.addColor(u, "titleDotColor").name("color punto").onChange(ping);
+  tTitle.add(u, "titleFontSizeMax", 36, 120, 1).name("tamaño máx (px)").onChange(ping);
+  tTitle.add(u, "titleLetterSpacing", 0, 0.5, 0.005).name("letter-spacing (em)").onChange(ping);
+  tTitle.close();
+
+  // ── Subtexto ──────────────────────────────────────
+  const tSub = textsFolder.addFolder("Subtexto");
+  tSub.add(u, "subtextLine1").name("línea 1").onChange(ping);
+  tSub.add(u, "subtextLine2").name("línea 2").onChange(ping);
+  tSub.add(u, "subtextFontSizeMax", 11, 24, 1).name("tamaño máx (px)").onChange(ping);
+  tSub.add(u, "subtextLineHeight", 1.2, 2.2, 0.05).name("line-height").onChange(ping);
+  tSub.add(u, "subtextOpacity", 0.3, 1, 0.01).name("opacidad").onChange(ping);
+  tSub.close();
+
+  // ── Formulario ────────────────────────────────────
+  const tForm = textsFolder.addFolder("Formulario");
+  tForm.add(u, "emailPlaceholder").name("placeholder").onChange(ping);
+  tForm.add(u, "buttonLabel").name("texto botón").onChange(ping);
+  tForm.add(u, "sentMessage").name("msg enviado").onChange(ping);
+  tForm.close();
+
+  // ── Footer ────────────────────────────────────────
+  const tFoot = textsFolder.addFolder("Footer");
+  tFoot.add(u, "footerLeft").name("izquierda").onChange(ping);
+  tFoot.add(u, "footerRight").name("derecha").onChange(ping);
+  tFoot.close();
+
+  // ── Layout ────────────────────────────────────────
+  const tLayout = textsFolder.addFolder("Layout");
+  tLayout.add(u, "formMaxWidth", 320, 720, 4).name("ancho máx (px)").onChange(ping);
+  tLayout.close();
+
+  textsFolder.close();
+ }
+
+ contactFolder.close();
 }
