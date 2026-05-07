@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { RobotPopupScene } from "../3d/RobotPopupScene";
-import { ConstellationScene } from "../3d/ConstellationScene";
+import { ConstellationScene, BackgroundStars } from "../3d/ConstellationScene";
 
 /**
  * =========================================================
@@ -431,18 +431,24 @@ export function About() {
      <div className="absolute right-[8%] top-[55%] h-[340px] w-[340px] rounded-full bg-primary/4 blur-[160px]" />
     </div>
 
+    {/* Campo estelar de fondo, full-section. Da continuidad
+        con la sección anterior (Lab). Sin pointer events. */}
+    <div className="pointer-events-none absolute inset-0 z-[1]">
+     <BackgroundStars />
+    </div>
+
     {/* Constelación expandida — solo en desktop, ocupa la
         derecha de la pantalla. Sin marco ni panel: es espacio. */}
     {isDesktop && (
      <>
-      <div className="absolute inset-y-0 right-0 z-0 w-[60vw] xl:w-[58vw]">
+      <div className="absolute inset-y-0 right-0 z-[2] w-[60vw] xl:w-[58vw]">
        <ConstellationScene {...constellationProps} />
       </div>
 
       {/* Indicador de stage + acción de retorno.
           En main: solo un contador discreto.
           En detail: pill button con flecha animada. */}
-      <div className="pointer-events-none absolute right-10 top-10 z-[3] flex items-center gap-5 xl:right-14">
+      <div className="pointer-events-none absolute right-10 top-10 z-[4] flex items-center gap-5 xl:right-14">
        <span
         className={`text-[10px] uppercase tracking-[0.22em] transition-colors duration-500 ${
          stage === "detail" ? "text-primary/85" : "text-text-muted/55"
@@ -474,27 +480,18 @@ export function About() {
         </button>
        )}
       </div>
-
-      {/* Hint inicial muy sutil — desaparece al primer detail */}
-      {stage === "main" && (
-       <div className="pointer-events-none absolute bottom-12 right-12 z-[3]">
-        <span className="text-[9px] uppercase tracking-[0.28em] text-text-muted/30">
-         Click en una estrella
-        </span>
-       </div>
-      )}
      </>
     )}
 
     {/*
-     Contenedor de contenido. Va por encima del canvas (z-2)
+     Contenedor de contenido. Va por encima del canvas
      pero ocupa el ancho completo de la sección, así que
      pointer-events-none aquí, y se reactiva explícitamente
      solo en los bloques que necesitan eventos. Sin esto, el
      contenedor se come los clicks que deberían llegar a las
      estrellas de la derecha.
     */}
-    <div className="pointer-events-none relative z-[2] mx-auto w-full max-w-[1440px] px-6 py-24 md:px-10 md:py-32 lg:px-16 lg:py-40">
+    <div className="pointer-events-none relative z-[3] mx-auto w-full max-w-[1440px] px-6 py-24 md:px-10 md:py-32 lg:px-16 lg:py-40">
      <div className="grid grid-cols-12 gap-10">
       <div className="pointer-events-auto col-span-12 lg:col-span-6">
        <span className="mb-12 block text-[11px] uppercase tracking-[0.25em] text-primary/80 md:mb-16">
@@ -527,7 +524,7 @@ export function About() {
 
      {/* Mobile: constelación en flujo, debajo del texto */}
      {!isDesktop && (
-      <div className="pointer-events-auto relative mt-16 h-[58vh] w-full">
+      <div className="pointer-events-auto relative z-[2] mt-16 h-[58vh] w-full">
        <ConstellationScene {...constellationProps} />
 
        <div className="pointer-events-none absolute left-0 top-0 z-[3] flex w-full items-center justify-between px-2">
@@ -565,7 +562,7 @@ export function About() {
       </div>
      )}
 
-     <div className="pointer-events-auto mt-20 border-t border-border/10 pt-10 md:mt-24 md:pt-12">
+     <div className="pointer-events-auto mt-44 border-t border-border/10 pt-10 md:mt-56 md:pt-12 lg:mt-72">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-baseline lg:justify-between">
        <p className="max-w-md text-sm leading-relaxed text-text-muted/55">
         Me interesan los proyectos donde diseño, interacción y tecnología se mezclan para construir

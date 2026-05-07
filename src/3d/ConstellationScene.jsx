@@ -174,6 +174,152 @@ function Nebula() {
 }
 
 /**
+ * SectionStarfield — Campo estelar denso pero con menos
+ * carga que el del Lab. Una sola nube de puntos con tres
+ * "tiers" baked en los buffers: estrellas lejanas y pequeñas
+ * (mayoría), estrellas medias (variadas en tono) y unas pocas
+ * brillantes que dan acento. Paleta calibrada al Lab para
+ * que la sección se sienta como continuación, no como otra
+ * isla. Sin pointer events: ambiente puro.
+ */
+function SectionStarfield({ count = 580 }) {
+ const ref = useRef();
+ const texture = useMemo(() => getGlowTexture(), []);
+
+ const { positions, sizes, colors } = useMemo(() => {
+  const pos = new Float32Array(count * 3);
+  const siz = new Float32Array(count);
+  const col = new Float32Array(count * 3);
+  const c = new THREE.Color();
+
+  for (let i = 0; i < count; i += 1) {
+   const i3 = i * 3;
+
+   // Distribución por tiers — 65% lejanas, 30% medias, 5% brillantes.
+   // Cada tier tiene su propio rango de tamaño y profundidad para
+   // crear sensación de capas sin necesidad de tres <points>.
+   const tier = Math.random();
+
+   if (tier < 0.65) {
+    pos[i3] = (Math.random() - 0.5) * 32;
+    pos[i3 + 1] = (Math.random() - 0.5) * 22;
+    pos[i3 + 2] = -10 + Math.random() * 4;
+    siz[i] = 0.42 + Math.random() * 0.42;
+   } else if (tier < 0.95) {
+    pos[i3] = (Math.random() - 0.5) * 28;
+    pos[i3 + 1] = (Math.random() - 0.5) * 18;
+    pos[i3 + 2] = -7 + Math.random() * 4;
+    siz[i] = 0.95 + Math.random() * 0.65;
+   } else {
+    pos[i3] = (Math.random() - 0.5) * 22;
+    pos[i3 + 1] = (Math.random() - 0.5) * 14;
+    pos[i3 + 2] = -4 + Math.random() * 2;
+    siz[i] = 1.85 + Math.random() * 1.4;
+   }
+
+   // Paleta del Lab: blanco dominante, azul pálido y dos
+   // calores cálidos para los acentos.
+   const cr = Math.random();
+   if (cr < 0.74) c.set("#ffffff");
+   else if (cr < 0.88) c.set("#cfe7ff");
+   else if (cr < 0.96) c.set("#ffd6a5");
+   else c.set("#fb923c");
+
+   col[i3] = c.r;
+   col[i3 + 1] = c.g;
+   col[i3 + 2] = c.b;
+  }
+
+  return { positions: pos, sizes: siz, colors: col };
+ }, [count]);
+
+ useFrame((state) => {
+  if (ref.current) {
+   const t = state.clock.getElapsedTime();
+   ref.current.rotation.z = Math.sin(t * 0.022) * 0.012;
+  }
+ });
+
+ return (
+  <points ref={ref}>
+   <bufferGeometry>
+    <bufferAttribute
+     attach="attributes-position"
+     array={positions}
+     count={count}
+     itemSize={3}
+    />
+    <bufferAttribute
+     attach="attributes-size"
+     array={sizes}
+     count={count}
+     itemSize={1}
+    />
+    <bufferAttribute
+     attach="attributes-color"
+     array={colors}
+     count={count}
+     itemSize={3}
+    />
+   </bufferGeometry>
+
+   <shaderMaterial
+    transparent
+    depthWrite={false}
+    blending={THREE.AdditiveBlending}
+    vertexColors
+    uniforms={{ uMap: { value: texture } }}
+    vertexShader={`
+     attribute float size;
+     varying vec3 vColor;
+     varying float vSize;
+     void main() {
+      vColor = color;
+      vSize = size;
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = size * 4.6;
+      gl_Position = projectionMatrix * mv;
+     }
+    `}
+    fragmentShader={`
+     uniform sampler2D uMap;
+     varying vec3 vColor;
+     varying float vSize;
+     void main() {
+      vec4 t = texture2D(uMap, gl_PointCoord);
+      // Las estrellas más grandes opacan algo más, las pequeñas
+      // se quedan tenues — refuerza la jerarquía de capas.
+      float opacity = 0.45 + min(vSize, 2.0) * 0.22;
+      gl_FragColor = vec4(vColor, t.a * opacity);
+     }
+    `}
+   />
+  </points>
+ );
+}
+
+/**
+ * BackgroundStars — Canvas independiente, full-section, solo
+ * estrellas. Sirve para que el fondo de About sea un campo
+ * estelar continuo que conecte con la sección de arriba (Lab),
+ * en lugar de tener estrellas únicamente en la mitad derecha
+ * donde vive la constelación. Sin pointer events: las estrellas
+ * son ambiente, no interactúan.
+ */
+export function BackgroundStars({ count = 580 }) {
+ return (
+  <Canvas
+   dpr={[1, 1.5]}
+   gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}
+   camera={{ position: [0, 0, 8], fov: 60 }}
+   style={{ background: "transparent" }}
+  >
+   <SectionStarfield count={count} />
+  </Canvas>
+ );
+}
+
+/**
  * Nodo individual — halo + core + label en HTML.
  * El halo es decorativo y reacciona al hover.
  * El core es el sprite clickable.
@@ -507,7 +653,6 @@ export function ConstellationScene({
 
    <CameraRig stage={stage} focusPosition={focusPosition} />
 
-   <AmbientStarfield />
    <Nebula />
 
    <StageGroup visible={!mainHidden}>
