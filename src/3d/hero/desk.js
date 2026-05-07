@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { loadingManager } from "../loadingManager";
 
 /**
  * desk.js
@@ -37,8 +38,8 @@ export function buildDesk({ scene, requestRender, onDeskReady }) {
  // ════════════════════════════════════════════════════════════════════════
  // ESCRITORIO — estado y cola de adjuntos
  // ════════════════════════════════════════════════════════════════════════
- const deskLoader = new GLTFLoader();
- const monitorLoader = new GLTFLoader();
+ const deskLoader = new GLTFLoader(loadingManager);
+ const monitorLoader = new GLTFLoader(loadingManager);
 
  let deskRoot = null;
  let deskAnchor = null;

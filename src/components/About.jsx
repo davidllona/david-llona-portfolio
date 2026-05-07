@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { RobotPopupScene } from "../3d/RobotPopupScene";
+import { ConstellationScene } from "../3d/ConstellationScene";
 
 /**
  * =========================================================
@@ -11,46 +12,11 @@ const mainOrbit = {
  title: "Órbita principal",
  description: "Mapa general de áreas y tecnologías.",
  nodes: [
-  {
-   id: "javascript",
-   label: "JavaScript",
-   x: 50,
-   y: 18,
-   size: "xl",
-   accent: true,
-  },
-  {
-   id: "html",
-   label: "HTML",
-   x: 22,
-   y: 38,
-   size: "md",
-   accent: false,
-  },
-  {
-   id: "css",
-   label: "CSS",
-   x: 78,
-   y: 36,
-   size: "md",
-   accent: false,
-  },
-  {
-   id: "typescript",
-   label: "TypeScript",
-   x: 30,
-   y: 68,
-   size: "md",
-   accent: false,
-  },
-  {
-   id: "aem",
-   label: "AEM",
-   x: 68,
-   y: 71,
-   size: "md",
-   accent: false,
-  },
+  { id: "javascript", label: "JavaScript", x: 50, y: 18, size: "xl", accent: true },
+  { id: "html", label: "HTML", x: 22, y: 38, size: "md", accent: false },
+  { id: "css", label: "CSS", x: 78, y: 36, size: "md", accent: false },
+  { id: "typescript", label: "TypeScript", x: 30, y: 68, size: "md", accent: false },
+  { id: "aem", label: "AEM", x: 68, y: 71, size: "md", accent: false },
  ],
  connections: [
   { from: "javascript", to: "html" },
@@ -66,86 +32,16 @@ const skillLayouts = {
   title: "JavaScript",
   description: "Base de mi trabajo interactivo y visual.",
   nodes: [
-   {
-    id: "js-1",
-    label: "React",
-    x: 30,
-    y: 20,
-    size: "sm",
-    accent: false,
-   },
-   {
-    id: "js-2",
-    label: "Three.js",
-    x: 42,
-    y: 20,
-    size: "lg",
-    accent: true,
-   },
-   {
-    id: "js-3",
-    label: "Node.js",
-    x: 42,
-    y: 37,
-    size: "sm",
-    accent: false,
-   },
-   {
-    id: "js-4",
-    label: "GSAP",
-    x: 42,
-    y: 56,
-    size: "sm",
-    accent: false,
-   },
-   {
-    id: "js-5",
-    label: "APIs",
-    x: 34,
-    y: 74,
-    size: "sm",
-    accent: false,
-   },
-   {
-    id: "js-6",
-    label: "ES6+",
-    x: 60,
-    y: 21,
-    size: "xs",
-    accent: false,
-   },
-   {
-    id: "js-7",
-    label: "Async",
-    x: 71,
-    y: 31,
-    size: "xs",
-    accent: false,
-   },
-   {
-    id: "js-8",
-    label: "Canvas",
-    x: 61,
-    y: 44,
-    size: "xs",
-    accent: false,
-   },
-   {
-    id: "js-9",
-    label: "Shaders",
-    x: 51,
-    y: 58,
-    size: "xs",
-    accent: false,
-   },
-   {
-    id: "js-10",
-    label: "Logic",
-    x: 63,
-    y: 71,
-    size: "xs",
-    accent: false,
-   },
+   { id: "js-1", label: "React", x: 30, y: 20, size: "sm", accent: false },
+   { id: "js-2", label: "Three.js", x: 42, y: 20, size: "lg", accent: true },
+   { id: "js-3", label: "Node.js", x: 42, y: 37, size: "sm", accent: false },
+   { id: "js-4", label: "GSAP", x: 42, y: 56, size: "sm", accent: false },
+   { id: "js-5", label: "APIs", x: 34, y: 74, size: "sm", accent: false },
+   { id: "js-6", label: "ES6+", x: 60, y: 21, size: "xs", accent: false },
+   { id: "js-7", label: "Async", x: 71, y: 31, size: "xs", accent: false },
+   { id: "js-8", label: "Canvas", x: 61, y: 44, size: "xs", accent: false },
+   { id: "js-9", label: "Shaders", x: 51, y: 58, size: "xs", accent: false },
+   { id: "js-10", label: "Logic", x: 63, y: 71, size: "xs", accent: false },
   ],
   connections: [
    { from: "js-1", to: "js-2" },
@@ -165,38 +61,10 @@ const skillLayouts = {
   title: "HTML",
   description: "Estructura clara, semántica y accesibilidad.",
   nodes: [
-   {
-    id: "html-1",
-    label: "Semántica",
-    x: 28,
-    y: 38,
-    size: "md",
-    accent: true,
-   },
-   {
-    id: "html-2",
-    label: "Accesibilidad",
-    x: 66,
-    y: 38,
-    size: "md",
-    accent: false,
-   },
-   {
-    id: "html-3",
-    label: "SEO base",
-    x: 32,
-    y: 74,
-    size: "sm",
-    accent: false,
-   },
-   {
-    id: "html-4",
-    label: "Email HTML",
-    x: 70,
-    y: 74,
-    size: "sm",
-    accent: false,
-   },
+   { id: "html-1", label: "Semántica", x: 28, y: 38, size: "md", accent: true },
+   { id: "html-2", label: "Accesibilidad", x: 66, y: 38, size: "md", accent: false },
+   { id: "html-3", label: "SEO base", x: 32, y: 74, size: "sm", accent: false },
+   { id: "html-4", label: "Email HTML", x: 70, y: 74, size: "sm", accent: false },
   ],
   connections: [
    { from: "html-1", to: "html-2" },
@@ -209,46 +77,11 @@ const skillLayouts = {
   title: "CSS",
   description: "Sistema visual, layout y detalle fino.",
   nodes: [
-   {
-    id: "css-1",
-    label: "Tailwind",
-    x: 26,
-    y: 38,
-    size: "md",
-    accent: false,
-   },
-   {
-    id: "css-2",
-    label: "Responsive",
-    x: 54,
-    y: 28,
-    size: "lg",
-    accent: true,
-   },
-   {
-    id: "css-3",
-    label: "Animación",
-    x: 78,
-    y: 40,
-    size: "sm",
-    accent: false,
-   },
-   {
-    id: "css-4",
-    label: "Layout",
-    x: 34,
-    y: 72,
-    size: "sm",
-    accent: false,
-   },
-   {
-    id: "css-5",
-    label: "Tokens",
-    x: 70,
-    y: 72,
-    size: "sm",
-    accent: false,
-   },
+   { id: "css-1", label: "Tailwind", x: 26, y: 38, size: "md", accent: false },
+   { id: "css-2", label: "Responsive", x: 54, y: 28, size: "lg", accent: true },
+   { id: "css-3", label: "Animación", x: 78, y: 40, size: "sm", accent: false },
+   { id: "css-4", label: "Layout", x: 34, y: 72, size: "sm", accent: false },
+   { id: "css-5", label: "Tokens", x: 70, y: 72, size: "sm", accent: false },
   ],
   connections: [
    { from: "css-2", to: "css-1" },
@@ -262,38 +95,10 @@ const skillLayouts = {
   title: "TypeScript",
   description: "Más orden, seguridad y escalabilidad.",
   nodes: [
-   {
-    id: "ts-1",
-    label: "Typing",
-    x: 26,
-    y: 38,
-    size: "md",
-    accent: false,
-   },
-   {
-    id: "ts-2",
-    label: "Componentes",
-    x: 54,
-    y: 30,
-    size: "lg",
-    accent: true,
-   },
-   {
-    id: "ts-3",
-    label: "Data Models",
-    x: 78,
-    y: 42,
-    size: "sm",
-    accent: false,
-   },
-   {
-    id: "ts-4",
-    label: "Arquitectura",
-    x: 38,
-    y: 74,
-    size: "sm",
-    accent: false,
-   },
+   { id: "ts-1", label: "Typing", x: 26, y: 38, size: "md", accent: false },
+   { id: "ts-2", label: "Componentes", x: 54, y: 30, size: "lg", accent: true },
+   { id: "ts-3", label: "Data Models", x: 78, y: 42, size: "sm", accent: false },
+   { id: "ts-4", label: "Arquitectura", x: 38, y: 74, size: "sm", accent: false },
   ],
   connections: [
    { from: "ts-2", to: "ts-1" },
@@ -306,46 +111,11 @@ const skillLayouts = {
   title: "AEM",
   description: "Componentes, plantillas y estructura editorial.",
   nodes: [
-   {
-    id: "aem-1",
-    label: "Components",
-    x: 28,
-    y: 38,
-    size: "md",
-    accent: false,
-   },
-   {
-    id: "aem-2",
-    label: "Templates",
-    x: 58,
-    y: 30,
-    size: "lg",
-    accent: true,
-   },
-   {
-    id: "aem-3",
-    label: "Authoring",
-    x: 78,
-    y: 42,
-    size: "sm",
-    accent: false,
-   },
-   {
-    id: "aem-4",
-    label: "Front Integration",
-    x: 34,
-    y: 74,
-    size: "sm",
-    accent: false,
-   },
-   {
-    id: "aem-5",
-    label: "Content Structure",
-    x: 74,
-    y: 74,
-    size: "sm",
-    accent: false,
-   },
+   { id: "aem-1", label: "Components", x: 28, y: 38, size: "md", accent: false },
+   { id: "aem-2", label: "Templates", x: 58, y: 30, size: "lg", accent: true },
+   { id: "aem-3", label: "Authoring", x: 78, y: 42, size: "sm", accent: false },
+   { id: "aem-4", label: "Front Integration", x: 34, y: 74, size: "sm", accent: false },
+   { id: "aem-5", label: "Content Structure", x: 74, y: 74, size: "sm", accent: false },
   ],
   connections: [
    { from: "aem-2", to: "aem-1" },
@@ -471,71 +241,6 @@ const popupDescriptions = {
  },
 };
 
-/**
- * =========================================================
- * HELPERS
- * =========================================================
- */
-
-function getNodeClasses(size, accent) {
- const base = "orbit-node-shell rounded-full border backdrop-blur-sm select-none";
-
- if (size === "xl") {
-  return `${base} px-5 py-3.5 text-sm md:text-[15px] ${
-   accent
-    ? "border-primary/35 bg-black/72 text-primary shadow-[0_0_36px_rgba(var(--color-primary-rgb),0.12)]"
-    : "border-white/12 bg-black/60 text-text/90"
-  }`;
- }
-
- if (size === "lg") {
-  return `${base} px-4.5 py-3 text-sm ${
-   accent
-    ? "border-primary/30 bg-black/70 text-primary shadow-[0_0_28px_rgba(var(--color-primary-rgb),0.10)]"
-    : "border-white/12 bg-black/60 text-text/90"
-  }`;
- }
-
- if (size === "md") {
-  return `${base} px-4 py-2.5 text-[13px] ${
-   accent ? "border-primary/25 bg-black/68 text-primary" : "border-white/10 bg-black/55 text-text/85"
-  }`;
- }
-
- if (size === "sm") {
-  return `${base} px-3.5 py-2 text-[12px] ${
-   accent ? "border-primary/20 bg-black/65 text-primary/90" : "border-white/10 bg-black/50 text-text/75"
-  }`;
- }
-
- return `${base} px-3 py-1.5 text-[11px] ${
-  accent ? "border-primary/18 bg-black/60 text-primary/85" : "border-white/8 bg-black/45 text-text/70"
- }`;
-}
-
-function getNodeById(nodes, id) {
- return nodes.find((node) => node.id === id);
-}
-
-function getLinesFromLayout(layout) {
- return layout.connections
-  .map((connection) => {
-   const fromNode = getNodeById(layout.nodes, connection.from);
-   const toNode = getNodeById(layout.nodes, connection.to);
-
-   if (!fromNode || !toNode) return null;
-
-   return {
-    id: `${connection.from}-${connection.to}`,
-    x1: fromNode.x,
-    y1: fromNode.y,
-    x2: toNode.x,
-    y2: toNode.y,
-   };
-  })
-  .filter(Boolean);
-}
-
 function getPopupData(label) {
  const fallback = {
   description: "Nodo conectado con una capa más concreta de mi stack y con proyectos reales.",
@@ -551,80 +256,9 @@ function getPopupData(label) {
 
 /**
  * =========================================================
- * COMPONENTS
+ * POPUP — Se mantiene tal cual estaba: usa RobotPopupScene
  * =========================================================
  */
-
-function ConstellationLines({ lines, glow = false }) {
- return (
-  <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-   {lines.map((line) => (
-    <g key={line.id}>
-     {glow && (
-      <line x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} stroke="rgba(255,122,41,0.10)" strokeWidth="0.65" />
-     )}
-
-     <line
-      x1={line.x1}
-      y1={line.y1}
-      x2={line.x2}
-      y2={line.y2}
-      stroke={glow ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.10)"}
-      strokeWidth="0.24"
-     />
-    </g>
-   ))}
-  </svg>
- );
-}
-
-function ConstellationNodes({ nodes, onNodeClick, onNodeEnter, onNodeLeave }) {
- return (
-  <>
-   {nodes.map((item, index) => (
-    <button
-     key={item.id}
-     type="button"
-     className="orbit-node-anchor absolute -translate-x-1/2 -translate-y-1/2 transition-[left,top,opacity,filter,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]"
-     style={{ left: `${item.x}%`, top: `${item.y}%` }}
-     onClick={() => onNodeClick(item)}
-     onMouseEnter={() => onNodeEnter?.(item)}
-     onMouseLeave={() => onNodeLeave?.()}
-     onFocus={() => onNodeEnter?.(item)}
-     onBlur={() => onNodeLeave?.()}
-    >
-     <div
-      className={`${getNodeClasses(item.size, item.accent)} orbit-float-${(index % 3) + 1} ${
-       item.accent ? "orbit-pulse" : ""
-      }`}
-     >
-      <div className="relative z-[1] flex items-center gap-2">
-       <span>{item.label}</span>
-      </div>
-     </div>
-    </button>
-   ))}
-  </>
- );
-}
-
-function OrbitScrollHint({ visible }) {
- return (
-  <div
-   className={`pointer-events-none absolute inset-x-0 bottom-8 z-[3] flex justify-center transition-all duration-500 ${
-    visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
-   }`}
-  >
-   <div className="flex flex-col items-center gap-3 rounded-full border border-white/10 bg-black/40 px-5 py-3 backdrop-blur-md">
-    <div className="orbit-wheel relative h-9 w-6 rounded-full border border-white/25">
-     <span className="orbit-wheel-dot absolute left-1/2 top-[6px] h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-primary" />
-    </div>
-
-    <p className="text-[10px] uppercase tracking-[0.22em] text-text-muted/70">Scroll</p>
-   </div>
-  </div>
- );
-}
 
 function SkillPopup({ item, onClose, activeMainSkill }) {
  useEffect(() => {
@@ -666,16 +300,25 @@ function SkillPopup({ item, onClose, activeMainSkill }) {
       ✕
      </button>
 
-     <h3 className="max-w-[12ch] text-3xl font-semibold tracking-[-0.04em] text-primary md:text-4xl">{item.label}</h3>
+     <h3 className="max-w-[12ch] text-3xl font-semibold tracking-[-0.04em] text-primary md:text-4xl">
+      {item.label}
+     </h3>
 
-     <p className="mt-5 max-w-xl text-sm leading-relaxed text-text-muted/82 md:text-[15px]">{item.description}</p>
+     <p className="mt-5 max-w-xl text-sm leading-relaxed text-text-muted/82 md:text-[15px]">
+      {item.description}
+     </p>
 
      <div className="mt-8">
-      <p className="text-[10px] uppercase tracking-[0.22em] text-text-muted/38">En mi trabajo lo uso para</p>
+      <p className="text-[10px] uppercase tracking-[0.22em] text-text-muted/38">
+       En mi trabajo lo uso para
+      </p>
 
       <ul className="mt-4 space-y-3">
        {item.points.map((point) => (
-        <li key={point} className="flex gap-3 text-sm leading-relaxed text-text-muted/78 md:text-[15px]">
+        <li
+         key={point}
+         className="flex gap-3 text-sm leading-relaxed text-text-muted/78 md:text-[15px]"
+        >
          <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-primary/75" />
          <span>{point}</span>
         </li>
@@ -684,7 +327,9 @@ function SkillPopup({ item, onClose, activeMainSkill }) {
      </div>
 
      <div className="mt-8 border-t border-white/8 pt-6">
-      <p className="text-[10px] uppercase tracking-[0.22em] text-text-muted/38">Relación con la constelación</p>
+      <p className="text-[10px] uppercase tracking-[0.22em] text-text-muted/38">
+       Relación con la constelación
+      </p>
       <p className="mt-3 text-sm leading-relaxed text-text-muted/70 md:text-[15px]">
        Cada nodo representa una parte más concreta de mi stack y cómo se conecta con experiencias reales.
       </p>
@@ -705,111 +350,58 @@ export function About() {
  const [stage, setStage] = useState("main");
  const [activeMainSkill, setActiveMainSkill] = useState("javascript");
  const [activePopup, setActivePopup] = useState(null);
- const [hasOrbitInteracted, setHasOrbitInteracted] = useState(false);
- const [hoveredMainNode, setHoveredMainNode] = useState(null);
- const [hoveredDetailNode, setHoveredDetailNode] = useState(null);
 
- const wheelLockRef = useRef(false);
- const constellationRef = useRef(null);
+ // Detección de viewport para alternar layout sin
+ // duplicar la escena Three.js en montaje.
+ const [isDesktop, setIsDesktop] = useState(() => {
+  if (typeof window === "undefined") return true;
+  return window.innerWidth >= 1024;
+ });
+
+ useEffect(() => {
+  let timer;
+  const update = () => setIsDesktop(window.innerWidth >= 1024);
+
+  const onResize = () => {
+   clearTimeout(timer);
+   timer = setTimeout(update, 150);
+  };
+
+  window.addEventListener("resize", onResize);
+  return () => {
+   window.removeEventListener("resize", onResize);
+   clearTimeout(timer);
+  };
+ }, []);
+
+ // ESC en stage detail vuelve a la órbita principal.
+ // El popup tiene su propio ESC, y este sólo actúa cuando
+ // el popup está cerrado para no encadenar dos saltos.
+ useEffect(() => {
+  if (stage !== "detail" || activePopup) return undefined;
+
+  const onKey = (event) => {
+   if (event.key === "Escape") {
+    setStage("main");
+   }
+  };
+
+  window.addEventListener("keydown", onKey);
+  return () => window.removeEventListener("keydown", onKey);
+ }, [stage, activePopup]);
 
  const activeLayout = useMemo(() => {
   return stage === "main" ? mainOrbit : skillLayouts[activeMainSkill];
  }, [stage, activeMainSkill]);
 
- const activeLines = useMemo(() => {
-  return getLinesFromLayout(activeLayout);
- }, [activeLayout]);
-
- useEffect(() => {
-  const unlock = () => {
-   wheelLockRef.current = false;
-  };
-
-  let timeoutId;
-  if (wheelLockRef.current) {
-   timeoutId = setTimeout(unlock, 520);
-  }
-
-  return () => clearTimeout(timeoutId);
- }, [stage, activeMainSkill]);
-
- useEffect(() => {
-  const element = constellationRef.current;
-  if (!element) return;
-
-  const handleNativeWheel = (event) => {
-   const deltaY = event.deltaY;
-
-   if (Math.abs(deltaY) < 14) return;
-
-   if (wheelLockRef.current) {
-    event.preventDefault();
-    return;
-   }
-
-   if (stage === "main") {
-    if (!hoveredMainNode || deltaY <= 0) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    setHasOrbitInteracted(true);
-    wheelLockRef.current = true;
-    setActiveMainSkill(hoveredMainNode.id);
-    setStage("detail");
-    setActivePopup(null);
-    return;
-   }
-
-   if (stage === "detail") {
-    if (hoveredDetailNode && deltaY > 0) {
-     event.preventDefault();
-     event.stopPropagation();
-
-     setHasOrbitInteracted(true);
-     wheelLockRef.current = true;
-
-     const data = getPopupData(hoveredDetailNode.label);
-     setActivePopup({
-      label: hoveredDetailNode.label,
-      description: data.description,
-      points: data.points,
-     });
-     return;
-    }
-
-    if (deltaY < 0) {
-     event.preventDefault();
-     event.stopPropagation();
-
-     setHasOrbitInteracted(true);
-     wheelLockRef.current = true;
-     setStage("main");
-     setActivePopup(null);
-     return;
-    }
-   }
-  };
-
-  element.addEventListener("wheel", handleNativeWheel, { passive: false });
-
-  return () => {
-   element.removeEventListener("wheel", handleNativeWheel);
-  };
- }, [stage, hoveredMainNode, hoveredDetailNode]);
-
  const handleMainSkillClick = (skill) => {
-  setHasOrbitInteracted(true);
   setActiveMainSkill(skill.id);
   setStage("detail");
   setActivePopup(null);
  };
 
  const handleDetailNodeClick = (node) => {
-  setHasOrbitInteracted(true);
-
   const data = getPopupData(node.label);
-
   setActivePopup({
    label: node.label,
    description: data.description,
@@ -817,19 +409,97 @@ export function About() {
   });
  };
 
+ const constellationProps = {
+  stage,
+  activeMainSkill,
+  mainOrbit,
+  skillLayouts,
+  onMainNodeClick: handleMainSkillClick,
+  onDetailNodeClick: handleDetailNodeClick,
+ };
+
  return (
   <>
-   <section id="about" className="relative overflow-hidden border-t border-border/20 bg-bg py-24 md:py-32 lg:py-40">
-    <div className="pointer-events-none absolute inset-0">
-     <div className="absolute left-[18%] top-[22%] h-[260px] w-[260px] rounded-full bg-primary/6 blur-[120px]" />
-     <div className="absolute right-[12%] top-[40%] h-[320px] w-[320px] rounded-full bg-primary/5 blur-[140px]" />
-     <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.10),rgba(0,0,0,0.04),rgba(0,0,0,0.22))]" />
+   <section
+    id="about"
+    className="relative overflow-hidden bg-bg"
+   >
+    {/* Atmósfera de fondo. Sin gradient oscuro: la sección
+        debe fluir desde la anterior sin frontera visible. */}
+    <div className="pointer-events-none absolute inset-0 z-0">
+     <div className="absolute left-[14%] top-[18%] h-[280px] w-[280px] rounded-full bg-primary/5 blur-[140px]" />
+     <div className="absolute right-[8%] top-[55%] h-[340px] w-[340px] rounded-full bg-primary/4 blur-[160px]" />
     </div>
 
-    <div className="relative mx-auto w-full max-w-[1440px] px-6 md:px-10 lg:px-16">
-     <div className="grid gap-16 lg:grid-cols-12 lg:items-start lg:gap-10">
-      <div className="lg:col-span-6">
-       <span className="mb-12 block text-[11px] uppercase tracking-[0.25em] text-primary/80 md:mb-16">Sobre mí</span>
+    {/* Constelación expandida — solo en desktop, ocupa la
+        derecha de la pantalla. Sin marco ni panel: es espacio. */}
+    {isDesktop && (
+     <>
+      <div className="absolute inset-y-0 right-0 z-0 w-[60vw] xl:w-[58vw]">
+       <ConstellationScene {...constellationProps} />
+      </div>
+
+      {/* Indicador de stage + acción de retorno.
+          En main: solo un contador discreto.
+          En detail: pill button con flecha animada. */}
+      <div className="pointer-events-none absolute right-10 top-10 z-[3] flex items-center gap-5 xl:right-14">
+       <span
+        className={`text-[10px] uppercase tracking-[0.22em] transition-colors duration-500 ${
+         stage === "detail" ? "text-primary/85" : "text-text-muted/55"
+        }`}
+       >
+        {stage === "main" ? "Órbita principal" : activeLayout.title}
+       </span>
+
+       {stage === "main" ? (
+        <span className="text-[10px] uppercase tracking-[0.22em] text-text-muted/30">
+         {mainOrbit.nodes.length} nodos
+        </span>
+       ) : (
+        <button
+         type="button"
+         onClick={() => {
+          setStage("main");
+          setActivePopup(null);
+         }}
+         className="pointer-events-auto group inline-flex items-center gap-2.5 rounded-full border border-white/12 bg-black/35 px-4 py-1.5 text-[10px] uppercase tracking-[0.22em] text-text-muted/85 backdrop-blur-md transition-[color,border-color,background-color] duration-300 hover:border-primary/35 hover:bg-black/55 hover:text-primary"
+        >
+         <span
+          aria-hidden="true"
+          className="text-[14px] leading-none transition-transform duration-300 group-hover:-translate-x-0.5"
+         >
+          ←
+         </span>
+         <span>Volver a la órbita</span>
+        </button>
+       )}
+      </div>
+
+      {/* Hint inicial muy sutil — desaparece al primer detail */}
+      {stage === "main" && (
+       <div className="pointer-events-none absolute bottom-12 right-12 z-[3]">
+        <span className="text-[9px] uppercase tracking-[0.28em] text-text-muted/30">
+         Click en una estrella
+        </span>
+       </div>
+      )}
+     </>
+    )}
+
+    {/*
+     Contenedor de contenido. Va por encima del canvas (z-2)
+     pero ocupa el ancho completo de la sección, así que
+     pointer-events-none aquí, y se reactiva explícitamente
+     solo en los bloques que necesitan eventos. Sin esto, el
+     contenedor se come los clicks que deberían llegar a las
+     estrellas de la derecha.
+    */}
+    <div className="pointer-events-none relative z-[2] mx-auto w-full max-w-[1440px] px-6 py-24 md:px-10 md:py-32 lg:px-16 lg:py-40">
+     <div className="grid grid-cols-12 gap-10">
+      <div className="pointer-events-auto col-span-12 lg:col-span-6">
+       <span className="mb-12 block text-[11px] uppercase tracking-[0.25em] text-primary/80 md:mb-16">
+        Sobre mí
+       </span>
 
        <div className="mb-14 space-y-1 md:mb-20">
         <p className="text-4xl font-semibold leading-[1.02] tracking-[-0.05em] text-text md:text-6xl lg:text-[5rem]">
@@ -841,100 +511,65 @@ export function About() {
        </div>
 
        <div className="max-w-[580px]">
-        <p className="mt-5 max-w-2xl text-sm leading-relaxed text-text-muted/80 md:text-[15px]">
-         Diseño experiencias donde lo visual, la interacción y el código forman parte del mismo sistema.
+        <p className="mt-5 text-sm leading-relaxed text-text-muted/80 md:text-[15px]">
+         Diseño experiencias donde lo visual, la interacción y el código forman parte del mismo
+         sistema.
         </p>
 
-        <p className="mt-5 max-w-2xl text-sm leading-relaxed text-text-muted/80 md:text-[15px]">
-         Empecé explorando la tecnología desde lo físico, construyendo y experimentando, y con el tiempo esa curiosidad
-         se transformó en crear experiencias digitales donde todo tiene intención.
+        <p className="mt-5 text-sm leading-relaxed text-text-muted/80 md:text-[15px]">
+         Empecé explorando la tecnología desde lo físico, construyendo y experimentando, y con el
+         tiempo esa curiosidad se transformó en crear experiencias digitales donde todo tiene
+         intención.
         </p>
-       </div>
-      </div>
-
-      <div className="lg:col-span-6">
-       <div className="mb-8 flex items-center justify-between gap-6">
-        <span className="text-[10px] uppercase tracking-[0.2em] text-text-muted/45">
-         {stage === "main" ? "Órbita principal" : activeLayout.title}
-        </span>
-
-        <button
-         type="button"
-         onClick={() => {
-          setHasOrbitInteracted(true);
-          setStage("main");
-          setActivePopup(null);
-         }}
-         className={`text-[10px] uppercase tracking-[0.2em] transition-colors duration-300 ${
-          stage === "detail" ? "text-primary/80 hover:text-primary" : "text-text-muted/30"
-         }`}
-        >
-         {stage === "detail" ? "Volver a la órbita" : "5 nodos"}
-        </button>
-       </div>
-
-       <div
-        ref={constellationRef}
-        className="about-constellation relative overflow-hidden border border-white/8 bg-black/30"
-       >
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(var(--color-primary-rgb),0.08),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.015),transparent_40%,rgba(0,0,0,0.16))]" />
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:38px_38px] opacity-[0.04]" />
-        <div className="pointer-events-none absolute left-1/2 top-[56%] h-[260px] w-[260px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/7 blur-[110px]" />
-
-        <div className="pointer-events-none absolute left-[14%] top-[18%] h-1.5 w-1.5 rounded-full bg-white/40 shadow-[0_0_12px_rgba(255,255,255,0.30)] orbit-star-1" />
-        <div className="pointer-events-none absolute left-[74%] top-[24%] h-1.5 w-1.5 rounded-full bg-primary/50 shadow-[0_0_12px_rgba(var(--color-primary-rgb),0.35)] orbit-star-2" />
-        <div className="pointer-events-none absolute left-[22%] top-[74%] h-1 w-1 rounded-full bg-white/35 orbit-star-3" />
-        <div className="pointer-events-none absolute left-[82%] top-[76%] h-1 w-1 rounded-full bg-white/35 orbit-star-4" />
-
-        <OrbitScrollHint visible={!hasOrbitInteracted} />
-
-        {/* MAIN */}
-        <div
-         className={`absolute inset-0 transition-all duration-700 ${
-          stage === "main" ? "opacity-100 scale-100 blur-0" : "pointer-events-none opacity-0 scale-[0.94] blur-[4px]"
-         }`}
-        >
-         <ConstellationLines lines={getLinesFromLayout(mainOrbit)} glow={false} />
-
-         <ConstellationNodes
-          nodes={mainOrbit.nodes}
-          onNodeClick={handleMainSkillClick}
-          onNodeEnter={setHoveredMainNode}
-          onNodeLeave={() => setHoveredMainNode(null)}
-         />
-        </div>
-
-        {/* DETAIL */}
-        <div
-         className={`absolute inset-0 transition-all duration-700 ${
-          stage === "detail" ? "opacity-100 scale-100 blur-0" : "pointer-events-none opacity-0 scale-[1.06] blur-[4px]"
-         }`}
-        >
-         <div className="pointer-events-none absolute left-6 top-6 z-[2] max-w-[220px]">
-          <h3 className="text-[20px] font-semibold tracking-[-0.04em] text-text md:text-[24px]">
-           {activeLayout.title}
-          </h3>
-          <p className="mt-2 text-[13px] leading-relaxed text-text-muted/68 md:text-sm">{activeLayout.description}</p>
-         </div>
-
-         <ConstellationLines lines={activeLines} glow={activeMainSkill === "javascript"} />
-
-         <ConstellationNodes
-          nodes={activeLayout.nodes}
-          onNodeClick={handleDetailNodeClick}
-          onNodeEnter={setHoveredDetailNode}
-          onNodeLeave={() => setHoveredDetailNode(null)}
-         />
-        </div>
        </div>
       </div>
      </div>
 
-     <div className="mt-20 border-t border-border/10 pt-10 md:mt-24 md:pt-12">
+     {/* Mobile: constelación en flujo, debajo del texto */}
+     {!isDesktop && (
+      <div className="pointer-events-auto relative mt-16 h-[58vh] w-full">
+       <ConstellationScene {...constellationProps} />
+
+       <div className="pointer-events-none absolute left-0 top-0 z-[3] flex w-full items-center justify-between px-2">
+        <span
+         className={`text-[10px] uppercase tracking-[0.22em] transition-colors duration-500 ${
+          stage === "detail" ? "text-primary/85" : "text-text-muted/55"
+         }`}
+        >
+         {stage === "main" ? "Órbita principal" : activeLayout.title}
+        </span>
+
+        {stage === "main" ? (
+         <span className="text-[10px] uppercase tracking-[0.22em] text-text-muted/30">
+          {mainOrbit.nodes.length} nodos
+         </span>
+        ) : (
+         <button
+          type="button"
+          onClick={() => {
+           setStage("main");
+           setActivePopup(null);
+          }}
+          className="pointer-events-auto group inline-flex items-center gap-2.5 rounded-full border border-white/12 bg-black/35 px-4 py-1.5 text-[10px] uppercase tracking-[0.22em] text-text-muted/85 backdrop-blur-md transition-[color,border-color,background-color] duration-300 hover:border-primary/35 hover:bg-black/55 hover:text-primary"
+         >
+          <span
+           aria-hidden="true"
+           className="text-[14px] leading-none transition-transform duration-300 group-hover:-translate-x-0.5"
+          >
+           ←
+          </span>
+          <span>Volver</span>
+         </button>
+        )}
+       </div>
+      </div>
+     )}
+
+     <div className="pointer-events-auto mt-20 border-t border-border/10 pt-10 md:mt-24 md:pt-12">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-baseline lg:justify-between">
        <p className="max-w-md text-sm leading-relaxed text-text-muted/55">
-        Me interesan los proyectos donde diseño, interacción y tecnología se mezclan para construir algo con
-        personalidad.
+        Me interesan los proyectos donde diseño, interacción y tecnología se mezclan para construir
+        algo con personalidad.
        </p>
 
        <span className="text-[10px] uppercase tracking-[0.2em] text-text-muted/35">
@@ -950,156 +585,6 @@ export function About() {
     onClose={() => setActivePopup(null)}
     activeMainSkill={activeMainSkill}
    />
-
-   <style>{`
-        .about-constellation {
-          min-height: 620px;
-          border-radius: 28px;
-          box-shadow:
-            0 24px 70px rgba(0, 0, 0, 0.24),
-            inset 0 0 0 1px rgba(255, 255, 255, 0.02);
-          overscroll-behavior: contain;
-        }
-
-        .orbit-node-shell {
-          transition:
-            transform 0.35s ease,
-            border-color 0.35s ease,
-            box-shadow 0.35s ease,
-            background-color 0.35s ease;
-        }
-
-        .orbit-node-anchor:hover .orbit-node-shell {
-          transform: scale(1.05);
-          border-color: rgba(var(--color-primary-rgb), 0.34);
-          box-shadow:
-            0 0 28px rgba(var(--color-primary-rgb), 0.12),
-            0 0 0 1px rgba(var(--color-primary-rgb), 0.05);
-        }
-
-        .orbit-pulse {
-          animation: orbitPulse 3.2s ease-in-out infinite;
-        }
-
-        .orbit-float-1 {
-          animation: orbitFloat1 5.8s ease-in-out infinite;
-        }
-
-        .orbit-float-2 {
-          animation: orbitFloat2 6.4s ease-in-out infinite;
-        }
-
-        .orbit-float-3 {
-          animation: orbitFloat3 5.2s ease-in-out infinite;
-        }
-
-        .orbit-star-1 {
-          animation: starBlink 4.2s ease-in-out infinite;
-        }
-
-        .orbit-star-2 {
-          animation: starBlink 5.1s ease-in-out infinite 0.6s;
-        }
-
-        .orbit-star-3 {
-          animation: starBlink 3.8s ease-in-out infinite 1s;
-        }
-
-        .orbit-star-4 {
-          animation: starBlink 4.8s ease-in-out infinite 0.3s;
-        }
-
-        .orbit-wheel-dot {
-          animation: orbitWheelScroll 1.45s ease-in-out infinite;
-        }
-
-        @keyframes orbitFloat1 {
-          0%, 100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-5px);
-          }
-        }
-
-        @keyframes orbitFloat2 {
-          0%, 100% {
-            transform: translateY(0px) translateX(0px);
-          }
-          50% {
-            transform: translateY(-3px) translateX(2px);
-          }
-        }
-
-        @keyframes orbitFloat3 {
-          0%, 100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(4px);
-          }
-        }
-
-        @keyframes orbitPulse {
-          0%, 100% {
-            box-shadow:
-              0 0 0 rgba(var(--color-primary-rgb), 0),
-              0 0 0 1px rgba(var(--color-primary-rgb), 0.04);
-          }
-          50% {
-            box-shadow:
-              0 0 26px rgba(var(--color-primary-rgb), 0.16),
-              0 0 0 1px rgba(var(--color-primary-rgb), 0.08);
-          }
-        }
-
-        @keyframes starBlink {
-          0%, 100% {
-            opacity: 0.28;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 0.9;
-            transform: scale(1.25);
-          }
-        }
-
-        @keyframes orbitWheelScroll {
-          0% {
-            opacity: 0;
-            transform: translate(-50%, 0px);
-          }
-          20% {
-            opacity: 1;
-          }
-          70% {
-            opacity: 1;
-            transform: translate(-50%, 11px);
-          }
-          100% {
-            opacity: 0;
-            transform: translate(-50%, 13px);
-          }
-        }
-
-        @media (max-width: 1280px) {
-          .about-constellation {
-            min-height: 580px;
-          }
-        }
-
-        @media (max-width: 1024px) {
-          .about-constellation {
-            min-height: 540px;
-          }
-        }
-
-        @media (max-width: 768px) {
-          .about-constellation {
-            min-height: 480px;
-          }
-        }
-      `}</style>
   </>
  );
 }

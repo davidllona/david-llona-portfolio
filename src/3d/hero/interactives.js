@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { loadingManager } from "../loadingManager";
 
 /**
  * interactives.js
@@ -115,7 +116,7 @@ export function buildNeon({ scene, requestRender }) {
  let model = null;
 
  // ── Carga del GLB ────────────────────────────────────────────────────────
- const loader = new GLTFLoader();
+ const loader = new GLTFLoader(loadingManager); // ambas líneas, mismo cambio
  loader.load(
   "/modelos/neon_22.glb",
   (gltf) => {
@@ -348,7 +349,7 @@ export function buildDogHologram({ attachToDesk, getDeskTopSupport, requestRende
 
  // Carga del GLB. Mientras tanto el grupo está vacío — el resto del
  // dispositivo (proyector, anillo, scan, luz) ya es funcional.
- const loader = new GLTFLoader();
+ const loader = new GLTFLoader(loadingManager); // ambas líneas, mismo cambio
  loader.load(
   "/modelos/dog.glb",
   (gltf) => {

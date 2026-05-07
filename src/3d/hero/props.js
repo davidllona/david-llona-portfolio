@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { loadingManager } from "../loadingManager";
 
 /**
  * props.js
@@ -140,7 +141,7 @@ export function buildProps({
  // ════════════════════════════════════════════════════════════════════════
  // CHAIR — silla con raycast contra suelo + soporte de la mesa
  // ════════════════════════════════════════════════════════════════════════
- const chairLoader = new GLTFLoader();
+ const chairLoader = new GLTFLoader(loadingManager);
  const chairRaycaster = new THREE.Raycaster();
 
  let chair = null;
@@ -291,7 +292,7 @@ export function buildProps({
   brightness: 0.2,
  };
 
- const lamparaLoader = new GLTFLoader();
+ const lamparaLoader = new GLTFLoader(loadingManager);
  lamparaLoader.load(
   "/modelos/lampara.glb",
   (gltf) => {
@@ -412,7 +413,7 @@ export function buildProps({
   brightness: 1.0,
  };
 
- const tecladoLoader = new GLTFLoader();
+ const tecladoLoader = new GLTFLoader(loadingManager);
  tecladoLoader.load(
   "/modelos/teclado.glb",
   (gltf) => {
@@ -478,7 +479,7 @@ export function buildProps({
   brightness: 1.0,
  };
 
- const ratonLoader = new GLTFLoader();
+ const ratonLoader = new GLTFLoader(loadingManager);
  ratonLoader.load(
   "/modelos/raton.glb",
   (gltf) => {
@@ -557,7 +558,7 @@ export function buildProps({
   seatRatio: 0.58, // fracción de la altura de la silla donde está el asiento
  };
 
- const astronautLoader = new GLTFLoader();
+ const astronautLoader = new GLTFLoader(loadingManager);
  astronautLoader.load(
   "/modelos/astronauta.glb",
   (gltf) => {

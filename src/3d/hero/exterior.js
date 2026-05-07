@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { easeIn3, easeOut3, easeIO3, clamp01, lerpV, phase } from "./math";
+import { loadingManager } from "../loadingManager";
 
 /**
  * buildExterior
@@ -271,7 +272,6 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
  scene.add(extStarsDPoints);
 
  // ── Rebuild helpers (para GUI: count, tint) ──────────────────────────────
- // eslint-disable-next-line no-unused-vars
  function rebuildStarLayer(which) {
   if (which === "A") {
    extStarsGeo.dispose();
@@ -316,7 +316,7 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
   tint: "#ffffff",
  };
 
- const extMoonLoader = new THREE.TextureLoader();
+ const extMoonLoader = new THREE.TextureLoader(loadingManager);
  const extMoonGeo = new THREE.SphereGeometry(1.5, 36, 36);
  const extMoonMat = new THREE.MeshBasicMaterial({
   color: "#f5f8ff",
@@ -821,7 +821,7 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
  scene.add(ufoOverlayOrange);
 
  // ── Carga del modelo ──────────────────────────────────────────────────────
- const ufoGLTFLoader = new GLTFLoader();
+ const ufoGLTFLoader = new GLTFLoader(loadingManager);
  ufoGLTFLoader.load(
   "/modelos/Ufo.glb",
   (gltf) => {

@@ -30,7 +30,7 @@ export function Hero() {
 
       // Fade-out completo al ~14% del progreso. La cámara sale por la
       // ventana hacia el ~29%, así que el hint queda fuera bastante antes.
-      const op = Math.max(0, 1 - progress * 7);
+      const op = Math.max(0, 1 - progress * 5);
       hintRef.current.style.opacity = String(op);
     };
 
@@ -86,78 +86,107 @@ export function Hero() {
         </div>
 
         <style>{`
-          .hero-scroll-hint {
-            position: absolute;
-            bottom: 42px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 12px;
-            pointer-events: none;
-            user-select: none;
-            color: rgba(255, 180, 120, 0.75);
-            animation: hero-hint-fadein 1.4s ease-out 0.6s both;
-          }
+  .hero-scroll-hint {
+    position: absolute;
+    bottom: 48px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    pointer-events: none;
+    user-select: none;
+    /* Halo dark + warm: el dark da contraste sobre cualquier fondo,
+       el warm conserva la identidad cálida del cohete. */
+    filter: drop-shadow(0 2px 18px rgba(0, 0, 0, 0.55));
+    animation: hero-hint-fadein 1.4s ease-out 0.6s both;
+  }
 
-          .hero-scroll-hint__label {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            font-size: 11px;
-            font-weight: 400;
-            letter-spacing: 0.38em;
-            color: rgba(235, 220, 200, 0.8);
-            text-shadow: 0 0 18px rgba(255, 160, 90, 0.25);
-            animation: hero-hint-breathe 3.2s ease-in-out infinite;
-          }
+  .hero-scroll-hint__label {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.42em;
+  color: rgba(255, 225, 200, 0.96);
+  white-space: nowrap;             /* ← nunca rompe línea */
+  text-shadow:
+    0 0 1px rgba(0, 0, 0, 0.9),
+    0 0 14px rgba(0, 0, 0, 0.55),
+    0 0 22px rgba(255, 160, 90, 0.45);
+  animation: hero-hint-breathe 3.2s ease-in-out infinite;
+}
 
-          /* Línea cálida dorada con fade a los lados (estilo ref) */
-          .hero-scroll-hint__line {
-            width: 220px;
-            height: 1px;
-            background: linear-gradient(
-              to right,
-              rgba(255, 160, 90, 0.0)  0%,
-              rgba(255, 170, 100, 0.55) 25%,
-              rgba(255, 190, 130, 0.85) 50%,
-              rgba(255, 170, 100, 0.55) 75%,
-              rgba(255, 160, 90, 0.0)  100%
-            );
-            box-shadow: 0 0 10px rgba(255, 160, 90, 0.25);
-          }
+/* … resto igual … */
 
-          .hero-scroll-hint__arrow {
-            color: rgba(255, 180, 120, 0.7);
-            animation: hero-hint-arrow 2.4s ease-in-out infinite;
-          }
+@media (max-width: 767px) {
+  .hero-scroll-hint {
+    /* Respeta el home indicator del iPhone sin pegarse al borde */
+    bottom: max(24px, env(safe-area-inset-bottom));
+    gap: 10px;
+  }
+  .hero-scroll-hint__label {
+    font-size: 9.5px;              /* baja un punto */
+    letter-spacing: 0.26em;        /* tracking más cerrado → cabe en una línea */
+  }
+  .hero-scroll-hint__line {
+    width: 150px;                  /* coherente con el texto más corto */
+  }
+  .hero-scroll-hint__arrow {
+    width: 12px;
+    height: 16px;
+  }
+}
 
-          @keyframes hero-hint-fadein {
-            from { opacity: 0; transform: translate(-50%, 10px); }
-            to   { opacity: 1; transform: translate(-50%, 0); }
-          }
+  /* Línea cálida — densidad un punto arriba */
+  .hero-scroll-hint__line {
+    width: 240px;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      rgba(255, 160, 90, 0.0)  0%,
+      rgba(255, 175, 105, 0.75) 25%,
+      rgba(255, 200, 145, 1.0)  50%,
+      rgba(255, 175, 105, 0.75) 75%,
+      rgba(255, 160, 90, 0.0)  100%
+    );
+    box-shadow: 0 0 12px rgba(255, 160, 90, 0.4);
+  }
 
-          @keyframes hero-hint-breathe {
-            0%, 100% { opacity: 0.65; }
-            50%      { opacity: 0.95; }
-          }
+  .hero-scroll-hint__arrow {
+    color: rgba(255, 200, 150, 0.95);
+    filter: drop-shadow(0 0 6px rgba(255, 160, 90, 0.35));
+    animation: hero-hint-arrow 2.4s ease-in-out infinite;
+  }
 
-          @keyframes hero-hint-arrow {
-            0%, 100% { transform: translateY(0);   opacity: 0.6; }
-            50%      { transform: translateY(5px); opacity: 1; }
-          }
+  @keyframes hero-hint-fadein {
+    from { opacity: 0; transform: translate(-50%, 10px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+  }
 
-          @media (max-width: 767px) {
-            .hero-scroll-hint         { bottom: 28px; gap: 10px; }
-            .hero-scroll-hint__label  { font-size: 10px; letter-spacing: 0.32em; }
-            .hero-scroll-hint__line   { width: 170px; }
-          }
+  /* Floor subido: ya nunca baja de 0.88 */
+  @keyframes hero-hint-breathe {
+    0%, 100% { opacity: 0.88; }
+    50%      { opacity: 1;    }
+  }
 
-          @media (prefers-reduced-motion: reduce) {
-            .hero-scroll-hint,
-            .hero-scroll-hint__label,
-            .hero-scroll-hint__arrow { animation: none; }
-          }
-        `}</style>
+  @keyframes hero-hint-arrow {
+    0%, 100% { transform: translateY(0);   opacity: 0.75; }
+    50%      { transform: translateY(5px); opacity: 1;    }
+  }
+
+  @media (max-width: 767px) {
+    .hero-scroll-hint         { bottom: 32px; gap: 12px; }
+    .hero-scroll-hint__label  { font-size: 11px; letter-spacing: 0.34em; }
+    .hero-scroll-hint__line   { width: 180px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-scroll-hint,
+    .hero-scroll-hint__label,
+    .hero-scroll-hint__arrow { animation: none; }
+  }
+`}</style>
       </div>
     </div>
   );

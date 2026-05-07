@@ -9,6 +9,7 @@ import { buildNeon, buildDogHologram, buildOrrery } from "./hero/interactives";
 import { buildRoom } from "./hero/room";
 import { buildDesk } from "./hero/desk";
 import { buildProps } from "./hero/props";
+import { loadingManager } from "./loadingManager";
 
 export function initHeroScene(wrapperEl) {
  const canvas = document.querySelector("#webgl");
@@ -30,7 +31,11 @@ export function initHeroScene(wrapperEl) {
  // (la animación seguirá pero no estará optimizada para esta sección).
  const scrollWrapper = wrapperEl || document.body;
 
- const getScrollProgress = () => {
+ // Caché de scroll progress — actualizada SOLO en scroll/resize.
+ // Evita un getBoundingClientRect() cada frame (forced reflow @ 60fps).
+ let cachedScrollProgress = 0;
+
+ const computeScrollProgress = () => {
   const rect = scrollWrapper.getBoundingClientRect();
   const range = rect.height - window.innerHeight;
   if (range <= 0) return 0;
@@ -38,138 +43,175 @@ export function initHeroScene(wrapperEl) {
   return Math.max(0, Math.min(1, scrolled / range));
  };
 
+ const getScrollProgress = () => cachedScrollProgress;
+
  // ═══════════════════════════════════════════════════════════════════════
- // CUSTOM CURSOR — clásico minimal: aro + punto central
+ // CUSTOM CURSOR — solo en dispositivos con puntero fino (desktop)
  // ═══════════════════════════════════════════════════════════════════════
- //
- // Dos elementos nada más. El aro persigue con lerp (sensación suave).
- // El punto sigue casi exacto. En hover sobre elementos interactivos,
- // el aro crece y se rellena un 12%. Nada de trails ni SVG ni rotación.
- //
- const CUR_COLOR = "#6ad0ff";
+ // Touch devices no tienen ratón → crear el cursor custom es un artefacto
+ // visible (aro cian centrado) y un coste DOM gratis. La query canónica
+ // (hover:none + pointer:coarse) distingue iPhone/iPad de un laptop con
+ // pantalla táctil pero trackpad.
 
- const cursorRing = document.createElement("div");
- Object.assign(cursorRing.style, {
-  position: "fixed",
-  top: "0",
-  left: "0",
-  width: "26px",
-  height: "26px",
-  borderRadius: "50%",
-  border: `1.4px solid ${CUR_COLOR}`,
-  background: "rgba(106, 208, 255, 0)",
-  pointerEvents: "none",
-  zIndex: "99998",
-  transform: "translate3d(-50%, -50%, 0)",
-  transition: "width 0.22s ease, height 0.22s ease, background 0.22s ease, border-color 0.22s ease, opacity 0.25s ease",
-  willChange: "transform",
- });
+ const isTouchDevice = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
 
- const cursorDot = document.createElement("div");
- Object.assign(cursorDot.style, {
-  position: "fixed",
-  top: "0",
-  left: "0",
-  width: "4px",
-  height: "4px",
-  borderRadius: "50%",
-  background: CUR_COLOR,
-  pointerEvents: "none",
-  zIndex: "99999",
-  transform: "translate3d(-50%, -50%, 0)",
-  transition: "opacity 0.25s ease, width 0.15s ease, height 0.15s ease",
-  willChange: "transform",
- });
-
- document.body.appendChild(cursorRing);
- document.body.appendChild(cursorDot);
-
- // ── Ocultar cursor nativo: CSS global + inline en html/body ────────────
- const HIDDEN_CURSOR = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1' height='1'><rect width='1' height='1' fill='none'/></svg>") 0 0, none`;
-
- const cursorStyleEl = document.createElement("style");
- cursorStyleEl.setAttribute("data-hero-cursor", "true");
- cursorStyleEl.textContent = `
-  html, body, #root, main, canvas, a, button, input, textarea, select,
-  label, [role="button"], [data-clickable], * {
-   cursor: ${HIDDEN_CURSOR} !important;
-  }
- `;
- document.head.appendChild(cursorStyleEl);
- document.documentElement.style.setProperty("cursor", HIDDEN_CURSOR, "important");
- document.body.style.setProperty("cursor", HIDDEN_CURSOR, "important");
- if (canvas) canvas.style.setProperty("cursor", HIDDEN_CURSOR, "important");
-
- // ── Estado ──────────────────────────────────────────────────────────────
- let cursorMouseX = window.innerWidth / 2;
- let cursorMouseY = window.innerHeight / 2;
- let cursorRingX = cursorMouseX;
- let cursorRingY = cursorMouseY;
- let cursorDotX = cursorMouseX;
- let cursorDotY = cursorMouseY;
- let cursorHover = false;
-
- const onCursorMove = (e) => {
-  cursorMouseX = e.clientX;
-  cursorMouseY = e.clientY;
-
-  if (e.target && e.target.style) {
-   e.target.style.setProperty("cursor", HIDDEN_CURSOR, "important");
-  }
- };
-
- const onCursorOver = (e) => {
-  const t = e.target;
-  const isInteractive = t.closest("a, button, [data-clickable], canvas") !== null;
-  if (isInteractive !== cursorHover) {
-   cursorHover = isInteractive;
-   if (cursorHover) {
-    cursorRing.style.width = "40px";
-    cursorRing.style.height = "40px";
-    cursorRing.style.background = "rgba(106, 208, 255, 0.12)";
-    cursorRing.style.borderColor = "rgba(106, 208, 255, 0.9)";
-    cursorDot.style.width = "3px";
-    cursorDot.style.height = "3px";
-   } else {
-    cursorRing.style.width = "26px";
-    cursorRing.style.height = "26px";
-    cursorRing.style.background = "rgba(106, 208, 255, 0)";
-    cursorRing.style.borderColor = CUR_COLOR;
-    cursorDot.style.width = "4px";
-    cursorDot.style.height = "4px";
-   }
-  }
- };
-
- const onCursorLeave = () => {
-  cursorRing.style.opacity = "0";
-  cursorDot.style.opacity = "0";
- };
- const onCursorEnter = () => {
-  cursorRing.style.opacity = "1";
-  cursorDot.style.opacity = "1";
- };
-
- window.addEventListener("mousemove", onCursorMove, { passive: true });
- window.addEventListener("mouseover", onCursorOver, { passive: true });
- document.addEventListener("mouseleave", onCursorLeave);
- document.addEventListener("mouseenter", onCursorEnter);
-
+ // Refs hoisted al scope superior — las usa el cleanup al final del archivo.
+ // Quedan undefined en touch, pero el cleanup también está guardado.
+ let cursorRing = null;
+ let cursorDot = null;
+ let cursorStyleEl = null;
  let cursorRafId = 0;
- const cursorTick = () => {
-  // Aro — lerp medio, suave pero responsivo
-  cursorRingX += (cursorMouseX - cursorRingX) * 0.22;
-  cursorRingY += (cursorMouseY - cursorRingY) * 0.22;
-  cursorRing.style.transform = `translate3d(${cursorRingX}px, ${cursorRingY}px, 0) translate(-50%, -50%)`;
+ let onCursorMove = null;
+ let onCursorOver = null;
+ let onCursorLeave = null;
+ let onCursorEnter = null;
 
-  // Punto — casi exacto, solo el más mínimo lerp para suavizar
-  cursorDotX += (cursorMouseX - cursorDotX) * 0.55;
-  cursorDotY += (cursorMouseY - cursorDotY) * 0.55;
-  cursorDot.style.transform = `translate3d(${cursorDotX}px, ${cursorDotY}px, 0) translate(-50%, -50%)`;
+ if (!isTouchDevice) {
+  const CUR_COLOR = "#6ad0ff";
 
-  cursorRafId = requestAnimationFrame(cursorTick);
- };
- cursorTick();
+  cursorRing = document.createElement("div");
+  Object.assign(cursorRing.style, {
+   position: "fixed",
+   top: "0",
+   left: "0",
+   width: "26px",
+   height: "26px",
+   borderRadius: "50%",
+   border: `1.4px solid ${CUR_COLOR}`,
+   background: "rgba(106, 208, 255, 0)",
+   pointerEvents: "none",
+   zIndex: "99998",
+   transform: "translate3d(-50%, -50%, 0)",
+   transition:
+    "width 0.22s ease, height 0.22s ease, background 0.22s ease, border-color 0.22s ease, opacity 0.25s ease",
+   willChange: "transform",
+  });
+
+  cursorDot = document.createElement("div");
+  Object.assign(cursorDot.style, {
+   position: "fixed",
+   top: "0",
+   left: "0",
+   width: "4px",
+   height: "4px",
+   borderRadius: "50%",
+   background: CUR_COLOR,
+   pointerEvents: "none",
+   zIndex: "99999",
+   transform: "translate3d(-50%, -50%, 0)",
+   transition: "opacity 0.25s ease, width 0.15s ease, height 0.15s ease",
+   willChange: "transform",
+  });
+
+  document.body.appendChild(cursorRing);
+  document.body.appendChild(cursorDot);
+
+  // ── Ocultar cursor nativo: CSS global + inline en html/body ──────────
+  const HIDDEN_CURSOR = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1' height='1'><rect width='1' height='1' fill='none'/></svg>") 0 0, none`;
+
+  cursorStyleEl = document.createElement("style");
+  cursorStyleEl.setAttribute("data-hero-cursor", "true");
+  cursorStyleEl.textContent = `
+   html, body, #root, main, canvas, a, button, input, textarea, select,
+   label, [role="button"], [data-clickable], * {
+    cursor: ${HIDDEN_CURSOR} !important;
+   }
+  `;
+  document.head.appendChild(cursorStyleEl);
+  document.documentElement.style.setProperty("cursor", HIDDEN_CURSOR, "important");
+  document.body.style.setProperty("cursor", HIDDEN_CURSOR, "important");
+  if (canvas) canvas.style.setProperty("cursor", HIDDEN_CURSOR, "important");
+
+  // ── Estado interno del cursor ────────────────────────────────────────
+  let cursorMouseX = window.innerWidth / 2;
+  let cursorMouseY = window.innerHeight / 2;
+  let cursorRingX = cursorMouseX;
+  let cursorRingY = cursorMouseY;
+  let cursorDotX = cursorMouseX;
+  let cursorDotY = cursorMouseY;
+  let cursorHover = false;
+  let cursorIdle = false;
+
+  // ── Tick: declarado como function (hoisted) → sin TDZ ────────────────
+  function cursorTick() {
+   // Aro — lerp medio
+   cursorRingX += (cursorMouseX - cursorRingX) * 0.22;
+   cursorRingY += (cursorMouseY - cursorRingY) * 0.22;
+   cursorRing.style.transform = `translate3d(${cursorRingX}px, ${cursorRingY}px, 0) translate(-50%, -50%)`;
+
+   // Punto — casi exacto
+   cursorDotX += (cursorMouseX - cursorDotX) * 0.55;
+   cursorDotY += (cursorMouseY - cursorDotY) * 0.55;
+   cursorDot.style.transform = `translate3d(${cursorDotX}px, ${cursorDotY}px, 0) translate(-50%, -50%)`;
+
+   // Bail si todo está dentro de medio píxel del target — no hay
+   // movimiento real. El RAF se reactiva en onCursorMove.
+   const dx = Math.abs(cursorMouseX - cursorRingX) + Math.abs(cursorMouseY - cursorRingY);
+   const dxDot = Math.abs(cursorMouseX - cursorDotX) + Math.abs(cursorMouseY - cursorDotY);
+   if (dx < 0.5 && dxDot < 0.5) {
+    cursorIdle = true;
+    cursorRafId = 0;
+    return;
+   }
+
+   cursorRafId = requestAnimationFrame(cursorTick);
+  }
+
+  onCursorMove = (e) => {
+   cursorMouseX = e.clientX;
+   cursorMouseY = e.clientY;
+
+   if (e.target && e.target.style) {
+    e.target.style.setProperty("cursor", HIDDEN_CURSOR, "important");
+   }
+
+   // Despertar el RAF si está parado
+   if (cursorIdle) {
+    cursorIdle = false;
+    cursorRafId = requestAnimationFrame(cursorTick);
+   }
+  };
+
+  onCursorOver = (e) => {
+   const t = e.target;
+   const isInteractive = t.closest("a, button, [data-clickable], canvas") !== null;
+   if (isInteractive !== cursorHover) {
+    cursorHover = isInteractive;
+    if (cursorHover) {
+     cursorRing.style.width = "40px";
+     cursorRing.style.height = "40px";
+     cursorRing.style.background = "rgba(106, 208, 255, 0.12)";
+     cursorRing.style.borderColor = "rgba(106, 208, 255, 0.9)";
+     cursorDot.style.width = "3px";
+     cursorDot.style.height = "3px";
+    } else {
+     cursorRing.style.width = "26px";
+     cursorRing.style.height = "26px";
+     cursorRing.style.background = "rgba(106, 208, 255, 0)";
+     cursorRing.style.borderColor = CUR_COLOR;
+     cursorDot.style.width = "4px";
+     cursorDot.style.height = "4px";
+    }
+   }
+  };
+
+  onCursorLeave = () => {
+   cursorRing.style.opacity = "0";
+   cursorDot.style.opacity = "0";
+  };
+  onCursorEnter = () => {
+   cursorRing.style.opacity = "1";
+   cursorDot.style.opacity = "1";
+  };
+
+  window.addEventListener("mousemove", onCursorMove, { passive: true });
+  window.addEventListener("mouseover", onCursorOver, { passive: true });
+  document.addEventListener("mouseleave", onCursorLeave);
+  document.addEventListener("mouseenter", onCursorEnter);
+
+  // Arranque — se auto-pausa al estabilizarse
+  cursorTick();
+ }
 
  /**
   * =========================================================
@@ -201,7 +243,7 @@ export function initHeroScene(wrapperEl) {
 
  const quality = {
   antialias: !isMobile,
-  pixelRatio: Math.min(window.devicePixelRatio, isMobile ? 1 : 1.5),
+  pixelRatio: Math.min(window.devicePixelRatio, isMobile ? 1 : 1.25), // 1.5 → 1.25
   starsCount: isMobile ? 180 : isTablet ? 350 : 550,
   starsSize: isMobile ? 0.014 : 0.018,
   moonSegments: isMobile ? 14 : 20,
@@ -365,7 +407,7 @@ export function initHeroScene(wrapperEl) {
   * =========================================================
   */
  // Pared con textura PBR — textures/pared/ (repetición sutil 3×2)
- const wallTexLoader = new THREE.TextureLoader();
+ const wallTexLoader = new THREE.TextureLoader(loadingManager);
  const WALL_REP = new THREE.Vector2(3, 2);
  const _wrapRepeat = (t) => {
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -478,7 +520,7 @@ export function initHeroScene(wrapperEl) {
  });
 
  // Luna con textura real — textures/moon.jpg
- const moonTextureLoader = new THREE.TextureLoader();
+ const moonTextureLoader = new THREE.TextureLoader(loadingManager);
  // La luna NO es una bombilla. Es un planeta texturizado con glow sutil.
  // El claroscuro viene de su textura (moon.jpg), no de emissive.
  const moonMaterial = new THREE.MeshStandardMaterial({
@@ -898,6 +940,7 @@ export function initHeroScene(wrapperEl) {
    scrollTicking = true;
    requestAnimationFrame(() => {
     scrollTicking = false;
+    cachedScrollProgress = computeScrollProgress(); // ← actualizar caché
     requestRender();
    });
   }
@@ -916,12 +959,13 @@ export function initHeroScene(wrapperEl) {
    sizes.height = window.innerHeight;
 
    const newIsMobile = window.innerWidth < 768;
-   const newPixelRatio = Math.min(window.devicePixelRatio, newIsMobile ? 1 : 1.5);
+   const newPixelRatio = Math.min(window.devicePixelRatio, newIsMobile ? 1 : 1.25);
 
    renderer.setSize(sizes.width, sizes.height);
    renderer.setPixelRatio(newPixelRatio);
 
    applyResponsiveLayout();
+   cachedScrollProgress = computeScrollProgress(); // ← añade esta línea
    requestRender();
   }, 80);
  };
@@ -1109,6 +1153,7 @@ export function initHeroScene(wrapperEl) {
   requestRender();
  }
 
+ cachedScrollProgress = computeScrollProgress();
  requestRender();
 
  /**
@@ -1117,17 +1162,19 @@ export function initHeroScene(wrapperEl) {
   * =========================================================
   */
  return () => {
-  // Cursor custom — limpieza
-  if (cursorRafId) cancelAnimationFrame(cursorRafId);
-  window.removeEventListener("mousemove", onCursorMove);
-  window.removeEventListener("mouseover", onCursorOver);
-  document.removeEventListener("mouseleave", onCursorLeave);
-  document.removeEventListener("mouseenter", onCursorEnter);
-  if (cursorRing.parentNode) cursorRing.parentNode.removeChild(cursorRing);
-  if (cursorDot.parentNode) cursorDot.parentNode.removeChild(cursorDot);
-  if (cursorStyleEl.parentNode) cursorStyleEl.parentNode.removeChild(cursorStyleEl);
-  document.documentElement.style.removeProperty("cursor");
-  document.body.style.removeProperty("cursor");
+  // Cursor custom — limpieza solo si se creó (desktop, no touch)
+  if (!isTouchDevice) {
+   if (cursorRafId) cancelAnimationFrame(cursorRafId);
+   if (onCursorMove) window.removeEventListener("mousemove", onCursorMove);
+   if (onCursorOver) window.removeEventListener("mouseover", onCursorOver);
+   if (onCursorLeave) document.removeEventListener("mouseleave", onCursorLeave);
+   if (onCursorEnter) document.removeEventListener("mouseenter", onCursorEnter);
+   if (cursorRing?.parentNode) cursorRing.parentNode.removeChild(cursorRing);
+   if (cursorDot?.parentNode) cursorDot.parentNode.removeChild(cursorDot);
+   if (cursorStyleEl?.parentNode) cursorStyleEl.parentNode.removeChild(cursorStyleEl);
+   document.documentElement.style.removeProperty("cursor");
+   document.body.style.removeProperty("cursor");
+  }
 
   window.removeEventListener("scroll", onScroll);
   // Listeners de pointermove / pointerdown / keydown del poster los quita room.dispose()
