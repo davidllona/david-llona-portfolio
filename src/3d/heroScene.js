@@ -406,40 +406,38 @@ export function initHeroScene(wrapperEl) {
   * MATERIALS
   * =========================================================
   */
- // Pared con textura PBR — textures/pared/ (repetición sutil 3×2)
- const wallTexLoader = new THREE.TextureLoader(loadingManager);
- const WALL_REP = new THREE.Vector2(3, 2);
- const _wrapRepeat = (t) => {
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.copy(WALL_REP);
- };
- const wallColorTex = wallTexLoader.load("textures/pared/BaseColor.jpg", (t) => {
-  t.colorSpace = THREE.SRGBColorSpace;
-  _wrapRepeat(t);
-  requestRender();
- });
- const wallNormalTex = wallTexLoader.load("textures/pared/Normal.jpg", (t) => {
-  _wrapRepeat(t);
-  requestRender();
- });
- const wallRoughTex = wallTexLoader.load("textures/pared/Roughness.jpg", (t) => {
-  _wrapRepeat(t);
-  requestRender();
- });
- const wallAOTex = wallTexLoader.load("textures/pared/AmbientOcclusion.jpg", (t) => {
-  _wrapRepeat(t);
-  requestRender();
- });
+ /* Pared procedural — sin archivos, sin 404.
+  * En esta escena las paredes solo reciben grazing light (luna lateral
+  * + spot del poster). Una textura PBR realista añadiría ruido y rompería
+  * el look cinematográfico. Resolvemos con un normal map procedural sutil:
+  * la luz "agarra" en imperfecciones invisibles, sin distraer.
+  */
+ const _wallNormalCanvas = document.createElement("canvas");
+ _wallNormalCanvas.width = _wallNormalCanvas.height = 512;
+ {
+  const ctx = _wallNormalCanvas.getContext("2d");
+  ctx.fillStyle = "rgb(128,128,255)"; // normal neutro
+  ctx.fillRect(0, 0, 512, 512);
+  const img = ctx.getImageData(0, 0, 512, 512);
+  const data = img.data;
+  for (let i = 0; i < data.length; i += 4) {
+   const n = (Math.random() - 0.5) * 14; // amplitud baja → muy sutil
+   data[i] = 128 + n; // X
+   data[i + 1] = 128 + n; // Y
+   // B alto → normal apunta hacia fuera
+  }
+  ctx.putImageData(img, 0, 0);
+ }
+ const wallNormalTex = new THREE.CanvasTexture(_wallNormalCanvas);
+ wallNormalTex.wrapS = wallNormalTex.wrapT = THREE.RepeatWrapping;
+ wallNormalTex.repeat.set(4, 3);
+ wallNormalTex.needsUpdate = true;
 
  const wallMaterial = new THREE.MeshStandardMaterial({
-  color: "#2f3140", // tinte oscuro — mantiene look nocturno
-  map: wallColorTex,
+  color: "#2a2c38", // tinte oscuro azulado
   normalMap: wallNormalTex,
-  normalScale: new THREE.Vector2(0.3, 0.3), // normal sutil
-  roughnessMap: wallRoughTex,
-  roughness: 0.92,
-  aoMap: wallAOTex,
-  aoMapIntensity: 0.45,
+  normalScale: new THREE.Vector2(0.18, 0.18), // imperceptible al ojo, visible a la luz
+  roughness: 0.95,
   metalness: 0,
  });
 
@@ -1248,9 +1246,7 @@ export function initHeroScene(wrapperEl) {
   dogHologramRef.dispose();
   orreryRef.dispose();
   // Texturas de pared
-  [wallColorTex, wallNormalTex, wallRoughTex, wallAOTex].forEach((t) => {
-   if (t) t.dispose();
-  });
+  wallNormalTex.dispose();
 
   // Liberar el broker para que el HMR de Vite no deje colgando
   // referencias a un GUI viejo cuando initHeroScene se remonta.

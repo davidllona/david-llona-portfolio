@@ -15,7 +15,6 @@ import * as THREE from "three";
  */
 
 const PRIMARY_HEX = "#f58a5c";
-const NEBULA_BLUE = "#5b6ee1";
 const SCALE = 3.6;
 
 const SIZE_MAP = {
@@ -140,36 +139,23 @@ function AmbientStarfield({ count = 140 }) {
 }
 
 /**
- * Nebulosa — dos manchas de luz muy difusas en colores cálidos
- * y fríos. Aportan atmósfera sin saturar.
+ * Nebulosa — una sola mancha cálida muy difusa. Aporta calor
+ * y profundidad sin meter un acento frío que compita con la paleta.
  */
 function Nebula() {
  const texture = useMemo(() => getGlowTexture(), []);
 
  return (
-  <>
-   <sprite position={[2.5, 0.8, -3.5]} scale={[16, 12, 1]}>
-    <spriteMaterial
-     map={texture}
-     color={PRIMARY_HEX}
-     transparent
-     opacity={0.07}
-     depthWrite={false}
-     blending={THREE.AdditiveBlending}
-    />
-   </sprite>
-
-   <sprite position={[-3.2, -1.4, -4]} scale={[13, 9, 1]}>
-    <spriteMaterial
-     map={texture}
-     color={NEBULA_BLUE}
-     transparent
-     opacity={0.04}
-     depthWrite={false}
-     blending={THREE.AdditiveBlending}
-    />
-   </sprite>
-  </>
+  <sprite position={[2.5, 0.8, -3.5]} scale={[16, 12, 1]}>
+   <spriteMaterial
+    map={texture}
+    color={PRIMARY_HEX}
+    transparent
+    opacity={0.07}
+    depthWrite={false}
+    blending={THREE.AdditiveBlending}
+   />
+  </sprite>
  );
 }
 
@@ -509,60 +495,61 @@ function ConstellationLines({ lines, hidden, hoveredNodeId }) {
 /**
  * Cámara — drift idle + parallax con ratón + zoom narrativo
  * cuando se entra a una skill (stage = "detail").
+ *
+ * Compensación de aspect:
+ *  - Cuando el viewport es ancho (aspect ≥ 1.1): comportamiento clásico.
+ *  - Cuando el viewport es estrecho (laptop, móvil rotado, etc.):
+ *     · Alejamos la cámara en Z para que la constelación entera entre.
+ *     · Bajamos el lookTarget en Y → la constelación sube visualmente
+ *       en el frame y queda alineada con el bloque de texto izquierdo.
  */
 function CameraRig({ stage, focusPosition }) {
  const camera = useThree((state) => state.camera);
+ const size = useThree((state) => state.size);
  const targetPos = useRef(new THREE.Vector3(0, 0, 9.5));
  const lookTarget = useRef(new THREE.Vector3(0, 0, 0));
  const tmpLookAt = useRef(new THREE.Vector3());
 
  useEffect(() => {
+  const aspect = size.width / Math.max(size.height, 1);
+  // Aspect estrecho → frustum más cerrado horizontalmente → constelación
+  // se corta. Compensamos alejando proporcionalmente.
+  const aspectFactor = aspect < 1.1 ? 1.1 / Math.max(aspect, 0.55) : 1;
+  const mainZ = 9.5 * aspectFactor;
+  const detailZ = 7.6 * aspectFactor;
+
+  // Cuando el aspect es estrecho, el texto vive en la mitad superior
+  // y la constelación quedaba visualmente "baja". Miramos un poco
+  // hacia abajo para subirla en el frame y alinearla con el texto.
+  const yLookOffset = aspect < 1.1 ? -0.6 : 0;
+
   if (stage === "main") {
-   targetPos.current.set(0, 0, 9.5);
-   lookTarget.current.set(0, 0, 0);
+   targetPos.current.set(0, 0, mainZ);
+   lookTarget.current.set(0, yLookOffset, 0);
   } else if (focusPosition) {
-   // Sesgamos la cámara hacia el lado del nodo clicado y nos
-   // acercamos un poco — efecto de "bajar" a la sub-órbita.
    targetPos.current.set(
     focusPosition.x * 0.22,
     focusPosition.y * 0.22,
-    7.6
+    detailZ
    );
-   lookTarget.current.set(0, 0, 0);
+   lookTarget.current.set(0, yLookOffset, 0);
   }
- }, [stage, focusPosition]);
+ }, [stage, focusPosition, size.width, size.height]);
 
  useFrame((state) => {
   const t = state.clock.getElapsedTime();
-
-  // Drift idle muy sutil
   const idleX = Math.sin(t * 0.18) * 0.08;
   const idleY = Math.cos(t * 0.14) * 0.05;
-
-  // Parallax con ratón
   const px = state.pointer.x * 0.45;
   const py = state.pointer.y * 0.30;
 
-  camera.position.x = THREE.MathUtils.lerp(
-   camera.position.x,
-   targetPos.current.x + px + idleX,
-   0.045
-  );
-  camera.position.y = THREE.MathUtils.lerp(
-   camera.position.y,
-   targetPos.current.y + py + idleY,
-   0.045
-  );
-  camera.position.z = THREE.MathUtils.lerp(
-   camera.position.z,
-   targetPos.current.z,
-   0.04
-  );
+  camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetPos.current.x + px + idleX, 0.045);
+  camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetPos.current.y + py + idleY, 0.045);
+  camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetPos.current.z, 0.04);
 
   tmpLookAt.current.copy(lookTarget.current);
   tmpLookAt.current.x += px * 0.25;
   tmpLookAt.current.y += py * 0.18;
-
   camera.lookAt(tmpLookAt.current);
  });
 

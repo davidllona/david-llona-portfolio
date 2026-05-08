@@ -38,3 +38,40 @@
   text-wrap: balance;
  }
 }
+
+/* Glow respirante del botón "Volver a la órbita".
+   La animación se aplica fuera del button para no interferir
+   con las transiciones de hover. */
+.orbit-back-btn {
+ box-shadow:
+  0 0 32px rgba(245, 138, 92, 0.18),
+  inset 0 0 28px rgba(245, 138, 92, 0.04);
+ animation: orbit-back-breathe 3.6s ease-in-out infinite;
+}
+
+.orbit-back-btn:hover {
+ animation-play-state: paused;
+ box-shadow:
+  0 0 48px rgba(245, 138, 92, 0.32),
+  inset 0 0 28px rgba(245, 138, 92, 0.08);
+}
+
+@keyframes orbit-back-breathe {
+ 0%,
+ 100% {
+  box-shadow:
+   0 0 28px rgba(245, 138, 92, 0.14),
+   inset 0 0 24px rgba(245, 138, 92, 0.04);
+ }
+ 50% {
+  box-shadow:
+   0 0 40px rgba(245, 138, 92, 0.24),
+   inset 0 0 30px rgba(245, 138, 92, 0.06);
+ }
+}
+
+@media (prefers-reduced-motion: reduce) {
+ .orbit-back-btn {
+  animation: none;
+ }
+}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RobotPopupScene } from "../3d/RobotPopupScene";
 import { ConstellationScene, BackgroundStars } from "../3d/ConstellationScene";
 
@@ -281,12 +281,13 @@ function SkillPopup({ item, onClose, activeMainSkill }) {
     onClick={onClose}
    />
 
-   <div className="relative z-[1] grid w-full max-w-5xl overflow-hidden border border-white/10 bg-[#050505] shadow-[0_30px_100px_rgba(0,0,0,0.45)] md:grid-cols-[0.95fr_1.05fr]">
+   <div className="relative z-[1] grid max-h-[92vh] w-full max-w-5xl overflow-y-auto overflow-x-hidden rounded-2xl border border-white/10 bg-[#050505] shadow-[0_30px_100px_rgba(0,0,0,0.45)] md:grid-cols-[0.95fr_1.05fr]">
+
     <div className="relative border-b border-white/8 bg-[radial-gradient(circle_at_center,rgba(var(--color-primary-rgb),0.10),transparent_36%),linear-gradient(180deg,rgba(10,10,14,0.96)_0%,rgba(4,4,7,0.98)_100%)] md:border-b-0 md:border-r md:border-white/8">
      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:36px_36px] opacity-[0.04]" />
      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[240px] w-[240px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-[90px]" />
 
-     <div className="relative flex h-full min-h-[360px] items-center justify-center p-6 md:p-8">
+     <div className="relative flex h-full min-h-[220px] items-center justify-center p-5 md:min-h-[360px] md:p-8">
       <RobotPopupScene activeMainSkill={activeMainSkill} />
      </div>
     </div>
@@ -351,6 +352,12 @@ export function About() {
  const [activeMainSkill, setActiveMainSkill] = useState("javascript");
  const [activePopup, setActivePopup] = useState(null);
 
+ // Ref a la <section> para anclar el botón flotante de "Volver"
+ // solo cuando About está realmente visible. Sin esto, el botón
+ // (que es position:fixed) seguiría apareciendo en otras secciones.
+ const sectionRef = useRef(null);
+ const [aboutVisible, setAboutVisible] = useState(false);
+
  // Detección de viewport para alternar layout sin
  // duplicar la escena Three.js en montaje.
  const [isDesktop, setIsDesktop] = useState(() => {
@@ -372,6 +379,20 @@ export function About() {
    window.removeEventListener("resize", onResize);
    clearTimeout(timer);
   };
+ }, []);
+
+ // IntersectionObserver — el botón flotante solo aparece
+ // cuando la section About está siendo mirada. Margin negativo
+ // para que el botón se oculte un poco antes de salir del todo.
+ useEffect(() => {
+  if (typeof window === "undefined" || !sectionRef.current) return undefined;
+
+  const observer = new IntersectionObserver(
+   ([entry]) => setAboutVisible(entry.isIntersecting),
+   { rootMargin: "-15% 0px -15% 0px", threshold: 0 }
+  );
+  observer.observe(sectionRef.current);
+  return () => observer.disconnect();
  }, []);
 
  // ESC en stage detail vuelve a la órbita principal.
@@ -421,8 +442,10 @@ export function About() {
  return (
   <>
    <section
+    ref={sectionRef}
     id="about"
-    className="relative overflow-hidden bg-bg"
+    className="relative overflow-hidden"
+    style={{ backgroundColor: "#05070b" }}
    >
     {/* Atmósfera de fondo. Sin gradient oscuro: la sección
         debe fluir desde la anterior sin frontera visible. */}
@@ -437,6 +460,10 @@ export function About() {
      <BackgroundStars />
     </div>
 
+    {/* Gradient overlay — replica el de InteractiveLab para
+        que la frontera entre secciones desaparezca. */}
+    <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(to_bottom,rgba(0,0,0,0.52),rgba(0,0,0,0.12),rgba(0,0,0,0.46))]" />
+
     {/* Constelación expandida — solo en desktop, ocupa la
         derecha de la pantalla. Sin marco ni panel: es espacio. */}
     {isDesktop && (
@@ -445,9 +472,10 @@ export function About() {
        <ConstellationScene {...constellationProps} />
       </div>
 
-      {/* Indicador de stage + acción de retorno.
-          En main: solo un contador discreto.
-          En detail: pill button con flecha animada. */}
+      {/* Indicador de stage — solo info. El botón de volver
+          es un overlay fixed (más abajo, fuera de la section)
+          para escapar del z-index del GUI panel y quedar
+          siempre anclado al viewport visible. */}
       <div className="pointer-events-none absolute right-10 top-10 z-[4] flex items-center gap-5 xl:right-14">
        <span
         className={`text-[10px] uppercase tracking-[0.22em] transition-colors duration-500 ${
@@ -457,27 +485,10 @@ export function About() {
         {stage === "main" ? "Órbita principal" : activeLayout.title}
        </span>
 
-       {stage === "main" ? (
+       {stage === "main" && (
         <span className="text-[10px] uppercase tracking-[0.22em] text-text-muted/30">
          {mainOrbit.nodes.length} nodos
         </span>
-       ) : (
-        <button
-         type="button"
-         onClick={() => {
-          setStage("main");
-          setActivePopup(null);
-         }}
-         className="pointer-events-auto group inline-flex items-center gap-2.5 rounded-full border border-white/12 bg-black/35 px-4 py-1.5 text-[10px] uppercase tracking-[0.22em] text-text-muted/85 backdrop-blur-md transition-[color,border-color,background-color] duration-300 hover:border-primary/35 hover:bg-black/55 hover:text-primary"
-        >
-         <span
-          aria-hidden="true"
-          className="text-[14px] leading-none transition-transform duration-300 group-hover:-translate-x-0.5"
-         >
-          ←
-         </span>
-         <span>Volver a la órbita</span>
-        </button>
        )}
       </div>
      </>
@@ -498,11 +509,15 @@ export function About() {
         Sobre mí
        </span>
 
+       {/* Título — escalonado por breakpoints para que en laptop
+           (lg, ~1024px col-span-6) no salte a 5rem y desborde.
+           El salto a 5rem se reserva para xl (≥1280px), donde
+           la columna ya tiene espacio real. */}
        <div className="mb-14 space-y-1 md:mb-20">
-        <p className="text-4xl font-semibold leading-[1.02] tracking-[-0.05em] text-text md:text-6xl lg:text-[5rem]">
+        <p className="text-[2.25rem] font-semibold leading-[1.04] tracking-[-0.04em] text-text sm:text-5xl md:text-6xl lg:text-[4rem] xl:text-[5rem]">
          Entre lo visual
         </p>
-        <p className="text-4xl font-semibold leading-[1.02] tracking-[-0.05em] text-primary md:text-6xl lg:text-[5rem]">
+        <p className="text-[2.25rem] font-semibold leading-[1.04] tracking-[-0.04em] text-primary sm:text-5xl md:text-6xl lg:text-[4rem] xl:text-[5rem]">
          y lo interactivo
         </p>
        </div>
@@ -547,7 +562,7 @@ export function About() {
            setStage("main");
            setActivePopup(null);
           }}
-          className="pointer-events-auto group inline-flex items-center gap-2.5 rounded-full border border-white/12 bg-black/35 px-4 py-1.5 text-[10px] uppercase tracking-[0.22em] text-text-muted/85 backdrop-blur-md transition-[color,border-color,background-color] duration-300 hover:border-primary/35 hover:bg-black/55 hover:text-primary"
+          className="pointer-events-auto group inline-flex items-center gap-2.5 rounded-full border border-primary/30 bg-black/55 px-5 py-2 text-[11px] uppercase tracking-[0.22em] text-primary/90 backdrop-blur-md shadow-[0_0_24px_rgba(245,138,92,0.10)] transition-all duration-300 hover:border-primary/60 hover:bg-black/70 hover:text-primary hover:shadow-[0_0_30px_rgba(245,138,92,0.22)]"
          >
           <span
            aria-hidden="true"
@@ -562,7 +577,7 @@ export function About() {
       </div>
      )}
 
-     <div className="pointer-events-auto mt-44 border-t border-border/10 pt-10 md:mt-56 md:pt-12 lg:mt-72">
+     <div className="pointer-events-auto mt-44 border-t border-border/10 pt-10 md:mt-72 md:pt-12 lg:mt-[28rem]">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-baseline lg:justify-between">
        <p className="max-w-md text-sm leading-relaxed text-text-muted/55">
         Me interesan los proyectos donde diseño, interacción y tecnología se mezclan para construir
@@ -576,6 +591,43 @@ export function About() {
      </div>
     </div>
    </section>
+
+   {/*
+    Botón "Volver a la órbita" — overlay flotante FIXED (anclado
+    al viewport, no a la section). La section About mide ~2000px
+    en desktop por el espaciado entre constelación y bloque inferior;
+    si el botón fuera absolute dentro de la section quedaría fuera
+    del frame visible. Con position:fixed siempre acompaña al usuario
+    mientras está mirando la constelación, y desaparece automáticamente
+    cuando About sale del viewport (IntersectionObserver).
+
+    z-[60] queda sobre el contenido propio pero por debajo del popup
+    de skills (z-[80]) para no taparlo cuando se abre.
+   */}
+   {isDesktop && stage === "detail" && aboutVisible && (
+    <div className="pointer-events-none fixed bottom-[6vh] right-0 z-[60] flex w-[60vw] justify-center xl:w-[58vw]">
+     <button
+      type="button"
+      onClick={() => {
+       setStage("main");
+       setActivePopup(null);
+      }}
+      className="orbit-back-btn pointer-events-auto group relative inline-flex items-center gap-3 overflow-hidden rounded-full border border-primary/40 bg-black/55 px-7 py-3.5 text-[11px] font-medium uppercase tracking-[0.28em] text-primary backdrop-blur-md transition-[border-color,background-color,box-shadow] duration-500 hover:border-primary/70 hover:bg-black/72"
+     >
+      <span
+       aria-hidden="true"
+       className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_center,rgba(245,138,92,0.18),transparent_70%)] opacity-60 transition-opacity duration-500 group-hover:opacity-100"
+      />
+      <span
+       aria-hidden="true"
+       className="relative text-[15px] leading-none transition-transform duration-500 group-hover:-translate-x-1"
+      >
+       ←
+      </span>
+      <span className="relative">Volver a la órbita</span>
+     </button>
+    </div>
+   )}
 
    <SkillPopup
     item={activePopup}
