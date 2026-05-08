@@ -19,9 +19,8 @@ const secondaryProjects = [
    "Sistema de partículas y profundidad espacial para construir atmósferas más inmersivas, con más escala y mayor profundidad visual.",
   type: "Partículas / Sensación shader",
   url: "https://galaxy-three-js-puce.vercel.app/",
-  videoMp4: "/api/video?file=galaxia.mp4",
+  youtubeId: "etC_GvNpJYE",
   badge: "Preview vídeo",
-  videoFit: "cover",
   fallbackLabel: "Preview galáctica",
  },
 {
@@ -31,12 +30,8 @@ const secondaryProjects = [
     "Pieza experimental centrada en rotación, inspección y lectura del volumen en tiempo real dentro de una interfaz más tangible.",
   type: "Interacción en tiempo real",
   url: "https://threejs-hdr-lighting-lab.vercel.app/",
-  videoMp4: "/api/video?file=interacciones-3d.mp4",
+  youtubeId: "QmtqkCecHIc",
   badge: "Preview vídeo",
-  // cover llena el panel sin zoom agresivo y respeta el aspect del vídeo;
-  // un 1.15x compensa el padding negro del original sin recortar el sujeto.
-  videoFit: "cover",
-  videoScale: 1.15,
   fallbackLabel: "Preview 3D",
 },
 ];
@@ -46,14 +41,68 @@ function SecondaryProjectCard({ project }) {
 
  useEffect(() => {
   setVideoFailed(false);
- }, [project.videoMp4]);
+ }, [project.videoMp4, project.youtubeId]);
+
+ // URL del embed de YouTube con autoplay silenciado, loop y UI mínima.
+ // El truco para el loop es pasar `playlist={id}` con el mismo ID — sin él,
+ // YouTube ignora `loop=1` para vídeos sueltos.
+ const youtubeEmbedUrl = project.youtubeId
+  ? `https://www.youtube.com/embed/${project.youtubeId}` +
+    `?autoplay=1&mute=1&loop=1&playlist=${project.youtubeId}` +
+    `&controls=0&rel=0&modestbranding=1&playsinline=1` +
+    `&iv_load_policy=3&disablekb=1&fs=0&cc_load_policy=0`
+  : null;
 
  return (
   <article className="group overflow-hidden rounded-[22px] border border-white/10 bg-black/20 backdrop-blur-[2px] transition-all duration-500 hover:border-primary/25 hover:shadow-[0_0_35px_rgba(var(--color-primary-rgb),0.08)]">
-   <div className="grid gap-0 overflow-hidden rounded-[22px] md:min-h-[340px] md:grid-cols-[0.92fr_1.08fr] md:items-stretch">
-    <div className="relative overflow-hidden border-b border-white/8 bg-[radial-gradient(circle_at_top_left,rgba(var(--color-primary-rgb),0.10),transparent_24%),linear-gradient(180deg,rgba(8,8,12,0.96)_0%,rgba(4,4,7,0.98)_100%)] md:border-b-0 md:border-r md:border-white/8">
-     <div className="relative aspect-[16/10] min-h-[220px] overflow-hidden bg-[#120f1c] md:h-full md:min-h-[340px] md:aspect-auto">
-      {!videoFailed ? (
+   {/* Grid con primera columna de ANCHO FIJO (270px en desktop) — no
+       proporcional. El panel del video se queda en formato mockup móvil
+       con dimensiones manejables, sin volverse gigante por el aspect. */}
+   <div className="grid gap-0 overflow-hidden rounded-[22px] md:grid-cols-[270px_1fr] md:items-stretch">
+    <div className="relative overflow-hidden border-b border-white/8 bg-[#0a0a14] md:border-b-0 md:border-r md:border-white/8">
+     {/* Panel del video — tamaño fijo en desktop (270x480, aspect 9:16
+         exacto). En mobile se adapta al ancho del card manteniendo 9:16.
+         Combinamos scale(1.22) + overflow:hidden + overlays superior e
+         inferior para empujar fuera del viewport visible el chrome de
+         YouTube que aparece en el replay (logo, título, banner de marca).
+         El centro del frame Short queda intacto. */}
+     <div className="relative w-full overflow-hidden bg-[#0a0a14] aspect-[9/16] md:h-[480px] md:w-[270px] md:aspect-auto">
+      {youtubeEmbedUrl ? (
+       <>
+        <iframe
+         src={youtubeEmbedUrl}
+         className="absolute inset-0 h-full w-full"
+         style={{
+          border: 0,
+          pointerEvents: "none",
+          transform: "scale(1.22)",
+          transformOrigin: "center center",
+         }}
+         title={project.title}
+         allow="autoplay; encrypted-media; picture-in-picture"
+         referrerPolicy="strict-origin-when-cross-origin"
+        />
+        {/* Overlay superior — oculta título/avatar/banner que YouTube
+            inserta al cargar y al hacer replay. Gradient transparente
+            hacia abajo: tapa el chrome sin tapar contenido del Short. */}
+        <div
+         className="pointer-events-none absolute inset-x-0 top-0 h-[18%] z-[2]"
+         style={{
+          background:
+           "linear-gradient(to bottom, rgba(10,10,20,1) 0%, rgba(10,10,20,0.8) 45%, rgba(10,10,20,0) 100%)",
+         }}
+        />
+        {/* Overlay inferior — oculta logo "YouTube" y barra residual */}
+        <div
+         className="pointer-events-none absolute inset-x-0 bottom-0 h-[14%] z-[2]"
+         style={{
+          background:
+           "linear-gradient(to top, rgba(10,10,20,1) 0%, rgba(10,10,20,0.7) 50%, rgba(10,10,20,0) 100%)",
+         }}
+        />
+       </>
+      ) : !videoFailed && project.videoMp4 ? (
+       // ── Fallback legacy: video MP4 ──
        <video
         key={project.videoMp4}
         className={`absolute inset-0 h-full w-full transition-transform duration-700 ${
@@ -83,7 +132,7 @@ function SecondaryProjectCard({ project }) {
 
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.18),rgba(0,0,0,0.01),rgba(0,0,0,0.04))]" />
 
-      <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-primary/80 backdrop-blur-sm">
+      <div className="pointer-events-none absolute left-4 top-4 z-[3] rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-primary/80 backdrop-blur-sm">
        {project.badge}
       </div>
      </div>
