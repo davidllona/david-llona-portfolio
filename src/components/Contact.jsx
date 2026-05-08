@@ -356,28 +356,34 @@ export function Contact() {
  return (
   <>
    <style>{KEYFRAMES}</style>
+<section
+  id="contact"
+  className="relative flex min-h-screen w-full flex-col overflow-hidden"
+  // Mismo color base que About (#05070b) → no hay step de luminancia
+  // entre las dos secciones. La transición la hace solo el gradient.
+  style={{ background: "#05070b" }}
+>
+  {/* ── Canvas Three.js ── */}
+  <div ref={mountRef} className="absolute inset-0 z-0" aria-hidden="true" />
 
-   <section
-    id="contact"
-    className="relative flex min-h-screen w-full flex-col overflow-hidden"
-    style={{ background: "#010108" }}
-   >
-    {/* ── Canvas Three.js ── */}
-    <div ref={mountRef} className="absolute inset-0 z-0" aria-hidden="true" />
-
-    {/* ── Gradiente de fusión ── */}
-    <div
-     className="pointer-events-none absolute inset-0 z-10"
-     style={{
+  {/* ── Gradiente de fusión con About ──
+      Arranca desde el MISMO color del fondo (no transparent → evita
+      cualquier diferencia de tono). Empuja el oscurecimiento sólido
+      más abajo (45-100%) para que la mitad superior sea espacio
+      abierto, continuando visualmente las estrellas de About. */}
+  <div
+    className="pointer-events-none absolute inset-0 z-10"
+    style={{
       background: `linear-gradient(to bottom,
-        transparent       0%,
-        transparent       28%,
-        rgba(1,1,8,0.65)  50%,
-        rgba(1,1,8,0.93)  72%,
-        rgba(1,1,8,0.99) 100%)`,
-     }}
-     aria-hidden="true"
-    />
+        rgba(5,7,11,0)     0%,
+        rgba(5,7,11,0)     22%,
+        rgba(5,7,11,0.18)  42%,
+        rgba(5,7,11,0.55)  62%,
+        rgba(5,7,11,0.88)  82%,
+        rgba(5,7,11,0.98) 100%)`,
+    }}
+    aria-hidden="true"
+  />
 
     {/* ── UI overlay ── */}
     <div

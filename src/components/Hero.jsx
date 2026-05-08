@@ -11,81 +11,85 @@ import { initHeroScene } from "../3d/heroScene";
  *  - fade-out al hacer scroll
  */
 export function Hero() {
-  const wrapperRef = useRef(null);
-  const hintRef = useRef(null);
+ const wrapperRef = useRef(null);
+ const hintRef = useRef(null);
 
-  useEffect(() => {
-    const cleanup = initHeroScene(wrapperRef.current);
+ useEffect(() => {
+  const cleanup = initHeroScene(wrapperRef.current);
 
-    const onScroll = () => {
-      if (!hintRef.current || !wrapperRef.current) return;
+  const onScroll = () => {
+   if (!hintRef.current || !wrapperRef.current) return;
 
-      // Progreso real del wrapper (sticky 100vh dentro de 380vh ⇒ ~280vh
-      // de rango de scroll). Mucho más fiable que scrollY absoluto: no se
-      // descalibra entre pantallas con distinto innerHeight.
-      const rect = wrapperRef.current.getBoundingClientRect();
-      const range = rect.height - window.innerHeight;
-      const scrolled = Math.max(0, -rect.top);
-      const progress = range > 0 ? scrolled / range : 0;
+   const rect = wrapperRef.current.getBoundingClientRect();
+   const range = rect.height - window.innerHeight;
+   const scrolled = Math.max(0, -rect.top);
+   const progress = range > 0 ? scrolled / range : 0;
 
-      // Fade-out completo al ~14% del progreso. La cámara sale por la
-      // ventana hacia el ~29%, así que el hint queda fuera bastante antes.
-      const op = Math.max(0, 1 - progress * 5);
-      hintRef.current.style.opacity = String(op);
-    };
+   // Hint visible solo dentro de la habitación.
+   // - 0%-4%   → opacity 1 (estable, no parpadea con scrolls mínimos)
+   // - 4%-10%  → fade out cinemático
+   // - >10%    → opacity 0 (mucho antes de cruzar la ventana ~25-29%)
+   const FADE_START = 0.04;
+   const FADE_END = 0.1;
+   let op;
+   if (progress <= FADE_START) {
+    op = 1;
+   } else if (progress >= FADE_END) {
+    op = 0;
+   } else {
+    op = 1 - (progress - FADE_START) / (FADE_END - FADE_START);
+   }
+   // pointer-events fuera cuando ya no se ve — evita que capture ratón muerto
+   hintRef.current.style.opacity = String(op);
+   hintRef.current.style.visibility = op === 0 ? "hidden" : "visible";
+  };
 
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
 
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      if (cleanup) cleanup();
-    };
-  }, []);
+  return () => {
+   window.removeEventListener("scroll", onScroll);
+   if (cleanup) cleanup();
+  };
+ }, []);
 
-  return (
-    <div ref={wrapperRef} style={{ position: "relative", height: "380vh" }}>
-      <div
-        style={{
-          position: "sticky",
-          top: 0,
-          height: "100vh",
-          overflow: "hidden",
-        }}
-      >
-        <canvas
-          id="webgl"
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            display: "block",
-          }}
-        />
+ return (
+  <div ref={wrapperRef} style={{ position: "relative", height: "380vh" }}>
+   <div
+    style={{
+     position: "sticky",
+     top: 0,
+     height: "100vh",
+     overflow: "hidden",
+    }}
+   >
+    <canvas
+     id="webgl"
+     style={{
+      position: "absolute",
+      inset: 0,
+      width: "100%",
+      height: "100%",
+      display: "block",
+     }}
+    />
 
-        {/* Scroll hint premium */}
-        <div ref={hintRef} className="hero-scroll-hint" aria-hidden="true">
-          <span className="hero-scroll-hint__label">DESLIZA PARA COMENZAR</span>
-          <span className="hero-scroll-hint__line" />
-          <svg
-            className="hero-scroll-hint__arrow"
-            width="14"
-            height="18"
-            viewBox="0 0 14 18"
-            fill="none"
-          >
-            <path
-              d="M7 1V16M7 16L1 10M7 16L13 10"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </div>
+    {/* Scroll hint premium */}
+    <div ref={hintRef} className="hero-scroll-hint" aria-hidden="true">
+     <span className="hero-scroll-hint__label">DESLIZA PARA COMENZAR</span>
+     <span className="hero-scroll-hint__line" />
+     <svg className="hero-scroll-hint__arrow" width="14" height="18" viewBox="0 0 14 18" fill="none">
+      <path
+       d="M7 1V16M7 16L1 10M7 16L13 10"
+       stroke="currentColor"
+       strokeWidth="1.2"
+       strokeLinecap="round"
+       strokeLinejoin="round"
+      />
+     </svg>
+    </div>
 
-        <style>{`
+    <style>{`
   .hero-scroll-hint {
     position: absolute;
     bottom: 48px;
@@ -187,7 +191,7 @@ export function Hero() {
     .hero-scroll-hint__arrow { animation: none; }
   }
 `}</style>
-      </div>
-    </div>
-  );
+   </div>
+  </div>
+ );
 }

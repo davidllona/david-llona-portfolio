@@ -67,7 +67,8 @@ export function initHeroScene(wrapperEl) {
  let onCursorEnter = null;
 
  if (!isTouchDevice) {
-  const CUR_COLOR = "#6ad0ff";
+  const CUR_COLOR = "#ff7a3d";
+  const CUR_COLOR_RGB = "255, 122, 61"; // mismo color, formato rgb()
 
   cursorRing = document.createElement("div");
   Object.assign(cursorRing.style, {
@@ -78,7 +79,7 @@ export function initHeroScene(wrapperEl) {
    height: "26px",
    borderRadius: "50%",
    border: `1.4px solid ${CUR_COLOR}`,
-   background: "rgba(106, 208, 255, 0)",
+   background: `rgba(${CUR_COLOR_RGB}, 0)`,
    pointerEvents: "none",
    zIndex: "99998",
    transform: "translate3d(-50%, -50%, 0)",
@@ -177,17 +178,18 @@ export function initHeroScene(wrapperEl) {
    const isInteractive = t.closest("a, button, [data-clickable], canvas") !== null;
    if (isInteractive !== cursorHover) {
     cursorHover = isInteractive;
+    // DESPUÉS
     if (cursorHover) {
      cursorRing.style.width = "40px";
      cursorRing.style.height = "40px";
-     cursorRing.style.background = "rgba(106, 208, 255, 0.12)";
-     cursorRing.style.borderColor = "rgba(106, 208, 255, 0.9)";
+     cursorRing.style.background = `rgba(${CUR_COLOR_RGB}, 0.14)`;
+     cursorRing.style.borderColor = `rgba(${CUR_COLOR_RGB}, 0.95)`;
      cursorDot.style.width = "3px";
      cursorDot.style.height = "3px";
     } else {
      cursorRing.style.width = "26px";
      cursorRing.style.height = "26px";
-     cursorRing.style.background = "rgba(106, 208, 255, 0)";
+     cursorRing.style.background = `rgba(${CUR_COLOR_RGB}, 0)`;
      cursorRing.style.borderColor = CUR_COLOR;
      cursorDot.style.width = "4px";
      cursorDot.style.height = "4px";

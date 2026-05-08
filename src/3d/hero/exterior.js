@@ -983,14 +983,17 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
   ctx.shadowBlur = 0;
 
   // Línea 2 — "de otro planeta" — color controlable
+  // DESPUÉS
   const oc = hexToRgb(claimParams.orangeColor);
-  // Intensifica canales G/B con el scanner
-  const oG = Math.min(255, Math.round(oc.g + scanInfl * 33));
-  const oB = Math.min(255, Math.round(oc.b + scanInfl * 36));
-  const oA = 0.5 + scanInfl * 0.45;
+  // El escáner sube la luminosidad pero MUY suavemente — antes blanqueaba demasiado
+  // y el naranja se leía como beige/crema. Ahora el texto siempre se lee naranja.
+  const oG = Math.min(255, Math.round(oc.g + scanInfl * 16));
+  const oB = Math.min(255, Math.round(oc.b + scanInfl * 18));
+  const oA = 0.55 + scanInfl * 0.4;
   ctx.font = `700 68px ${SANS}`;
   ctx.shadowColor = `rgba(${oc.r},${oc.g},${oc.b},${oA.toFixed(2)})`;
-  ctx.shadowBlur = 28 + scanInfl * 32;
+  // Halo más contenido: 16-30px en vez de 28-60px → el relleno manda, no el shadow
+  ctx.shadowBlur = 16 + scanInfl * 14;
   ctx.fillStyle = `rgba(${oc.r},${oG},${oB},1.0)`;
   ctx.fillText("de otro planeta", w * 0.5, 182);
   ctx.shadowBlur = 0;
@@ -1026,6 +1029,7 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
  drawClaimScan(0); // dibujado inicial sin efecto
 
  const PLANE_A_TEX = new THREE.CanvasTexture(claimCanvas);
+ PLANE_A_TEX.colorSpace = THREE.SRGBColorSpace; // ← clave: el canvas dibuja en sRGB, declárselo
  PLANE_A_TEX.minFilter = THREE.LinearMipmapLinearFilter;
  PLANE_A_TEX.magFilter = THREE.LinearFilter;
  PLANE_A_TEX.anisotropy = renderer.capabilities.getMaxAnisotropy();
@@ -1038,6 +1042,7 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
   opacity: 0.0,
   depthWrite: false,
   side: THREE.DoubleSide,
+  toneMapped: false,
  });
  const extPlaneA = new THREE.Mesh(extPlaneAGeo, extPlaneAMat);
  extPlaneA.position.set(EXT_X - 5.5, EXT_Y - 0.2, EXT_Z);

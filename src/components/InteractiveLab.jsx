@@ -24,19 +24,21 @@ const secondaryProjects = [
   videoFit: "cover",
   fallbackLabel: "Preview galáctica",
  },
- {
+{
   id: "A3",
   title: "Objeto interactivo",
   description:
-   "Pieza experimental centrada en rotación, inspección y lectura del volumen en tiempo real dentro de una interfaz más tangible.",
+    "Pieza experimental centrada en rotación, inspección y lectura del volumen en tiempo real dentro de una interfaz más tangible.",
   type: "Interacción en tiempo real",
   url: "https://threejs-hdr-lighting-lab.vercel.app/",
   videoMp4: "/api/video?file=interacciones-3d.mp4",
   badge: "Preview vídeo",
-  videoFit: "contain",
-  videoScale: 3.0,
+  // cover llena el panel sin zoom agresivo y respeta el aspect del vídeo;
+  // un 1.15x compensa el padding negro del original sin recortar el sujeto.
+  videoFit: "cover",
+  videoScale: 1.15,
   fallbackLabel: "Preview 3D",
- },
+},
 ];
 
 function SecondaryProjectCard({ project }) {
@@ -139,9 +141,9 @@ export function InteractiveLab() {
     <div className="mb-16 max-w-3xl md:mb-20">
      <span className="mb-4 block text-[11px] uppercase tracking-[0.28em] text-primary/80">Laboratorio interactivo</span>
 
-     <h2 className="text-3xl font-semibold tracking-[-0.04em] text-primary md:text-4xl lg:text-5xl">
+     <h1 className="text-3xl font-semibold tracking-[-0.04em] text-primary md:text-[80px] lg:text-5xl">
       Más allá de la interfaz
-     </h2>
+     </h1>
 
      <p className="mt-4 max-w-2xl text-sm leading-relaxed text-text-muted/85 md:text-[15px]">
       Una colección de piezas y experimentos donde el 3D deja de ser solo un recurso visual para convertirse en parte de
