@@ -15,9 +15,10 @@
  *   · Brillo trabajado vía box-shadow + transitions.
  */
 
-import { useRef, useEffect, useState, useReducer } from "react";
+import { useRef, useEffect, useState, useReducer, useMemo } from "react";
 import { initContactScene } from "../3d/contact";
 import { onGuiReady, attachContactGUI } from "../3d/hero/gui";
+import { BackgroundStars } from "../3d/ConstellationScene";
 
 // ─── Configuración fija (no entra al GUI) ────────────────────────────────────
 const EMAIL = "hello@davidllona.com";
@@ -309,7 +310,205 @@ const KEYFRAMES = `
     outline: 1px solid rgba(255,112,32,0.65);
     outline-offset: 4px;
   }
+
+  /* ─── HABLEMOS · Transmisión espacial decodificándose ─── */
+.cs-headline {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 200;
+  font-size: clamp(48px, 8.5vw, 124px);
+  letter-spacing: 0.14em;
+  line-height: 1;
+  color: rgba(248, 250, 255, 0.97);
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  width: 100%;
+  margin: 0 0 1.2rem 0;
+  padding: 0;
+  user-select: none;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.cs-glyph {
+  display: inline-block;
+  position: relative;
+  /* Ancho fijo por glyph: evita que el layout brinque cuando los
+     caracteres del scramble cambian de ancho (la M es más ancha que la I) */
+  min-width: 0.78em;
+  text-align: center;
+  transition: color 0.35s ease, text-shadow 0.45s ease, transform 0.4s cubic-bezier(0.18, 1.2, 0.4, 1);
+  will-change: color, text-shadow, transform;
+}
+
+/* Carácter "scrambleando": cian frío, baja luminancia → se siente a señal cruda */
+.cs-glyph.is-scrambling {
+  color: rgba(140, 180, 220, 0.55);
+  text-shadow: 0 0 2px rgba(120, 170, 220, 0.4);
+  filter: blur(0.4px);
+}
+
+/* Carácter "bloqueado" (su forma final): blanco limpio + flash en el momento del lock */
+.cs-glyph.is-locked {
+  color: rgba(248, 250, 255, 0.97);
+  text-shadow:
+    0 0 14px rgba(255, 255, 255, 0.18),
+    0 0 32px rgba(255, 220, 180, 0.10);
+  filter: none;
+  animation: cs-glyph-lock 0.55s cubic-bezier(0.2, 1.3, 0.35, 1) both;
+}
+
+/* Flash al bloquear: scale + glow cálido momentáneo (sensación de "click" / "fix") */
+@keyframes cs-glyph-lock {
+  0% {
+    transform: scale(1.18);
+    text-shadow:
+      0 0 22px rgba(255, 200, 140, 0.85),
+      0 0 44px rgba(255, 160, 80, 0.45);
+  }
+  60% {
+    transform: scale(0.98);
+  }
+  100% {
+    transform: scale(1);
+    text-shadow:
+      0 0 14px rgba(255, 255, 255, 0.18),
+      0 0 32px rgba(255, 220, 180, 0.10);
+  }
+}
+
+/* Punto final · señal confirmada · entra con un pulso naranja */
+.cs-period {
+  color: rgba(80, 60, 40, 0.0); /* invisible hasta que se "bloquea" */
+  margin-left: 0.04em;
+  min-width: auto;
+}
+.cs-period.is-locked {
+  color: #ff7a3d;
+  text-shadow:
+    0 0 18px rgba(255, 122, 61, 0.55),
+    0 0 36px rgba(255, 122, 61, 0.25);
+  animation: cs-period-confirm 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes cs-period-confirm {
+  0%   { opacity: 0; transform: scale(0); }
+  55%  { opacity: 1; transform: scale(1.7); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Accesibilidad: si el usuario pidió reducir movimiento, ir directo al final */
+@media (prefers-reduced-motion: reduce) {
+  .cs-glyph.is-scrambling,
+  .cs-glyph.is-locked {
+    animation: none;
+    transition: none;
+  }
+}
 `;
+
+/**
+ * HablemosHeadline — Decodificación de transmisión espacial
+ * ───────────────────────────────────────────────────────────────
+ * Narrativa: el visitante recibe una señal. Cada glyph cicla por
+ * caracteres aleatorios y se va "bloqueando" uno a uno hasta
+ * formar HABLEMOS. El punto naranja entra como "señal estable".
+ *
+ * Implementación: estado mutable en useRef + forceRender.
+ * Evita el bug de closure stale que tendría useState dentro
+ * del setTimeout recursivo.
+ */
+function HablemosHeadline() {
+ const ref = useRef(null);
+ const [visible, setVisible] = useState(false);
+ const [, forceRender] = useReducer((x) => x + 1, 0);
+
+ const FINAL = "HABLEMOS";
+ const SCRAMBLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ▓▒░◆◇◈△▽⊙⊕#%&*+=<>/\\";
+
+ // Estado mutable en refs → tick() siempre lee el valor más reciente.
+ // forceRender() solo se usa para re-pintar el JSX cuando cambian.
+ const charsRef = useRef(FINAL.split("").map(() => "▓"));
+ const lockedRef = useRef(FINAL.split("").map(() => false));
+ const periodLockedRef = useRef(false);
+
+ // IntersectionObserver — dispara cuando entra en viewport
+ useEffect(() => {
+  if (!ref.current) return;
+  const obs = new IntersectionObserver(([entry]) => entry.isIntersecting && setVisible(true), { threshold: 0.35 });
+  obs.observe(ref.current);
+  return () => obs.disconnect();
+ }, []);
+
+ // Decodificación: scramble continuo + lock escalonado
+ useEffect(() => {
+  if (!visible) return;
+  let mounted = true;
+  let tickId = 0;
+
+  // DESPUÉS
+  // ── Timing parameters — ajusta aquí si quieres más rápido/lento ─────
+  // SCRAMBLE_RATE: cada cuánto cambia un carácter no fijado.
+  // PRE_LOCK:      cuánto tiempo scramblea ANTES de empezar a fijar letras.
+  // LOCK_STAGGER:  cuánto tiempo entre cada lock de letra.
+  // PERIOD_DELAY:  pausa entre la última letra fijada y la entrada del punto.
+  const SCRAMBLE_RATE = 70; // ms — un pelín más lento, más legible
+  const PRE_LOCK = 1100; // ms — segundo entero de scramble antes de fijar
+  const LOCK_STAGGER = 230; // ms — entre cada letra fijada
+  const PERIOD_DELAY = 320; // ms — pausa antes del punto naranja
+
+  const tick = () => {
+   if (!mounted) return;
+   charsRef.current = charsRef.current.map((_, i) => {
+    if (lockedRef.current[i]) return FINAL[i];
+    return SCRAMBLE[Math.floor(Math.random() * SCRAMBLE.length)];
+   });
+   forceRender();
+   tickId = window.setTimeout(tick, SCRAMBLE_RATE);
+  };
+  tick();
+
+  const lockTimers = FINAL.split("").map((_, i) =>
+   window.setTimeout(
+    () => {
+     if (!mounted) return;
+     lockedRef.current[i] = true;
+     charsRef.current[i] = FINAL[i];
+     forceRender();
+    },
+    PRE_LOCK + i * LOCK_STAGGER,
+   ),
+  );
+
+  const periodTimer = window.setTimeout(
+   () => {
+    if (!mounted) return;
+    periodLockedRef.current = true;
+    forceRender();
+   },
+   PRE_LOCK + FINAL.length * LOCK_STAGGER + PERIOD_DELAY,
+  );
+
+  return () => {
+   mounted = false;
+   clearTimeout(tickId);
+   lockTimers.forEach(clearTimeout);
+   clearTimeout(periodTimer);
+  };
+ }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+
+ return (
+  <h1 ref={ref} className={`cs-headline ${visible ? "is-visible" : ""}`} aria-label="Hablemos">
+   {charsRef.current.map((c, i) => (
+    <span key={i} className={`cs-glyph ${lockedRef.current[i] ? "is-locked" : "is-scrambling"}`} aria-hidden="true">
+     {c}
+    </span>
+   ))}
+   <span className={`cs-glyph cs-period ${periodLockedRef.current ? "is-locked" : ""}`} aria-hidden="true">
+    .
+   </span>
+  </h1>
+ );
+}
 
 // ─── Componente ──────────────────────────────────────────────────────────────
 export function Contact() {
@@ -356,34 +555,46 @@ export function Contact() {
  return (
   <>
    <style>{KEYFRAMES}</style>
-<section
-  id="contact"
-  className="relative flex min-h-screen w-full flex-col overflow-hidden"
-  // Mismo color base que About (#05070b) → no hay step de luminancia
-  // entre las dos secciones. La transición la hace solo el gradient.
-  style={{ background: "#05070b" }}
->
-  {/* ── Canvas Three.js ── */}
-  <div ref={mountRef} className="absolute inset-0 z-0" aria-hidden="true" />
+   <section
+    id="contact"
+    className="relative flex min-h-screen w-full flex-col overflow-hidden"
+    style={{ background: "#05070b" }}
+   >
+    {/* ── Capa 0 · Campo estelar de fondo ──
+      MISMO componente que usa About → continuidad real (no es un
+      gradient maquillando, es el mismo "universo" extendido). Esto
+      elimina la zona muerta sobre el horizonte planetario. */}
+    <div className="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
+     <BackgroundStars />
+    </div>
 
-  {/* ── Gradiente de fusión con About ──
-      Arranca desde el MISMO color del fondo (no transparent → evita
-      cualquier diferencia de tono). Empuja el oscurecimiento sólido
-      más abajo (45-100%) para que la mitad superior sea espacio
-      abierto, continuando visualmente las estrellas de About. */}
-  <div
-    className="pointer-events-none absolute inset-0 z-10"
-    style={{
-      background: `linear-gradient(to bottom,
-        rgba(5,7,11,0)     0%,
-        rgba(5,7,11,0)     22%,
-        rgba(5,7,11,0.18)  42%,
-        rgba(5,7,11,0.55)  62%,
-        rgba(5,7,11,0.88)  82%,
-        rgba(5,7,11,0.98) 100%)`,
-    }}
-    aria-hidden="true"
-  />
+    {/* ── Capa 1 · Canvas Three.js (luna, rocket, beacon) ── */}
+    <div ref={mountRef} className="absolute inset-0 z-[1]" aria-hidden="true" />
+
+    {/* ── Capa 2 · Gradient cinemático ──
+      Muy ligero arriba (deja respirar las estrellas), oscurecimiento
+      progresivo abajo donde la atmósfera del horizonte ya manda. */}
+    <div
+  className="pointer-events-none absolute inset-0 z-10"
+  style={{
+    background: `linear-gradient(to bottom,
+      /* — Tope: opaco con el color exacto de About → frontera invisible — */
+      rgba(5, 7, 11, 1.00)   0%,
+      rgba(5, 7, 11, 0.85)   3%,
+      rgba(5, 7, 11, 0.50)   8%,
+      rgba(5, 7, 11, 0.18)  14%,
+      rgba(5, 7, 11, 0.0)   22%,
+
+      /* — Zona libre: la escena 3D respira con su atmósfera azul — */
+      rgba(5, 7, 11, 0.0)   60%,
+
+      /* — Anclaje inferior: oscurecimiento sutil hacia el final — */
+      rgba(5, 7, 11, 0.18)  78%,
+      rgba(5, 7, 11, 0.42) 100%
+    )`,
+  }}
+  aria-hidden="true"
+/>
 
     {/* ── UI overlay ── */}
     <div
@@ -394,24 +605,11 @@ export function Contact() {
       transition: "opacity 1.15s cubic-bezier(.22,1,.36,1), transform 1.15s cubic-bezier(.22,1,.36,1)",
      }}
     >
-     <div
-      className="flex w-full flex-col items-center"
-      style={{ maxWidth: `${u.formMaxWidth}px` }}
-     >
-      {/* ── Título ── */}
-      <h2
-       className="cs-a2 m-0 mb-1 text-center font-normal uppercase text-white"
-       style={{
-        fontFamily: "'Georgia', 'Times New Roman', serif",
-        fontSize: `clamp(40px, 6.5vw, ${u.titleFontSizeMax}px)`,
-        letterSpacing: `${u.titleLetterSpacing}em`,
-        textShadow: "0 0 60px rgba(255,255,255,0.16), 0 2px 8px rgba(0,0,0,0.9)",
-       }}
-      >
-       {u.titleText}
-       <span style={{ color: u.titleDotColor }}>{u.titlePunct}</span>
-      </h2>
+     {/* Título — FUERA del wrapper de 480px porque su escala visual
+    necesita todo el ancho para centrarse correctamente. */}
+     <HablemosHeadline />
 
+     <div className="flex w-full flex-col items-center" style={{ maxWidth: `${u.formMaxWidth}px` }}>
       {/* ── Separador con dot pulsante ── */}
       <div className="cs-a2 my-5 flex items-center gap-2" aria-hidden="true">
        <span
@@ -421,10 +619,7 @@ export function Contact() {
          background: "linear-gradient(to right, transparent, rgba(255,255,255,0.35))",
         }}
        />
-       <span
-        className="cs-pulse block h-1 w-1 rounded-full"
-        style={{ background: u.titleDotColor }}
-       />
+       <span className="cs-pulse block h-1 w-1 rounded-full" style={{ background: u.titleDotColor }} />
        <span
         className="block h-px"
         style={{

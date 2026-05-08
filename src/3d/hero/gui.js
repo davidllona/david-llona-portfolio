@@ -711,9 +711,22 @@ export function attachContactGUI(gui, cleanup, uiHooks) {
    const a = r.astronautRoot();
    if (a) a.scale.setScalar(v);
   });
+ // ── Rotación Y — gira al astronauta sobre su eje vertical ──
+ // Es el control para "apoyarlo" mirando hacia el beacon. El valor
+ // se multiplica por π en el loop (idleAstronaut), así que:
+ //   0    → de frente a cámara
+ //   0.5  → de perfil derecho (mirando al beacon)
+ //  -0.5  → de perfil izquierdo
+ //   1/-1 → de espaldas
  astroFolder
-  .add(P, "astroRotY", -1, 1, 0.01)
-  .name("rotación Y (·π)")
+  .add(P, "astroRotY", -1, 1, 0.005)
+  .name("rotación Y")
+  .onChange(() => {
+   /* el loop lo aplica cada frame en idleAstronaut */
+  });
+ astroFolder
+  .add(P, "astroRotZ", -0.3, 0.3, 0.005)
+  .name("inclinación Z")
   .onChange(() => {
    /* lo lee idleAstronaut */
   });
@@ -755,8 +768,28 @@ export function attachContactGUI(gui, cleanup, uiHooks) {
  starsFolder.add(P, "nebulaOpacity", 0, 1.5, 0.01).name("nebulosa opacidad");
  starsFolder.close();
 
- // — 💡 Luces ambientales —
+ // — 💡 Luces —
  const lightsFolder = contactFolder.addFolder("💡 Luces");
+
+ // — 🔥 Luz cálida del beacon — sub-folder con posición independiente —
+ // La PointLight #ff7020 que ilumina al astronauta y a la lámpara.
+ // Antes iba atada al beacon con offset fijo; ahora tiene XYZ libres.
+ const warmLightFolder = lightsFolder.addFolder("🔥 Luz cálida (beacon)");
+ warmLightFolder
+  .add(P, "lightX", -3, 3, 0.01)
+  .name("posición X")
+  .onChange((v) => (r.beaconPL.position.x = v));
+ warmLightFolder
+  .add(P, "lightY", -3, 3, 0.01)
+  .name("posición Y")
+  .onChange((v) => (r.beaconPL.position.y = v));
+ warmLightFolder
+  .add(P, "lightZ", -3, 3, 0.01)
+  .name("posición Z")
+  .onChange((v) => (r.beaconPL.position.z = v));
+ warmLightFolder.open(); // abierto por defecto — vas a tunearlo ahora
+
+ // — 🌑 Luces ambientales —
  lightsFolder
   .add(P, "ambientInt", 0, 1, 0.01)
   .name("ambient")
@@ -765,6 +798,7 @@ export function attachContactGUI(gui, cleanup, uiHooks) {
   .add(P, "rimInt", 0, 2, 0.01)
   .name("rim")
   .onChange((v) => (r.rimLight.intensity = v));
+
  lightsFolder.close();
 
  // — 👣 Huellas —

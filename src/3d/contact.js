@@ -140,18 +140,25 @@ export function initContactScene(container, onBeaconReady) {
  };
 
  // ── Parámetros artísticos ───────────────────────────────────────────────
+ // Valores fijados desde el GUI tras afinar la composición:
+ // beacon ligeramente bajado, astronauta apoyado de perfil contra el palo,
+ // luna en horizonte bajo para dejar respirar el cielo arriba.
  const P = {
   beaconX: 0.2,
-  beaconY: 0.82,
+  beaconY: -0.34,
   beaconZ: 0.05,
   glowIntensity: 2.7,
   pulseSpeed: 2.6,
-  astroX: -0.55,
-  astroY: 0.82,
-  astroZ: 0.14,
+  astroX: -0.14, // ← justo a la izquierda del palo del beacon (X=0.2)
+  astroY: -0.73, // ← base; idleAstronaut le suma un sin() suave cada frame
+  astroZ: -0.51, // ← ligeramente delante del palo
   astroScale: 0.37,
-  astroRotY: 0.13,
-  moonY: -7.9,
+  astroRotY: 0.5, // ← 90°: de perfil mirando al beacon (apoyado)
+  astroRotZ: 0.06, // ← inclinación lateral ~11° hacia el palo
+  moonY: -9.8,
+  lightX: 0.2,
+  lightY: 0.35,
+  lightZ: 0.05,
   moonScale: 1.0,
   moonEmissive: 0.2,
   moonHaloOp: 1.0,
@@ -165,24 +172,26 @@ export function initContactScene(container, onBeaconReady) {
 
  // ── Scene ───────────────────────────────────────────────────────────────
  const scene = new THREE.Scene();
- scene.background = new THREE.Color("#010108");
+ //  scene.background = new THREE.Color("#010108");
+ scene.fog = new THREE.FogExp2(0x05070b, 0.042);
 
  let W = container.offsetWidth || window.innerWidth;
  let H = container.offsetHeight || window.innerHeight;
 
  const camera = new THREE.PerspectiveCamera(36, W / H, 0.1, 120);
- camera.position.set(0, 1.5, 7.0);
- camera.lookAt(0, 0.3, 0);
+ camera.position.set(0, 2.6, 7.2);
+ camera.lookAt(0, -0.9, 0);
 
  const renderer = new THREE.WebGLRenderer({
   antialias: Q.antialias,
   powerPreference: "high-performance",
-  alpha: false,
+  alpha: true,
   stencil: false,
   depth: true,
  });
  renderer.setSize(W, H);
  renderer.setPixelRatio(Q.dpr);
+ renderer.setClearColor(0x000000, 0);
  renderer.outputColorSpace = THREE.SRGBColorSpace;
  renderer.shadowMap.enabled = false;
  container.appendChild(renderer.domElement);
@@ -196,7 +205,7 @@ export function initContactScene(container, onBeaconReady) {
  scene.add(ambient, rimLight, fillLight);
 
  const beaconPL = new THREE.PointLight("#ff7020", 0, 5.5, 1.6);
- beaconPL.position.set(P.beaconX, P.beaconY + 0.75, P.beaconZ);
+ beaconPL.position.set(P.lightX, P.lightY, P.lightZ);
  scene.add(beaconPL);
 
  // ── Nebulosa ────────────────────────────────────────────────────────────
@@ -457,6 +466,7 @@ export function initContactScene(container, onBeaconReady) {
    astronautRoot.scale.setScalar(P.astroScale);
    astronautRoot.position.set(P.astroX, P.astroY, P.astroZ);
    astronautRoot.rotation.y = Math.PI * P.astroRotY;
+   astronautRoot.rotation.z = Math.PI * P.astroRotZ; // ← inclinación lateral
    scene.add(astronautRoot);
    if (gltf.animations?.length) {
     astronautMixer = new THREE.AnimationMixer(astronautRoot);
@@ -486,9 +496,9 @@ export function initContactScene(container, onBeaconReady) {
  function idleAstronaut(elapsed) {
   if (!astronautRoot || astronautMixer) return;
   astronautRoot.rotation.y = Math.PI * P.astroRotY + Math.sin(elapsed * 0.9) * 0.026;
+  astronautRoot.rotation.z = Math.PI * P.astroRotZ + Math.sin(elapsed * 0.6) * 0.012; // breath lateral
   astronautRoot.position.y = P.astroY + Math.sin(elapsed * 1.1) * 0.008;
  }
-
  // ── Loop ─────────────────────────────────────────────────────────────────
  const clock = new THREE.Clock();
  let rafId = null;
