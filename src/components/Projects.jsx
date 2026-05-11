@@ -35,7 +35,10 @@ export function Projects() {
    style={{
     position: "relative",
     width: "100%",
-    height: "550vh",
+    // 650vh — debe coincidir con `sH = sizes.height * 6.5` en
+    // projectsScene.js. Antes era 550vh y dejaba al 4º proyecto
+    // sin tiempo para revelarse antes de que la sticky terminara.
+    height: "650vh",
     background: "#03030a", // base oscura, armoniza con el Lab
    }}
   >

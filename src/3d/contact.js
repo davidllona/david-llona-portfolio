@@ -16,7 +16,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 // ─── Rutas editables ─────────────────────────────────────────────────────────
 export const SCENE_CONFIG = {
- astronautPath: "modelos/astronauta.glb",
+ astronautPath: "modelos/contacto.glb",
  moonTexturePath: "textures/moon.jpg", // opcional — si no existe usa textura procedural
  // beaconPath: "models/beacon.glb",
 };
@@ -102,26 +102,75 @@ function makeMoonProceduralTexture(size = 512) {
  return new THREE.CanvasTexture(cv);
 }
 
-/** Textura de huella de bota lunar */
+/** Textura de huella de bota lunar — v6: mucho más realista.
+ *  Capas:
+ *    1. Planta + talón con GRADIENTES RADIALES → sensación de profundidad real,
+ *       no manchas planas.
+ *    2. Patrón de suela horizontal sutil.
+ *    3. Borde claro alrededor del talón (regolito desplazado/elevado por la pisada).
+ *    4. Polvo lunar disperso alrededor de la huella (puntitos finos).
+ */
 function makeFootprintTexture() {
  const cv = document.createElement("canvas");
- cv.width = 64;
- cv.height = 96;
+ cv.width = 96;
+ cv.height = 128;
  const ctx = cv.getContext("2d");
- ctx.clearRect(0, 0, 64, 96);
- ctx.fillStyle = "rgba(10,10,12,0.78)";
+ ctx.clearRect(0, 0, 96, 128);
+
+ // ── Planta (oval alargado, hueco profundo en el centro) ───────────────
+ const ballGrad = ctx.createRadialGradient(48, 76, 4, 48, 76, 30);
+ ballGrad.addColorStop(0, "rgba(2,2,4,0.9)");
+ ballGrad.addColorStop(0.5, "rgba(6,6,10,0.62)");
+ ballGrad.addColorStop(1, "rgba(15,15,22,0)");
+ ctx.fillStyle = ballGrad;
  ctx.beginPath();
- ctx.ellipse(32, 54, 18, 30, 0, 0, Math.PI * 2);
+ ctx.ellipse(48, 76, 26, 40, 0, 0, Math.PI * 2);
  ctx.fill();
+
+ // ── Talón (más redondo, separado) ─────────────────────────────────────
+ const heelGrad = ctx.createRadialGradient(48, 30, 2, 48, 30, 18);
+ heelGrad.addColorStop(0, "rgba(2,2,4,0.88)");
+ heelGrad.addColorStop(0.6, "rgba(6,6,10,0.55)");
+ heelGrad.addColorStop(1, "rgba(15,15,22,0)");
+ ctx.fillStyle = heelGrad;
  ctx.beginPath();
- ctx.ellipse(32, 24, 13, 13, 0, 0, Math.PI * 2);
+ ctx.ellipse(48, 30, 17, 17, 0, 0, Math.PI * 2);
  ctx.fill();
- ctx.strokeStyle = "rgba(180,185,200,0.18)";
- ctx.lineWidth = 1;
+
+ // ── Patrón de suela: líneas horizontales que se estrechan a los lados ─
+ ctx.strokeStyle = "rgba(150,155,170,0.13)";
+ ctx.lineWidth = 1.2;
+ for (let i = 0; i < 6; i++) {
+  const y = 56 + i * 7;
+  const halfW = 16 - Math.abs(i - 2.5) * 1.3;
+  ctx.beginPath();
+  ctx.moveTo(48 - halfW, y);
+  ctx.lineTo(48 + halfW, y);
+  ctx.stroke();
+ }
+
+ // ── Borde elevado del talón (regolito desplazado por la pisada) ───────
+ ctx.strokeStyle = "rgba(200,205,220,0.16)";
+ ctx.lineWidth = 1.3;
  ctx.beginPath();
- ctx.ellipse(32, 54, 18, 30, 0, 0, Math.PI * 2);
+ ctx.ellipse(48, 30, 17, 17, 0, 0, Math.PI * 2);
  ctx.stroke();
- return new THREE.CanvasTexture(cv);
+
+ // ── Polvo lunar disperso (partículas blancas tenues) ──────────────────
+ ctx.fillStyle = "rgba(200,205,215,0.06)";
+ for (let i = 0; i < 14; i++) {
+  const angle = (i / 14) * Math.PI * 2 + i * 0.7;
+  const r = 30 + ((i * 13) % 12);
+  const x = 48 + Math.cos(angle) * r * 0.9;
+  const y = 60 + Math.sin(angle) * r * 1.1;
+  ctx.beginPath();
+  ctx.arc(x, y, 1.3 + ((i * 7) % 3), 0, Math.PI * 2);
+  ctx.fill();
+ }
+
+ const tex = new THREE.CanvasTexture(cv);
+ tex.anisotropy = 4; // ← más nitidez en ángulos oblicuos (la cámara mira en escorzo)
+ return tex;
 }
 
 // ─── Función principal ────────────────────────────────────────────────────────
@@ -140,25 +189,31 @@ export function initContactScene(container, onBeaconReady) {
  };
 
  // ── Parámetros artísticos ───────────────────────────────────────────────
- // Valores fijados desde el GUI tras afinar la composición:
- // beacon ligeramente bajado, astronauta apoyado de perfil contra el palo,
- // luna en horizonte bajo para dejar respirar el cielo arriba.
+ // Composición v5 — astronauta + beacon, ahora bien integrados.
+ // Lección aprendida de v4: sin beacon, el astronauta queda flotando
+ // sin contexto. El beacon tiene sentido narrativo (es literalmente una
+ // baliza: "estoy aquí, escríbeme") coherente con la sección de contacto.
+ // El error de v3 no era CONCEPTUAL sino de PROPORCIÓN: escala intermedia
+ // (0.5) + luz cálida más viva (~2.0) + astronauta a escala equilibrada.
+ // Nota: las rotaciones se MULTIPLICAN por Math.PI más abajo, así que
+ // estos valores son "vueltas/π" (0.5 = 90°, 0.25 = 45°, 1 = 180°).
  const P = {
-  beaconX: 0.2,
-  beaconY: -0.34,
-  beaconZ: 0.05,
-  glowIntensity: 2.7,
+  beaconX: -1.3, // ← v7: más a la izquierda (era -0.85)
+  beaconY: -0.15, // ← v7: más arriba (era -0.34) — coherente con el mockup
+  beaconZ: 0.45, // ← v7: alineado con astronauta en profundidad
+  beaconScale: 0.5, // ← lámpara/baliza, no farola industrial
+  glowIntensity: 4.5, // ← v6: subido porque decay 2 hace caer la luz mucho más rápido
   pulseSpeed: 2.6,
-  astroX: -0.14, // ← justo a la izquierda del palo del beacon (X=0.2)
-  astroY: -0.73, // ← base; idleAstronaut le suma un sin() suave cada frame
-  astroZ: -0.51, // ← ligeramente delante del palo
-  astroScale: 0.37,
-  astroRotY: 0.5, // ← 90°: de perfil mirando al beacon (apoyado)
-  astroRotZ: 0.06, // ← inclinación lateral ~11° hacia el palo
+  astroX: -1.85, // ← v7: más a la izquierda (era -1.4) — sale del eje del formulario
+  astroY: -0.45, // ← v7: más arriba (era -0.73) — sube a la altura de los subtítulos
+  astroZ: 0.55, // ← v7: ligeramente más cerca de cámara (era 0.45) → gana presencia
+  astroScale: 0.55, // ← equilibrado: dialoga con el beacon sin dominarlo
+  astroRotY: 0.35, // ← 3/4 (~63°) mirando hacia el centro/formulario
+  astroRotZ: 0.04, // ← inclinación lateral muy sutil
   moonY: -9.8,
-  lightX: 0.2,
-  lightY: 0.35,
-  lightZ: 0.05,
+  lightX: -1.3, // ← v7: luz cálida sigue al beacon en su nueva posición
+  lightY: 0.25, // ← v7: subida proporcionalmente
+  lightZ: 0.45,
   moonScale: 1.0,
   moonEmissive: 0.2,
   moonHaloOp: 1.0,
@@ -179,8 +234,10 @@ export function initContactScene(container, onBeaconReady) {
  let H = container.offsetHeight || window.innerHeight;
 
  const camera = new THREE.PerspectiveCamera(36, W / H, 0.1, 120);
- camera.position.set(0, 2.6, 7.2);
- camera.lookAt(0, -0.9, 0);
+ // v6: cámara más alta y mirada elevada hacia origen → el conjunto astronauta+
+ // candil cae en la mitad inferior del viewport, deja respirar HABLEMOS arriba.
+ camera.position.set(0, 3.6, 7.5);
+ camera.lookAt(0, 0.0, 0);
 
  const renderer = new THREE.WebGLRenderer({
   antialias: Q.antialias,
@@ -204,7 +261,10 @@ export function initContactScene(container, onBeaconReady) {
  fillLight.position.set(5, 2, 3);
  scene.add(ambient, rimLight, fillLight);
 
- const beaconPL = new THREE.PointLight("#ff7020", 0, 5.5, 1.6);
+ // v6: PointLight con física real de vela: decay 2 (inverse square), distance
+ // corta (las velas no iluminan lejos), color ámbar más cálido. Esto hace que
+ // la luz envuelva al astronauta y al suelo cercano, y caiga rápido a oscuro.
+ const beaconPL = new THREE.PointLight("#ff8a3d", 0, 3.0, 2.0);
  beaconPL.position.set(P.lightX, P.lightY, P.lightZ);
  scene.add(beaconPL);
 
@@ -307,18 +367,20 @@ export function initContactScene(container, onBeaconReady) {
  scene.add(moonHalo);
 
  // ── Huellas ──────────────────────────────────────────────────────────────
- // 6 huellas en arco suave desde la izquierda hasta el beacon
+ // 6 huellas en arco suave que vienen desde la derecha (más allá del beacon)
+ // hasta el astronauta en su nueva posición (X≈-1.4). Lectura narrativa:
+ // "vino caminando desde aquel horizonte, pasó junto al farol, y se sentó".
  const fpTex = makeFootprintTexture();
  const MOON_R = 9.2;
  const MOON_CY = P.moonY;
 
  const STEPS = [
-  [-1.6, 0.5],
-  [-1.35, 0.38],
-  [-1.08, 0.28],
-  [-0.82, 0.22],
-  [-0.58, 0.18],
-  [-0.35, 0.14],
+  [0.5, -0.05], // ← vienen desde el lado derecho del beacon
+  [0.05, 0.05],
+  [-0.4, 0.15],
+  [-0.85, 0.25],
+  [-1.25, 0.4],
+  [-1.6, 0.52], // ← termina justo antes del astronauta (que está en -1.85, 0.55)
  ];
 
  const footprintMeshes = [];
@@ -377,12 +439,14 @@ export function initContactScene(container, onBeaconReady) {
  ringAMesh.position.y = 0.055 + 0.075 + 1.05 - 0.12;
  ringAMesh.rotation.x = Math.PI / 2;
  beaconGroup.add(ringAMesh);
+ ringAMesh.visible = false; // ← v5: ocultos. Daban look industrial, no candil.
 
  const ringBGeo = new THREE.TorusGeometry(0.036, 0.007, 6, 16);
  const ringBMesh = new THREE.Mesh(ringBGeo, midMetal);
  ringBMesh.position.y = 0.055 + 0.075 + 1.05 + 0.015;
  ringBMesh.rotation.x = Math.PI / 2;
  beaconGroup.add(ringBMesh);
+ ringBMesh.visible = false;
 
  const lightBarGeo = new THREE.CylinderGeometry(0.022, 0.022, 0.38, 8);
  const lightBarMat = new THREE.MeshBasicMaterial({ color: "#ff7020", transparent: true, opacity: 0 });
@@ -434,7 +498,7 @@ export function initContactScene(container, onBeaconReady) {
   blending: THREE.AdditiveBlending,
  });
  const haloSpr3 = new THREE.Sprite(haloMat3);
- haloSpr3.scale.set(2.2, 2.2, 1);
+ haloSpr3.scale.set(0.9, 0.9, 1); // ← v5: bajado de 2.2 → 0.9, llama concentrada de candil
  haloSpr3.position.y = lightBarY * 0.55;
  beaconGroup.add(haloSpr3);
 
@@ -448,11 +512,12 @@ export function initContactScene(container, onBeaconReady) {
   blending: THREE.AdditiveBlending,
  });
  const groundGlowSpr = new THREE.Sprite(groundGlowMat);
- groundGlowSpr.scale.set(1.6, 0.5, 1);
+ groundGlowSpr.scale.set(0.55, 0.18, 1); // ← v5: bajado de 1.6,0.5 → mancha discreta bajo el candil
  groundGlowSpr.position.y = 0.04;
  beaconGroup.add(groundGlowSpr);
 
  beaconGroup.position.set(P.beaconX, P.beaconY, P.beaconZ);
+ beaconGroup.scale.setScalar(P.beaconScale); // ← escala el conjunto entero
  scene.add(beaconGroup);
 
  // ── Astronauta ───────────────────────────────────────────────────────────
@@ -516,26 +581,33 @@ export function initContactScene(container, onBeaconReady) {
   }
 
   if (beaconProgress > 0) {
-   const breathe =
+   // v6: flicker de vela realista — tres capas:
+   //  1. slowBreath  → respiración lenta del aire ambiente
+   //  2. midFlicker  → micro-oscilación continua (pseudo-noise via sines compuestas)
+   //  3. twitch      → ráfagas aleatorias ocasionales (cuando la llama "salta")
+   const slowBreath =
     beaconProgress >= 1
-     ? Math.sin(elapsed * P.pulseSpeed) * 0.1 + Math.sin(elapsed * P.pulseSpeed * 0.27) * 0.04 + 0.88
+     ? Math.sin(elapsed * P.pulseSpeed) * 0.08 + Math.sin(elapsed * P.pulseSpeed * 0.27) * 0.04 + 0.91
      : beaconProgress;
+   const midFlicker = beaconProgress >= 1 ? Math.sin(elapsed * 7.3 + Math.sin(elapsed * 11) * 1.5) * 0.05 : 0;
+   const twitch = beaconProgress >= 1 && Math.random() < 0.022 ? 0.55 + Math.random() * 0.4 : 1.0;
 
-   const flicker = beaconProgress >= 1 && Math.random() < 0.012 ? 0.7 + Math.random() * 0.3 : 1.0;
+   const breathe = slowBreath + midFlicker;
+   const flicker = twitch;
 
    const f = breathe * flicker;
 
    lightBarMat.opacity = f * 0.96;
    haloMat.opacity = f * 0.84;
    haloMat2.opacity = f * 0.58;
-   haloMat3.opacity = f * 0.42;
-   groundGlowMat.opacity = f * 0.5;
+   haloMat3.opacity = f * 0.22; // ← v5: bajado de 0.42 (aura más sutil)
+   groundGlowMat.opacity = f * 0.28; // ← v5: bajado de 0.5 (mancha más sutil)
    beaconPL.intensity = f * P.glowIntensity;
 
    const cs2 = 1.0 + (breathe - 0.88) * 1.8;
    const cs3 = 1.0 + (breathe - 0.88) * 0.9;
    haloSpr2.scale.set(cs2, cs2, 1);
-   haloSpr3.scale.set(2.2 * cs3, 2.2 * cs3, 1);
+   haloSpr3.scale.set(0.9 * cs3, 0.9 * cs3, 1); // ← v5: 2.2 → 0.9, respiración contenida
   }
 
   starsA.rotation.y = elapsed * P.starsDrift;

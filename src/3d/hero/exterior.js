@@ -860,7 +860,6 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
    ufoGroup.add(ufoInnerRim);
 
    ufoGroup.add(ufoRoot);
-   console.log("[UFO] Cargado —", ufoMaterials.length, "materiales");
    requestRender();
   },
   undefined,

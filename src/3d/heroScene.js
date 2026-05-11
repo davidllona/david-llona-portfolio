@@ -14,10 +14,7 @@ import { loadingManager } from "./loadingManager";
 export function initHeroScene(wrapperEl) {
  const canvas = document.querySelector("#webgl");
 
- if (!canvas) {
-  console.log("No se encontró el canvas");
-  return;
- }
+ if (!canvas) return;
 
  // ═══════════════════════════════════════════════════════════════════════
  // SCROLL PROGRESS — único punto de verdad
@@ -841,6 +838,16 @@ export function initHeroScene(wrapperEl) {
  controls.enabled = !isMobile;
  controls.target.set(responsiveState.target.x, responsiveState.target.y, responsiveState.target.z);
 
+ // ─── FIX scroll mobile ────────────────────────────────────────────────
+ // OrbitControls añade `touch-action: none` al canvas en su constructor
+ // (independientemente de controls.enabled). Eso impide que el navegador
+ // inicie scroll vertical cuando el dedo cae sobre el canvas — y como en
+ // móvil el canvas ocupa toda la ventana, equivale a "no scrollea NUNCA".
+ // `pan-y` devuelve al navegador el control del scroll vertical y deja
+ // al canvas el resto de gestos (irrelevante porque controls están
+ // deshabilitados en móvil).
+ canvas.style.touchAction = "pan-y";
+
  if (!isMobile) {
   controls.addEventListener("change", requestRender);
  }
@@ -1162,6 +1169,10 @@ export function initHeroScene(wrapperEl) {
   * =========================================================
   */
  return () => {
+  // Garantía dura: si el componente se desmonta con un cameraFocus
+  // activo, el body había quedado con overflow:hidden. Liberamos.
+  document.body.style.overflow = "";
+
   // Cursor custom — limpieza solo si se creó (desktop, no touch)
   if (!isTouchDevice) {
    if (cursorRafId) cancelAnimationFrame(cursorRafId);

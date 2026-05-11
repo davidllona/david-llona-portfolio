@@ -29,7 +29,7 @@ const PROJECTS = [
   tags: ["3D Web", "Configurador", "E-commerce"],
   color: "#c97a36",
   images: ["/images/projects/configurador-alfombras.png"],
-  link: "https://temyplast.com",
+  link: "https://adrabadev.com/configurador-alfombras/",
  },
  {
   id: 1,
@@ -41,7 +41,7 @@ const PROJECTS = [
   tags: ["Three.js", "Procedural", "Plantillas"],
   color: "#5b8cff",
   images: ["/images/projects/diploma3d.png"],
-  link: null,
+  link: "https://diplomaspersonalizados.com/configurador-de-diplomas/",
  },
  {
   id: 2,
@@ -53,7 +53,7 @@ const PROJECTS = [
   tags: ["Three.js", "Narrativa", "Cinemático"],
   color: "#ff6b4a",
   images: ["/images/projects/portfolio.png"],
-  link: null,
+  link: "https://www.davidllona.com/",
  },
  {
   id: 3,
@@ -65,15 +65,23 @@ const PROJECTS = [
   tags: ["React", "Node.js", "MySQL"],
   color: "#12c4a3",
   images: ["/images/projects/aio.png"],
-  link: null,
+  link: "https://adrabadev.com/app-aio/",
  },
 ];
 
 // ── Scroll layout ──────────────────────────────────────────
-const SCROLL_P_START = 0.14;
-const SCROLL_P_SPAN = 0.19;
-const SCROLL_CAM_START = 0.04;
-const SCROLL_CAM_END = 0.13;
+// Cálculo del reparto (wrapper = 650vh → sH = 6.5):
+//   · Sticky efectivo termina en sNorm = 5.5/6.5 ≈ 0.846
+//   · Reserva final de ~0.10 para "respirar" tras el último proyecto
+//   · Usable real: 0.10 → 0.74 → 4 proyectos × 0.16 cada uno
+//
+// Antes (550vh + START 0.14 + SPAN 0.19) el proyecto 3 entraba en
+// 0.71 y la sticky moría en 0.818 → solo 0.10 de span efectivo,
+// la mitad que los demás. Por eso "pasaba directo".
+const SCROLL_P_START = 0.1;
+const SCROLL_P_SPAN = 0.16;
+const SCROLL_CAM_START = 0.03;
+const SCROLL_CAM_END = 0.1;
 
 // Nota: los antiguos CAM_ENTRY_START / ENTRY_*_DUR ahora viven dentro
 // de initProjectsScene como cameraParamsP.entryStart y entryParams.*
@@ -201,6 +209,13 @@ export function initProjectsScene(canvas) {
   // Imágenes
   images: [],
   imagesLoaded: [],
+
+  // ── Sistema de click en el link ──────────────────────
+  // Bbox actualizado por drawData cada frame que hay link visible.
+  // Coordenadas en el espacio del canvas 2D (TEX_W × TEX_H). Si es
+  // null no hay nada clickable (boot, transición, proyecto sin link).
+  activeLinkBounds: null,
+  linkHover: false,
  };
 
  // ── Precarga ────────────────────────────────────────────
@@ -944,11 +959,41 @@ export function initProjectsScene(canvas) {
   ctx.fillRect(SX, footerY - 14, TEX_W - SX * 2, 1);
 
   if (p.link) {
+   // Display limpio sin protocolo — más legible y libera espacio
+   // para que no choque con el watermark "0X" en links largos.
+   const displayLink = p.link.replace(/^https?:\/\//, "");
+
    ctx.font = `${footerSize}px ${FM}`;
-   ctx.fillStyle = h2r(C.cyan, fade * T.footerOpacity);
+
+   // Hover → texto blanco brillante + subrayado fino cyan.
+   // Cambio mínimo pero suficiente para señalar afordancia
+   // sin romper la estética CRT (nada de glows agresivos).
+   const hovered = screen.linkHover;
+   const linkAlpha = fade * T.footerOpacity;
+
+   ctx.fillStyle = h2r(hovered ? C.white : C.cyan, linkAlpha);
    ctx.fillText("▶", SX, footerY);
-   ctx.fillText(p.link, SX + 18, footerY);
+
+   ctx.fillStyle = h2r(hovered ? C.white : C.cyan, linkAlpha);
+   ctx.fillText(displayLink, SX + 18, footerY);
+
+   const linkW = ctx.measureText(displayLink).width;
+
+   if (hovered) {
+    ctx.fillStyle = h2r(C.cyan, fade * 0.85);
+    ctx.fillRect(SX + 18, footerY + 4, linkW, 1);
+   }
+
+   // Registrar bbox clickable (padding generoso vertical para
+   // que el target sea cómodo, sobre todo en mobile/tap).
+   screen.activeLinkBounds = {
+    x: SX - 2,
+    y: footerY - footerSize - 2,
+    w: 18 + linkW + 6,
+    h: footerSize + 10,
+   };
   } else {
+   screen.activeLinkBounds = null;
    ctx.font = `${Math.max(9, footerSize - 1)}px ${FM}`;
    ctx.fillStyle = h2r(C.dim2, fade * T.footerOpacity * 0.94);
    ctx.fillText("ARCHIVO  ·  AÚN NO DESPLEGADO", SX, footerY);
@@ -963,6 +1008,11 @@ export function initProjectsScene(canvas) {
 
  // ── Render principal ─────────────────────────────────────
  function renderScreen(elapsed, scrollNorm) {
+  // Reset cada frame: solo drawData en fase reveal/done lo
+  // volverá a setear si efectivamente hay link visible.
+  // Evita que el bbox quede "fantasma" durante boot/transiciones.
+  screen.activeLinkBounds = null;
+
   const proj = screen.activeProject;
   const projColor = proj >= 0 ? PROJECTS[proj].color : null;
 
@@ -1071,6 +1121,89 @@ export function initProjectsScene(canvas) {
  window.addEventListener("resize", onResize, { passive: true });
 
  // ══════════════════════════════════════════════════════
+ // INTERACCIÓN — Click sobre el link del CRT
+ // ══════════════════════════════════════════════════════
+ //
+ // El link se dibuja dentro del canvas 2D que es textura del
+ // scMesh. Para detectarlo:
+ //   1. Raycast desde la cámara al puntero
+ //   2. Si golpea scMesh, leer la UV del impacto
+ //   3. Convertir UV → píxel del canvas 2D (TEX_W × TEX_H)
+ //   4. Comparar contra screen.activeLinkBounds
+ //
+ // El bbox lo registra drawData en cada frame con link visible,
+ // así la zona clickable acompaña automáticamente al texto aunque
+ // cambie de tamaño (responsive) o de proyecto.
+ const raycaster = new THREE.Raycaster();
+ const ndcPointer = new THREE.Vector2();
+
+ function updateHoverFromPointer(clientX, clientY) {
+  const bounds = screen.activeLinkBounds;
+  if (!bounds) {
+   if (screen.linkHover) {
+    screen.linkHover = false;
+    canvas.style.cursor = "";
+    requestRender();
+   }
+   return false;
+  }
+
+  const rect = canvas.getBoundingClientRect();
+  ndcPointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  ndcPointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(ndcPointer, camera);
+  const hits = raycaster.intersectObject(scMesh);
+
+  let inside = false;
+  if (hits.length > 0 && hits[0].uv) {
+   const uv = hits[0].uv;
+   const px = uv.x * TEX_W;
+   const py = (1 - uv.y) * TEX_H; // canvas 2D crece hacia abajo
+   inside = px >= bounds.x && px <= bounds.x + bounds.w && py >= bounds.y && py <= bounds.y + bounds.h;
+  }
+
+  if (inside !== screen.linkHover) {
+   screen.linkHover = inside;
+   canvas.style.cursor = inside ? "pointer" : "";
+   requestRender();
+  }
+  return inside;
+ }
+
+ const onPointerMove = (e) => updateHoverFromPointer(e.clientX, e.clientY);
+
+ const onPointerLeave = () => {
+  if (screen.linkHover) {
+   screen.linkHover = false;
+   canvas.style.cursor = "";
+   requestRender();
+  }
+ };
+
+ const onCanvasClick = (e) => {
+  // Recalcular dentro del propio click → cubre el caso mobile
+  // donde no hay pointermove previo al tap.
+  const inside = updateHoverFromPointer(e.clientX, e.clientY);
+  if (!inside) return;
+
+  const proj = screen.activeProject;
+  if (proj < 0) return;
+  const url = PROJECTS[proj].link;
+  if (!url) return;
+
+  // Solo permitir click cuando el contenido es legible
+  // (durante glitch/detect no tiene sentido y sería frustrante).
+  if (screen.entryPhase !== "done" && screen.entryPhase !== "reveal") return;
+
+  window.open(url, "_blank", "noopener,noreferrer");
+ };
+
+ canvas.addEventListener("pointermove", onPointerMove, { passive: true });
+ canvas.addEventListener("pointerleave", onPointerLeave, { passive: true });
+ canvas.addEventListener("click", onCanvasClick);
+
+ // ══════════════════════════════════════════════════════
  // RENDER LOOP
  // ══════════════════════════════════════════════════════
  const clock = new THREE.Clock();
@@ -1097,9 +1230,11 @@ export function initProjectsScene(canvas) {
   lastElapsed = elapsed;
 
   // ── Scroll normalizado ──────────────────────────────
+  // sH = 6.5 → coincide con el wrapper "650vh" del JSX.
+  // No tocar uno sin tocar el otro: rompe el reparto del scroll.
   const sEl = canvas.closest("[data-projects-section]") || canvas.parentElement?.parentElement;
   const sTop = sEl ? sEl.getBoundingClientRect().top + window.scrollY : 0;
-  const sH = sizes.height * 5.5;
+  const sH = sizes.height * 6.5;
   const sNorm = Math.min(1, Math.max(0, (scrollY - sTop) / sH));
 
   // ── Boot ─────────────────────────────────────────────
@@ -1309,6 +1444,10 @@ export function initProjectsScene(canvas) {
   window.removeEventListener("scroll", onScroll);
   window.removeEventListener("resize", onResize);
   document.removeEventListener("visibilitychange", onVis);
+  canvas.removeEventListener("pointermove", onPointerMove);
+  canvas.removeEventListener("pointerleave", onPointerLeave);
+  canvas.removeEventListener("click", onCanvasClick);
+  canvas.style.cursor = "";
   obs.disconnect();
   if (animFrameId) cancelAnimationFrame(animFrameId);
 

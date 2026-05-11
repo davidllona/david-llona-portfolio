@@ -24,7 +24,7 @@ import { BackgroundStars } from "../3d/ConstellationScene";
 const EMAIL = "hello@davidllona.com";
 
 const LINKS = [
- { label: "LinkedIn", href: "https://linkedin.com/in/davidllona", Icon: IconLinkedIn },
+ { label: "LinkedIn", href: "https://es.linkedin.com/in/david-llona-martin-a5478a1b8", Icon: IconLinkedIn },
  { label: "GitHub", href: "https://github.com/davidllona", Icon: IconGithub },
  { label: "Email", href: `mailto:${EMAIL}`, Icon: IconEmail },
 ];

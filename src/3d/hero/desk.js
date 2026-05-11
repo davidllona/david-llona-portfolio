@@ -756,8 +756,10 @@ export function buildDesk({ scene, requestRender, onDeskReady }) {
  // ════════════════════════════════════════════════════════════════════════
  // SWAP DE TEXTURA — sustituye el wallpaper original del GLB por el canvas
  // ════════════════════════════════════════════════════════════════════════
- // Opcional: si tras ver el console.log quieres forzar una mesh concreta.
- const MONITOR_SCREEN_MESH_NAME = null; // ej: "Screen" o null
+ // Override opcional: si necesitas forzar una mesh concreta como pantalla,
+ // pon aquí su nombre (ej: "Screen"). Por defecto la detección automática
+ // por textura + área funciona.
+ const MONITOR_SCREEN_MESH_NAME = null;
 
  /**
   * Detecta la mesh "pantalla" y hace SWAP del map del material existente.
@@ -768,7 +770,6 @@ export function buildDesk({ scene, requestRender, onDeskReady }) {
   */
  function applyMonitorScreenContent(root, kind) {
   if (!root) return;
-  const meshLog = [];
   let screenMesh = null;
   let maxArea = -1;
 
@@ -784,8 +785,6 @@ export function buildDesk({ scene, requestRender, onDeskReady }) {
    const mats = Array.isArray(child.material) ? child.material : [child.material];
    const hasMap = mats.some((m) => m && (m.map || m.emissiveMap));
 
-   meshLog.push({ name: child.name, sx: +sx.toFixed(3), sy: +sy.toFixed(3), sz: +sz.toFixed(3), hasMap });
-
    if (MONITOR_SCREEN_MESH_NAME && child.name === MONITOR_SCREEN_MESH_NAME) {
     screenMesh = child;
     return;
@@ -800,8 +799,6 @@ export function buildDesk({ scene, requestRender, onDeskReady }) {
    }
   });
 
-  console.log(`[monitor:${kind}] meshes:`, meshLog);
-  console.log(`[monitor:${kind}] screen →`, screenMesh?.name ?? "(ninguna)");
   if (!screenMesh) return;
 
   // Fabricamos la textura de contenido
