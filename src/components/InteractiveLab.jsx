@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { initLabStarsScene, initMainWaterPreview } from "../3d/labStarsScene";
 
+// Vídeos alojados en GitHub Releases para no inflar el repo.
+// Si subes a una nueva versión de assets, cambia el tag al final de la URL.
+const ASSETS_BASE =
+  "https://github.com/davidllona/david-llona-portfolio/releases/download/assets-v1";
+
 const mainProject = {
  id: "A1",
  title: "Agua con shaders",
@@ -19,7 +24,7 @@ const secondaryProjects = [
    "Sistema de partículas y profundidad espacial para construir atmósferas más inmersivas, con más escala y mayor profundidad visual.",
   type: "Partículas / Sensación shader",
   url: "https://galaxy-three-js-puce.vercel.app/",
-  videoMp4: "/videos/proyecto-galaxia.mp4",
+  videoMp4: `${ASSETS_BASE}/proyecto-galaxia.mp4`,
   badge: "Preview vídeo",
   fallbackLabel: "Preview galáctica",
  },
@@ -30,7 +35,7 @@ const secondaryProjects = [
    "Pieza experimental centrada en rotación, inspección y lectura del volumen en tiempo real dentro de una interfaz más tangible.",
   type: "Interacción en tiempo real",
   url: "https://threejs-hdr-lighting-lab.vercel.app/",
-  videoMp4: "/videos/proyecto-objeto-interactivo.mp4",
+  videoMp4: `${ASSETS_BASE}/proyecto-objeto-interactivo.mp4`,
   badge: "Preview vídeo",
   fallbackLabel: "Preview 3D",
  },
