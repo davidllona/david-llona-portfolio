@@ -17,40 +17,6 @@ export function Hero() {
  useEffect(() => {
   const cleanup = initHeroScene(wrapperRef.current);
 
-  // ── DEFENSA EN PROFUNDIDAD: contexto WebGL perdido ────────────────
-  // Aunque la orquestación de App.jsx (Hero solo se monta tras LoadingDoor)
-  // ya elimina la causa principal de context loss en móvil, mantenemos
-  // estos handlers como red de seguridad. Si por cualquier motivo el
-  // navegador decide matar el contexto WebGL (poca memoria, segunda
-  // pestaña pesada, cambio de GPU, etc), al menos:
-  //   1) Prevenimos el comportamiento por defecto (canvas en negro).
-  //   2) Logueamos para tener traza.
-  //   3) Si el contexto se restaura, pedimos un re-render.
-  //
-  // Sin esto, una pérdida de contexto deja el canvas mudo sin error
-  // visible — exactamente el bug del "sad face" que tuvimos.
-  const canvasEl = document.querySelector("#webgl");
-  let onContextLost = null;
-  let onContextRestored = null;
-  if (canvasEl) {
-   onContextLost = (e) => {
-    // preventDefault() le dice al navegador que vamos a manejar la
-    // pérdida — necesario para que el evento 'webglcontextrestored'
-    // pueda dispararse después.
-    e.preventDefault();
-    console.warn("[Hero] WebGL context lost — esperando restauración…");
-   };
-   onContextRestored = () => {
-    console.warn("[Hero] WebGL context restaurado");
-    // Forzamos un repaint: el render loop interno está controlado por
-    // requestRender() dentro de heroScene, así que un resize sintético
-    // lo despierta sin acoplarnos a su API.
-    window.dispatchEvent(new Event("resize"));
-   };
-   canvasEl.addEventListener("webglcontextlost", onContextLost, false);
-   canvasEl.addEventListener("webglcontextrestored", onContextRestored, false);
-  }
-
   const onScroll = () => {
    if (!hintRef.current || !wrapperRef.current) return;
 
@@ -83,12 +49,6 @@ export function Hero() {
 
   return () => {
    window.removeEventListener("scroll", onScroll);
-   if (canvasEl && onContextLost) {
-    canvasEl.removeEventListener("webglcontextlost", onContextLost);
-   }
-   if (canvasEl && onContextRestored) {
-    canvasEl.removeEventListener("webglcontextrestored", onContextRestored);
-   }
    if (cleanup) cleanup();
   };
  }, []);

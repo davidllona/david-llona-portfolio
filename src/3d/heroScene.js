@@ -131,15 +131,24 @@ export function initHeroScene(wrapperEl) {
   let cursorIdle = false;
 
   // ── Tick: declarado como function (hoisted) → sin TDZ ────────────────
+  // Factores de lerp calibrados:
+  //   - Aro: 0.45 → mantiene un leve retraso orgánico (~80 ms a 60 fps),
+  //     suficiente para que se sienta "con alma" sin que parezca lag.
+  //   - Punto: 0.85 → prácticamente pegado al cursor real, imperceptible.
+  //
+  // Valores anteriores (0.22 / 0.55) daban una estela de ~5 frames que
+  // se percibía como lag de input — peor pecado UX. La sensación
+  // "cinematográfica" pedida vive en el aro; el punto debe sentirse
+  // 1:1 con el ratón.
   function cursorTick() {
-   // Aro — lerp medio
-   cursorRingX += (cursorMouseX - cursorRingX) * 0.22;
-   cursorRingY += (cursorMouseY - cursorRingY) * 0.22;
+   // Aro — lerp con leve retraso orgánico
+   cursorRingX += (cursorMouseX - cursorRingX) * 0.45;
+   cursorRingY += (cursorMouseY - cursorRingY) * 0.45;
    cursorRing.style.transform = `translate3d(${cursorRingX}px, ${cursorRingY}px, 0) translate(-50%, -50%)`;
 
-   // Punto — casi exacto
-   cursorDotX += (cursorMouseX - cursorDotX) * 0.55;
-   cursorDotY += (cursorMouseY - cursorDotY) * 0.55;
+   // Punto — casi 1:1 con el cursor real
+   cursorDotX += (cursorMouseX - cursorDotX) * 0.85;
+   cursorDotY += (cursorMouseY - cursorDotY) * 0.85;
    cursorDot.style.transform = `translate3d(${cursorDotX}px, ${cursorDotY}px, 0) translate(-50%, -50%)`;
 
    // Bail si todo está dentro de medio píxel del target — no hay
