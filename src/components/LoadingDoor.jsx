@@ -53,8 +53,23 @@ function makeEmberTexture() {
 }
 
 export function LoadingDoor() {
+  // ── Refs ───────────────────────────────────────────────────────────
+  // wrapperRef: el div externo. El canvas se crea/destruye con JS dentro
+  //             del wrapper en cada montaje, NO con una ref de React.
+  //
+  // ¿Por qué crear el canvas con JS y no con <canvas ref={...} />?
+  //   React StrictMode (modo dev) monta y desmonta cada componente DOS
+  //   veces seguidas para detectar bugs de cleanup. Si el canvas es una
+  //   ref de React, se reutiliza la MISMA instancia DOM en los dos
+  //   montajes. El primer cleanup llama a renderer.forceContextLoss(),
+  //   que marca el contexto WebGL del canvas como "perdido para siempre".
+  //   El segundo montaje intenta crear un WebGLRenderer sobre ese canvas
+  //   muerto → null context → "Cannot read properties of null".
+  //
+  //   Creando el canvas con JS, cada montaje tiene SU canvas nuevo,
+  //   limpio, sin baggage de un cleanup previo. Cuando React desmonta
+  //   el componente de verdad, el canvas se elimina junto al wrapper.
   const wrapperRef = useRef(null);
-  const canvasRef = useRef(null);
   const stateRef = useRef({});
   const [pct, setPct] = useState(0);
   const [hidden, setHidden] = useState(false);
@@ -62,8 +77,14 @@ export function LoadingDoor() {
 
   // ─── Setup Three.js ─────────────────────────────────────────────
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    // ── Canvas creado dinámicamente — ver explicación arriba ──────
+    const canvas = document.createElement("canvas");
+    canvas.className = "loading-glyph__canvas";
+    // Insertar como primer hijo del wrapper para que quede detrás del HUD
+    wrapper.insertBefore(canvas, wrapper.firstChild);
 
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -86,7 +107,12 @@ export function LoadingDoor() {
       powerPreference: "high-performance",
     });
     renderer.setSize(w, h);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // En móvil bajamos el pixelRatio máximo a 1.5 — el LoadingDoor coexiste
+    // unos segundos con el Hero antes de desmontarse, y mantener dos canvas
+    // a pixelRatio 2 en móviles modestos satura la VRAM (provoca el "sad
+    // face" / context lost que mata el WebGL del Hero).
+    const isMobile = window.innerWidth < 768;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
@@ -340,7 +366,33 @@ export function LoadingDoor() {
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", onResize);
       disposables.forEach((d) => d.dispose && d.dispose());
+
+      // ── Liberar contexto WebGL inmediatamente ──────────────────────
+      // dispose() solo borra recursos GPU pero NO libera el contexto.
+      // En móvil el contexto vive hasta que el GC lo recoja (segundos),
+      // y mientras tanto cuenta contra el límite de contextos del
+      // navegador. Si el Hero ya está montando su propio canvas, hay
+      // dos contextos compitiendo → Chrome mata uno → "sad face".
+      //
+      // forceContextLoss() es la única forma fiable de liberar ya.
+      // Nota: como ahora cada montaje tiene SU canvas nuevo (creado
+      // arriba con createElement), esto NO afecta a futuros montajes
+      // — el problema del StrictMode con canvas reciclado está
+      // eliminado de raíz.
+      try {
+        renderer.forceContextLoss();
+      } catch {
+        // Navegadores muy viejos pueden no exponer forceContextLoss.
+      }
       renderer.dispose();
+
+      // Eliminar el canvas del DOM. React eliminará el wrapper en sí,
+      // pero el canvas lo creamos nosotros con createElement así que
+      // somos responsables de quitarlo (sobre todo en StrictMode, donde
+      // el wrapper SOBREVIVE entre los dos montajes consecutivos).
+      if (canvas.parentNode) {
+        canvas.parentNode.removeChild(canvas);
+      }
     };
   }, []);
 
@@ -401,7 +453,9 @@ export function LoadingDoor() {
 
   return (
     <div ref={wrapperRef} className="loading-glyph" aria-hidden="true">
-      <canvas ref={canvasRef} className="loading-glyph__canvas" />
+      {/* El <canvas> se inserta dinámicamente aquí desde el useEffect.
+          NO usamos <canvas ref={...} /> a propósito — ver explicación
+          al inicio del componente sobre StrictMode + WebGL. */}
 
       {/* Marca discreta top-left — referencia tipográfica */}
       <div
