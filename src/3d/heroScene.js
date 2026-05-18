@@ -955,19 +955,33 @@ export function initHeroScene(wrapperEl) {
 
  /**
   * =========================================================
-  * RESIZE — robusto en móvil (visualViewport + kick inicial)
+  * RESIZE — versión segura para móvil
   * =========================================================
   *
-  * En móvil, `window.innerHeight` no es fiable al primer render: la barra
-  * de URL está extendida y colapsa con el primer scroll. Eso hacía que el
-  * canvas se midiera con una altura "fantasma" y la composición saliera
-  * descolocada hasta que el usuario scrolleaba (entonces se disparaba
-  * onResize y todo se arreglaba "solo").
+  * Lecciones aprendidas (importante no repetirlas):
   *
-  * Solución en 3 capas, sin tocar la cinematografía:
-  *   1) window.resize          → desktop + cambios bruscos
-  *   2) visualViewport.resize  → iOS/Android cuando colapsa la URL bar
-  *   3) Kick diferido tras montar → fuerza la primera medición correcta
+  * 1) NO escuchar `visualViewport.resize`: en móvil la barra de URL no
+  *    colapsa de golpe sino progresivamente durante el scroll. Eso dispara
+  *    el evento decenas de veces por segundo, y cada uno provoca un
+  *    `renderer.setSize()` (reasignación de framebuffers + viewports), que
+  *    es carísimo y termina matando el WebGL por presión de memoria —
+  *    Chrome muestra el "sad face" tab crashed.
+  *
+  * 2) NO hacer un kick de resize justo tras el mount: los GLBs aún están
+  *    cargando en la GPU y forzar otro render mientras compiten por VRAM
+  *    provoca context loss en móviles modestos.
+  *
+  * 3) NO encadenar dobles requestAnimationFrame + setTimeout(250) llamando
+  *    a applyResize: cada llamada rebuildea keyframes y reaplica layout —
+  *    coste innecesario y suma al pico de carga inicial.
+  *
+  * Solución conservadora:
+  *   - window.resize  → cubre orientación, redimensionado real, y desktop.
+  *     (Sí, también se dispara en orientationchange en navegadores modernos;
+  *     no hace falta escuchar `orientationchange` por separado.)
+  *   - Un único kick suave a ~120ms tras el mount: solo recalcula el
+  *     scrollProgress (no toca renderer ni keyframes), suficiente para
+  *     arreglar el caso del "se ve mal hasta scrollear" sin riesgo.
   */
  const applyResize = () => {
   sizes.width = window.innerWidth;
@@ -986,35 +1000,21 @@ export function initHeroScene(wrapperEl) {
 
  const onResize = () => {
   clearTimeout(resizeTimeout);
-  resizeTimeout = setTimeout(applyResize, 80);
+  resizeTimeout = setTimeout(applyResize, 100);
  };
 
  window.addEventListener("scroll", onScroll, { passive: true });
  window.addEventListener("resize", onResize, { passive: true });
- window.addEventListener("orientationchange", onResize, { passive: true });
 
- // ── visualViewport: el único evento fiable en iOS para el colapso de
- //    la URL bar. Si el navegador no lo soporta, no pasa nada — el
- //    onResize + el kick inicial siguen cubriendo el caso.
- let onVisualViewportResize = null;
- if (window.visualViewport) {
-  onVisualViewportResize = onResize;
-  window.visualViewport.addEventListener("resize", onVisualViewportResize, { passive: true });
- }
-
- // ── Kick inicial: dos rAF + un timeout corto garantizan que el layout
- //    de React/CSS ya está pintado y el viewport del móvil estabilizado.
- //    Sin esto, el primer render usa medidas "fantasma" del viewport
- //    inicial (URL bar extendida) y la escena sale descuadrada hasta
- //    que el usuario scrollea.
- requestAnimationFrame(() => {
-  requestAnimationFrame(() => {
-   applyResize();
-   // Segundo kick a 250ms — por si el navegador móvil aún reajusta
-   // chrome/URL bar después del primer paint.
-   setTimeout(applyResize, 250);
-  });
- });
+ // ── Kick suave inicial — SIN tocar renderer ni rebuildear keyframes.
+ //    Solo recalcula el scrollProgress una vez el layout de React/CSS
+ //    se ha estabilizado (~120ms tras el mount). Esto cubre el caso del
+ //    "el header se ve raro hasta que scrolleas" sin riesgo de matar
+ //    el WebGL por presión de memoria en móviles modestos.
+ setTimeout(() => {
+  cachedScrollProgress = computeScrollProgress();
+  requestRender();
+ }, 120);
 
  /**
   * =========================================================
@@ -1227,10 +1227,6 @@ export function initHeroScene(wrapperEl) {
   // Listeners de pointermove / pointerdown / keydown del poster los quita room.dispose()
   canvas.style.cursor = "";
   window.removeEventListener("resize", onResize);
-  window.removeEventListener("orientationchange", onResize);
-  if (window.visualViewport && onVisualViewportResize) {
-   window.visualViewport.removeEventListener("resize", onVisualViewportResize);
-  }
   document.removeEventListener("visibilitychange", onVisibilityChange);
 
   if (controls.enabled) {
