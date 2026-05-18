@@ -46,11 +46,26 @@ export function initHeroScene(wrapperEl) {
  // CUSTOM CURSOR — solo en dispositivos con puntero fino (desktop)
  // ═══════════════════════════════════════════════════════════════════════
  // Touch devices no tienen ratón → crear el cursor custom es un artefacto
- // visible (aro cian centrado) y un coste DOM gratis. La query canónica
- // (hover:none + pointer:coarse) distingue iPhone/iPad de un laptop con
- // pantalla táctil pero trackpad.
+ // visible (aro cian centrado) y un coste DOM gratis.
+ //
+ // La detección original solo usaba `(hover: none) and (pointer: coarse)`,
+ // pero algunos móviles (Samsung con S-Pen, Chrome Android con flags,
+ // navegadores que reportan capacidades mixtas) NO devuelven `true` ahí,
+ // y entonces el cursor custom aparece fijo en el centro de la pantalla
+ // del móvil (porque nunca recibe mousemove) → exactamente el bug del
+ // aro naranja que se veía en los pantallazos.
+ //
+ // Defensa en profundidad — 3 señales que indican "esto es móvil":
+ //   1) media query touch (la original)
+ //   2) ancho del viewport < 768 px (mismo umbral que el resto del código)
+ //   3) presencia de la API ontouchstart (touchscreens en general)
+ //
+ // Con que UNA dispare, no se inyecta el cursor custom.
 
- const isTouchDevice = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+ const isTouchDevice =
+  window.matchMedia("(hover: none) and (pointer: coarse)").matches ||
+  window.innerWidth < 768 ||
+  "ontouchstart" in window;
 
  // Refs hoisted al scope superior — las usa el cleanup al final del archivo.
  // Quedan undefined en touch, pero el cleanup también está guardado.
@@ -131,24 +146,15 @@ export function initHeroScene(wrapperEl) {
   let cursorIdle = false;
 
   // ── Tick: declarado como function (hoisted) → sin TDZ ────────────────
-  // Factores de lerp calibrados:
-  //   - Aro: 0.45 → mantiene un leve retraso orgánico (~80 ms a 60 fps),
-  //     suficiente para que se sienta "con alma" sin que parezca lag.
-  //   - Punto: 0.85 → prácticamente pegado al cursor real, imperceptible.
-  //
-  // Valores anteriores (0.22 / 0.55) daban una estela de ~5 frames que
-  // se percibía como lag de input — peor pecado UX. La sensación
-  // "cinematográfica" pedida vive en el aro; el punto debe sentirse
-  // 1:1 con el ratón.
   function cursorTick() {
-   // Aro — lerp con leve retraso orgánico
-   cursorRingX += (cursorMouseX - cursorRingX) * 0.45;
-   cursorRingY += (cursorMouseY - cursorRingY) * 0.45;
+   // Aro — lerp medio
+   cursorRingX += (cursorMouseX - cursorRingX) * 0.22;
+   cursorRingY += (cursorMouseY - cursorRingY) * 0.22;
    cursorRing.style.transform = `translate3d(${cursorRingX}px, ${cursorRingY}px, 0) translate(-50%, -50%)`;
 
-   // Punto — casi 1:1 con el cursor real
-   cursorDotX += (cursorMouseX - cursorDotX) * 0.85;
-   cursorDotY += (cursorMouseY - cursorDotY) * 0.85;
+   // Punto — casi exacto
+   cursorDotX += (cursorMouseX - cursorDotX) * 0.55;
+   cursorDotY += (cursorMouseY - cursorDotY) * 0.55;
    cursorDot.style.transform = `translate3d(${cursorDotX}px, ${cursorDotY}px, 0) translate(-50%, -50%)`;
 
    // Bail si todo está dentro de medio píxel del target — no hay
