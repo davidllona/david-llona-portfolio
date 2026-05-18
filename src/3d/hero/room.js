@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { loadingManager } from "../loadingManager";
 
 /**
  * room.js
@@ -10,7 +11,7 @@ import * as THREE from "three";
  *   - Sistema completo de ventana (marco + cristal + reveals + sill + glow)
  *   - Espacio detrás del cristal (estrellas internas + luna)
  *   - 11 luces que dan ambiente a la escena interior
- *   - Cuadro de pared "SIGUE CONSTRUYENDO" + manifiesto + spot dedicado
+ *   - Cuadro de pared con retrato + mini-about (click) + spot dedicado
  *   - Sistema de raycast del poster (hover + click + escape)
  *
  * Lo que NO contiene (vive aún en heroScene.js, irá a props.js en Fase 4C):
@@ -414,16 +415,21 @@ export function buildRoom({
  scene.add(rightWallFill);
 
  // ════════════════════════════════════════════════════════════════════════
- // WALL POSTER — "SIGUE CONSTRUYENDO" + manifiesto
+ // WALL POSTER — retrato (Yo.png) + mini-about al click
  // ════════════════════════════════════════════════════════════════════════
- // Póster decorativo en la pared derecha. Marco fino, imagen procedural
- // de eclipse, halo cálido detrás + spot dedicado. Motivo celeste:
- // dialoga con la luna de la ventana.
+ // Marco fino metálico + retrato tratado cinematográficamente + halo cálido
+ // detrás + spot dedicado. La viñeta cálida del retrato dialoga con el
+ // posterSpot naranja → la foto NO parece pegada, parece iluminada por la
+ // luz que ya existe en la escena.
+ //
+ // Doble estado:
+ //   - idle  → retrato (Yo.png) con viñeta cálida + nombre
+ //   - click → mini-about (nombre, rol, manifiesto, firma)
  function createWallPoster() {
   const group = new THREE.Group();
 
-  // ── HELPER: dibuja texto con tracking manual (canvas no soporta
-  // letter-spacing CSS fiable — hay que posicionar letra a letra).
+  // ── HELPER: dibuja texto con tracking manual ─────────────────────────
+  // (canvas no soporta letter-spacing CSS fiable — posicionamos letra a letra)
   const drawTrackedText = (ctx, text, cx, cy, tracking) => {
    const widths = text.split("").map((c) => ctx.measureText(c).width);
    const total = widths.reduce((a, b) => a + b, 0) + tracking * (text.length - 1);
@@ -434,176 +440,222 @@ export function buildRoom({
    }
   };
 
-  // ── 1) CANVAS DEL PÓSTER — eclipse + montañas + "SIGUE CONSTRUYENDO" ────
-  // Resolución alta (768×1024) para texto nítido al acercarse.
-  const posterCanvas = document.createElement("canvas");
-  posterCanvas.width = 768;
-  posterCanvas.height = 1024;
-  const pctx = posterCanvas.getContext("2d");
+  // ════════════════════════════════════════════════════════════════════
+  // 1) CANVAS DEL RETRATO — Yo.png + viñeta cálida + nombre inferior
+  // ════════════════════════════════════════════════════════════════════
+  // Resolución 768×1024 (mismo ratio del marco 1.04×1.34).
+  // La foto se carga async: hasta que llega, mostramos un fondo neutro
+  // con el nombre — el cuadro nunca aparece "vacío" o roto.
+  const portraitCanvas = document.createElement("canvas");
+  portraitCanvas.width = 768;
+  portraitCanvas.height = 1024;
+  const pctx = portraitCanvas.getContext("2d");
 
-  // Cielo nocturno con warm bottom
-  const sky = pctx.createLinearGradient(0, 0, 0, 1024);
-  sky.addColorStop(0, "#080b18");
-  sky.addColorStop(0.45, "#121828");
-  sky.addColorStop(0.8, "#2a1b22");
-  sky.addColorStop(1, "#170f16");
-  pctx.fillStyle = sky;
-  pctx.fillRect(0, 0, 768, 1024);
+  // ── Helper: pinta el fondo (se reutiliza al cargar la foto) ──────────
+  const paintPortraitBackground = () => {
+   const bg = pctx.createLinearGradient(0, 0, 0, 1024);
+   bg.addColorStop(0, "#070a14");
+   bg.addColorStop(0.6, "#0c1020");
+   bg.addColorStop(1, "#08080f");
+   pctx.fillStyle = bg;
+   pctx.fillRect(0, 0, 768, 1024);
+  };
 
-  // Estrellas (mitad superior)
-  for (let i = 0; i < 220; i++) {
-   const x = Math.random() * 768;
-   const y = Math.random() * 600;
-   const s = Math.random() * 2.0 + 0.4;
-   const a = Math.random() * 0.7 + 0.2;
-   pctx.fillStyle = `rgba(255,255,255,${a})`;
-   pctx.fillRect(x, y, s, s);
-  }
+  // ── Helper: pinta los overlays cinematográficos sobre la foto ────────
+  // Estos overlays son los que "casan" el retrato con el posterSpot:
+  //   - Viñeta cálida (screen) → como si la luz naranja entrara por arriba-izq
+  //   - Viñeta oscura radial → enfoca la mirada al centro, mata esquinas
+  //   - Banda inferior con nombre + tagline (pista de clickable)
+  const paintPortraitOverlays = () => {
+   // Viñeta cálida — el spot naranja "cae" sobre el retrato
+   pctx.globalCompositeOperation = "screen";
+   const warm = pctx.createRadialGradient(220, 220, 40, 384, 512, 720);
+   warm.addColorStop(0, "rgba(255,150,80,0.28)");
+   warm.addColorStop(0.4, "rgba(255,120,60,0.10)");
+   warm.addColorStop(1, "rgba(255,90,40,0)");
+   pctx.fillStyle = warm;
+   pctx.fillRect(0, 0, 768, 1024);
+   pctx.globalCompositeOperation = "source-over";
 
-  // Halo cálido detrás del eclipse
-  const cx = 384,
-   cy = 460;
-  const haloInner = pctx.createRadialGradient(cx, cy + 60, 8, cx, cy + 60, 360);
-  haloInner.addColorStop(0, "rgba(255,140,60,0.6)");
-  haloInner.addColorStop(0.3, "rgba(255,100,45,0.35)");
-  haloInner.addColorStop(1, "rgba(255,80,30,0)");
-  pctx.globalCompositeOperation = "screen";
-  pctx.fillStyle = haloInner;
-  pctx.fillRect(0, 0, 768, 1024);
-  pctx.globalCompositeOperation = "source-over";
+   // Viñeta oscura perimetral — look "cine"
+   const vignette = pctx.createRadialGradient(384, 512, 280, 384, 512, 620);
+   vignette.addColorStop(0, "rgba(0,0,0,0)");
+   vignette.addColorStop(1, "rgba(0,0,0,0.55)");
+   pctx.fillStyle = vignette;
+   pctx.fillRect(0, 0, 768, 1024);
 
-  // Anillo del eclipse
-  const ringR = 150;
-  const ringGrad = pctx.createRadialGradient(cx, cy, ringR - 12, cx, cy, ringR + 18);
-  ringGrad.addColorStop(0, "rgba(255,170,90,0)");
-  ringGrad.addColorStop(0.45, "rgba(255,215,150,1)");
-  ringGrad.addColorStop(0.7, "rgba(255,170,80,0.85)");
-  ringGrad.addColorStop(1, "rgba(255,150,70,0)");
-  pctx.fillStyle = ringGrad;
-  pctx.beginPath();
-  pctx.arc(cx, cy, ringR + 18, 0, Math.PI * 2);
-  pctx.fill();
+   // Banda inferior — degradado muy sutil, solo lo justo para legibilidad del hint
+   const stripGrad = pctx.createLinearGradient(0, 900, 0, 1024);
+   stripGrad.addColorStop(0, "rgba(0,0,0,0)");
+   stripGrad.addColorStop(1, "rgba(0,0,0,0.55)");
+   pctx.fillStyle = stripGrad;
+   pctx.fillRect(0, 900, 768, 124);
 
-  // Núcleo oscuro
-  pctx.fillStyle = "#05060b";
-  pctx.beginPath();
-  pctx.arc(cx, cy, ringR - 12, 0, Math.PI * 2);
-  pctx.fill();
+   // Hint sutil de que el cuadro es clicable — sin nombre, deja a la foto respirar
+   pctx.font = "500 20px 'Helvetica Neue', Arial, sans-serif";
+   pctx.textAlign = "left";
+   pctx.textBaseline = "alphabetic";
+   pctx.shadowColor = "rgba(255,170,90,0.45)";
+   pctx.shadowBlur = 14;
+   pctx.fillStyle = "rgba(220,205,185,0.78)";
+   drawTrackedText(pctx, "HAZ CLICK PARA CONOCERME", 384, 980, 5);
+   pctx.shadowBlur = 0;
+  };
 
-  // Montañas (dos capas)
-  pctx.fillStyle = "#0d1118";
-  pctx.beginPath();
-  pctx.moveTo(0, 800);
-  pctx.lineTo(120, 720);
-  pctx.lineTo(240, 760);
-  pctx.lineTo(360, 695);
-  pctx.lineTo(500, 750);
-  pctx.lineTo(630, 710);
-  pctx.lineTo(768, 760);
-  pctx.lineTo(768, 1024);
-  pctx.lineTo(0, 1024);
-  pctx.closePath();
-  pctx.fill();
+  // Pintado inicial (sin foto todavía) — el cuadro YA tiene presencia
+  paintPortraitBackground();
+  paintPortraitOverlays();
 
-  pctx.fillStyle = "#050709";
-  pctx.beginPath();
-  pctx.moveTo(0, 860);
-  pctx.lineTo(75, 820);
-  pctx.lineTo(165, 840);
-  pctx.lineTo(270, 770);
-  pctx.lineTo(375, 825);
-  pctx.lineTo(480, 790);
-  pctx.lineTo(600, 830);
-  pctx.lineTo(705, 800);
-  pctx.lineTo(768, 830);
-  pctx.lineTo(768, 1024);
-  pctx.lineTo(0, 1024);
-  pctx.closePath();
-  pctx.fill();
-
-  // "SIGUE CONSTRUYENDO" — font grande + tracking manual
-  // Glow detrás para legibilidad sobre las montañas
-  pctx.font = "600 40px 'Helvetica Neue', Arial, sans-serif";
-  pctx.textAlign = "left";
-  pctx.textBaseline = "alphabetic";
-  pctx.shadowColor = "rgba(255,170,90,0.55)";
-  pctx.shadowBlur = 18;
-  pctx.fillStyle = "rgba(245,232,212,0.95)";
-  drawTrackedText(pctx, "SIGUE CONSTRUYENDO", 384, 970, 7);
-  pctx.shadowBlur = 0;
-
-  const posterTex = new THREE.CanvasTexture(posterCanvas);
+  const posterTex = new THREE.CanvasTexture(portraitCanvas);
   posterTex.colorSpace = THREE.SRGBColorSpace;
   posterTex.anisotropy = 8;
   posterTex.needsUpdate = true;
 
-  // ── 2) CANVAS DEL MANIFIESTO — se muestra tras el click ────────────────
-  // Mantiene el anillo apagado + texto del manifiesto.
-  const manifCanvas = document.createElement("canvas");
-  manifCanvas.width = 768;
-  manifCanvas.height = 1024;
-  const mctx = manifCanvas.getContext("2d");
+  // ── Cargar Yo.png y repintar encima ─────────────────────────────────
+  // Usamos ImageLoader (no TextureLoader) porque queremos la <img> para
+  // poder hacer drawImage con recorte tipo "object-fit: cover".
+  // Enganchado al loadingManager → entra en la barra de carga global.
+  const photoLoader = new THREE.ImageLoader(loadingManager);
+  photoLoader.setCrossOrigin("anonymous");
+  photoLoader.load(
+   "/images/Yo.png",
+   (img) => {
+    paintPortraitBackground();
 
-  // Fondo — mismo cielo pero más sobrio, sin halo
-  const mSky = mctx.createLinearGradient(0, 0, 0, 1024);
-  mSky.addColorStop(0, "#070a14");
-  mSky.addColorStop(0.5, "#0e1422");
-  mSky.addColorStop(1, "#0a0d14");
-  mctx.fillStyle = mSky;
-  mctx.fillRect(0, 0, 768, 1024);
+    // "object-fit: cover" manual: ajusta al canvas 768×1024 sin deformar
+    const targetRatio = 768 / 1024;
+    const imgRatio = img.width / img.height;
+    let sx, sy, sw, sh;
+    if (imgRatio > targetRatio) {
+     // Imagen más ancha que el marco: recortamos lados
+     sh = img.height;
+     sw = sh * targetRatio;
+     sx = (img.width - sw) * 0.5;
+     sy = 0;
+    } else {
+     // Imagen más alta: recortamos arriba/abajo, favoreciendo la cara
+     sw = img.width;
+     sh = sw / targetRatio;
+     sx = 0;
+     // Factor 0.35 = encuadre ligeramente alto → muestra más cara que torso.
+     // Subir → baja el encuadre (más cabeza). Bajar → lo sube (más torso).
+     sy = Math.max(0, (img.height - sh) * 0.35);
+    }
+    pctx.drawImage(img, sx, sy, sw, sh, 0, 0, 768, 1024);
 
-  // Estrellas más tenues
-  for (let i = 0; i < 140; i++) {
+    // Overlays POR ENCIMA de la foto
+    paintPortraitOverlays();
+
+    posterTex.needsUpdate = true;
+    requestRender();
+   },
+   undefined,
+   () => {
+    // Fallback silencioso — el cuadro mantiene fondo + nombre
+    console.warn("[wallPoster] No se pudo cargar /images/Yo.png");
+   },
+  );
+
+  // ════════════════════════════════════════════════════════════════════
+  // 2) CANVAS DEL MINI-ABOUT — se muestra tras el click
+  // ════════════════════════════════════════════════════════════════════
+  // Mantiene el lenguaje visual del eclipse (anillo cálido en cabecera)
+  // para que NO se sienta como un cuadro diferente, sino como el mismo
+  // cuadro contando otra cosa.
+  const aboutCanvas = document.createElement("canvas");
+  aboutCanvas.width = 768;
+  aboutCanvas.height = 1024;
+  const actx = aboutCanvas.getContext("2d");
+
+  // Cielo sobrio
+  const aSky = actx.createLinearGradient(0, 0, 0, 1024);
+  aSky.addColorStop(0, "#070a14");
+  aSky.addColorStop(0.5, "#0e1422");
+  aSky.addColorStop(1, "#0a0d14");
+  actx.fillStyle = aSky;
+  actx.fillRect(0, 0, 768, 1024);
+
+  // Polvo estelar tenue
+  for (let i = 0; i < 120; i++) {
    const x = Math.random() * 768;
    const y = Math.random() * 1024;
-   const s = Math.random() * 1.3 + 0.3;
+   const s = Math.random() * 1.2 + 0.3;
    const a = Math.random() * 0.4 + 0.1;
-   mctx.fillStyle = `rgba(255,255,255,${a})`;
-   mctx.fillRect(x, y, s, s);
+   actx.fillStyle = `rgba(255,255,255,${a})`;
+   actx.fillRect(x, y, s, s);
   }
 
-  // Anillo tenue en la esquina (fantasma del eclipse)
-  const mRingGrad = mctx.createRadialGradient(cx, 180, 60, cx, 180, 110);
-  mRingGrad.addColorStop(0.5, "rgba(255,170,90,0)");
-  mRingGrad.addColorStop(0.85, "rgba(255,160,80,0.35)");
-  mRingGrad.addColorStop(1, "rgba(255,150,70,0)");
-  mctx.fillStyle = mRingGrad;
-  mctx.beginPath();
-  mctx.arc(cx, 180, 110, 0, Math.PI * 2);
-  mctx.fill();
+  // Anillo del eclipse en la cabecera — firma visual del cuadro
+  // Compacto y arriba: deja respirar todo el espacio para el texto
+  const cx = 384;
+  const aRingGrad = actx.createRadialGradient(cx, 165, 50, cx, 165, 95);
+  aRingGrad.addColorStop(0.5, "rgba(255,170,90,0)");
+  aRingGrad.addColorStop(0.85, "rgba(255,160,80,0.45)");
+  aRingGrad.addColorStop(1, "rgba(255,150,70,0)");
+  actx.fillStyle = aRingGrad;
+  actx.beginPath();
+  actx.arc(cx, 165, 95, 0, Math.PI * 2);
+  actx.fill();
 
-  // "MANIFIESTO" — encabezado sutil
-  mctx.font = "500 22px 'Helvetica Neue', Arial, sans-serif";
-  mctx.textAlign = "left";
-  mctx.fillStyle = "rgba(255,170,95,0.75)";
-  drawTrackedText(mctx, "MANIFIESTO", 384, 360, 6);
+  // Nombre grande con glow cálido
+  actx.font = "600 50px 'Helvetica Neue', Arial, sans-serif";
+  actx.textAlign = "left";
+  actx.fillStyle = "rgba(245,232,212,0.97)";
+  actx.shadowColor = "rgba(255,170,90,0.4)";
+  actx.shadowBlur = 16;
+  drawTrackedText(actx, "DAVID LLONA", 384, 360, 7);
+  actx.shadowBlur = 0;
 
-  // Cuerpo del manifiesto
-  mctx.font = "400 34px 'Helvetica Neue', Arial, sans-serif";
-  mctx.textAlign = "center";
-  mctx.fillStyle = "rgba(230,220,205,0.92)";
-  const lines = [
-   "Nada está terminado.",
-   "Cada proyecto es un ensayo",
-   "del siguiente. Cada error,",
-   "la siguiente iteración.",
-  ];
-  lines.forEach((l, i) => {
-   mctx.fillText(l, 384, 500 + i * 50);
+  // Rol — en cálido apagado, debajo del nombre
+  actx.font = "500 22px 'Helvetica Neue', Arial, sans-serif";
+  actx.fillStyle = "rgba(255,170,95,0.82)";
+  drawTrackedText(actx, "DESARROLLADOR  ·  3D  ·  WEB", 384, 405, 5);
+
+  // Separador minimalista — línea cálida bajo el rol
+  actx.fillStyle = "rgba(255,170,90,0.35)";
+  actx.fillRect(cx - 40, 425, 80, 1);
+
+  // Cuerpo — manifiesto personal en dos bloques
+  // Bloque 1: lo que hago (presente)
+  actx.font = "400 28px 'Helvetica Neue', Arial, sans-serif";
+  actx.textAlign = "center";
+  actx.fillStyle = "rgba(230,220,205,0.95)";
+  const block1 = ["Construyo experiencias web", "donde la luz, el espacio", "y el código trabajan juntos."];
+  block1.forEach((l, i) => {
+   actx.fillText(l, 384, 490 + i * 42);
   });
 
-  // Firma
-  mctx.font = "500 20px 'Helvetica Neue', Arial, sans-serif";
-  mctx.textAlign = "left";
-  mctx.fillStyle = "rgba(200,185,165,0.7)";
-  drawTrackedText(mctx, "— DAVID LLONA", 384, 860, 5);
+  // Bloque 2: manifiesto (poético, en cursiva visual con peso ligero)
+  actx.font = "italic 400 24px 'Helvetica Neue', Arial, sans-serif";
+  actx.fillStyle = "rgba(220,200,180,0.78)";
+  const block2 = ["Cada proyecto es un ensayo", "del siguiente.", "Cada error, una iteración."];
+  block2.forEach((l, i) => {
+   actx.fillText(l, 384, 680 + i * 36);
+  });
 
-  const manifestoTex = new THREE.CanvasTexture(manifCanvas);
+  // Firma — discreta, alineada a la derecha como un autógrafo
+  actx.font = "500 18px 'Helvetica Neue', Arial, sans-serif";
+  actx.textAlign = "right";
+  actx.fillStyle = "rgba(255,170,95,0.6)";
+  drawTrackedText(actx, "— D.L.", 540, 830, 4);
+
+  // Hint de cierre — justo bajo la firma, centrado.
+  // Se sube respecto al borde inferior del canvas para que NO se pise
+  // visualmente con el hint HTML "DESLIZA PARA COMENZAR" del Hero, que
+  // queda fijo al borde inferior del viewport.
+  actx.font = "500 16px 'Helvetica Neue', Arial, sans-serif";
+  actx.textAlign = "center";
+  actx.fillStyle = "rgba(200,185,165,0.55)";
+  drawTrackedText(actx, "HAZ CLICK FUERA PARA CERRAR", 384, 895, 4);
+
+  const manifestoTex = new THREE.CanvasTexture(aboutCanvas);
   manifestoTex.colorSpace = THREE.SRGBColorSpace;
   manifestoTex.anisotropy = 8;
   manifestoTex.needsUpdate = true;
 
-  // ── 3) HALO / BACKLIGHT — cálido detrás del marco ──────────────────────
+  // ════════════════════════════════════════════════════════════════════
+  // 3) HALO / BACKLIGHT — cálido detrás del marco
+  // ════════════════════════════════════════════════════════════════════
   const haloCanvas = document.createElement("canvas");
   haloCanvas.width = haloCanvas.height = 256;
   const hctx = haloCanvas.getContext("2d");
@@ -628,7 +680,9 @@ export function buildRoom({
   halo.position.z = -0.05;
   group.add(halo);
 
-  // ── 4) MARCO con PROFUNDIDAD — BoxGeometry, no Plane ───────────────────
+  // ════════════════════════════════════════════════════════════════════
+  // 4) MARCO con PROFUNDIDAD — BoxGeometry, no Plane
+  // ════════════════════════════════════════════════════════════════════
   // Las aristas laterales + superior atrapan la luz del posterSpot →
   // se ve el marco como un objeto físico, no como un color plano.
   const frameMat = new THREE.MeshStandardMaterial({
@@ -636,15 +690,16 @@ export function buildRoom({
    roughness: 0.32,
    metalness: 0.65,
    emissive: new THREE.Color("#1f1208"),
-   emissiveIntensity: 0.3, // tinte cálido residual del halo backlight
+   emissiveIntensity: 0.3,
   });
-  // Box delgado: 1.14 × 1.44 × 0.04 → aristas de 4cm que "capturan" luz
   const frameGeo = new THREE.BoxGeometry(1.14, 1.44, 0.04);
   const frame = new THREE.Mesh(frameGeo, frameMat);
   frame.position.z = 0;
   group.add(frame);
 
-  // ── 5) MOUNT INTERIOR — passe-partout entre marco y poster ─────────────
+  // ════════════════════════════════════════════════════════════════════
+  // 5) MOUNT INTERIOR — passe-partout entre marco y poster
+  // ════════════════════════════════════════════════════════════════════
   const mountMat = new THREE.MeshStandardMaterial({
    color: "#262230",
    roughness: 0.8,
@@ -654,7 +709,9 @@ export function buildRoom({
   mount.position.z = 0.021;
   group.add(mount);
 
-  // ── 6) PÓSTER — encima del mount, con emissive sutil ───────────────────
+  // ════════════════════════════════════════════════════════════════════
+  // 6) PÓSTER — encima del mount, con emissive sutil
+  // ════════════════════════════════════════════════════════════════════
   const posterMat = new THREE.MeshStandardMaterial({
    map: posterTex,
    roughness: 0.85,
@@ -668,12 +725,14 @@ export function buildRoom({
   poster.name = "wallPoster_clickable";
   group.add(poster);
 
-  // ── 7) ESTADO + UPDATE METHOD ──────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════
+  // 7) ESTADO + UPDATE METHOD
+  // ════════════════════════════════════════════════════════════════════
   // Modos:
-  //   - idle      → respiración sutil siempre activa (pista visual)
-  //   - opening   → flash + swap textura a manifiesto (~0.6s)
-  //   - open      → manifiesto visible, mantenido hasta cierre del usuario
-  //   - closing   → flash de salida + swap a poster (~0.6s)
+  //   - idle      → respiración sutil + retrato visible (Yo.png)
+  //   - opening   → flash + swap textura a mini-about (~0.55s)
+  //   - open      → mini-about visible, mantenido hasta cierre del usuario
+  //   - closing   → flash de salida + swap a retrato (~0.55s)
   const state = {
    hover: 0,
    hoverTarget: 0,
@@ -709,21 +768,16 @@ export function buildRoom({
    const e = t - state.modeStart;
 
    if (state.mode === "opening") {
+    // La textura YA se cambió en triggerOpen — aquí solo gestionamos el flash.
+    // El flash emisivo tapa el cambio visual, así que el usuario percibe una
+    // transición lumínica suave en vez de un "pop" de imagen.
     const k = Math.min(1, e / FLASH_DURATION);
     if (k < 0.36) {
-     // Ramp up del anillo (0 → 0.2s aprox)
      const k2 = k / 0.36;
      emissive = 0.2 + 1.8 * k2;
      haloOpacity = 0.35 + 0.55 * k2;
      spotBoost = 1.2 * k2;
-     if (k2 > 0.85 && state.textureShowing === "poster") {
-      posterMat.map = manifestoTex;
-      posterMat.emissiveMap = manifestoTex;
-      posterMat.needsUpdate = true;
-      state.textureShowing = "manifesto";
-     }
     } else {
-     // Bajada a estado "open" (lectura del manifiesto)
      const k2 = (k - 0.36) / 0.64;
      emissive = 2.0 - 1.55 * k2;
      haloOpacity = 0.9 - 0.5 * k2;
@@ -731,24 +785,19 @@ export function buildRoom({
     }
     if (k >= 1) state.mode = "open";
    } else if (state.mode === "open") {
-    // Mantener manifiesto legible — sin timeout, espera al usuario
-    emissive = 0.45;
-    haloOpacity = 0.4;
-    spotBoost = 0.3;
+    // Mini-about visible — mantenemos un emissive medio para que el texto
+    // se lea con presencia incluso si la habitación está oscurecida.
+    emissive = 0.55;
+    haloOpacity = 0.45;
+    spotBoost = 0.4;
    } else if (state.mode === "closing") {
+    // El swap de vuelta a la foto se hizo en triggerClose — solo flash.
     const k = Math.min(1, e / FLASH_DURATION);
     if (k < 0.36) {
-     // Flash de cierre
      const k2 = k / 0.36;
-     emissive = 0.45 + 1.55 * k2;
-     haloOpacity = 0.4 + 0.5 * k2;
-     spotBoost = 0.3 + 0.9 * k2;
-     if (k2 > 0.85 && state.textureShowing === "manifesto") {
-      posterMat.map = posterTex;
-      posterMat.emissiveMap = posterTex;
-      posterMat.needsUpdate = true;
-      state.textureShowing = "poster";
-     }
+     emissive = 0.55 + 1.45 * k2;
+     haloOpacity = 0.45 + 0.45 * k2;
+     spotBoost = 0.4 + 0.8 * k2;
     } else {
      const k2 = (k - 0.36) / 0.64;
      emissive = 2.0 - 1.8 * k2;
@@ -768,17 +817,36 @@ export function buildRoom({
    return 2.2 + spotBoost;
   };
 
+  // ── triggerOpen: SWAP INMEDIATO ─────────────────────────────────────────
+  // Cambiamos la textura aquí (no en el update) para garantizar que el
+  // mini-about se ve sí o sí en cuanto empieza la animación de cámara.
+  // El flash emisivo del update tapa la transición visualmente.
   group.userData.triggerOpen = (t) => {
    if (state.mode !== "idle") return false;
    state.mode = "opening";
    state.modeStart = t;
+   if (state.textureShowing === "poster") {
+    posterMat.map = manifestoTex;
+    posterMat.emissiveMap = manifestoTex;
+    posterMat.needsUpdate = true;
+    state.textureShowing = "manifesto";
+    requestRender();
+   }
    return true;
   };
 
+  // ── triggerClose: SWAP INMEDIATO de vuelta a la foto ────────────────────
   group.userData.triggerClose = (t) => {
    if (state.mode !== "open" && state.mode !== "opening") return false;
    state.mode = "closing";
    state.modeStart = t;
+   if (state.textureShowing === "manifesto") {
+    posterMat.map = posterTex;
+    posterMat.emissiveMap = posterTex;
+    posterMat.needsUpdate = true;
+    state.textureShowing = "poster";
+    requestRender();
+   }
    return true;
   };
 

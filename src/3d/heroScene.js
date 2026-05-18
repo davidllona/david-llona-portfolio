@@ -955,30 +955,66 @@ export function initHeroScene(wrapperEl) {
 
  /**
   * =========================================================
-  * RESIZE
+  * RESIZE — robusto en móvil (visualViewport + kick inicial)
   * =========================================================
+  *
+  * En móvil, `window.innerHeight` no es fiable al primer render: la barra
+  * de URL está extendida y colapsa con el primer scroll. Eso hacía que el
+  * canvas se midiera con una altura "fantasma" y la composición saliera
+  * descolocada hasta que el usuario scrolleaba (entonces se disparaba
+  * onResize y todo se arreglaba "solo").
+  *
+  * Solución en 3 capas, sin tocar la cinematografía:
+  *   1) window.resize          → desktop + cambios bruscos
+  *   2) visualViewport.resize  → iOS/Android cuando colapsa la URL bar
+  *   3) Kick diferido tras montar → fuerza la primera medición correcta
   */
+ const applyResize = () => {
+  sizes.width = window.innerWidth;
+  sizes.height = window.innerHeight;
+
+  const newIsMobile = window.innerWidth < 768;
+  const newPixelRatio = Math.min(window.devicePixelRatio, newIsMobile ? 1 : 1.25);
+
+  renderer.setSize(sizes.width, sizes.height);
+  renderer.setPixelRatio(newPixelRatio);
+
+  applyResponsiveLayout();
+  cachedScrollProgress = computeScrollProgress();
+  requestRender();
+ };
+
  const onResize = () => {
   clearTimeout(resizeTimeout);
-
-  resizeTimeout = setTimeout(() => {
-   sizes.width = window.innerWidth;
-   sizes.height = window.innerHeight;
-
-   const newIsMobile = window.innerWidth < 768;
-   const newPixelRatio = Math.min(window.devicePixelRatio, newIsMobile ? 1 : 1.25);
-
-   renderer.setSize(sizes.width, sizes.height);
-   renderer.setPixelRatio(newPixelRatio);
-
-   applyResponsiveLayout();
-   cachedScrollProgress = computeScrollProgress(); // ← añade esta línea
-   requestRender();
-  }, 80);
+  resizeTimeout = setTimeout(applyResize, 80);
  };
 
  window.addEventListener("scroll", onScroll, { passive: true });
  window.addEventListener("resize", onResize, { passive: true });
+ window.addEventListener("orientationchange", onResize, { passive: true });
+
+ // ── visualViewport: el único evento fiable en iOS para el colapso de
+ //    la URL bar. Si el navegador no lo soporta, no pasa nada — el
+ //    onResize + el kick inicial siguen cubriendo el caso.
+ let onVisualViewportResize = null;
+ if (window.visualViewport) {
+  onVisualViewportResize = onResize;
+  window.visualViewport.addEventListener("resize", onVisualViewportResize, { passive: true });
+ }
+
+ // ── Kick inicial: dos rAF + un timeout corto garantizan que el layout
+ //    de React/CSS ya está pintado y el viewport del móvil estabilizado.
+ //    Sin esto, el primer render usa medidas "fantasma" del viewport
+ //    inicial (URL bar extendida) y la escena sale descuadrada hasta
+ //    que el usuario scrollea.
+ requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+   applyResize();
+   // Segundo kick a 250ms — por si el navegador móvil aún reajusta
+   // chrome/URL bar después del primer paint.
+   setTimeout(applyResize, 250);
+  });
+ });
 
  /**
   * =========================================================
@@ -1191,6 +1227,10 @@ export function initHeroScene(wrapperEl) {
   // Listeners de pointermove / pointerdown / keydown del poster los quita room.dispose()
   canvas.style.cursor = "";
   window.removeEventListener("resize", onResize);
+  window.removeEventListener("orientationchange", onResize);
+  if (window.visualViewport && onVisualViewportResize) {
+   window.visualViewport.removeEventListener("resize", onVisualViewportResize);
+  }
   document.removeEventListener("visibilitychange", onVisibilityChange);
 
   if (controls.enabled) {

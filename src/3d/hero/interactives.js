@@ -506,7 +506,7 @@ export function buildDogHologram({ attachToDesk, getDeskTopSupport, requestRende
  holoLight.position.set(0, 0.4, 0);
  group.add(holoLight);
 
- // ── Update interno — respiración + scan ────────────────────────────────
+ // ── Update interno — respiración + scan + hover ────────────────────────
  // Muy sutil a propósito. Si no se llama, el holograma se ve perfectamente
  // estático también (sin estados rotos).
  const SCAN_MIN = 0.05;
@@ -518,29 +518,66 @@ export function buildDogHologram({ attachToDesk, getDeskTopSupport, requestRende
  const holoParams = {
   rotSpeed: 0.24, // 0 = estático | 0.25 = vuelta cada ~25 s | 0.5 = mareo
  };
+
+ // ── Estado de hover ─────────────────────────────────────────────────────
+ // hoverTarget: 0 ó 1 — lo dispara el listener de mousemove (más abajo).
+ // hoverLerp: valor actual suavizado [0..1] — sube/baja con lerp por frame.
+ //
+ // El boost de hover NO sustituye la respiración: se SUMA encima. Así el
+ // holograma sigue "vivo" pero al pasar el cursor "se da cuenta".
+ const hoverParams = {
+  target: 0,
+  lerp: 0,
+ };
+
  const tickInternal = (t) => {
+  // Hover lerp — converge al target con factor 0.12 por frame
+  hoverParams.lerp += (hoverParams.target - hoverParams.lerp) * 0.12;
+  const h = hoverParams.lerp; // 0 = idle, 1 = hover pleno
+
   // Respiración de opacidad — ±0.07 alrededor de 0.5. Apenas perceptible.
   const breath = Math.sin(t * 1.25) * 0.07;
-  bodyMat.opacity = 0.5 + breath;
-  wireMat.opacity = 0.42 + breath * 0.6;
 
-  // Scan: barrido vertical lento. Fade en extremos.
-  const t01 = Math.sin(t * 0.55) * 0.5 + 0.5;
+  // Cuerpo cian: idle ~0.5, hover ~0.65 (más sólido, más presente)
+  bodyMat.opacity = 0.5 + breath + h * 0.15;
+  // Wireframe: idle ~0.42, hover ~0.6 (aristas se acentúan)
+  wireMat.opacity = 0.42 + breath * 0.6 + h * 0.18;
+
+  // Scan: barrido vertical lento. En hover acelera 1.5× → comunica "atento".
+  // Y la opacidad del scan también sube un poco.
+  const scanSpeed = 0.55 * (1 + h * 0.5);
+  const t01 = Math.sin(t * scanSpeed) * 0.5 + 0.5;
   scan.position.y = SCAN_MIN + t01 * (SCAN_MAX - SCAN_MIN);
   const edgeFade = Math.sin(t01 * Math.PI);
-  scanMat.opacity = 0.25 + edgeFade * 0.3;
+  scanMat.opacity = 0.25 + edgeFade * 0.3 + h * 0.18;
 
-  // Micro flicker orgánico de la luz cian
-  holoLight.intensity = 0.7 + Math.sin(t * 2.1) * 0.04;
+  // Anillo ámbar del proyector: idle 0.55, hover 0.88 → la base se enciende
+  ringMat.opacity = 0.55 + h * 0.33;
 
-  // Rotación lenta del modelo — velocidad afinable desde el GUI
-  dogBody.rotation.y = t * holoParams.rotSpeed;
+  // Micro flicker orgánico de la luz cian + boost en hover.
+  // idle ~0.7, hover ~1.12 (luz de rebote más viva sobre la mesa)
+  holoLight.intensity = 0.7 + Math.sin(t * 2.1) * 0.04 + h * 0.42;
+
+  // Rotación lenta del modelo — velocidad afinable desde el GUI.
+  // En hover, ligero boost (1.15×) — apenas perceptible pero subliminal.
+  dogBody.rotation.y = t * holoParams.rotSpeed * (1 + h * 0.15);
+
+  // Mientras el lerp de hover no haya convergido (entrada o salida),
+  // seguimos pidiendo render. Sin esto, al sacar el cursor el holograma
+  // se quedaría en hover hasta el siguiente cambio de scroll/cámara.
+  if (Math.abs(hoverParams.target - hoverParams.lerp) > 0.001) {
+   requestRender();
+  }
  };
 
  // userData expone todo lo que el GUI puede ajustar en vivo.
  group.userData.update = tickInternal;
  group.userData.holoLight = holoLight;
  group.userData.holoParams = holoParams;
+ // Setter de hover — lo llama el listener de mousemove para activar el feedback
+ group.userData.setHover = (on) => {
+  hoverParams.target = on ? 1 : 0;
+ };
 
  // ── Posicionamiento sobre el escritorio ─────────────────────────────────
  group.scale.setScalar(1.09); // dispositivo, no escultura
@@ -615,6 +652,12 @@ export function buildDogHologram({ attachToDesk, getDeskTopSupport, requestRende
   if (hit !== isHovering) {
    isHovering = hit;
    document.body.classList.toggle("woody-hover", isHovering);
+   // Activa el feedback visual 3D del holograma (boost de opacidad / luz /
+   // scan / anillo). El lerp dentro del tick suaviza la transición.
+   group.userData.setHover(hit);
+   // Despertar el render: si la escena está idle (sin animaciones activas)
+   // el rAF no se está pidiendo; sin esto el hover no se vería.
+   requestRender();
   }
  };
 
