@@ -52,9 +52,328 @@ function makeEmberTexture() {
   return tex;
 }
 
-export function LoadingDoor() {
+// ════════════════════════════════════════════════════════════════════════
+// LoadingDoor — móvil
+// ════════════════════════════════════════════════════════════════════════
+// En móvil renderizamos una versión SIN WebGL: solo HTML + CSS.
+//
+// Diagnóstico: en GPUs ARM (Samsung Mali-G68 y similares) la VRAM total
+// es escasa y se comparte con el sistema. Tener dos WebGLRenderers vivos
+// a la vez (LoadingDoor + heroScene) supera el budget de VRAM → Android
+// mata el contexto del Hero por OOM → "WebGL CONTEXT LOST" → pantalla
+// negra eterna.
+//
+// El loader HTML conserva la misma dirección artística que la versión
+// WebGL — anillo respirando, marca tipográfica, HUD inferior — pero
+// con 0 consumo de GPU. Visualmente es coherente con la versión desktop;
+// el icosaedro 3D simplemente no aparece en móvil. Es el tipo de
+// compromiso que se hace en producción cuando los datos lo exigen.
+// ════════════════════════════════════════════════════════════════════════
+function LoadingDoorMobile() {
   const wrapperRef = useRef(null);
-  const canvasRef = useRef(null);
+  const [pct, setPct] = useState(0);
+  const [hidden, setHidden] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+
+  // Trigger de salida — misma lógica que la versión desktop
+  useEffect(() => {
+    let triggered = false;
+    const startedAt = performance.now();
+
+    const trigger = (reason) => {
+      if (triggered) return;
+      triggered = true;
+      if (reason === "timeout") setPct(1);
+
+      const elapsed = performance.now() - startedAt;
+      const wait = Math.max(0, MIN_DISPLAY_MS - elapsed) + PRE_ENTER_DELAY_MS;
+
+      setTimeout(() => {
+        setIsLeaving(true);
+        setTimeout(() => {
+          if (wrapperRef.current) wrapperRef.current.style.opacity = "0";
+          setTimeout(() => setHidden(true), FADE_OUT_MS);
+        }, 600);
+      }, wait);
+    };
+
+    const unsub = subscribeProgress((p, done) => {
+      setPct(p);
+      if (done) trigger("loaded");
+    });
+    const safetyId = setTimeout(() => trigger("timeout"), MAX_WAIT_MS);
+
+    return () => {
+      unsub();
+      clearTimeout(safetyId);
+    };
+  }, []);
+
+  // Bloqueo de scroll
+  useEffect(() => {
+    if (hidden) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [hidden]);
+
+  if (hidden) return null;
+  const pctDisplay = Math.round(pct * 100);
+
+  return (
+    <div ref={wrapperRef} className="loading-mobile" aria-hidden="true">
+      {/* Marca top-left — coherente con desktop */}
+      <div className={`loading-mobile__mark${isLeaving ? " is-fading" : ""}`}>
+        <span className="loading-mobile__mark-bullet" />
+        <span className="loading-mobile__mark-label">D / LL</span>
+      </div>
+
+      {/* Anillo central respirando — análogo HTML del icosaedro */}
+      <div className={`loading-mobile__ring-wrap${isLeaving ? " is-leaving" : ""}`}>
+        <div className="loading-mobile__ring loading-mobile__ring--outer" />
+        <div className="loading-mobile__ring loading-mobile__ring--mid" />
+        <div className="loading-mobile__ring loading-mobile__ring--inner" />
+        <div className="loading-mobile__core" />
+      </div>
+
+      {/* HUD inferior */}
+      <div className={`loading-mobile__hud${isLeaving ? " is-fading" : ""}`}>
+        <div className="loading-mobile__caption">PREPARANDO LA ESCENA</div>
+        <div className="loading-mobile__bar">
+          <div
+            className="loading-mobile__bar-fill"
+            style={{ transform: `scaleX(${pct})` }}
+          />
+        </div>
+        <div className="loading-mobile__pct">
+          {String(pctDisplay).padStart(3, "0")}
+          <span className="loading-mobile__pct-suffix">%</span>
+        </div>
+      </div>
+
+      <style>{`
+        .loading-mobile {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          background: #000;
+          opacity: 1;
+          transition: opacity ${FADE_OUT_MS}ms ease-out;
+          overflow: hidden;
+        }
+
+        /* Vignette sutil para dar profundidad */
+        .loading-mobile::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(
+            ellipse at center,
+            rgba(255, 154, 74, 0.04) 0%,
+            transparent 60%
+          );
+          pointer-events: none;
+        }
+
+        /* Marca top-left */
+        .loading-mobile__mark {
+          position: absolute;
+          top: 20px;
+          left: 22px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          z-index: 10;
+          font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', ui-monospace, monospace;
+          font-size: 9px;
+          font-weight: 500;
+          letter-spacing: 0.32em;
+          color: rgba(245, 228, 205, 0.55);
+          transition: opacity 700ms ease-out;
+        }
+        .loading-mobile__mark.is-fading { opacity: 0; }
+        .loading-mobile__mark-bullet {
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: rgba(255, 154, 74, 0.85);
+          box-shadow: 0 0 8px rgba(255, 154, 74, 0.55);
+        }
+
+        /* Anillos concéntricos centrales — sustituto del icosaedro */
+        .loading-mobile__ring-wrap {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 160px;
+          height: 160px;
+          transform: translate(-50%, -50%);
+          transition: transform 700ms cubic-bezier(0.4, 0, 0.2, 1),
+                      opacity 700ms ease-out;
+        }
+        .loading-mobile__ring-wrap.is-leaving {
+          transform: translate(-50%, -50%) scale(1.6);
+          opacity: 0;
+        }
+
+        .loading-mobile__ring {
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          border: 1px solid rgba(255, 154, 74, 0.5);
+          box-shadow:
+            0 0 24px rgba(255, 154, 74, 0.15),
+            inset 0 0 24px rgba(255, 154, 74, 0.06);
+        }
+        .loading-mobile__ring--outer {
+          animation: ring-breathe-outer 3.6s ease-in-out infinite;
+        }
+        .loading-mobile__ring--mid {
+          inset: 20px;
+          border-color: rgba(255, 175, 105, 0.35);
+          animation: ring-breathe-mid 3.6s ease-in-out infinite 0.4s;
+        }
+        .loading-mobile__ring--inner {
+          inset: 44px;
+          border-color: rgba(255, 200, 145, 0.25);
+          animation: ring-breathe-inner 3.6s ease-in-out infinite 0.8s;
+        }
+        .loading-mobile__core {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: rgba(255, 210, 150, 0.95);
+          transform: translate(-50%, -50%);
+          box-shadow:
+            0 0 18px rgba(255, 175, 100, 0.7),
+            0 0 36px rgba(255, 154, 74, 0.35);
+          animation: core-pulse 2.4s ease-in-out infinite;
+        }
+
+        @keyframes ring-breathe-outer {
+          0%, 100% { transform: scale(1);    opacity: 0.65; }
+          50%      { transform: scale(1.08); opacity: 1;    }
+        }
+        @keyframes ring-breathe-mid {
+          0%, 100% { transform: scale(1);    opacity: 0.55; }
+          50%      { transform: scale(1.12); opacity: 0.9;  }
+        }
+        @keyframes ring-breathe-inner {
+          0%, 100% { transform: scale(1);    opacity: 0.45; }
+          50%      { transform: scale(1.18); opacity: 0.85; }
+        }
+        @keyframes core-pulse {
+          0%, 100% { transform: translate(-50%, -50%) scale(1);   opacity: 0.9; }
+          50%      { transform: translate(-50%, -50%) scale(1.4); opacity: 1;   }
+        }
+
+        /* HUD inferior */
+        .loading-mobile__hud {
+          position: absolute;
+          left: 50%;
+          bottom: max(56px, env(safe-area-inset-bottom));
+          transform: translateX(-50%);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 14px;
+          z-index: 10;
+          transition: opacity 600ms ease-out;
+        }
+        .loading-mobile__hud.is-fading { opacity: 0; }
+
+        .loading-mobile__caption {
+          font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', ui-monospace, monospace;
+          font-size: 9px;
+          font-weight: 500;
+          letter-spacing: 0.32em;
+          color: rgba(235, 218, 195, 0.55);
+        }
+        .loading-mobile__bar {
+          position: relative;
+          width: 180px;
+          height: 1px;
+          background: rgba(255, 235, 210, 0.07);
+          overflow: hidden;
+        }
+        .loading-mobile__bar-fill {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg,
+            rgba(255, 160, 90, 0.85),
+            rgba(255, 210, 150, 1));
+          transform-origin: left center;
+          transform: scaleX(0);
+          transition: transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+          box-shadow: 0 0 12px rgba(255, 175, 100, 0.5);
+        }
+        .loading-mobile__pct {
+          font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', ui-monospace, monospace;
+          font-size: 10px;
+          font-weight: 500;
+          letter-spacing: 0.28em;
+          color: rgba(245, 228, 205, 0.78);
+          display: flex;
+          align-items: baseline;
+        }
+        .loading-mobile__pct-suffix {
+          font-size: 7px;
+          opacity: 0.5;
+          letter-spacing: 0.1em;
+          margin-left: 4px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .loading-mobile__ring,
+          .loading-mobile__core { animation: none; }
+          .loading-mobile__bar-fill { transition: none; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+export function LoadingDoor() {
+  // ─── Detección de móvil ─────────────────────────────────────────────
+  // ARM Mali y otras GPUs móviles de gama media no aguantan dos
+  // contextos WebGL simultáneos (LoadingDoor + heroScene) → OOM →
+  // "WebGL CONTEXT LOST" en el Hero. La solución: en móvil, el
+  // LoadingDoor NO usa WebGL. Renderiza una versión HTML/CSS pura
+  // que comparte la misma dirección artística pero a coste GPU 0.
+  //
+  // Detección con triple OR (igual que en heroScene.js) para cubrir
+  // dispositivos que no reportan correctamente todas las señales.
+  const isMobile =
+    typeof window !== "undefined" &&
+    (window.matchMedia("(hover: none) and (pointer: coarse)").matches ||
+      window.innerWidth < 768 ||
+      "ontouchstart" in window);
+
+  if (isMobile) return <LoadingDoorMobile />;
+
+  // ─── A partir de aquí: versión desktop con WebGL ────────────────────
+  // ── Refs ───────────────────────────────────────────────────────────
+  // wrapperRef: el div externo. El canvas se crea/destruye con JS dentro
+  //             del wrapper en cada montaje, NO con una ref de React.
+  //
+  // ¿Por qué crear el canvas con JS y no con <canvas ref={...} />?
+  //   React StrictMode (modo dev) monta y desmonta cada componente DOS
+  //   veces seguidas para detectar bugs de cleanup. Si el canvas es una
+  //   ref de React, se reutiliza la MISMA instancia DOM en los dos
+  //   montajes. El primer cleanup llama a renderer.forceContextLoss(),
+  //   que marca el contexto WebGL del canvas como "perdido para siempre".
+  //   El segundo montaje intenta crear un WebGLRenderer sobre ese canvas
+  //   muerto → null context → "Cannot read properties of null".
+  //
+  //   Creando el canvas con JS, cada montaje tiene SU canvas nuevo,
+  //   limpio, sin baggage de un cleanup previo. Cuando React desmonta
+  //   el componente de verdad, el canvas se elimina junto al wrapper.
+  const wrapperRef = useRef(null);
   const stateRef = useRef({});
   const [pct, setPct] = useState(0);
   const [hidden, setHidden] = useState(false);
@@ -62,8 +381,14 @@ export function LoadingDoor() {
 
   // ─── Setup Three.js ─────────────────────────────────────────────
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    // ── Canvas creado dinámicamente — ver explicación arriba ──────
+    const canvas = document.createElement("canvas");
+    canvas.className = "loading-glyph__canvas";
+    // Insertar como primer hijo del wrapper para que quede detrás del HUD
+    wrapper.insertBefore(canvas, wrapper.firstChild);
 
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -86,7 +411,12 @@ export function LoadingDoor() {
       powerPreference: "high-performance",
     });
     renderer.setSize(w, h);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // En móvil bajamos el pixelRatio máximo a 1.5 — el LoadingDoor coexiste
+    // unos segundos con el Hero antes de desmontarse, y mantener dos canvas
+    // a pixelRatio 2 en móviles modestos satura la VRAM (provoca el "sad
+    // face" / context lost que mata el WebGL del Hero).
+    const isMobile = window.innerWidth < 768;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
@@ -340,7 +670,33 @@ export function LoadingDoor() {
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", onResize);
       disposables.forEach((d) => d.dispose && d.dispose());
+
+      // ── Liberar contexto WebGL inmediatamente ──────────────────────
+      // dispose() solo borra recursos GPU pero NO libera el contexto.
+      // En móvil el contexto vive hasta que el GC lo recoja (segundos),
+      // y mientras tanto cuenta contra el límite de contextos del
+      // navegador. Si el Hero ya está montando su propio canvas, hay
+      // dos contextos compitiendo → Chrome mata uno → "sad face".
+      //
+      // forceContextLoss() es la única forma fiable de liberar ya.
+      // Nota: como ahora cada montaje tiene SU canvas nuevo (creado
+      // arriba con createElement), esto NO afecta a futuros montajes
+      // — el problema del StrictMode con canvas reciclado está
+      // eliminado de raíz.
+      try {
+        renderer.forceContextLoss();
+      } catch {
+        // Navegadores muy viejos pueden no exponer forceContextLoss.
+      }
       renderer.dispose();
+
+      // Eliminar el canvas del DOM. React eliminará el wrapper en sí,
+      // pero el canvas lo creamos nosotros con createElement así que
+      // somos responsables de quitarlo (sobre todo en StrictMode, donde
+      // el wrapper SOBREVIVE entre los dos montajes consecutivos).
+      if (canvas.parentNode) {
+        canvas.parentNode.removeChild(canvas);
+      }
     };
   }, []);
 
@@ -401,7 +757,9 @@ export function LoadingDoor() {
 
   return (
     <div ref={wrapperRef} className="loading-glyph" aria-hidden="true">
-      <canvas ref={canvasRef} className="loading-glyph__canvas" />
+      {/* El <canvas> se inserta dinámicamente aquí desde el useEffect.
+          NO usamos <canvas ref={...} /> a propósito — ver explicación
+          al inicio del componente sobre StrictMode + WebGL. */}
 
       {/* Marca discreta top-left — referencia tipográfica */}
       <div
