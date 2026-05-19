@@ -255,12 +255,34 @@ export function initHeroScene(wrapperEl) {
  const isMobile = window.innerWidth < 768;
  const isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
 
+ /**
+  * QUALITY BUDGET — calibrado tras diagnóstico de móvil
+  * ─────────────────────────────────────────────────────────────────────
+  * El bug del "WebGL CONTEXT LOST" en móviles ARM Mali (Samsung gama
+  * media) venía de saturar VRAM: muchas texturas + canvas a DPR ≥ 2 +
+  * tone mapping ACES + 180 estrellas con shader custom. La GPU móvil
+  * tiene del orden de 256-512 MB de VRAM compartidas con el sistema;
+  * al subir todo el contenido a la vez, Android nos mataba el contexto.
+  *
+  * Reducciones aplicadas SOLO en móvil:
+  *   - pixelRatio: 0.7 → renderiza al 70 % de la resolución lógica,
+  *     escala con CSS al canvas. Reduce el framebuffer en ~50 %.
+  *     A simple vista en móvil pequeño no se distingue.
+  *   - starsCount: 80 → tercio que antes; el espacio sigue lleno
+  *     porque hay 3 capas (estática + lejana + ambient).
+  *   - moonSegments: 10 → menos triángulos, esfera sigue pareciendo
+  *     redonda a tamaño móvil.
+  *
+  * Reducciones aplicadas en setup (ver más abajo):
+  *   - NoToneMapping en móvil → ahorra una pasada de fragment shader
+  *   - shadowMap ya estaba desactivado, sin cambios.
+  */
  const quality = {
   antialias: !isMobile,
-  pixelRatio: Math.min(window.devicePixelRatio, isMobile ? 1 : 1.25), // 1.5 → 1.25
-  starsCount: isMobile ? 180 : isTablet ? 350 : 550,
+  pixelRatio: isMobile ? Math.min(window.devicePixelRatio, 0.7) : Math.min(window.devicePixelRatio, 1.25),
+  starsCount: isMobile ? 80 : isTablet ? 350 : 550,
   starsSize: isMobile ? 0.014 : 0.018,
-  moonSegments: isMobile ? 14 : 20,
+  moonSegments: isMobile ? 10 : 20,
  };
 
  /**
@@ -384,16 +406,22 @@ export function initHeroScene(wrapperEl) {
  renderer.shadowMap.enabled = false;
  renderer.info.autoReset = true;
 
- // Tone mapping — por defecto ACESFilmic suave, controlable por GUI
- renderer.toneMapping = THREE.ACESFilmicToneMapping;
- renderer.toneMappingExposure = 0.88;
+ // Tone mapping
+ // ─────────────────────────────────────────────────────────────────────
+ // En desktop: ACESFilmic (look cinematográfico, cuesta una pasada de
+ // fragment shader sobre el framebuffer completo).
+ // En móvil: NoToneMapping. La GPU móvil no puede permitirse esa pasada
+ // extra encima de todo el resto; era una de las causas del context
+ // lost. El look queda algo más "plano" pero la escena se ve.
+ renderer.toneMapping = isMobile ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
+ renderer.toneMappingExposure = isMobile ? 1.0 : 0.88;
 
  // ── Params atmosféricos globales (controlable por GUI) ───────────────────
  const atmosphereParams = {
-  exposure: 0.88,
-  toneMapping: "ACESFilmic", // None | Linear | Reinhard | ACESFilmic
+  exposure: isMobile ? 1.0 : 0.88,
+  toneMapping: isMobile ? "None" : "ACESFilmic",
   backgroundColor: "#07070d",
-  vignetteOpacity: 0.88, // multiplicador sobre el fade del vignette
+  vignetteOpacity: 0.88,
   fogDensityMult: 1.0,
  };
 
@@ -403,6 +431,40 @@ export function initHeroScene(wrapperEl) {
   Reinhard: THREE.ReinhardToneMapping,
   ACESFilmic: THREE.ACESFilmicToneMapping,
  };
+
+ // ═══════════════════════════════════════════════════════════════════════
+ // WEBGL CONTEXT LOSS — handler de recuperación
+ // ═══════════════════════════════════════════════════════════════════════
+ // Diagnosticado en móvil (ARM Mali-G68): el sistema operativo puede
+ // matar el contexto WebGL por presión de VRAM. Sin handler, el canvas
+ // queda mudo (pantalla negra) sin error visible.
+ //
+ // 1) preventDefault() es OBLIGATORIO: sin él, el navegador NO disparará
+ //    'webglcontextrestored' nunca y el contexto queda muerto para siempre.
+ // 2) Al restaurarse, Three.js re-sube las texturas/buffers automáticamente
+ //    en el siguiente render(). Solo necesitamos pedirlo (requestRender
+ //    está definido más abajo; usamos un flag para evitar TDZ).
+ let _ctxLost = false;
+ canvas.addEventListener(
+  "webglcontextlost",
+  (e) => {
+   e.preventDefault();
+   _ctxLost = true;
+   console.warn("[heroScene] WebGL context LOST — esperando restauración");
+  },
+  false,
+ );
+ canvas.addEventListener(
+  "webglcontextrestored",
+  () => {
+   _ctxLost = false;
+   console.warn("[heroScene] WebGL context RESTORED");
+   // Un resize sintético dispara la lógica de resize que ya pide
+   // requestRender, sin acoplarnos a su API en este punto del archivo.
+   window.dispatchEvent(new Event("resize"));
+  },
+  false,
+ );
 
  /**
   * =========================================================
