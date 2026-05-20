@@ -69,7 +69,7 @@ function makeEmberTexture() {
 // el icosaedro 3D simplemente no aparece en móvil. Es el tipo de
 // compromiso que se hace en producción cuando los datos lo exigen.
 // ════════════════════════════════════════════════════════════════════════
-function LoadingDoorMobile() {
+function LoadingDoorMobile({ onComplete }) {
   const wrapperRef = useRef(null);
   const [pct, setPct] = useState(0);
   const [hidden, setHidden] = useState(false);
@@ -90,6 +90,12 @@ function LoadingDoorMobile() {
 
       setTimeout(() => {
         setIsLeaving(true);
+        // Notificar al gate de App.jsx para que monte el `<main>`. Lo hacemos
+        // AL INICIO del fade-out, no después de hidden=true, para que el
+        // Hero tenga ~700ms para arrancar mientras este loader se desvanece
+        // por encima. Sin este orden, el usuario vería pantalla negra
+        // durante 1-2s mientras el WebGL del Hero se inicializa de cero.
+        if (typeof onComplete === "function") onComplete();
         setTimeout(() => {
           if (wrapperRef.current) wrapperRef.current.style.opacity = "0";
           setTimeout(() => setHidden(true), FADE_OUT_MS);
@@ -107,7 +113,7 @@ function LoadingDoorMobile() {
       unsub();
       clearTimeout(safetyId);
     };
-  }, []);
+  }, [onComplete]);
 
   // Bloqueo de scroll
   useEffect(() => {
@@ -338,7 +344,7 @@ function LoadingDoorMobile() {
   );
 }
 
-export function LoadingDoor() {
+export function LoadingDoor({ onComplete }) {
   // ─── Detección de móvil ─────────────────────────────────────────────
   // ARM Mali y otras GPUs móviles de gama media no aguantan dos
   // contextos WebGL simultáneos (LoadingDoor + heroScene) → OOM →
@@ -354,7 +360,7 @@ export function LoadingDoor() {
       window.innerWidth < 768 ||
       "ontouchstart" in window);
 
-  if (isMobile) return <LoadingDoorMobile />;
+  if (isMobile) return <LoadingDoorMobile onComplete={onComplete} />;
 
   // ─── A partir de aquí: versión desktop con WebGL ────────────────────
   // ── Refs ───────────────────────────────────────────────────────────
@@ -721,6 +727,13 @@ export function LoadingDoor() {
         // El HUD se desvanece durante la liberación, no junto al wrapper.
         // Evita solape con "DESLIZA PARA COMENZAR" del Hero.
         setIsEntering(true);
+        // Notificar al gate de App.jsx para que monte el `<main>` ahora.
+        // Lo hacemos AL INICIO de la fase de salida, no después de hidden=true:
+        // así el Hero arranca su WebGL mientras este loader sigue visible
+        // pero fadeando, y para cuando el loader desaparece, el Hero ya
+        // está renderizando. Sin esto, el usuario vería pantalla negra
+        // durante 1-2s mientras el Hero se inicializa de cero.
+        if (typeof onComplete === "function") onComplete();
         setTimeout(() => {
           if (wrapperRef.current) wrapperRef.current.style.opacity = "0";
           setTimeout(() => setHidden(true), FADE_OUT_MS);
@@ -739,7 +752,7 @@ export function LoadingDoor() {
       unsub();
       clearTimeout(safetyId);
     };
-  }, []);
+  }, [onComplete]);
 
   // Bloqueo de scroll
   useEffect(() => {
