@@ -71,6 +71,21 @@ function makeEmberTexture() {
 // ════════════════════════════════════════════════════════════════════════
 function LoadingDoorMobile({ onComplete }) {
   const wrapperRef = useRef(null);
+  // Refs directos al DOM de la barra y el contador % para que el rAF
+  // pueda actualizar los nodos sin pasar por React state. Esto era la
+  // causa raíz del context loss en Mali-G68: con setState a 60 fps
+  // durante 2s, cada cambio disparaba un re-render que aplicaba un
+  // nuevo `transform: scaleX(${pct})` en el JSX. Como el CSS tenía
+  // `transition: transform 320ms`, cada frame INTERRUMPÍA la transición
+  // previa para empezar otra → GPU thrashing → la GPU móvil se saturaba
+  // de recalcular composition layers y por presión de VRAM mataba el
+  // contexto WebGL del Hero al arrancar.
+  //
+  // Con ref directo: el rAF aplica `style.transform` directamente al
+  // nodo, cero re-renders, y la CSS transition (que también quitamos en
+  // la sección de estilos) ya no se interrumpe.
+  const barFillRef = useRef(null);
+  const pctTextRef = useRef(null);
   const [pct, setPct] = useState(0);
   const [hidden, setHidden] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
@@ -101,7 +116,11 @@ function LoadingDoorMobile({ onComplete }) {
     const trigger = () => {
       if (triggered) return;
       triggered = true;
-      setPct(1); // garantizar 100% exacto al iniciar la salida
+      // Una sola vez al cerrar: sincronizar el state al 100% para que el
+      // contador `pctDisplay` muestre 100 y la barra esté completa cuando
+      // el componente entre en fase de salida. A partir de aquí no hay
+      // más actualizaciones, así que un único re-render es coste cero.
+      setPct(1);
 
       setTimeout(() => {
         setIsLeaving(true);
@@ -121,7 +140,18 @@ function LoadingDoorMobile({ onComplete }) {
       const elapsed = performance.now() - startedAt;
       const timeProgress = Math.min(elapsed / MIN_DISPLAY_MS, 1);
       const displayPct = Math.min(realPct, timeProgress);
-      setPct(displayPct);
+
+      // Aplicar al DOM directamente — sin pasar por React state.
+      // Esto evita 120+ re-renders durante la carga y el CSS thrashing
+      // que mataba el contexto WebGL en GPUs móviles ARM Mali.
+      if (barFillRef.current) {
+        barFillRef.current.style.transform = `scaleX(${displayPct})`;
+      }
+      if (pctTextRef.current) {
+        pctTextRef.current.textContent = String(
+          Math.round(displayPct * 100),
+        ).padStart(3, "0");
+      }
 
       // Solo disparamos cuando AMBOS están al 100%: la barra ha llegado
       // visualmente al final Y la descarga real ha terminado.
@@ -187,12 +217,12 @@ function LoadingDoorMobile({ onComplete }) {
         <div className="loading-mobile__caption">PREPARANDO LA ESCENA</div>
         <div className="loading-mobile__bar">
           <div
+            ref={barFillRef}
             className="loading-mobile__bar-fill"
-            style={{ transform: `scaleX(${pct})` }}
           />
         </div>
         <div className="loading-mobile__pct">
-          {String(pctDisplay).padStart(3, "0")}
+          <span ref={pctTextRef}>{String(pctDisplay).padStart(3, "0")}</span>
           <span className="loading-mobile__pct-suffix">%</span>
         </div>
       </div>
@@ -353,7 +383,13 @@ function LoadingDoorMobile({ onComplete }) {
             rgba(255, 210, 150, 1));
           transform-origin: left center;
           transform: scaleX(0);
-          transition: transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+          /* Sin transition: el rAF del trigger actualiza scaleX cada frame
+             vía ref directo al DOM. Antes había transition de 320ms aquí,
+             pero al combinarse con un setState a 60 fps causaba que el
+             navegador interrumpiese una transición cada frame para iniciar
+             otra — GPU thrashing que mataba el contexto WebGL en móviles
+             ARM Mali. Sin transition es lo correcto cuando ya controlamos
+             el frame-rate desde JS. */
           box-shadow: 0 0 12px rgba(255, 175, 100, 0.5);
         }
         .loading-mobile__pct {
