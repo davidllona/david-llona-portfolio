@@ -47,17 +47,18 @@ import { loadingManager } from "../loadingManager";
 // el valor inicial.
 export function buildNeon({ scene, requestRender }) {
  // ── Constantes de color/comportamiento ───────────────────────────────────
- // Cian del tubo principal. Cambio respecto a la versión original (#7b5fff
- // violeta): el violeta era el único color fuera de la paleta del
- // portfolio (naranja cálido + azul frío + negro) y peleaba visualmente
- // con el cohete y la lámpara. Cian:
- //   · unifica con los hologramas (perro Woody) y los wireframes del
- //     monitor — el lenguaje "tech/sci-fi" gana coherencia
- //   · entra en la familia de los azules fríos del cosmos
- //   · deja respirar al naranja, no compite
+ // Morado del tubo principal. La versión 1 fue #7b5fff (violeta saturado
+ // original del GLB) — fuera de paleta, competía con la habitación. La
+ // versión 2 fue cian #5acfff — coherente con hologramas pero hacía perder
+ // el carácter "neón retro" característico. Esta versión 3 es el punto
+ // medio: morado más bajo en saturación y empuja al azul-frío, así entra
+ // en la familia de azules del cosmos sin perder el "neón violeta".
+ //   · #8870d8 = violeta apagado, menos chillón, más cinematográfico
+ //   · emissiveIntensity baja de 3.5 a 2.6 → ya no quema, deja ver el
+ //     gradiente de color en lugar de blanco puro en el centro
  // Las letras amarillas del mensaje "ai" oculto se mantienen — son
- // intencionales y el contraste cian/amarillo lo refuerza, no lo rompe.
- const NEON_TUBE_HEX = 0x5acfff;
+ // intencionales y el contraste violeta/amarillo lo refuerza, no lo rompe.
+ const NEON_TUBE_HEX = 0x8870d8;
  const NEON_TUBE = new THREE.Color(NEON_TUBE_HEX);
 
  // ── Parámetros editables por GUI ─────────────────────────────────────────
@@ -109,13 +110,13 @@ export function buildNeon({ scene, requestRender }) {
  (() => {
   const c = neonHaloCanvas.getContext("2d");
   const g = c.createRadialGradient(128, 128, 0, 128, 128, 128);
-  // Curva suave: núcleo caliente → fade largo. Evita borde duro del halo.
-  // Stops migrados de violeta a cian (mismo gradiente, otra base de color).
+  // Curva suave: núcleo caliente → fade largo. Stops migrados a la
+  // familia violeta apagada (#8870d8). Mismo gradiente, otra base.
   g.addColorStop(0.0, "rgba(255, 255, 255, 1.0)");
-  g.addColorStop(0.15, "rgba(170, 220, 255, 0.75)");
-  g.addColorStop(0.4, "rgba(90, 200, 255, 0.25)");
-  g.addColorStop(0.75, "rgba(60, 150, 220, 0.06)");
-  g.addColorStop(1.0, "rgba(50, 130, 200, 0)");
+  g.addColorStop(0.15, "rgba(195, 175, 240, 0.75)");
+  g.addColorStop(0.4, "rgba(150, 120, 220, 0.25)");
+  g.addColorStop(0.75, "rgba(100, 80, 170, 0.06)");
+  g.addColorStop(1.0, "rgba(80, 60, 140, 0)");
   c.fillStyle = g;
   c.fillRect(0, 0, 256, 256);
  })();
@@ -163,10 +164,11 @@ export function buildNeon({ scene, requestRender }) {
     // constante NEON_TUBE_HEX al inicio de buildNeon.
     if (!isFlicker) mat.emissive.setHex(NEON_TUBE_HEX);
 
-    // Emissive potente pero no quemado. 3.5 es el sweet spot con tonemapping ACES
-    // desactivado (toneMapped=false): el color se ve saturado pero el ojo no
-    // lo lee como blanco puro.
-    mat.emissiveIntensity = 3.5;
+    // Emissive moderado — antes era 3.5 con tonemapping desactivado, lo
+    // que daba un blanco quemado en el centro de cada letra. 2.6 deja ver
+    // el gradiente del color (violeta saturándose hacia el centro) en
+    // lugar de blanco puro: más cinematográfico, más integrado.
+    mat.emissiveIntensity = 2.6;
     mat.toneMapped = false;
     mat.roughness = 0.4;
     mat.metalness = 0.0;
@@ -174,7 +176,7 @@ export function buildNeon({ scene, requestRender }) {
     mat.opacity = 1.0;
     mat.needsUpdate = true;
 
-    child.userData.baseIntensity = 3.5;
+    child.userData.baseIntensity = 2.6;
 
     glbMats.push(child);
 

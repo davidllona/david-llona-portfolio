@@ -883,14 +883,39 @@ export function initHeroScene(wrapperEl) {
  const _focusMat = new THREE.Matrix4();
  const _focusUp = new THREE.Vector3(0, 1, 0);
  const _focusLookAt = new THREE.Vector3();
+ // Buffers temporales para world position / quaternion del poster.
+ // Reusados cada frame para no crear basura en el GC.
+ const _focusWorldQuat = new THREE.Quaternion();
+ const _focusNormal = new THREE.Vector3();
 
  const computeFocusTarget = () => {
   // En móvil wallPoster es null (no se crea por VRAM). Salimos sin
   // tocar la cámara si por algún motivo se llega aquí en móvil.
   if (!wallPoster) return;
-  // Solo poster — usa la ref expuesta por room
-  focusPos.set(wallPoster.position.x, wallPoster.position.y, wallPoster.position.z + 2.3);
-  _focusLookAt.copy(wallPoster.position);
+
+  // ── World position en lugar de local ─────────────────────────────
+  // ANTES se usaba `wallPoster.position`, que es la posición LOCAL
+  // dentro del padre del mesh. Como room.js coloca el poster dentro de
+  // un grupo / con transformaciones, la posición local NO coincide con
+  // la world. El resultado era un focusPos que apuntaba a un punto del
+  // espacio cercano a la silla del astronauta en lugar del cuadro.
+  // getWorldPosition() resuelve el árbol de transformaciones y nos da
+  // la posición real del poster en el mundo.
+  wallPoster.getWorldPosition(_focusLookAt);
+
+  // ── Offset hacia DELANTE del poster, no en Z absoluto ────────────
+  // ANTES el offset era `z + 2.3` fijo, asumiendo que el poster mira
+  // hacia +Z. Eso solo funciona si el poster está en una pared frontal
+  // sin rotar. Si está rotado (pared lateral / esquina), el offset Z
+  // mete la cámara dentro de la pared.
+  // Calculamos el "frente" real del poster aplicando su world quaternion
+  // a un vector Z+1: eso da el vector normal al plano del cuadro, en
+  // world space. La cámara se coloca a 2.3u a lo largo de esa normal.
+  // Robusto a cualquier pared y orientación futura.
+  wallPoster.getWorldQuaternion(_focusWorldQuat);
+  _focusNormal.set(0, 0, 1).applyQuaternion(_focusWorldQuat);
+  focusPos.copy(_focusLookAt).addScaledVector(_focusNormal, 2.3);
+
   _focusMat.lookAt(focusPos, _focusLookAt, _focusUp);
   focusQuat.setFromRotationMatrix(_focusMat);
  };

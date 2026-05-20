@@ -18,7 +18,11 @@ import * as THREE from "three";
 // tipo "ficha de archivo": principal + detalle/estudio.
 // Si solo hay 1 imagen se muestra grande sola; si hay 2 se reparten
 // en proporción 60/40; si hay 3, una grande + dos apiladas.
-const PROJECTS = [
+// Exportado para que ProjectsMobile pueda reutilizar los mismos datos
+// sin duplicarlos. La versión móvil renderiza estos proyectos como
+// cards HTML estáticas (sin WebGL) por compatibilidad con GPUs
+// móviles limitadas.
+export const PROJECTS = [
  {
   id: 0,
   name: "TemyPlast Configurator",
