@@ -826,6 +826,9 @@ export function initHeroScene(wrapperEl) {
  const _focusLookAt = new THREE.Vector3();
 
  const computeFocusTarget = () => {
+  // En móvil wallPoster es null (no se crea por VRAM). Si por alguna
+  // razón llegamos aquí en móvil, salimos sin tocar la cámara.
+  if (!wallPoster) return;
   // Solo poster — usa la ref expuesta por room
   focusPos.set(wallPoster.position.x, wallPoster.position.y, wallPoster.position.z + 2.3);
   _focusLookAt.copy(wallPoster.position);
@@ -848,8 +851,8 @@ export function initHeroScene(wrapperEl) {
   if (!cameraFocus.active) return;
   if (cameraFocus.phase === "exiting") return;
 
-  // El poster se cierra directamente vía su API
-  if (cameraFocus.targetKey === "poster") {
+  // El poster se cierra directamente vía su API (solo desktop)
+  if (cameraFocus.targetKey === "poster" && wallPoster) {
    wallPoster.userData.triggerClose(now);
   }
 
@@ -861,14 +864,43 @@ export function initHeroScene(wrapperEl) {
  // ════════════════════════════════════════════════════════════════════════
  // OBJETOS VIVOS — neón + perro hologram + orrery
  // ════════════════════════════════════════════════════════════════════════
+ // En móvil saltamos todos los interactivos:
+ //   - Neon: depende de hover (color + glow al pasar el ratón)
+ //   - Dog Hologram: shader custom + textura de scan + halo + ring
+ //   - Orrery: shader del planeta + glow texture
+ // Sin hover, ninguno es funcional. Ahorramos ~6 MB VRAM y varios
+ // ShaderMaterials que la GPU Mali estaba intentando compilar.
+ //
+ // Stubs API-compatible: el resto del archivo asume que existen estos
+ // objetos. En vez de pinchar guardas en 20 sitios, devolvemos objetos
+ // que cumplen la API (params vacíos, update/dispose no-op).
+ //
  // Construcción + tick + cleanup viven en ./hero/interactives.js
- const neon = buildNeon({ scene, requestRender });
- const dogHologramRef = buildDogHologram({
-  attachToDesk,
-  getDeskTopSupport: () => deskTopSupport,
-  requestRender,
- });
- const orreryRef = buildOrrery({ scene });
+ let neon, dogHologramRef, orreryRef;
+ if (isMobile) {
+  neon = {
+   params: {}, // GUI no se monta en móvil → vacío basta
+   letterHalos: [], // forEach() en algún tick → array vacío seguro
+   update: () => {},
+   dispose: () => {},
+  };
+  dogHologramRef = {
+   group: null,
+   dispose: () => {},
+  };
+  orreryRef = {
+   group: null,
+   dispose: () => {},
+  };
+ } else {
+  neon = buildNeon({ scene, requestRender });
+  dogHologramRef = buildDogHologram({
+   attachToDesk,
+   getDeskTopSupport: () => deskTopSupport,
+   requestRender,
+  });
+  orreryRef = buildOrrery({ scene });
+ }
 
  // Aliases para GUI y cleanup
  const neonParams = neon.params;

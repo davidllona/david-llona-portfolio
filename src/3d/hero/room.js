@@ -56,6 +56,18 @@ export function buildRoom({
  isCameraFocusActive, // () => boolean
 }) {
  // ════════════════════════════════════════════════════════════════════════
+ // MOBILE STRIP-DOWN
+ // ════════════════════════════════════════════════════════════════════════
+ // Detección de móvil. En móvil omitimos los elementos interactivos que:
+ //   1) No funcionan sin hover/click cómodo (cuadro/retrato → click +
+ //      cinematic focus).
+ //   2) Consumen mucha VRAM (las dos CanvasTextures de 768×1024 del poster
+ //      saturan la GPU ARM y disparan WebGL CONTEXT LOST en Mali-G68).
+ //
+ // En desktop NO cambia nada: si !isMobile, el cuadro sigue idéntico.
+ const isMobile = window.innerWidth < 768;
+
+ // ════════════════════════════════════════════════════════════════════════
  // ROOM BASE — suelo + pared trasera
  // ════════════════════════════════════════════════════════════════════════
  const floor = new THREE.Mesh(planeGeometry14, floorMaterial);
@@ -859,29 +871,48 @@ export function buildRoom({
   return group;
  }
 
- const wallPoster = createWallPoster();
- wallPoster.position.set(4.0, 4.6, -3.94);
- scene.add(wallPoster);
+ // ════════════════════════════════════════════════════════════════════════
+ // POSTER + SPOT — solo desktop
+ // ════════════════════════════════════════════════════════════════════════
+ // En móvil saltamos esto entero. Ahorra:
+ //   - 2 × CanvasTexture 768×1024 = ~8 MB VRAM
+ //   - 6 × CanvasTexture pequeñas (halo, marco, etc) = ~1 MB VRAM
+ //   - 1 SpotLight extra (con sus cálculos por frame)
+ //   - El raycaster del poster (listeners pointermove/pointerdown)
+ //
+ // Las variables se quedan a null. El update() y dispose() de abajo
+ // tienen guardas para no tocarlas en móvil.
+ let wallPoster = null;
+ let posterSpot = null;
 
- // ── SpotLight cálido dedicado — resalta solo el póster ──────────────────
- // Distance corta + decay medio → no moja la pared entera.
- // Penumbra alta → borde de luz orgánico, no un haz duro.
- const posterSpot = new THREE.SpotLight(
-  "#ff9a55", // familia cálida del warmLight del cohete
-  2.2,
-  3.0,
-  Math.PI * 0.24, // angle ~43° (abierto pero no flood)
-  0.75, // penumbra alta → borde suave
-  1.5, // decay
- );
- posterSpot.position.set(2.8, 5.8, -2.8);
- posterSpot.target.position.set(4.0, 4.6, -3.94);
- scene.add(posterSpot);
- scene.add(posterSpot.target);
+ if (!isMobile) {
+  wallPoster = createWallPoster();
+  wallPoster.position.set(4.0, 4.6, -3.94);
+  scene.add(wallPoster);
+
+  // ── SpotLight cálido dedicado — resalta solo el póster ──────────────────
+  // Distance corta + decay medio → no moja la pared entera.
+  // Penumbra alta → borde de luz orgánico, no un haz duro.
+  posterSpot = new THREE.SpotLight(
+   "#ff9a55", // familia cálida del warmLight del cohete
+   2.2,
+   3.0,
+   Math.PI * 0.24, // angle ~43° (abierto pero no flood)
+   0.75, // penumbra alta → borde suave
+   1.5, // decay
+  );
+  posterSpot.position.set(2.8, 5.8, -2.8);
+  posterSpot.target.position.set(4.0, 4.6, -3.94);
+  scene.add(posterSpot);
+  scene.add(posterSpot.target);
+ }
 
  // ════════════════════════════════════════════════════════════════════════
- // RAYCAST — pointer hover y click sobre el poster
+ // RAYCAST — pointer hover y click sobre el poster (solo desktop)
  // ════════════════════════════════════════════════════════════════════════
+ // En móvil no hay poster que clickar — los listeners no se registran
+ // y ahorramos los handlers + estado del raycaster.
+ //
  // El sistema cameraFocus vive en heroScene. Aquí solo detectamos clicks
  // y los notificamos vía callbacks (onPosterFocusEnter / onPosterFocusExit).
  const clickRaycaster = new THREE.Raycaster();
@@ -895,12 +926,14 @@ export function buildRoom({
  };
 
  const _hitsPoster = () => {
+  if (!wallPoster) return false;
   if (posterRoomFade < 0.2) return false;
   clickRaycaster.setFromCamera(clickPointer, camera);
   return clickRaycaster.intersectObject(wallPoster.userData.poster, false).length > 0;
  };
 
  const onScenePointerMove = (event) => {
+  if (!wallPoster) return;
   if (isCameraFocusActive && isCameraFocusActive()) return;
   _updateClickPointer(event);
   const hit = _hitsPoster();
@@ -909,6 +942,7 @@ export function buildRoom({
  };
 
  const onScenePointerDown = (event) => {
+  if (!wallPoster) return;
   const now = clock.getElapsedTime();
 
   // Si hay focus activo → cualquier click cierra. El orquestador internamente
@@ -935,9 +969,14 @@ export function buildRoom({
   if (onPosterFocusExit) onPosterFocusExit(clock.getElapsedTime());
  };
 
- canvas.addEventListener("pointermove", onScenePointerMove);
- canvas.addEventListener("pointerdown", onScenePointerDown);
- window.addEventListener("keydown", onSceneKeyDown);
+ // Solo registramos los listeners en desktop. En móvil no hay nada que
+ // clickar y los eventos pointermove pueden además interferir con el
+ // scroll-driven natural.
+ if (!isMobile) {
+  canvas.addEventListener("pointermove", onScenePointerMove);
+  canvas.addEventListener("pointerdown", onScenePointerDown);
+  window.addEventListener("keydown", onSceneKeyDown);
+ }
 
  // ════════════════════════════════════════════════════════════════════════
  // UPDATE — tick de la habitación: estrellas + luces + poster
@@ -965,19 +1004,23 @@ export function buildRoom({
 
   // Poster — el raycast usa esto para bloquear hover cuando estamos fuera
   posterRoomFade = roomFade;
-  // Update visual + spotIntensity propuesto
-  const posterSpotIntensity = wallPoster.userData.update(elapsedTime, roomFade);
-  posterSpot.intensity = posterSpotIntensity * roomFade;
+  // En móvil no hay poster — saltamos update y mantenemos posterSpot a null.
+  if (wallPoster && posterSpot) {
+   const posterSpotIntensity = wallPoster.userData.update(elapsedTime, roomFade);
+   posterSpot.intensity = posterSpotIntensity * roomFade;
+  }
  }
 
  // ════════════════════════════════════════════════════════════════════════
  // DISPOSE — limpieza completa de la habitación
  // ════════════════════════════════════════════════════════════════════════
  function dispose() {
-  // Listeners de raycast
-  canvas.removeEventListener("pointermove", onScenePointerMove);
-  canvas.removeEventListener("pointerdown", onScenePointerDown);
-  window.removeEventListener("keydown", onSceneKeyDown);
+  // Listeners de raycast — solo se registraron en desktop.
+  if (!isMobile) {
+   canvas.removeEventListener("pointermove", onScenePointerMove);
+   canvas.removeEventListener("pointerdown", onScenePointerDown);
+   window.removeEventListener("keydown", onSceneKeyDown);
+  }
 
   // Estrellas internas
   if (starsPoints) {
@@ -986,7 +1029,7 @@ export function buildRoom({
    if (starsMaterial) starsMaterial.dispose();
   }
 
-  // Poster — texturas + materiales + meshes
+  // Poster — texturas + materiales + meshes (solo si se creó)
   if (wallPoster) {
    wallPoster.userData.textures.forEach((t) => t && t.dispose && t.dispose());
    wallPoster.userData.materials.forEach((m) => m && m.dispose && m.dispose());
@@ -995,8 +1038,10 @@ export function buildRoom({
    });
    scene.remove(wallPoster);
   }
-  scene.remove(posterSpot);
-  scene.remove(posterSpot.target);
+  if (posterSpot) {
+   scene.remove(posterSpot);
+   scene.remove(posterSpot.target);
+  }
 
   // Luces interiores
   scene.remove(ambientLight);
