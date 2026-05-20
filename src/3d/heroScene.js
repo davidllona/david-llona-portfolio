@@ -237,23 +237,36 @@ export function initHeroScene(wrapperEl) {
 
  /**
   * =========================================================
-  * DEBUG
-  * =========================================================
-  */
- const DEBUG = true;
- const gui = DEBUG ? new GUI() : null;
- if (gui) gui.close();
- // Publicar la instancia para que otras escenas (Projects, etc.)
- // puedan engancharle sus propios folders sin acoplarse a heroScene.
- if (gui) setGui(gui);
-
- /**
-  * =========================================================
   * DEVICE / QUALITY
   * =========================================================
   */
  const isMobile = window.innerWidth < 768;
  const isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
+
+ /**
+  * =========================================================
+  * DEBUG / GUI
+  * =========================================================
+  * La GUI de lil-gui es una herramienta de desarrollo. Nunca debería
+  * estar visible para el usuario final, y en móvil además provocaba
+  * crashes al intentar leer params de objetos que ahora son stubs
+  * (neonParams = {} en móvil → gui.add(neonParams, 'x') revienta).
+  *
+  * Reglas:
+  *   - Móvil: GUI siempre OFF (crashea con stubs y no es útil sin teclado).
+  *   - Desktop: GUI ON por defecto (eres tú iterando). Para ocultarla
+  *     puntualmente — p. ej. al grabar un demo o enseñar el portfolio —
+  *     añade ?gui=0 a la URL.
+  *
+  * Antes de desplegar a producción: cambiar el desktop default a `false`
+  * y activarla con ?gui=1.
+  */
+ const DEBUG = !isMobile && !/[?&]gui=0\b/.test(typeof window !== "undefined" ? window.location.search : "");
+ const gui = DEBUG ? new GUI() : null;
+ if (gui) gui.close();
+ // Publicar la instancia para que otras escenas (Projects, etc.)
+ // puedan engancharle sus propios folders sin acoplarse a heroScene.
+ if (gui) setGui(gui);
 
  /**
   * QUALITY BUDGET — calibrado tras diagnóstico de móvil
