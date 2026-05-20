@@ -47,7 +47,18 @@ import { loadingManager } from "../loadingManager";
 // el valor inicial.
 export function buildNeon({ scene, requestRender }) {
  // ── Constantes de color/comportamiento ───────────────────────────────────
- const NEON_TUBE = new THREE.Color("#7b5fff"); // violeta del tubo exterior
+ // Cian del tubo principal. Cambio respecto a la versión original (#7b5fff
+ // violeta): el violeta era el único color fuera de la paleta del
+ // portfolio (naranja cálido + azul frío + negro) y peleaba visualmente
+ // con el cohete y la lámpara. Cian:
+ //   · unifica con los hologramas (perro Woody) y los wireframes del
+ //     monitor — el lenguaje "tech/sci-fi" gana coherencia
+ //   · entra en la familia de los azules fríos del cosmos
+ //   · deja respirar al naranja, no compite
+ // Las letras amarillas del mensaje "ai" oculto se mantienen — son
+ // intencionales y el contraste cian/amarillo lo refuerza, no lo rompe.
+ const NEON_TUBE_HEX = 0x5acfff;
+ const NEON_TUBE = new THREE.Color(NEON_TUBE_HEX);
 
  // ── Parámetros editables por GUI ─────────────────────────────────────────
  const params = {
@@ -99,11 +110,12 @@ export function buildNeon({ scene, requestRender }) {
   const c = neonHaloCanvas.getContext("2d");
   const g = c.createRadialGradient(128, 128, 0, 128, 128, 128);
   // Curva suave: núcleo caliente → fade largo. Evita borde duro del halo.
+  // Stops migrados de violeta a cian (mismo gradiente, otra base de color).
   g.addColorStop(0.0, "rgba(255, 255, 255, 1.0)");
-  g.addColorStop(0.15, "rgba(200, 160, 255, 0.75)");
-  g.addColorStop(0.4, "rgba(140, 90, 255, 0.25)");
-  g.addColorStop(0.75, "rgba(90, 60, 200, 0.06)");
-  g.addColorStop(1.0, "rgba(80, 50, 180, 0)");
+  g.addColorStop(0.15, "rgba(170, 220, 255, 0.75)");
+  g.addColorStop(0.4, "rgba(90, 200, 255, 0.25)");
+  g.addColorStop(0.75, "rgba(60, 150, 220, 0.06)");
+  g.addColorStop(1.0, "rgba(50, 130, 200, 0)");
   c.fillStyle = g;
   c.fillRect(0, 0, 256, 256);
  })();
@@ -137,6 +149,20 @@ export function buildNeon({ scene, requestRender }) {
     const emissiveIsBlack = mat.emissive.r < 0.01 && mat.emissive.g < 0.01 && mat.emissive.b < 0.01;
     if (emissiveIsBlack) mat.emissive.copy(mat.color);
 
+    // ── Detección del mensaje "ai" oculto ANTES de cambiar el color ──────
+    // Las letras del mensaje "ai" vienen amarillas del GLB. Tenemos que
+    // detectarlas AHORA porque a continuación sobrescribimos el resto a
+    // cian, y entonces ya no sabríamos cuáles eran las amarillas.
+    const e = mat.emissive;
+    const isFlicker = e.r > 0.5 && e.g > 0.4 && e.b < 0.25;
+    child.userData.isFlicker = isFlicker;
+
+    // ── Override de color: violeta → cian (mantiene amarillas del flicker) ──
+    // El GLB original tiene letras violetas (#7b5fff). Las pasamos a cian
+    // para alinear con la paleta del portfolio. Ver explicación en la
+    // constante NEON_TUBE_HEX al inicio de buildNeon.
+    if (!isFlicker) mat.emissive.setHex(NEON_TUBE_HEX);
+
     // Emissive potente pero no quemado. 3.5 es el sweet spot con tonemapping ACES
     // desactivado (toneMapped=false): el color se ve saturado pero el ojo no
     // lo lee como blanco puro.
@@ -149,10 +175,6 @@ export function buildNeon({ scene, requestRender }) {
     mat.needsUpdate = true;
 
     child.userData.baseIntensity = 3.5;
-
-    // Amarillo (I, a) por emissive → titileo de fósforo defectuoso
-    const e = mat.emissive;
-    child.userData.isFlicker = e.r > 0.5 && e.g > 0.4 && e.b < 0.25;
 
     glbMats.push(child);
 

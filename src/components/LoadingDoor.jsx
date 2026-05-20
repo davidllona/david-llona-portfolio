@@ -75,43 +75,81 @@ function LoadingDoorMobile({ onComplete }) {
   const [hidden, setHidden] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
 
-  // Trigger de salida — misma lógica que la versión desktop
+  // Trigger de salida — misma lógica que la versión desktop, con
+  // suavizado de la barra para evitar el "salto del 0 al 100" cuando la
+  // descarga real termina muy rápido (assets en caché, localhost, red
+  // veloz).
+  //
+  // El truco: separamos el "progreso real" del "progreso mostrado".
+  //   realPct  → lo que reporta el loadingManager (puede saltar al 100%
+  //              en 50ms si los assets ya están cacheados)
+  //   displayPct → lo que pinta la barra, calculado como
+  //                Math.min(realPct, elapsed / MIN_DISPLAY_MS)
+  //
+  // Resultado: la barra se mueve suavemente acompañando el tiempo mínimo
+  // de display (2s). Si la descarga va por detrás, manda el contenido y
+  // la barra refleja la realidad. Nunca miente. Nunca salta. Cuando
+  // ambos llegan al 100% Y la descarga real ha terminado, dispara el
+  // trigger.
   useEffect(() => {
     let triggered = false;
+    let realPct = 0;
+    let realDone = false;
+    let rafId = null;
     const startedAt = performance.now();
 
-    const trigger = (reason) => {
+    const trigger = () => {
       if (triggered) return;
       triggered = true;
-      if (reason === "timeout") setPct(1);
-
-      const elapsed = performance.now() - startedAt;
-      const wait = Math.max(0, MIN_DISPLAY_MS - elapsed) + PRE_ENTER_DELAY_MS;
+      setPct(1); // garantizar 100% exacto al iniciar la salida
 
       setTimeout(() => {
         setIsLeaving(true);
-        // Notificar al gate de App.jsx para que monte el `<main>`. Lo hacemos
-        // AL INICIO del fade-out, no después de hidden=true, para que el
-        // Hero tenga ~700ms para arrancar mientras este loader se desvanece
-        // por encima. Sin este orden, el usuario vería pantalla negra
-        // durante 1-2s mientras el WebGL del Hero se inicializa de cero.
+        // Notificar al gate de App.jsx para que monte el `<main>` ahora.
+        // Lo hacemos AL INICIO del fade-out, no después de hidden=true,
+        // para que el Hero tenga ~700ms para arrancar mientras este
+        // loader se desvanece por encima.
         if (typeof onComplete === "function") onComplete();
         setTimeout(() => {
           if (wrapperRef.current) wrapperRef.current.style.opacity = "0";
           setTimeout(() => setHidden(true), FADE_OUT_MS);
         }, 600);
-      }, wait);
+      }, PRE_ENTER_DELAY_MS);
     };
 
+    const tick = () => {
+      const elapsed = performance.now() - startedAt;
+      const timeProgress = Math.min(elapsed / MIN_DISPLAY_MS, 1);
+      const displayPct = Math.min(realPct, timeProgress);
+      setPct(displayPct);
+
+      // Solo disparamos cuando AMBOS están al 100%: la barra ha llegado
+      // visualmente al final Y la descarga real ha terminado.
+      if (realDone && displayPct >= 0.999) {
+        trigger();
+        return;
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+
     const unsub = subscribeProgress((p, done) => {
-      setPct(p);
-      if (done) trigger("loaded");
+      realPct = p;
+      if (done) realDone = true;
     });
-    const safetyId = setTimeout(() => trigger("timeout"), MAX_WAIT_MS);
+
+    // Safety: tras MAX_WAIT_MS forzamos realDone=true para que el rAF
+    // pueda completar la barra y disparar el trigger aunque algún asset
+    // se haya quedado colgado.
+    const safetyId = setTimeout(() => {
+      realPct = 1;
+      realDone = true;
+    }, MAX_WAIT_MS);
 
     return () => {
       unsub();
       clearTimeout(safetyId);
+      if (rafId) cancelAnimationFrame(rafId);
     };
   }, [onComplete]);
 
@@ -707,17 +745,28 @@ export function LoadingDoor({ onComplete }) {
   }, []);
 
   // ─── Trigger de salida ───────────────────────────────────────────
+  // Mismo suavizado que la versión móvil: separamos progreso real de
+  // progreso mostrado para evitar saltos del 0 al 100 cuando la
+  // descarga termina muy rápido. Ver explicación detallada en
+  // LoadingDoorMobile arriba.
+  //
+  // Diferencia frente a móvil: aquí también propagamos el displayPct al
+  // `stateRef.current.currentPct`, que el render loop del icosaedro usa
+  // para animar la "respiración" / glow de la figura conforme avanza la
+  // carga. Si la barra avanza suave, la respiración del icosaedro
+  // también, en sincro con lo que ve el usuario.
   useEffect(() => {
     let triggered = false;
+    let realPct = 0;
+    let realDone = false;
+    let rafId = null;
     const startedAt = performance.now();
 
-    const trigger = (reason) => {
+    const trigger = () => {
       if (triggered) return;
       triggered = true;
-      if (reason === "timeout") setPct(1);
-
-      const elapsed = performance.now() - startedAt;
-      const wait = Math.max(0, MIN_DISPLAY_MS - elapsed) + PRE_ENTER_DELAY_MS;
+      setPct(1);
+      if (stateRef.current) stateRef.current.currentPct = 1;
 
       setTimeout(() => {
         if (stateRef.current?.camera) {
@@ -728,29 +777,46 @@ export function LoadingDoor({ onComplete }) {
         // Evita solape con "DESLIZA PARA COMENZAR" del Hero.
         setIsEntering(true);
         // Notificar al gate de App.jsx para que monte el `<main>` ahora.
-        // Lo hacemos AL INICIO de la fase de salida, no después de hidden=true:
-        // así el Hero arranca su WebGL mientras este loader sigue visible
-        // pero fadeando, y para cuando el loader desaparece, el Hero ya
-        // está renderizando. Sin esto, el usuario vería pantalla negra
-        // durante 1-2s mientras el Hero se inicializa de cero.
+        // Lo hacemos AL INICIO de la fase de salida, no después de
+        // hidden=true: así el Hero arranca su WebGL mientras este loader
+        // sigue visible pero fadeando.
         if (typeof onComplete === "function") onComplete();
         setTimeout(() => {
           if (wrapperRef.current) wrapperRef.current.style.opacity = "0";
           setTimeout(() => setHidden(true), FADE_OUT_MS);
         }, ENTER_DURATION_MS + 60);
-      }, wait);
+      }, PRE_ENTER_DELAY_MS);
     };
 
+    const tick = () => {
+      const elapsed = performance.now() - startedAt;
+      const timeProgress = Math.min(elapsed / MIN_DISPLAY_MS, 1);
+      const displayPct = Math.min(realPct, timeProgress);
+      setPct(displayPct);
+      if (stateRef.current) stateRef.current.currentPct = displayPct;
+
+      if (realDone && displayPct >= 0.999) {
+        trigger();
+        return;
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+
     const unsub = subscribeProgress((p, done) => {
-      setPct(p);
-      if (stateRef.current) stateRef.current.currentPct = p;
-      if (done) trigger("loaded");
+      realPct = p;
+      if (done) realDone = true;
     });
-    const safetyId = setTimeout(() => trigger("timeout"), MAX_WAIT_MS);
+
+    const safetyId = setTimeout(() => {
+      realPct = 1;
+      realDone = true;
+    }, MAX_WAIT_MS);
 
     return () => {
       unsub();
       clearTimeout(safetyId);
+      if (rafId) cancelAnimationFrame(rafId);
     };
   }, [onComplete]);
 
