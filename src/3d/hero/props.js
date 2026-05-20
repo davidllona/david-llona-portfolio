@@ -480,9 +480,9 @@ export function buildProps({
   brightness: 1.0,
  };
 
- // En móvil saltamos el ratón: GLB pequeño pero gratis. Cualquier props
- // no esencial que podamos quitar reduce HTTP requests, decode time y
- // VRAM. El updateRaton() abajo ya es no-op si ratonRoot sigue null.
+ // En móvil saltamos el ratón: GLB no crítico, una HTTP request y un
+ // upload de geometría menos. updateRaton() ya es no-op si ratonRoot es
+ // null, así que el resto del módulo sigue intacto.
  if (!isMobile) {
   const ratonLoader = new GLTFLoader(loadingManager);
   ratonLoader.load(

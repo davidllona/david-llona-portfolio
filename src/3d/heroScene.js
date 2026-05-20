@@ -9,7 +9,7 @@ import { buildNeon, buildDogHologram, buildOrrery } from "./hero/interactives";
 import { buildRoom } from "./hero/room";
 import { buildDesk } from "./hero/desk";
 import { buildProps } from "./hero/props";
-import { loadingManager, loadSharedTexture } from "./loadingManager";
+import { loadingManager } from "./loadingManager";
 
 export function initHeroScene(wrapperEl) {
  const canvas = document.querySelector("#webgl");
@@ -594,9 +594,7 @@ export function initHeroScene(wrapperEl) {
  });
 
  // Luna con textura real — textures/moon.jpg
- // Usamos loadSharedTexture para que la misma textura se reutilice en el
- // exterior (extMoon en exterior.js). Sin esto se descargaba dos veces y
- // ocupaba el doble de VRAM como dos texturas separadas en GPU.
+ const moonTextureLoader = new THREE.TextureLoader(loadingManager);
  // La luna NO es una bombilla. Es un planeta texturizado con glow sutil.
  // El claroscuro viene de su textura (moon.jpg), no de emissive.
  const moonMaterial = new THREE.MeshStandardMaterial({
@@ -606,7 +604,7 @@ export function initHeroScene(wrapperEl) {
   emissive: new THREE.Color("#2a3a7a"),
   emissiveIntensity: 0.2, // glow muy suave, no foco frontal
  });
- loadSharedTexture("/textures/moon.jpg", (tex) => {
+ moonTextureLoader.load("textures/moon.jpg", (tex) => {
   tex.colorSpace = THREE.SRGBColorSpace;
   moonMaterial.map = tex;
   moonMaterial.needsUpdate = true;

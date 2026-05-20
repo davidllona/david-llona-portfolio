@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { easeIn3, easeOut3, easeIO3, clamp01, lerpV, phase } from "./math";
-import { loadingManager, loadSharedTexture } from "../loadingManager";
+import { loadingManager } from "../loadingManager";
 
 /**
  * buildExterior
@@ -316,6 +316,7 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
   tint: "#ffffff",
  };
 
+ const extMoonLoader = new THREE.TextureLoader(loadingManager);
  const extMoonGeo = new THREE.SphereGeometry(1.5, 36, 36);
  const extMoonMat = new THREE.MeshBasicMaterial({
   color: "#f5f8ff",
@@ -328,10 +329,7 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
  extMoon.visible = false;
  scene.add(extMoon);
 
- // Comparte la misma textura que la luna interior (heroScene.js) →
- // 1 descarga + 1 upload a GPU, no 2. loadSharedTexture devuelve la
- // misma instancia de Texture aunque la pida quien la pida.
- loadSharedTexture("/textures/moon.jpg", (tex) => {
+ extMoonLoader.load("/textures/moon.jpg", (tex) => {
   tex.colorSpace = THREE.SRGBColorSpace;
   extMoonMat.map = tex;
   extMoonMat.color.set(moonParams.tint);
@@ -823,12 +821,9 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
  scene.add(ufoOverlayOrange);
 
  // ── Carga del modelo ──────────────────────────────────────────────────────
- // En móvil saltamos el UFO: es un objeto decorativo que solo aparece en
- // una fase del scroll, y no aporta valor suficiente para justificar
- // su descarga (un GLB extra + ~5-10 MB VRAM + 2 luces). Una optimización
- // limpia: se queda el `ufoGroup` vacío y todos los updates por frame
- // que tocan ufoRoot/ufoMaterials se vuelven no-op gracias al guard
- // `if (!ufoRoot) return;` que ya existe en update().
+ // En móvil saltamos el UFO: objeto decorativo, ahorramos una descarga GLB
+ // y 2 luces. Update() ya tiene guard `if (!ufoRoot) return` así que el
+ // resto del archivo sigue funcionando con el ufoRoot=null.
  if (!isMobile) {
   const ufoGLTFLoader = new GLTFLoader(loadingManager);
   ufoGLTFLoader.load(
