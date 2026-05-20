@@ -3,6 +3,103 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { loadingManager } from "../loadingManager";
 
 /**
+ * Reduce el tamaño de las texturas embebidas de un GLB tras cargar.
+ *
+ * ¿Por qué existe esta función?
+ * ─────────────────────────────────────────────────────────────────────
+ * Los GLBs con texturas baked en alta resolución (2K/4K) son el
+ * principal disparador del WebGL CONTEXT LOST en GPUs móviles ARM
+ * (Mali-G68, Adreno gama media). Aunque el archivo descargado pese
+ * pocos MB, al uploadearlo a GPU cada textura reserva:
+ *
+ *   - 2048×2048 RGBA = 16 MB de VRAM
+ *   - 4096×4096 RGBA = 64 MB de VRAM
+ *
+ * Un GLB con 5 texturas PBR (basecolor + normal + roughness +
+ * metalness + AO) a 2K consume 80 MB. En un Mali con 256-512 MB
+ * compartidos con el sistema, eso es suficiente para crashear el
+ * contexto WebGL durante el upload.
+ *
+ * Cómo funciona
+ * ─────────────────────────────────────────────────────────────────────
+ * Recorre todos los materiales del GLB, lee cada textura, y la
+ * redimensiona usando canvas 2D al lado más largo `maxSize`. La
+ * textura original se dispose() para liberar el HTMLImageElement
+ * decodificado, y la nueva (canvas pequeño) se asigna en su lugar.
+ *
+ * @param {THREE.Object3D} root  - El gltf.scene del GLB cargado
+ * @param {number} maxSize       - Lado máximo en píxeles (ej. 512)
+ */
+function downscaleGLBTextures(root, maxSize = 512) {
+ const cache = new WeakMap();
+
+ const resize = (texture) => {
+  if (!texture || !texture.image) return texture;
+  // Reusa la textura ya redimensionada si la compartían varios materiales
+  if (cache.has(texture)) return cache.get(texture);
+
+  const img = texture.image;
+  const w = img.width || img.naturalWidth;
+  const h = img.height || img.naturalHeight;
+  if (!w || !h) return texture;
+
+  // Si ya es pequeña no la tocamos
+  if (Math.max(w, h) <= maxSize) {
+   cache.set(texture, texture);
+   return texture;
+  }
+
+  // Calcular nuevo tamaño manteniendo aspect ratio + potencia de 2
+  // (las GPUs móviles van más rápido con tamaños POT incluso en WebGL2)
+  const scale = maxSize / Math.max(w, h);
+  const newW = Math.max(1, Math.floor((w * scale) / 2) * 2);
+  const newH = Math.max(1, Math.floor((h * scale) / 2) * 2);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = newW;
+  canvas.height = newH;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, newW, newH);
+
+  const newTex = new THREE.CanvasTexture(canvas);
+  // Copiar las propiedades importantes para que el material siga igual
+  newTex.colorSpace = texture.colorSpace;
+  newTex.wrapS = texture.wrapS;
+  newTex.wrapT = texture.wrapT;
+  newTex.minFilter = texture.minFilter;
+  newTex.magFilter = texture.magFilter;
+  newTex.anisotropy = 1; // móvil → 1 basta, ahorra memoria
+  newTex.flipY = texture.flipY;
+  newTex.needsUpdate = true;
+
+  // Liberar la textura original — esto es lo que recupera la VRAM
+  texture.dispose();
+
+  cache.set(texture, newTex);
+  return newTex;
+ };
+
+ root.traverse((child) => {
+  if (!child.isMesh) return;
+  const mats = Array.isArray(child.material) ? child.material : [child.material];
+  mats.forEach((mat) => {
+   if (!mat) return;
+   // Lista completa de slots de textura PBR estándar de Three.js
+   if (mat.map) mat.map = resize(mat.map);
+   if (mat.normalMap) mat.normalMap = resize(mat.normalMap);
+   if (mat.roughnessMap) mat.roughnessMap = resize(mat.roughnessMap);
+   if (mat.metalnessMap) mat.metalnessMap = resize(mat.metalnessMap);
+   if (mat.aoMap) mat.aoMap = resize(mat.aoMap);
+   if (mat.emissiveMap) mat.emissiveMap = resize(mat.emissiveMap);
+   if (mat.bumpMap) mat.bumpMap = resize(mat.bumpMap);
+   if (mat.displacementMap) mat.displacementMap = resize(mat.displacementMap);
+   if (mat.alphaMap) mat.alphaMap = resize(mat.alphaMap);
+   mat.needsUpdate = true;
+  });
+ });
+}
+
+/**
  * props.js
  * ─────────────────────────────────────────────────────────────────────────
  * Props del Hero: silla + astronauta + lámpara/cohete + teclado + ratón.
@@ -168,6 +265,25 @@ export function buildProps({
 
  chairLoader.load("/modelos/astronauta_silla_2.glb", (gltf) => {
   chair = gltf.scene;
+
+  // ──────────────────────────────────────────────────────────────────────
+  // CRÍTICO PARA MÓVIL
+  // ──────────────────────────────────────────────────────────────────────
+  // Este GLB pesa 10-20 MB. Casi todo ese tamaño son texturas baked
+  // (basecolor, normal, roughness…) embebidas a 2K o 4K. Aunque la
+  // descarga sea aceptable, al uploadearlas a GPU el Mali-G68 reserva
+  // VRAM proporcional a la resolución *original* — fácilmente 80 MB
+  // solo en este modelo, y dispara WebGL CONTEXT LOST.
+  //
+  // Solución: redimensionar las texturas en código justo después de
+  // descargar, antes de que Three.js las suba a GPU. 512 px es
+  // invisible a la resolución de un viewport móvil (384 CSS px ≈
+  // 1080 px reales en DPR 2.8), pero reduce VRAM 16×.
+  //
+  // En desktop NO se toca — calidad visual completa.
+  if (isMobile) {
+   downscaleGLBTextures(chair, 512);
+  }
 
   chairAnchor = new THREE.Group();
   chairYaw = new THREE.Group();
@@ -569,6 +685,11 @@ export function buildProps({
   "/modelos/astronauta.glb",
   (gltf) => {
    astronautRoot = gltf.scene;
+
+   // Ver comentario en chairLoader — misma estrategia anti-CONTEXT-LOST
+   if (isMobile) {
+    downscaleGLBTextures(astronautRoot, 512);
+   }
 
    // Ajuste de materiales — misma paleta que la silla
    astronautRoot.traverse((child) => {
