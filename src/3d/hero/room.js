@@ -58,13 +58,14 @@ export function buildRoom({
  // ════════════════════════════════════════════════════════════════════════
  // MOBILE STRIP-DOWN
  // ════════════════════════════════════════════════════════════════════════
- // Detección de móvil. En móvil omitimos los elementos interactivos que:
- //   1) No funcionan sin hover/click cómodo (cuadro/retrato → click +
- //      cinematic focus).
- //   2) Consumen mucha VRAM (las dos CanvasTextures de 768×1024 del poster
- //      saturan la GPU ARM y disparan WebGL CONTEXT LOST en Mali-G68).
+ // En móvil omitimos elementos que:
+ //   1) No funcionan sin hover/click cómodo (el cuadro depende de click +
+ //      cinematic focus + animación de apertura).
+ //   2) Consumen mucha VRAM. Las dos CanvasTextures 768×1024 del poster
+ //      (retrato + mini-about) son ~8 MB de VRAM en GPUs ARM — uno de
+ //      los disparadores del WebGL CONTEXT LOST en Mali-G68.
  //
- // En desktop NO cambia nada: si !isMobile, el cuadro sigue idéntico.
+ // Desktop no cambia: si !isMobile, todo idéntico.
  const isMobile = window.innerWidth < 768;
 
  // ════════════════════════════════════════════════════════════════════════
@@ -874,14 +875,9 @@ export function buildRoom({
  // ════════════════════════════════════════════════════════════════════════
  // POSTER + SPOT — solo desktop
  // ════════════════════════════════════════════════════════════════════════
- // En móvil saltamos esto entero. Ahorra:
- //   - 2 × CanvasTexture 768×1024 = ~8 MB VRAM
- //   - 6 × CanvasTexture pequeñas (halo, marco, etc) = ~1 MB VRAM
- //   - 1 SpotLight extra (con sus cálculos por frame)
- //   - El raycaster del poster (listeners pointermove/pointerdown)
- //
- // Las variables se quedan a null. El update() y dispose() de abajo
- // tienen guardas para no tocarlas en móvil.
+ // En móvil saltamos esto entero. Las variables se quedan a null y el
+ // resto del archivo (update, dispose, raycast) tiene guardas para
+ // tolerarlo.
  let wallPoster = null;
  let posterSpot = null;
 
@@ -908,11 +904,8 @@ export function buildRoom({
  }
 
  // ════════════════════════════════════════════════════════════════════════
- // RAYCAST — pointer hover y click sobre el poster (solo desktop)
+ // RAYCAST — pointer hover y click sobre el poster
  // ════════════════════════════════════════════════════════════════════════
- // En móvil no hay poster que clickar — los listeners no se registran
- // y ahorramos los handlers + estado del raycaster.
- //
  // El sistema cameraFocus vive en heroScene. Aquí solo detectamos clicks
  // y los notificamos vía callbacks (onPosterFocusEnter / onPosterFocusExit).
  const clickRaycaster = new THREE.Raycaster();
@@ -969,9 +962,8 @@ export function buildRoom({
   if (onPosterFocusExit) onPosterFocusExit(clock.getElapsedTime());
  };
 
- // Solo registramos los listeners en desktop. En móvil no hay nada que
- // clickar y los eventos pointermove pueden además interferir con el
- // scroll-driven natural.
+ // Listeners solo en desktop: en móvil no hay cuadro que clickar y
+ // los pointer events podrían interferir con scroll-driven natural.
  if (!isMobile) {
   canvas.addEventListener("pointermove", onScenePointerMove);
   canvas.addEventListener("pointerdown", onScenePointerDown);
@@ -1004,7 +996,7 @@ export function buildRoom({
 
   // Poster — el raycast usa esto para bloquear hover cuando estamos fuera
   posterRoomFade = roomFade;
-  // En móvil no hay poster — saltamos update y mantenemos posterSpot a null.
+  // En móvil wallPoster es null — saltamos su update.
   if (wallPoster && posterSpot) {
    const posterSpotIntensity = wallPoster.userData.update(elapsedTime, roomFade);
    posterSpot.intensity = posterSpotIntensity * roomFade;
@@ -1029,7 +1021,7 @@ export function buildRoom({
    if (starsMaterial) starsMaterial.dispose();
   }
 
-  // Poster — texturas + materiales + meshes (solo si se creó)
+  // Poster — solo si se creó
   if (wallPoster) {
    wallPoster.userData.textures.forEach((t) => t && t.dispose && t.dispose());
    wallPoster.userData.materials.forEach((m) => m && m.dispose && m.dispose());

@@ -146,15 +146,48 @@ export function initHeroScene(wrapperEl) {
   let cursorIdle = false;
 
   // ── Tick: declarado como function (hoisted) → sin TDZ ────────────────
-  function cursorTick() {
-   // Aro — lerp medio
-   cursorRingX += (cursorMouseX - cursorRingX) * 0.22;
-   cursorRingY += (cursorMouseY - cursorRingY) * 0.22;
+  //
+  // CURSOR FRAMERATE-INDEPENDENT
+  // ─────────────────────────────────────────────────────────────────
+  // Antes usábamos `lerp(target, current, 0.22)` por frame. Eso asume
+  // que rAF dispara a 60 Hz (16.6 ms/frame). En monitores de 120/144/
+  // 165 Hz, rAF dispara más rápido, los frames son más cortos, y el
+  // mismo 0.22 da una sensación MÁS LENTA porque la "fracción de
+  // distancia consumida por unidad de tiempo" cae proporcionalmente.
+  //
+  // Solución: `lerp = 1 - exp(-rate * dt)` donde:
+  //   - rate = constante de "fuerza" del lerp (mayor → más rápido)
+  //   - dt   = segundos transcurridos desde el frame anterior
+  //
+  // Esta fórmula es exponencial decay clásico — el mismo "feel"
+  // independientemente del refresh rate. En desktop a 165 Hz se siente
+  // como un cursor pegado, en laptops a 60 Hz se siente exactamente
+  // igual.
+  //
+  // Rates calibrados para "como un tiro":
+  //   - Aro:   25 → ~94 % de aproximación en 100 ms (sutil estela)
+  //   - Punto: 60 → ~99 % de aproximación en  80 ms (casi 1:1)
+  const CUR_RING_RATE = 25;
+  const CUR_DOT_RATE = 60;
+  let cursorLastT = performance.now();
+  function cursorTick(now) {
+   if (typeof now !== "number") now = performance.now();
+   // dt clampeado: si el RAF se duerme >100 ms (tab oculta, debug pause)
+   // no queremos un salto brusco al volver. Lo limitamos a 50 ms.
+   const dt = Math.min(0.05, Math.max(0.001, (now - cursorLastT) / 1000));
+   cursorLastT = now;
+
+   const ringK = 1 - Math.exp(-CUR_RING_RATE * dt);
+   const dotK = 1 - Math.exp(-CUR_DOT_RATE * dt);
+
+   // Aro — con estela cinemática (no es lag, es deliberado)
+   cursorRingX += (cursorMouseX - cursorRingX) * ringK;
+   cursorRingY += (cursorMouseY - cursorRingY) * ringK;
    cursorRing.style.transform = `translate3d(${cursorRingX}px, ${cursorRingY}px, 0) translate(-50%, -50%)`;
 
-   // Punto — casi exacto
-   cursorDotX += (cursorMouseX - cursorDotX) * 0.55;
-   cursorDotY += (cursorMouseY - cursorDotY) * 0.55;
+   // Punto — pegado al cursor real
+   cursorDotX += (cursorMouseX - cursorDotX) * dotK;
+   cursorDotY += (cursorMouseY - cursorDotY) * dotK;
    cursorDot.style.transform = `translate3d(${cursorDotX}px, ${cursorDotY}px, 0) translate(-50%, -50%)`;
 
    // Bail si todo está dentro de medio píxel del target — no hay
@@ -181,6 +214,10 @@ export function initHeroScene(wrapperEl) {
    // Despertar el RAF si está parado
    if (cursorIdle) {
     cursorIdle = false;
+    // Reset del timestamp: si el RAF ha estado dormido segundos enteros,
+    // un dt enorme aplicado al exp() haría un salto teleport (ringK ≈ 1).
+    // Lo reseteamos al "ahora" para que la primera frame sea pequeña.
+    cursorLastT = performance.now();
     cursorRafId = requestAnimationFrame(cursorTick);
    }
   };
@@ -237,10 +274,22 @@ export function initHeroScene(wrapperEl) {
 
  /**
   * =========================================================
-  * DEBUG
+  * DEBUG / GUI
   * =========================================================
+  * Reglas:
+  *   - Móvil: GUI siempre OFF. Sin teclado/ratón fino no es usable
+  *     y además crashearía al intentar leer params de stubs (los
+  *     interactivos no se construyen en móvil — ver más abajo).
+  *   - Desktop: GUI ON por defecto. Para ocultarla puntualmente
+  *     añade ?gui=0 a la URL (útil para grabar demos limpios).
+  *
+  * `isMobileForDebug` es una copia local de la detección porque
+  * `isMobile` (el oficial del bloque DEVICE/QUALITY) se define más
+  * abajo. Esto no es duplicación: es que el orden de declaración
+  * matters — GUI necesita saber si es móvil ANTES de instanciarse.
   */
- const DEBUG = true;
+ const isMobileForDebug = window.innerWidth < 768;
+ const DEBUG = !isMobileForDebug && !/[?&]gui=0\b/.test(typeof window !== "undefined" ? window.location.search : "");
  const gui = DEBUG ? new GUI() : null;
  if (gui) gui.close();
  // Publicar la instancia para que otras escenas (Projects, etc.)
@@ -826,6 +875,9 @@ export function initHeroScene(wrapperEl) {
  const _focusLookAt = new THREE.Vector3();
 
  const computeFocusTarget = () => {
+  // En móvil wallPoster es null (no se crea por VRAM). Salimos sin
+  // tocar la cámara si por algún motivo se llega aquí en móvil.
+  if (!wallPoster) return;
   // Solo poster — usa la ref expuesta por room
   focusPos.set(wallPoster.position.x, wallPoster.position.y, wallPoster.position.z + 2.3);
   _focusLookAt.copy(wallPoster.position);
@@ -848,8 +900,8 @@ export function initHeroScene(wrapperEl) {
   if (!cameraFocus.active) return;
   if (cameraFocus.phase === "exiting") return;
 
-  // El poster se cierra directamente vía su API
-  if (cameraFocus.targetKey === "poster") {
+  // El poster se cierra directamente vía su API (solo desktop)
+  if (cameraFocus.targetKey === "poster" && wallPoster) {
    wallPoster.userData.triggerClose(now);
   }
 
@@ -861,14 +913,36 @@ export function initHeroScene(wrapperEl) {
  // ════════════════════════════════════════════════════════════════════════
  // OBJETOS VIVOS — neón + perro hologram + orrery
  // ════════════════════════════════════════════════════════════════════════
+ // En móvil saltamos los 3 interactivos:
+ //   - Neon: depende de hover (color cambia al pasar el ratón)
+ //   - Dog Hologram: shader custom + texturas scan/halo/ring (~3 MB VRAM)
+ //   - Orrery: shader del planeta + glow procedural
+ //
+ // Sin hover ninguno es funcional en móvil. Y juntos consumían ~6 MB de
+ // VRAM + 3 ShaderMaterials cuya compilación en Mali-G68 era parte de
+ // la causa del WebGL CONTEXT LOST. Stubs API-compatible para que el
+ // resto del archivo (GUI, ticks, dispose) no tenga que llevar guardas.
+ //
  // Construcción + tick + cleanup viven en ./hero/interactives.js
- const neon = buildNeon({ scene, requestRender });
- const dogHologramRef = buildDogHologram({
-  attachToDesk,
-  getDeskTopSupport: () => deskTopSupport,
-  requestRender,
- });
- const orreryRef = buildOrrery({ scene });
+ let neon, dogHologramRef, orreryRef;
+ if (isMobile) {
+  neon = {
+   params: {}, // GUI no se monta en móvil → vacío basta
+   letterHalos: [], // forEach() lo ignora
+   update: () => {},
+   dispose: () => {},
+  };
+  dogHologramRef = { group: null, dispose: () => {} };
+  orreryRef = { group: null, dispose: () => {} };
+ } else {
+  neon = buildNeon({ scene, requestRender });
+  dogHologramRef = buildDogHologram({
+   attachToDesk,
+   getDeskTopSupport: () => deskTopSupport,
+   requestRender,
+  });
+  orreryRef = buildOrrery({ scene });
+ }
 
  // Aliases para GUI y cleanup
  const neonParams = neon.params;
