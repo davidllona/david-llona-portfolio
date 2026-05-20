@@ -82,7 +82,7 @@ function ProjectCardMobile({ project }) {
   <article
    className="group overflow-hidden rounded-[20px] border border-white/10 bg-black/30 backdrop-blur-[2px]"
    style={{
-    // Sombra sutil con tinte del color del proyecto — apenas visible
+    // Sombra sutil con tinte del color del proyecto — apenas visible y arreglado el nombre
     // pero da identidad sin ser estridente
     boxShadow: `0 4px 30px ${project.color}10`,
    }}
