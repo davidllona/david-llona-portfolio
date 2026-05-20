@@ -1320,12 +1320,17 @@ export function initHeroScene(wrapperEl) {
    camera.quaternion.copy(workQ);
   }
 
-  // ── OrbitControls — orbit libre SOLO mientras estás en F1 ─────────────
-  // Antes desactivábamos los controls de forma PERMANENTE al pasar a F2.
-  // Eso impedía que el usuario pudiese volver a orbitar al hacer scroll
-  // back. Ahora evaluamos el estado cada frame, sin memoria:
-  //   - F1 (sp < F2S): orbit habilitado, el usuario puede mirar dentro
-  //     de la habitación.
+  // ── OrbitControls — orbit libre SOLO mientras estás en F1 SIN focus ───
+  // Reglas:
+  //   - F1 (sp < F2S) sin focus activo: orbit habilitado.
+  //   - F1 con cameraFocus.active (click al cuadro): orbit DESHABILITADO.
+  //     La cámara la mueve enteramente el sistema de focus mediante
+  //     focusBlend. Si no excluyésemos cameraFocus de la condición,
+  //     `controls.update()` sobrescribiría la pose del focus cada frame
+  //     y el zoom al cuadro nunca se completaría — visualmente el usuario
+  //     vería la pose KP[0] (cámara general del Hero) en lugar del zoom.
+  //     Ese era el bug del "zoom va al astronauta": no había zoom, era
+  //     la pose orbital reactivándose encima del focusBlend.
   //   - F2+ (sp >= F2S): orbit deshabilitado, la cámara la maneja el
   //     rail cinemático (KP[0]→KP[1]→KP[2]).
   // Al cruzar la frontera F1↔F2 el assignment es trivial (idempotente);
@@ -1334,9 +1339,8 @@ export function initHeroScene(wrapperEl) {
   // NOTA conocida: si orbitas en F1 y luego scrolleas, el rail arranca
   // desde KP[0] (cameraBase), no desde la pose orbitada → hay un mini
   // snap al iniciar F2. Es aceptable porque scroll = movimiento, no se
-  // percibe como bug. Si quisieras eliminarlo del todo habría que
-  // capturar la pose actual como KP[0] dinámico al salir de F1.
-  const orbitAllowed = sp < F2S;
+  // percibe como bug.
+  const orbitAllowed = sp < F2S && !cameraFocus.active;
   if (controls.enabled !== orbitAllowed) {
    controls.enabled = orbitAllowed;
   }

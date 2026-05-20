@@ -1239,7 +1239,7 @@ export function buildOrrery({ scene }) {
 
  // ── Posicionamiento sobre el suelo ──────────────────────────────────────
  group.scale.setScalar(2.05);
- group.position.set(4.5, 0, -3.45);
+ group.position.set(4.5, 0, -3.12);
  group.rotation.y = -0.35;
  scene.add(group);
 

@@ -42,7 +42,7 @@ export function ProjectsMobile() {
      <span className="mb-3 block text-[10px] uppercase tracking-[0.3em] text-primary/80">
       Proyectos
      </span>
-     <h2 className="text-3xl font-semibold tracking-[-0.03em] text-text">
+     <h2 className="text-3xl font-semibold tracking-[-0.03em] text-primary">
       Trabajo seleccionado
      </h2>
      <p className="mt-4 max-w-[44ch] text-sm leading-relaxed text-text-muted/85">
@@ -106,7 +106,7 @@ function ProjectCardMobile({ project }) {
    {/* Info */}
    <div className="px-5 py-6">
     {/* Tagline */}
-    <h3 className="mb-3 text-[22px] font-medium leading-tight tracking-[-0.02em] text-text">
+    <h3 className="mb-3 text-[22px] font-medium leading-tight tracking-[-0.02em] text-primary">
      {project.name}
     </h3>
     <p className="mb-4 text-sm leading-snug text-primary/85">
@@ -135,7 +135,7 @@ function ProjectCardMobile({ project }) {
      href={project.link}
      target="_blank"
      rel="noopener noreferrer"
-     className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-primary/90 transition-colors duration-300 hover:text-primary"
+     className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-primary transition-colors duration-300 hover:text-primary/80"
     >
      Ver proyecto
      <span aria-hidden="true">→</span>
