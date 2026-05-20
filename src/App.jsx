@@ -6,6 +6,7 @@ import { InteractiveLab } from './components/InteractiveLab'
 import { About } from './components/About'
 import { Contact } from './components/Contact'
 import { LoadingDoor } from './components/LoadingDoor'
+import { LazyMount } from './components/LazyMount'
 import { preloadCriticalAssets } from './3d/assetPreloader'
 import { SpeedInsights } from "@vercel/speed-insights/react"
 
@@ -14,39 +15,20 @@ function App() {
   // ──────────────────────────────────────────────────────────────────────
   // GATE DE MONTAJE — crítico para móviles con GPU limitada
   // ──────────────────────────────────────────────────────────────────────
-  // Antes: <Hero />, <Projects />, <InteractiveLab />, <About /> y
-  // <Contact /> se montaban SIMULTÁNEAMENTE con <LoadingDoor />. Cada uno
-  // arranca su propio WebGLRenderer en su useEffect → ~8 contextos WebGL
-  // activos al cargar la página.
-  //
-  // En desktop / iPhone potente eso es trivial. En ARM Mali-G68 (Samsung
-  // A54 5G, Pixel 6a, gama media-baja en general) la VRAM compartida no
-  // aguanta tantos contextos en paralelo → Chrome móvil mata el contexto
-  // del `#webgl` del Hero por OOM → pantalla negra eterna.
-  //
-  // Con este gate: mientras LoadingDoor está visible, en el DOM solo
-  // existe él (en móvil es HTML/CSS puro, cero WebGL). Cuando notifica
-  // que va a desaparecer, se monta el `<main>` y todos los WebGLs nacen
-  // sin competencia.
+  // Mientras LoadingDoor está visible, en el DOM solo existe él (en móvil
+  // es HTML/CSS puro, cero WebGL). Cuando notifica que va a desaparecer,
+  // se monta el `<main>` y empieza la cascada de lazy mount: Hero arranca
+  // su WebGL, las demás secciones esperan a estar cerca del viewport.
   const [mainReady, setMainReady] = useState(false)
 
   // ──────────────────────────────────────────────────────────────────────
-  // PRECARGA DE ASSETS — para que la barra del LoadingDoor avance de
-  // verdad y no salte del 0 al 100
+  // PRECARGA DE ASSETS — barra del LoadingDoor con progreso real
   // ──────────────────────────────────────────────────────────────────────
-  // El LoadingDoor está suscrito al `loadingManager` compartido, pero ese
-  // manager solo recibe eventos cuando hay loaders activos. Con el gate
-  // de arriba, los componentes que crean loaders (Hero, etc.) no existen
-  // todavía → no hay nada que cargar → barra plana en 0%.
-  //
-  // Lo arreglamos disparando aquí las descargas de los GLBs/texturas más
-  // pesados del Hero. El loadingManager observa el progreso y se lo
-  // notifica al LoadingDoor → la barra avanza con datos reales. Cuando
-  // el Hero se monte, pedirá los mismos archivos y los recibirá
-  // instantáneos desde el HTTP cache del navegador.
-  //
-  // Importante: el preloader NO crea contextos WebGL. Solo descarga y
-  // decodifica archivos. La filosofía del gate sigue intacta.
+  // El loadingManager solo recibe eventos cuando hay loaders activos.
+  // Con el gate de mainReady, los componentes que crean loaders no
+  // existen todavía → barra plana en 0%. Disparar aquí las descargas
+  // de los GLBs/texturas del Hero resuelve eso. Los componentes los
+  // pedirán de nuevo cuando se monten, pero ya estarán en caché HTTP.
   useEffect(() => {
     preloadCriticalAssets()
   }, [])
@@ -56,11 +38,24 @@ function App() {
       <LoadingDoor onComplete={() => setMainReady(true)} />
       {mainReady && (
         <main>
+          {/*
+            Hero se monta inmediatamente — es la primera sección visible
+            y necesita estar lista para el scroll inmediato del usuario.
+            Su WebGL es el único contexto activo en este momento.
+          */}
           <Hero />
-          <Projects />
-          <InteractiveLab />
-          <About />
-          <Contact />
+
+          {/*
+            Resto de secciones con LazyMount — cada una se monta cuando
+            está a ~300px del viewport. En móviles con GPU limitada
+            (Mali-G68) esto evita los ~9 contextos WebGL simultáneos
+            que causaban OOM y secciones en blanco / sad face.
+            En cualquier momento solo hay 1-2 contextos WebGL activos.
+          */}
+          <LazyMount><Projects /></LazyMount>
+          <LazyMount><InteractiveLab /></LazyMount>
+          <LazyMount><About /></LazyMount>
+          <LazyMount><Contact /></LazyMount>
         </main>
       )}
       <SpeedInsights />
