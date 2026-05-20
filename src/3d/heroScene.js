@@ -290,8 +290,10 @@ export function initHeroScene(wrapperEl) {
   *   - Móvil: GUI siempre OFF. Sin teclado/ratón fino no es usable
   *     y además crashearía al intentar leer params de stubs (los
   *     interactivos no se construyen en móvil — ver más abajo).
-  *   - Desktop: GUI ON por defecto. Para ocultarla puntualmente
-  *     añade ?gui=0 a la URL (útil para grabar demos limpios).
+  *   - Desktop: GUI OFF por defecto (producción limpia). Para
+  *     activarlo durante desarrollo, añade ?gui=1 a la URL.
+  *     Antes la lógica era inversa (default ON, ?gui=0 para ocultar)
+  *     pero eso dejaba el panel "Controls" visible en producción.
   *
   * `isMobileForDebug` es una copia local de la detección porque
   * `isMobile` (el oficial del bloque DEVICE/QUALITY) se define más
@@ -299,7 +301,7 @@ export function initHeroScene(wrapperEl) {
   * matters — GUI necesita saber si es móvil ANTES de instanciarse.
   */
  const isMobileForDebug = window.innerWidth < 768;
- const DEBUG = !isMobileForDebug && !/[?&]gui=0\b/.test(typeof window !== "undefined" ? window.location.search : "");
+ const DEBUG = !isMobileForDebug && /[?&]gui=1\b/.test(typeof window !== "undefined" ? window.location.search : "");
  const gui = DEBUG ? new GUI() : null;
  if (gui) gui.close();
  // Publicar la instancia para que otras escenas (Projects, etc.)

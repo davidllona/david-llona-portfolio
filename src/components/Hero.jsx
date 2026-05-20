@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { initHeroScene } from "../3d/heroScene";
-import { subscribeProgress } from "../3d/loadingManager";
 
 /**
  * Hero.jsx — wrapper 380vh + sticky 100vh
@@ -10,175 +9,7 @@ import { subscribeProgress } from "../3d/loadingManager";
  *  - línea horizontal fina con gradiente cálido (matchea glow del cohete)
  *  - flecha ↓ animada debajo
  *  - fade-out al hacer scroll
- *
- * 🐛 DEBUG TEMPORAL — Panel de diagnóstico en móvil
- *  Este panel muestra en pantalla qué está fallando en móvil. ELIMINAR
- *  cuando se resuelva el bug del WebGL en móvil. Está envuelto en un
- *  bloque marcado con [DEBUG_MOBILE_PANEL] para identificarlo fácilmente.
  */
-
-// ════════════════════════════════════════════════════════════════════════
-// [DEBUG_MOBILE_PANEL] — eliminar cuando se resuelva el bug del WebGL móvil
-// ════════════════════════════════════════════════════════════════════════
-function DebugMobilePanel() {
- const [logs, setLogs] = useState([]);
- const [webglInfo, setWebglInfo] = useState(null);
- const [loadingPct, setLoadingPct] = useState(0);
-
- useEffect(() => {
-  const isMobile = window.innerWidth < 768;
-  if (!isMobile) return; // Solo móvil
-
-  const push = (level, msg) => {
-   setLogs((prev) => [
-    ...prev.slice(-15), // máximo 16 logs visibles
-    { level, msg: typeof msg === "string" ? msg : JSON.stringify(msg), t: Date.now() },
-   ]);
-  };
-
-  // ── 1) DETECCIÓN INICIAL ───────────────────────────────────────────
-  push("info", `viewport: ${window.innerWidth}x${window.innerHeight}`);
-  push("info", `dpr: ${window.devicePixelRatio}`);
-  push("info", `ua: ${navigator.userAgent.slice(0, 80)}`);
-
-  // ── 2) TEST WEBGL EXPLÍCITO ────────────────────────────────────────
-  // Creamos un canvas temporal y probamos a crear un contexto WebGL.
-  // Si esto falla, ya sabemos que el problema es el dispositivo en sí.
-  try {
-   const testCanvas = document.createElement("canvas");
-   const gl =
-    testCanvas.getContext("webgl2") ||
-    testCanvas.getContext("webgl") ||
-    testCanvas.getContext("experimental-webgl");
-   if (!gl) {
-    push("error", "❌ WebGL NO disponible");
-    setWebglInfo("no-webgl");
-   } else {
-    const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
-    const vendor = debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : "?";
-    const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : "?";
-    const maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE);
-    const maxVert = gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS);
-    push("ok", `✅ WebGL OK — ${gl instanceof WebGL2RenderingContext ? "v2" : "v1"}`);
-    push("info", `GPU: ${String(renderer).slice(0, 50)}`);
-    push("info", `vendor: ${String(vendor).slice(0, 40)}`);
-    push("info", `maxTex: ${maxTex} / maxVert: ${maxVert}`);
-    setWebglInfo({ vendor, renderer, maxTex });
-   }
-  } catch (e) {
-   push("error", `❌ test WebGL: ${e.message}`);
-  }
-
-  // ── 3) ESCUCHAR ERRORES GLOBALES ───────────────────────────────────
-  const onError = (e) => {
-   const msg = e.message || (e.error && e.error.message) || "error sin mensaje";
-   const where = e.filename ? ` @ ${e.filename.split("/").pop()}:${e.lineno}` : "";
-   push("error", `⚠️ ${msg}${where}`);
-  };
-  const onUnhandled = (e) => {
-   const reason = e.reason && (e.reason.message || e.reason.toString());
-   push("error", `⚠️ promise: ${reason}`);
-  };
-  window.addEventListener("error", onError);
-  window.addEventListener("unhandledrejection", onUnhandled);
-
-  // ── 4) ESCUCHAR webglcontextlost EN EL CANVAS DEL HERO ─────────────
-  let cleanupCanvas = null;
-  const tryAttachCanvasListener = () => {
-   const canvas = document.querySelector("#webgl");
-   if (!canvas) return false;
-   const onLost = (ev) => {
-    ev.preventDefault();
-    push("error", "❌ WebGL CONTEXT LOST en #webgl");
-   };
-   const onRestored = () => push("info", "🔄 WebGL CONTEXT RESTORED");
-   canvas.addEventListener("webglcontextlost", onLost);
-   canvas.addEventListener("webglcontextrestored", onRestored);
-   cleanupCanvas = () => {
-    canvas.removeEventListener("webglcontextlost", onLost);
-    canvas.removeEventListener("webglcontextrestored", onRestored);
-   };
-   return true;
-  };
-  // El canvas puede no estar todavía en el DOM cuando montamos.
-  // Reintentos cortos hasta encontrarlo (o rendirse a los 2 segundos).
-  let attempts = 0;
-  const intervalId = setInterval(() => {
-   if (tryAttachCanvasListener() || attempts++ > 20) {
-    clearInterval(intervalId);
-   }
-  }, 100);
-
-  // ── 5) SUSCRIBIRSE AL LOADING MANAGER ──────────────────────────────
-  const unsub = subscribeProgress((p, done) => {
-   setLoadingPct(p);
-   if (done) push("ok", "✅ loadingManager: DONE");
-  });
-
-  // ── 6) MARCAR MOMENTOS CLAVE ───────────────────────────────────────
-  // Tras 3 y 6 segundos, log de "sigo vivo" para detectar cuelgues silenciosos.
-  const t1 = setTimeout(() => push("info", `t=3s pct=${(loadingPct * 100).toFixed(0)}%`), 3000);
-  const t2 = setTimeout(() => push("info", `t=6s pct=${(loadingPct * 100).toFixed(0)}%`), 6000);
-
-  return () => {
-   window.removeEventListener("error", onError);
-   window.removeEventListener("unhandledrejection", onUnhandled);
-   clearInterval(intervalId);
-   if (cleanupCanvas) cleanupCanvas();
-   unsub();
-   clearTimeout(t1);
-   clearTimeout(t2);
-  };
- }, []);
-
- // No renderizar en desktop
- if (window.innerWidth >= 768) return null;
-
- return (
-  <div
-   style={{
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    maxHeight: "50vh",
-    overflow: "auto",
-    background: "rgba(0,0,0,0.92)",
-    color: "#fff",
-    fontFamily: "ui-monospace, Menlo, monospace",
-    fontSize: "10px",
-    lineHeight: 1.35,
-    padding: "8px 10px",
-    zIndex: 100000,
-    pointerEvents: "auto",
-    borderBottom: "1px solid #ff7a3d",
-   }}
-  >
-   <div style={{ color: "#ff7a3d", fontWeight: 700, marginBottom: 4 }}>
-    🐛 DEBUG PANEL · loading: {(loadingPct * 100).toFixed(0)}%
-    {webglInfo && webglInfo !== "no-webgl" && (
-     <span style={{ color: "#7fff7f" }}> · WebGL OK</span>
-    )}
-    {webglInfo === "no-webgl" && (
-     <span style={{ color: "#ff5050" }}> · NO WEBGL</span>
-    )}
-   </div>
-   {logs.map((l, i) => (
-    <div
-     key={i}
-     style={{
-      color:
-       l.level === "error" ? "#ff7070" : l.level === "ok" ? "#7fff7f" : "#bbb",
-      whiteSpace: "pre-wrap",
-      wordBreak: "break-word",
-     }}
-    >
-     {l.msg}
-    </div>
-   ))}
-  </div>
- );
-}
 
 export function Hero() {
  const wrapperRef = useRef(null);
@@ -265,8 +96,6 @@ export function Hero() {
 
  return (
   <div ref={wrapperRef} style={{ position: "relative", height: "380vh" }}>
-   {/* [DEBUG_MOBILE_PANEL] eliminar cuando se resuelva el bug */}
-   <DebugMobilePanel />
    <div
     style={{
      position: "sticky",
@@ -332,8 +161,6 @@ export function Hero() {
     0 0 22px rgba(255, 160, 90, 0.45);
   animation: hero-hint-breathe 3.2s ease-in-out infinite;
 }
-
-/* … resto igual … */
 
 @media (max-width: 767px) {
   .hero-scroll-hint {
