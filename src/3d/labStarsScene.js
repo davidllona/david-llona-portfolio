@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { createVisibilityGate } from "./visibilityGate";
 
 /**
  * =========================================================
@@ -636,7 +637,21 @@ export function initLabStarsScene() {
  window.addEventListener("scroll", handleScroll);
  window.addEventListener("mousemove", handleMouseMove);
 
+ // Gate de visibilidad — el loop solo corre cuando la sección Lab está
+ // en pantalla. Antes esta escena renderizaba a 60 fps aunque estuvieses
+ // en Hero o en Contact. El kick() se llama desde el helper cuando la
+ // sección vuelve a entrar en viewport (o la pestaña vuelve a estar visible).
+ const kick = () => {
+  if (!animationId && gate.shouldAnimate()) {
+   animationId = window.requestAnimationFrame(tick);
+  }
+ };
+ const gate = createVisibilityGate(canvas, kick);
+
  const tick = () => {
+  animationId = null;
+  if (!gate.shouldAnimate()) return;
+
   const elapsedTime = clock.getElapsedTime();
   const dt = Math.min(Math.max(elapsedTime - lastElapsed, 0), 0.05);
   lastElapsed = elapsedTime;
@@ -668,9 +683,10 @@ export function initLabStarsScene() {
   animationId = window.requestAnimationFrame(tick);
  };
 
- tick();
+ kick();
 
  return () => {
+  gate.dispose();
   window.removeEventListener("resize", handleResize);
   window.removeEventListener("scroll", handleScroll);
   window.removeEventListener("mousemove", handleMouseMove);
@@ -1009,7 +1025,21 @@ void main()
  canvas.addEventListener("mouseleave", handleMouseLeave);
  window.addEventListener("resize", handleResize);
 
+ // Gate de visibilidad — el preview del agua animada solo renderiza
+ // cuando su canvas está en pantalla. Era el más caro de los previews
+ // (uniforms de shader + rotación de starfield) y antes seguía corriendo
+ // incluso desde Hero o Contact.
+ const kick = () => {
+  if (!animationId && gate.shouldAnimate()) {
+   animationId = window.requestAnimationFrame(tick);
+  }
+ };
+ const gate = createVisibilityGate(canvas, kick);
+
  const tick = () => {
+  animationId = null;
+  if (!gate.shouldAnimate()) return;
+
   const elapsed = clock.getElapsedTime();
 
   waterMaterial.uniforms.uTime.value = elapsed;
@@ -1023,9 +1053,10 @@ void main()
   animationId = window.requestAnimationFrame(tick);
  };
 
- tick();
+ kick();
 
  return () => {
+  gate.dispose();
   canvas.removeEventListener("mousemove", handleMouseMove);
   canvas.removeEventListener("mouseleave", handleMouseLeave);
   window.removeEventListener("resize", handleResize);
@@ -1333,7 +1364,19 @@ export function initProjectsStarsScene() {
  window.addEventListener("resize", onResize);
  window.addEventListener("mousemove", onMouseMove);
 
+ // Gate de visibilidad — las estrellas de Projects solo renderizan
+ // cuando la sección está en pantalla.
+ const kick = () => {
+  if (!animationId && gate.shouldAnimate()) {
+   animationId = window.requestAnimationFrame(tick);
+  }
+ };
+ const gate = createVisibilityGate(canvas, kick);
+
  const tick = () => {
+  animationId = null;
+  if (!gate.shouldAnimate()) return;
+
   const t = clock.getElapsedTime();
 
   stars.rotation.y = t * 0.008;
@@ -1356,9 +1399,10 @@ export function initProjectsStarsScene() {
   animationId = window.requestAnimationFrame(tick);
  };
 
- tick();
+ kick();
 
  return () => {
+  gate.dispose();
   window.removeEventListener("resize", onResize);
   window.removeEventListener("mousemove", onMouseMove);
   if (animationId) window.cancelAnimationFrame(animationId);
@@ -1663,7 +1707,19 @@ export function initLabRoomScene() {
  const clock = new THREE.Clock();
  let animId = null;
 
+ // Gate de visibilidad — el "observatorio" (cabina con asteroides, nebula
+ // y estrella fugaz) solo se anima cuando su canvas está en pantalla.
+ const kick = () => {
+  if (!animId && gate.shouldAnimate()) {
+   animId = requestAnimationFrame(tick);
+  }
+ };
+ const gate = createVisibilityGate(canvas, kick);
+
  const tick = () => {
+  animId = null;
+  if (!gate.shouldAnimate()) return;
+
   const elapsed = clock.getElapsedTime();
   const dt = Math.min(clock.getDelta() || 1 / 60, 0.05);
 
@@ -1721,12 +1777,13 @@ export function initLabRoomScene() {
   renderer.render(scene, camera);
   animId = requestAnimationFrame(tick);
  };
- tick();
+ kick();
 
  // ══════════════════════════════════════════════════════
  // CLEANUP
  // ══════════════════════════════════════════════════════
  return () => {
+  gate.dispose();
   window.removeEventListener("resize", onResize);
   window.removeEventListener("mousemove", onMouseMove);
   if (animId) cancelAnimationFrame(animId);

@@ -123,8 +123,10 @@ function downscaleGLBTextures(root, maxSize = 512) {
  * Interfaz con el orquestador:
  *   - El orquestador llama updateChair/updateLampara/etc. dentro del
  *     onDeskReady callback para que se reposicionen cuando la mesa carga.
- *   - update({ elapsedTime, roomFade }) anima warmLight + flame + las luces
- *     del cohete cada frame.
+ *   - update({ elapsedTime, roomFade, warmFade }) anima warmLight + flame
+ *     + las luces del cohete cada frame. warmFade es opcional y, si se
+ *     pasa, se aplica solo a las luces cálidas (atenuación temprana
+ *     respecto del resto del interior).
  */
 export function buildProps({
  scene,
@@ -212,18 +214,31 @@ export function buildProps({
  // LUCES DEL COHETE — 3 luces que dependen del sistema flame
  // ════════════════════════════════════════════════════════════════════════
  // WARM KEY del cohete — cálida pero CONTENIDA.
- // distance bajo para que NO se coma toda la escena.
- const warmLight = new THREE.PointLight("#ff9a52", 2.6, 3.8, 2);
+ //
+ // distance afinado para que NO sangre por la ventana.
+ // La pared izquierda está a x=-5 y estas luces están a x≈-3.8 → solo 1.2u
+ // de separación. Three.js no proyecta sombras desde PointLights (y activarlas
+ // costaría 6 renderTargets cubemap por luz), por lo que la única forma de
+ // contener el bleed es recortar el radio físico de cada luz.
+ //
+ // Con decay=2 la influencia visible cae al ~70% del distance → estos valores
+ // mantienen el halo cálido alrededor del cohete y dejan la pared/ventana
+ // fuera del rango perceptible.
+ const warmLight = new THREE.PointLight("#ff9a52", 2.6, 2.4, 2);
  warmLight.position.set(-4.03, 3.09, -2.12);
  scene.add(warmLight);
 
  // Luz de la lámpara/cohete — íntima, zona mesa/base del cohete.
- const lamparaLight = new THREE.PointLight("#ff8c45", 1.4, 3.0, 2);
+ // distance 1.8: queda contenida en el lateral del cohete.
+ const lamparaLight = new THREE.PointLight("#ff8c45", 1.4, 1.8, 2);
  lamparaLight.position.set(-3.8, 2.8, -2.0);
  scene.add(lamparaLight);
 
- // Llama del cohete — modero color y mantengo intensidad.
- const lamparaFlameLight = new THREE.PointLight("#ff7a2a", 1.85, 3.2, 2);
+ // Llama del cohete — la peor de las tres para el bleed porque estaba a
+ // z=0.33 (dentro del rango Z de la ventana, z∈[-1.685, 2.785]).
+ // distance 1.9: el halo de la llama sigue iluminando cohete y base, pero
+ // no llega a la pared con intensidad visible.
+ const lamparaFlameLight = new THREE.PointLight("#ff7a2a", 1.85, 1.9, 2);
  lamparaFlameLight.position.set(-3.74, 2.5, 0.33);
  scene.add(lamparaFlameLight);
 
@@ -786,14 +801,27 @@ export function buildProps({
  // TICK — warmLight (con flicker) + flame system + 2 luces del cohete
  // ════════════════════════════════════════════════════════════════════════
  // Recibe roomFade del orquestador (calculado a partir del scroll).
- // Todas las intensidades se escalan por roomFade → al salir de la habitación
- // las luces del cohete se apagan suavemente con el resto.
- function update({ elapsedTime, roomFade }) {
+ // Las intensidades de las llamas (opacidades de mesh + sprite) se escalan
+ // por roomFade → al salir de la habitación las llamas se apagan con el
+ // resto del interior.
+ //
+ // warmFade es un segundo factor opcional, específico para las LUCES cálidas
+ // (warmLight + lamparaLight + lamparaFlameLight). Se desvanecen antes que
+ // el resto del interior por dos motivos:
+ //   1) Son las luces con más bleed por la ventana (las más cercanas a la
+ //      pared izquierda).
+ //   2) Cinematográficamente, deben "quedarse atrás" cuando la cámara sale
+ //      al espacio.
+ // Si el orquestador no pasa warmFade, hace fallback a roomFade → cero
+ // regresiones si otros consumidores aún no se han migrado.
+ function update({ elapsedTime, roomFade, warmFade }) {
+  const wf = warmFade ?? roomFade;
+
   // ── warmLight con flicker controlado ────────────────────────────────────
   const warmBase = warmConfig.flicker
    ? warmConfig.baseIntensity + Math.sin(elapsedTime * warmConfig.flickerSpeed) * warmConfig.flickerAmplitude
    : warmConfig.baseIntensity;
-  warmLight.intensity = warmBase * roomFade;
+  warmLight.intensity = warmBase * wf;
 
   // ── Flicker de la llama del cohete — tres senos a frecuencias primas ────
   // Las frecuencias primas (7.3, 13.1, 4.7) evitan el patrón perceptible
@@ -806,8 +834,9 @@ export function buildProps({
   const fInt = flameParams.rocketFlameIntensity;
   const fScl = flameParams.rocketFlameScale;
 
-  lamparaLight.intensity = Math.max(0.3, flameParams.rocketLightIntensity * 0.75 * flameBrightness) * roomFade;
-  lamparaFlameLight.intensity = Math.max(0.25, flameParams.rocketLightIntensity * 0.85 * flameBrightness) * roomFade;
+  // Las LUCES del cohete usan warmFade (atenuación temprana).
+  lamparaLight.intensity = Math.max(0.3, flameParams.rocketLightIntensity * 0.75 * flameBrightness) * wf;
+  lamparaFlameLight.intensity = Math.max(0.25, flameParams.rocketLightIntensity * 0.85 * flameBrightness) * wf;
 
   // Animar las tres capas de llama más el sprite de glow
   if (flameGroup.visible) {

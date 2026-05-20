@@ -928,6 +928,28 @@ export function buildRoom({
  const onScenePointerMove = (event) => {
   if (!wallPoster) return;
   if (isCameraFocusActive && isCameraFocusActive()) return;
+
+  // Si el usuario está arrastrando con un botón pulsado (típicamente para
+  // orbitar la cámara), saltamos el raycast del poster. Razón:
+  // mientras orbitas, la cámara cambia frame a frame y el rayo
+  // proyectado oscila entre "hit" y "no-hit" sobre el poster. Eso hace
+  // que el `hoverTarget` salte entre 0 y 1, y como `spotBoost` depende
+  // de `state.hover`, la intensidad de `posterSpot` parpadea visiblemente
+  // durante el orbit. Bloquear el hover mientras arrastras elimina el
+  // bug y además es la semántica correcta: "hover" es para cuando miras,
+  // no para cuando arrastras.
+  //
+  // event.buttons es un bitmask: 0 = ningún botón, 1 = primario, etc.
+  // Cualquier botón pulsado → estamos en gesto activo → no calcular hover.
+  if (event.buttons > 0) {
+   // Garantizar que el estado de hover se limpia si el usuario empieza
+   // a arrastrar justo encima del poster (estaría con hover=true y se
+   // quedaría "encendido" todo el drag).
+   wallPoster.userData.setHover(false);
+   canvas.style.cursor = "";
+   return;
+  }
+
   _updateClickPointer(event);
   const hit = _hitsPoster();
   wallPoster.userData.setHover(hit);

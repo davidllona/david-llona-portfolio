@@ -140,35 +140,37 @@ export function initHeroScene(wrapperEl) {
   let cursorMouseY = window.innerHeight / 2;
   let cursorRingX = cursorMouseX;
   let cursorRingY = cursorMouseY;
-  let cursorDotX = cursorMouseX;
-  let cursorDotY = cursorMouseY;
   let cursorHover = false;
   let cursorIdle = false;
 
   // ── Tick: declarado como function (hoisted) → sin TDZ ────────────────
   //
-  // CURSOR FRAMERATE-INDEPENDENT
+  // ARQUITECTURA HYPER-FLUIDA
   // ─────────────────────────────────────────────────────────────────
-  // Antes usábamos `lerp(target, current, 0.22)` por frame. Eso asume
-  // que rAF dispara a 60 Hz (16.6 ms/frame). En monitores de 120/144/
-  // 165 Hz, rAF dispara más rápido, los frames son más cortos, y el
-  // mismo 0.22 da una sensación MÁS LENTA porque la "fracción de
-  // distancia consumida por unidad de tiempo" cae proporcionalmente.
+  // El cursor está dividido en dos elementos con estrategias distintas:
   //
-  // Solución: `lerp = 1 - exp(-rate * dt)` donde:
-  //   - rate = constante de "fuerza" del lerp (mayor → más rápido)
-  //   - dt   = segundos transcurridos desde el frame anterior
+  //   • PUNTO (cursorDot): se pinta DIRECTAMENTE desde el handler de
+  //     mousemove, sin pasar por rAF y sin lerp. Esto significa que va
+  //     clavado al cursor real con cero latencia, INDEPENDIENTEMENTE de
+  //     lo que esté haciendo Three.js. Aunque la escena pierda frames
+  //     (drop a 30 fps durante el cruce de la ventana, por ejemplo),
+  //     el punto sigue al 100 % del refresh rate del puntero del SO.
+  //     Es el truco para que el cursor SE SIENTA hyper-fluido aunque
+  //     la GPU esté agobiada.
   //
-  // Esta fórmula es exponencial decay clásico — el mismo "feel"
-  // independientemente del refresh rate. En desktop a 165 Hz se siente
-  // como un cursor pegado, en laptops a 60 Hz se siente exactamente
-  // igual.
+  //   • ARO (cursorRing): SÍ usa rAF + lerp. Su estela ligera es
+  //     deliberada y cinemática. Como el aro tiene su propia "inercia"
+  //     visual, los pequeños tirones del rAF se camuflan dentro de la
+  //     estela y son imperceptibles.
   //
-  // Rates calibrados para "como un tiro":
-  //   - Aro:   25 → ~94 % de aproximación en 100 ms (sutil estela)
-  //   - Punto: 60 → ~99 % de aproximación en  80 ms (casi 1:1)
-  const CUR_RING_RATE = 25;
-  const CUR_DOT_RATE = 60;
+  // Rates calibrados:
+  //   - Aro:   40 → ~80% en 50 ms (estela muy sutil, sin lag perceptible)
+  //
+  // Por qué el dot no usa rAF: con el rAF antiguo, si Three.js tardaba
+  // 33 ms en un frame, el dot también tardaba 33 ms en moverse. A
+  // velocidades de ratón normales (1-2 px/ms) eso son 30-60 px de
+  // retraso visible. Pintando desde mousemove eso se reduce a 0.
+  const CUR_RING_RATE = 40;
   let cursorLastT = performance.now();
   function cursorTick(now) {
    if (typeof now !== "number") now = performance.now();
@@ -178,23 +180,16 @@ export function initHeroScene(wrapperEl) {
    cursorLastT = now;
 
    const ringK = 1 - Math.exp(-CUR_RING_RATE * dt);
-   const dotK = 1 - Math.exp(-CUR_DOT_RATE * dt);
 
    // Aro — con estela cinemática (no es lag, es deliberado)
    cursorRingX += (cursorMouseX - cursorRingX) * ringK;
    cursorRingY += (cursorMouseY - cursorRingY) * ringK;
    cursorRing.style.transform = `translate3d(${cursorRingX}px, ${cursorRingY}px, 0) translate(-50%, -50%)`;
 
-   // Punto — pegado al cursor real
-   cursorDotX += (cursorMouseX - cursorDotX) * dotK;
-   cursorDotY += (cursorMouseY - cursorDotY) * dotK;
-   cursorDot.style.transform = `translate3d(${cursorDotX}px, ${cursorDotY}px, 0) translate(-50%, -50%)`;
-
-   // Bail si todo está dentro de medio píxel del target — no hay
-   // movimiento real. El RAF se reactiva en onCursorMove.
+   // Bail si el aro está dentro de medio píxel del target — no hay
+   // movimiento real que renderizar. El RAF se reactiva en onCursorMove.
    const dx = Math.abs(cursorMouseX - cursorRingX) + Math.abs(cursorMouseY - cursorRingY);
-   const dxDot = Math.abs(cursorMouseX - cursorDotX) + Math.abs(cursorMouseY - cursorDotY);
-   if (dx < 0.5 && dxDot < 0.5) {
+   if (dx < 0.5) {
     cursorIdle = true;
     cursorRafId = 0;
     return;
@@ -207,11 +202,26 @@ export function initHeroScene(wrapperEl) {
    cursorMouseX = e.clientX;
    cursorMouseY = e.clientY;
 
-   if (e.target && e.target.style) {
-    e.target.style.setProperty("cursor", HIDDEN_CURSOR, "important");
-   }
+   // ── PUNTO: actualización directa, sin rAF ──────────────────────────
+   // Esto es lo que hace al cursor "hyper-fluido": no esperamos al
+   // siguiente frame de Three.js. El punto se pinta YA mismo, en el
+   // mismo callstack del evento del puntero. La compositing del
+   // navegador lo aplica al siguiente vsync, sin pasar por nuestro rAF.
+   cursorDot.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0) translate(-50%, -50%)`;
 
-   // Despertar el RAF si está parado
+   // NOTA: antes había aquí un `e.target.style.setProperty("cursor", ...,
+   // "important")`. Era REDUNDANTE — el CSS global de cursorStyleEl ya
+   // incluye un selector universal `* { cursor: ... !important }` que
+   // cubre todo el DOM. Pero, sobre todo, era el causante de que el
+   // cursor fuese fluido al cargar y a pedales después de mover el
+   // ratón un rato: en cada mousemove (60-120 Hz) inyectaba un atributo
+   // `style="cursor: url(data:image/svg+xml;...) 0 0, none !important"`
+   // en el elemento bajo el ratón. Como ese data URL es largo y el
+   // atributo inline se quedaba fijado para siempre, el DOM se iba
+   // inflando con cientos de estilos inline tras unos segundos de uso
+   // → cada style recalc por frame se volvía más caro → cursor a pedales.
+
+   // ── ARO: despertar el RAF si está parado ───────────────────────────
    if (cursorIdle) {
     cursorIdle = false;
     // Reset del timestamp: si el RAF ha estado dormido segundos enteros,
@@ -1285,9 +1295,25 @@ export function initHeroScene(wrapperEl) {
    camera.quaternion.copy(workQ);
   }
 
-  // OrbitControls: solo activos en F1 (sp < F2S), se desactivan al entrar en F2
-  if (sp >= F2S && controls.enabled) {
-   controls.enabled = false;
+  // ── OrbitControls — orbit libre SOLO mientras estás en F1 ─────────────
+  // Antes desactivábamos los controls de forma PERMANENTE al pasar a F2.
+  // Eso impedía que el usuario pudiese volver a orbitar al hacer scroll
+  // back. Ahora evaluamos el estado cada frame, sin memoria:
+  //   - F1 (sp < F2S): orbit habilitado, el usuario puede mirar dentro
+  //     de la habitación.
+  //   - F2+ (sp >= F2S): orbit deshabilitado, la cámara la maneja el
+  //     rail cinemático (KP[0]→KP[1]→KP[2]).
+  // Al cruzar la frontera F1↔F2 el assignment es trivial (idempotente);
+  // OrbitControls re-engancha listeners internos sin coste perceptible.
+  //
+  // NOTA conocida: si orbitas en F1 y luego scrolleas, el rail arranca
+  // desde KP[0] (cameraBase), no desde la pose orbitada → hay un mini
+  // snap al iniciar F2. Es aceptable porque scroll = movimiento, no se
+  // percibe como bug. Si quisieras eliminarlo del todo habría que
+  // capturar la pose actual como KP[0] dinámico al salir de F1.
+  const orbitAllowed = sp < F2S;
+  if (controls.enabled !== orbitAllowed) {
+   controls.enabled = orbitAllowed;
   }
   if (controls.enabled && controls.enableDamping) {
    controls.update();
@@ -1316,24 +1342,59 @@ export function initHeroScene(wrapperEl) {
    }
   }
 
-  // Pantallas del monitor (typing + viewports wireframe) — delegado a desk
-  desk.update(elapsedTime);
+  // ── Interior cull — saltarse updates pesados cuando no se ven ─────────
+  // Cuando sp > INTERIOR_CULL_SP la habitación ya es invisible: roomFade=0
+  // ha apagado todas las luces internas y los meshes interiores quedan en
+  // negro. Pero los update() de desk, hologram, orrery y neon siguen
+  // corriendo cada frame. Lo más caro de todos:
+  //   - desk.update() repinta los canvas de los 2 monitores y hace
+  //     texture.needsUpdate → sube una textura nueva a GPU CADA FRAME.
+  //   - dogHologram / orrery / neon → uniforms de shaders custom.
+  //
+  // El margen +0.04 sobre F3E evita pop perceptible justo en el borde.
+  // El reloj (elapsedTime) sigue avanzando: si el usuario scroll-ea de
+  // vuelta, las animaciones se reanudan en el punto temporal que les
+  // toca, sin glitch.
+  const INTERIOR_CULL_SP = F3E + 0.04; // ≈ 0.43
+  const interiorVisible = sp < INTERIOR_CULL_SP;
 
-  // Holograma del perro — respiración + scan
-  if (dogHologram?.userData.update) dogHologram.userData.update(elapsedTime);
-  if (orrery?.userData?.update) orrery.userData.update(elapsedTime);
+  if (interiorVisible) {
+   // Pantallas del monitor (typing + viewports wireframe) — delegado a desk
+   desk.update(elapsedTime);
+
+   // Holograma del perro — respiración + scan
+   if (dogHologram?.userData.update) dogHologram.userData.update(elapsedTime);
+   if (orrery?.userData?.update) orrery.userData.update(elapsedTime);
+  }
 
   // ── Luces de la habitación + poster — delegado al módulo room ───────────
   const roomFade = 1 - clamp01(phase(sp, F2E, F3E));
+
+  // warmFade — atenuación específica para las luces cálidas del cohete/
+  // lámpara. Arranca su descenso en F2S (cuando empieza la aproximación a
+  // la ventana) en lugar de F2E (cuando ya está casi llegando). Resultado:
+  // estas luces se atenúan a la mitad de la aproximación y están casi
+  // apagadas al iniciar el cruce → menos bleed por la ventana y menos
+  // fragment lighting durante F2/F3.
+  //
+  // Si en algún momento quisieras invertir esto y usar el mismo fade que
+  // el resto, basta con sustituir la línea por: const warmFade = roomFade;
+  const warmFade = 1 - clamp01(phase(sp, F2S, F2E));
 
   // Habitación: 11 luces interiores + poster (raycast vive dentro del room)
   room.update({ elapsedTime, roomFade, lightMultipliers, isMobile });
 
   // Cohete: warmLight + flame system + lamparaLight + lamparaFlameLight
-  props.update({ elapsedTime, roomFade });
+  // Las llamas (sprite/mesh) siguen visibles hasta roomFade=0 (cruce
+  // completo); las LUCES que emiten se apagan antes vía warmFade.
+  props.update({ elapsedTime, roomFade, warmFade });
 
   // ── Neón 3D (GLB) — posición / luces de rebote / titileo selectivo ─────
-  neon.update(elapsedTime, roomFade);
+  // Solo se actualiza si el interior se ve — su update calcula bounce
+  // lights y flicker selectivo que son caros y no se aprecian fuera.
+  if (interiorVisible) {
+   neon.update(elapsedTime, roomFade);
+  }
 
   // ── Exterior completo (estrellas, luna, nebula, viñeta, satélite, ─────────
   // asteroides, fugaz, UFO, claim, plano técnico) ──────────────────────────

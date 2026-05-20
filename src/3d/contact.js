@@ -13,6 +13,7 @@
 
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { createVisibilityGate } from "./visibilityGate";
 
 // ─── Rutas editables ─────────────────────────────────────────────────────────
 export const SCENE_CONFIG = {
@@ -565,11 +566,29 @@ export function initContactScene(container, onBeaconReady) {
   astronautRoot.position.y = P.astroY + Math.sin(elapsed * 1.1) * 0.008;
  }
  // ── Loop ─────────────────────────────────────────────────────────────────
+ // Loop con gate de visibilidad — solo renderiza si la sección de Contact
+ // está dentro del viewport y la pestaña está visible. Mientras estás en
+ // Hero / Projects / Lab / About, este canvas paga 0 frames.
+ //
+ // El IntersectionObserver del beacon (más arriba) sigue intacto: ese
+ // observer detecta cuándo la sección entra en pantalla por primera vez
+ // para disparar la animación del beacon. Convive sin conflicto con el
+ // gate, son dos observers con responsabilidades distintas.
  const clock = new THREE.Clock();
  let rafId = null;
 
+ const kick = () => {
+  if (!rafId && gate.shouldAnimate()) {
+   rafId = requestAnimationFrame(animate);
+  }
+ };
+
+ const gate = createVisibilityGate(container, kick);
+
  function animate() {
-  rafId = requestAnimationFrame(animate);
+  rafId = null;
+  if (!gate.shouldAnimate()) return;
+
   const delta = clock.getDelta();
   const elapsed = clock.getElapsedTime();
 
@@ -615,8 +634,10 @@ export function initContactScene(container, onBeaconReady) {
   nebulaMat.opacity = P.nebulaOpacity * (1 + Math.sin(elapsed * 0.35) * 0.06);
 
   renderer.render(scene, camera);
+  rafId = requestAnimationFrame(animate);
  }
- animate();
+
+ kick();
 
  // ── Resize ───────────────────────────────────────────────────────────────
  function onResize() {
@@ -631,7 +652,8 @@ export function initContactScene(container, onBeaconReady) {
 
  // ── Cleanup ───────────────────────────────────────────────────────────────
  const cleanup = function () {
-  cancelAnimationFrame(rafId);
+  gate.dispose();
+  if (rafId) cancelAnimationFrame(rafId);
   window.removeEventListener("resize", onResize);
   observer.disconnect();
 

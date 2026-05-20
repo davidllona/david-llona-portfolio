@@ -1001,14 +1001,33 @@ export function buildOrrery({ scene }) {
  // ── Cúpula de cristal — grande y MUY transparente para ver el contenido ─
  const DOME_RADIUS = 0.5;
  const domeGeo = new THREE.SphereGeometry(DOME_RADIUS, 40, 28, 0, Math.PI * 2, 0, Math.PI * 0.5);
+ // Material afinado para que la cúpula sea ESTABLE al orbitar la cámara.
+ //
+ // Antes: roughness 0.08 + metalness 0.3 + DoubleSide. Con esos valores la
+ // cúpula era casi un espejo. Las PointLights internas (`edgeLight` y
+ // `orreryLight`) generaban highlights especulares muy nítidos que se
+ // desplazaban por la superficie al orbitar — efecto físicamente correcto
+ // pero el ojo lo lee como "las luces bailan". Encima de eso, DoubleSide
+ // + depthWrite:false + el contenido transparente dentro (halos de
+ // planetas, sun halo, orbits) provocaba microflickering por orden de
+ // renderizado al cambiar la cámara.
+ //
+ // Ahora: cristal SATINADO. Sigue siendo cristal claro, deja ver el
+ // sistema solar perfectamente, pero los highlights son gradientes
+ // difusos en vez de spots nítidos → al orbitar el cambio es suave,
+ // no salta. Cambios:
+ //   - roughness 0.08 → 0.4   (los highlights se difuminan)
+ //   - metalness  0.3  → 0.0  (cristal real, no metal)
+ //   - side       Double→Front (un lado, reduce orden de transparencias)
+ //   - opacity    0.14 → 0.18 (un punto más sólida, integra los reflejos)
  const domeMat = new THREE.MeshStandardMaterial({
   color: "#8ab0e0",
-  roughness: 0.08,
-  metalness: 0.3,
+  roughness: 0.4,
+  metalness: 0.0,
   transparent: true,
-  opacity: 0.14, // muy transparente → el sistema solar manda
+  opacity: 0.18,
   depthWrite: false,
-  side: THREE.DoubleSide,
+  side: THREE.FrontSide,
  });
  const dome = new THREE.Mesh(domeGeo, domeMat);
  dome.position.y = BASE_H + PEDESTAL_H + 0.025;
