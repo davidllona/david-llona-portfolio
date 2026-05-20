@@ -543,11 +543,24 @@ export function Contact() {
   };
  }, []);
 
- function handleSend(e) {
+function handleSend(e) {
   e.preventDefault();
+
   if (!emailVal.trim()) return;
+
+  const subject = encodeURIComponent(
+    "Nuevo contacto desde la web"
+  );
+
+  const body = encodeURIComponent(
+    `Email del visitante: ${emailVal}`
+  );
+
+  window.location.href =
+    `mailto:dllonaProgramador@gmail.com?subject=${subject}&body=${body}`;
+
   setSent(true);
- }
+}
 
  // Alias corto para legibilidad en el JSX
  const u = uiParams.current;
