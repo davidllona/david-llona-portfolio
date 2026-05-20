@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { easeIn3, easeOut3, easeIO3, clamp01, lerpV, phase } from "./math";
-import { loadingManager } from "../loadingManager";
+import { loadingManager, loadSharedTexture } from "../loadingManager";
 
 /**
  * buildExterior
@@ -316,7 +316,6 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
   tint: "#ffffff",
  };
 
- const extMoonLoader = new THREE.TextureLoader(loadingManager);
  const extMoonGeo = new THREE.SphereGeometry(1.5, 36, 36);
  const extMoonMat = new THREE.MeshBasicMaterial({
   color: "#f5f8ff",
@@ -329,7 +328,10 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
  extMoon.visible = false;
  scene.add(extMoon);
 
- extMoonLoader.load("/textures/moon.jpg", (tex) => {
+ // Comparte la misma textura que la luna interior (heroScene.js) →
+ // 1 descarga + 1 upload a GPU, no 2. loadSharedTexture devuelve la
+ // misma instancia de Texture aunque la pida quien la pida.
+ loadSharedTexture("/textures/moon.jpg", (tex) => {
   tex.colorSpace = THREE.SRGBColorSpace;
   extMoonMat.map = tex;
   extMoonMat.color.set(moonParams.tint);
@@ -821,50 +823,58 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
  scene.add(ufoOverlayOrange);
 
  // ── Carga del modelo ──────────────────────────────────────────────────────
- const ufoGLTFLoader = new GLTFLoader(loadingManager);
- ufoGLTFLoader.load(
-  "/modelos/Ufo.glb",
-  (gltf) => {
-   ufoRoot = gltf.scene;
-   ufoRoot.scale.setScalar(ufoParams.scale);
-   ufoRoot.rotation.set(0, 0, 0);
+ // En móvil saltamos el UFO: es un objeto decorativo que solo aparece en
+ // una fase del scroll, y no aporta valor suficiente para justificar
+ // su descarga (un GLB extra + ~5-10 MB VRAM + 2 luces). Una optimización
+ // limpia: se queda el `ufoGroup` vacío y todos los updates por frame
+ // que tocan ufoRoot/ufoMaterials se vuelven no-op gracias al guard
+ // `if (!ufoRoot) return;` que ya existe en update().
+ if (!isMobile) {
+  const ufoGLTFLoader = new GLTFLoader(loadingManager);
+  ufoGLTFLoader.load(
+   "/modelos/Ufo.glb",
+   (gltf) => {
+    ufoRoot = gltf.scene;
+    ufoRoot.scale.setScalar(ufoParams.scale);
+    ufoRoot.rotation.set(0, 0, 0);
 
-   ufoRoot.traverse((child) => {
-    if (!child.isMesh) return;
-    child.castShadow = false;
-    child.receiveShadow = false;
-    const mats = Array.isArray(child.material) ? child.material : [child.material];
-    mats.forEach((mat) => {
-     if (!mat) return;
-     mat.transparent = true;
-     mat.opacity = 0.0;
-     mat.needsUpdate = true;
-     // Subir brillo base del modelo: los GLBs espaciales suelen ser muy oscuros
-     if (mat.color) mat.color.multiplyScalar(2.8);
-     // Asegurar que no absorba demasiada luz en escena muy oscura
-     if ("roughness" in mat) mat.roughness = Math.min(mat.roughness ?? 0.6, 0.65);
-     if ("metalness" in mat) mat.metalness = Math.max(mat.metalness ?? 0.2, 0.25);
-     ufoMaterials.push(mat);
+    ufoRoot.traverse((child) => {
+     if (!child.isMesh) return;
+     child.castShadow = false;
+     child.receiveShadow = false;
+     const mats = Array.isArray(child.material) ? child.material : [child.material];
+     mats.forEach((mat) => {
+      if (!mat) return;
+      mat.transparent = true;
+      mat.opacity = 0.0;
+      mat.needsUpdate = true;
+      // Subir brillo base del modelo: los GLBs espaciales suelen ser muy oscuros
+      if (mat.color) mat.color.multiplyScalar(2.8);
+      // Asegurar que no absorba demasiada luz en escena muy oscura
+      if ("roughness" in mat) mat.roughness = Math.min(mat.roughness ?? 0.6, 0.65);
+      if ("metalness" in mat) mat.metalness = Math.max(mat.metalness ?? 0.2, 0.25);
+      ufoMaterials.push(mat);
+     });
     });
-   });
 
-   // Luz interior del UFO — rim light suave desde abajo/frente
-   // Ilumina el propio modelo dando silueta sin parecer cartoon
-   ufoInnerLight = new THREE.PointLight("#a8d4ff", UFO_INNER_LIGHT_BASE, 2.8, 1.8);
-   ufoInnerLight.position.set(0, -0.25, 0.3); // ligeramente debajo y al frente
-   ufoGroup.add(ufoInnerLight);
+    // Luz interior del UFO — rim light suave desde abajo/frente
+    // Ilumina el propio modelo dando silueta sin parecer cartoon
+    ufoInnerLight = new THREE.PointLight("#a8d4ff", UFO_INNER_LIGHT_BASE, 2.8, 1.8);
+    ufoInnerLight.position.set(0, -0.25, 0.3); // ligeramente debajo y al frente
+    ufoGroup.add(ufoInnerLight);
 
-   // Segundo punto de luz para definir el borde superior (rim)
-   ufoInnerRim = new THREE.PointLight("#cce8ff", UFO_INNER_RIM_BASE, 2.0, 2);
-   ufoInnerRim.position.set(0, 0.4, -0.2);
-   ufoGroup.add(ufoInnerRim);
+    // Segundo punto de luz para definir el borde superior (rim)
+    ufoInnerRim = new THREE.PointLight("#cce8ff", UFO_INNER_RIM_BASE, 2.0, 2);
+    ufoInnerRim.position.set(0, 0.4, -0.2);
+    ufoGroup.add(ufoInnerRim);
 
-   ufoGroup.add(ufoRoot);
-   requestRender();
-  },
-  undefined,
-  (err) => console.error("[UFO] Error:", err),
- );
+    ufoGroup.add(ufoRoot);
+    requestRender();
+   },
+   undefined,
+   (err) => console.error("[UFO] Error:", err),
+  );
+ }
 
  function updateUfo() {
   if (ufoRoot) ufoRoot.scale.setScalar(ufoParams.scale);

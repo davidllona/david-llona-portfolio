@@ -51,3 +51,58 @@ export function subscribeProgress(cb) {
  cb(lastPct, isDone);
  return () => listeners.delete(cb);
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// TEXTURE CACHE — comparte una sola textura entre múltiples consumidores
+// ════════════════════════════════════════════════════════════════════════
+// Three.js NO comparte texturas entre TextureLoaders por defecto. Si dos
+// módulos hacen `new TextureLoader().load("moon.jpg")`, se descarga dos
+// veces, se decodifica dos veces, y ocupa el doble de VRAM al subirla
+// a GPU como dos texturas distintas.
+//
+// Este cache devuelve la MISMA instancia de Texture a todos los que la
+// pidan, evitando descargas duplicadas y duplicación en GPU. Crítico
+// para `moon.jpg` que se usa en heroScene (luna interior) y exterior
+// (luna del cielo).
+//
+// Uso:
+//   import { loadSharedTexture } from "./loadingManager";
+//   loadSharedTexture("/textures/moon.jpg", (tex) => { ... });
+
+const _textureCache = new Map();
+const _texturePending = new Map(); // url → array de callbacks pendientes
+const _sharedTextureLoader = new THREE.TextureLoader(loadingManager);
+
+export function loadSharedTexture(url, onLoad, onError) {
+ // 1) Cache hit: textura ya cargada, devolver inmediatamente.
+ if (_textureCache.has(url)) {
+  // Asíncrono para no romper expectativas del consumidor
+  // (que la callback no se llame antes de retornar).
+  queueMicrotask(() => onLoad(_textureCache.get(url)));
+  return;
+ }
+
+ // 2) Carga en curso: añadir a la cola de pendientes.
+ if (_texturePending.has(url)) {
+  _texturePending.get(url).push(onLoad);
+  return;
+ }
+
+ // 3) Primera petición: iniciar carga y registrar pendientes.
+ _texturePending.set(url, [onLoad]);
+ _sharedTextureLoader.load(
+  url,
+  (tex) => {
+   _textureCache.set(url, tex);
+   const callbacks = _texturePending.get(url) || [];
+   _texturePending.delete(url);
+   callbacks.forEach((cb) => cb(tex));
+  },
+  undefined,
+  (err) => {
+   _texturePending.delete(url);
+   if (onError) onError(err);
+   else console.warn("[loadSharedTexture] failed:", url, err);
+  },
+ );
+}

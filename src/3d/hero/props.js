@@ -37,6 +37,7 @@ export function buildProps({
  getDeskSupportMeshes,
  getFloor,
  requestRender,
+ isMobile = false, // opcional; en móvil saltamos props no esenciales
 }) {
  // ════════════════════════════════════════════════════════════════════════
  // SISTEMA FLAME — 3 conos + sprite glow para la base del cohete
@@ -479,37 +480,42 @@ export function buildProps({
   brightness: 1.0,
  };
 
- const ratonLoader = new GLTFLoader(loadingManager);
- ratonLoader.load(
-  "/modelos/raton.glb",
-  (gltf) => {
-   ratonRoot = gltf.scene;
-   ratonAnchor = new THREE.Group();
-   ratonAnchor.add(ratonRoot);
+ // En móvil saltamos el ratón: GLB pequeño pero gratis. Cualquier props
+ // no esencial que podamos quitar reduce HTTP requests, decode time y
+ // VRAM. El updateRaton() abajo ya es no-op si ratonRoot sigue null.
+ if (!isMobile) {
+  const ratonLoader = new GLTFLoader(loadingManager);
+  ratonLoader.load(
+   "/modelos/raton.glb",
+   (gltf) => {
+    ratonRoot = gltf.scene;
+    ratonAnchor = new THREE.Group();
+    ratonAnchor.add(ratonRoot);
 
-   ratonRoot.traverse((child) => {
-    if (!child.isMesh) return;
-    child.castShadow = child.receiveShadow = false;
-    const mats = Array.isArray(child.material) ? child.material : [child.material];
-    mats.forEach((mat) => {
-     if (!mat) return;
-     if ("roughness" in mat) mat.roughness = 0.75;
-     if ("metalness" in mat) mat.metalness = 0.05;
-     if ("envMapIntensity" in mat) mat.envMapIntensity = 0.4;
-     if (mat.color) {
-      mat.userData.__baseColor = mat.color.clone();
-      mat.color.copy(mat.userData.__baseColor).multiplyScalar(ratonParams.brightness);
-     }
+    ratonRoot.traverse((child) => {
+     if (!child.isMesh) return;
+     child.castShadow = child.receiveShadow = false;
+     const mats = Array.isArray(child.material) ? child.material : [child.material];
+     mats.forEach((mat) => {
+      if (!mat) return;
+      if ("roughness" in mat) mat.roughness = 0.75;
+      if ("metalness" in mat) mat.metalness = 0.05;
+      if ("envMapIntensity" in mat) mat.envMapIntensity = 0.4;
+      if (mat.color) {
+       mat.userData.__baseColor = mat.color.clone();
+       mat.color.copy(mat.userData.__baseColor).multiplyScalar(ratonParams.brightness);
+      }
+     });
     });
-   });
 
-   attachToDesk(ratonAnchor);
-   updateRaton();
-   requestRender();
-  },
-  undefined,
-  (err) => console.error("[Ratón] Error:", err),
- );
+    attachToDesk(ratonAnchor);
+    updateRaton();
+    requestRender();
+   },
+   undefined,
+   (err) => console.error("[Ratón] Error:", err),
+  );
+ }
 
  function updateRaton() {
   const deskTopSupport = getDeskTopSupport();

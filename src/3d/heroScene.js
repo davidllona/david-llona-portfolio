@@ -9,7 +9,7 @@ import { buildNeon, buildDogHologram, buildOrrery } from "./hero/interactives";
 import { buildRoom } from "./hero/room";
 import { buildDesk } from "./hero/desk";
 import { buildProps } from "./hero/props";
-import { loadingManager } from "./loadingManager";
+import { loadingManager, loadSharedTexture } from "./loadingManager";
 
 export function initHeroScene(wrapperEl) {
  const canvas = document.querySelector("#webgl");
@@ -237,36 +237,23 @@ export function initHeroScene(wrapperEl) {
 
  /**
   * =========================================================
-  * DEVICE / QUALITY
+  * DEBUG
   * =========================================================
   */
- const isMobile = window.innerWidth < 768;
- const isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
-
- /**
-  * =========================================================
-  * DEBUG / GUI
-  * =========================================================
-  * La GUI de lil-gui es una herramienta de desarrollo. Nunca debería
-  * estar visible para el usuario final, y en móvil además provocaba
-  * crashes al intentar leer params de objetos que ahora son stubs
-  * (neonParams = {} en móvil → gui.add(neonParams, 'x') revienta).
-  *
-  * Reglas:
-  *   - Móvil: GUI siempre OFF (crashea con stubs y no es útil sin teclado).
-  *   - Desktop: GUI ON por defecto (eres tú iterando). Para ocultarla
-  *     puntualmente — p. ej. al grabar un demo o enseñar el portfolio —
-  *     añade ?gui=0 a la URL.
-  *
-  * Antes de desplegar a producción: cambiar el desktop default a `false`
-  * y activarla con ?gui=1.
-  */
- const DEBUG = !isMobile && !/[?&]gui=0\b/.test(typeof window !== "undefined" ? window.location.search : "");
+ const DEBUG = true;
  const gui = DEBUG ? new GUI() : null;
  if (gui) gui.close();
  // Publicar la instancia para que otras escenas (Projects, etc.)
  // puedan engancharle sus propios folders sin acoplarse a heroScene.
  if (gui) setGui(gui);
+
+ /**
+  * =========================================================
+  * DEVICE / QUALITY
+  * =========================================================
+  */
+ const isMobile = window.innerWidth < 768;
+ const isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
 
  /**
   * QUALITY BUDGET — calibrado tras diagnóstico de móvil
@@ -607,7 +594,9 @@ export function initHeroScene(wrapperEl) {
  });
 
  // Luna con textura real — textures/moon.jpg
- const moonTextureLoader = new THREE.TextureLoader(loadingManager);
+ // Usamos loadSharedTexture para que la misma textura se reutilice en el
+ // exterior (extMoon en exterior.js). Sin esto se descargaba dos veces y
+ // ocupaba el doble de VRAM como dos texturas separadas en GPU.
  // La luna NO es una bombilla. Es un planeta texturizado con glow sutil.
  // El claroscuro viene de su textura (moon.jpg), no de emissive.
  const moonMaterial = new THREE.MeshStandardMaterial({
@@ -617,7 +606,7 @@ export function initHeroScene(wrapperEl) {
   emissive: new THREE.Color("#2a3a7a"),
   emissiveIntensity: 0.2, // glow muy suave, no foco frontal
  });
- moonTextureLoader.load("textures/moon.jpg", (tex) => {
+ loadSharedTexture("/textures/moon.jpg", (tex) => {
   tex.colorSpace = THREE.SRGBColorSpace;
   moonMaterial.map = tex;
   moonMaterial.needsUpdate = true;
@@ -839,9 +828,6 @@ export function initHeroScene(wrapperEl) {
  const _focusLookAt = new THREE.Vector3();
 
  const computeFocusTarget = () => {
-  // En móvil wallPoster es null (no se crea por VRAM). Si por alguna
-  // razón llegamos aquí en móvil, salimos sin tocar la cámara.
-  if (!wallPoster) return;
   // Solo poster — usa la ref expuesta por room
   focusPos.set(wallPoster.position.x, wallPoster.position.y, wallPoster.position.z + 2.3);
   _focusLookAt.copy(wallPoster.position);
@@ -864,8 +850,8 @@ export function initHeroScene(wrapperEl) {
   if (!cameraFocus.active) return;
   if (cameraFocus.phase === "exiting") return;
 
-  // El poster se cierra directamente vía su API (solo desktop)
-  if (cameraFocus.targetKey === "poster" && wallPoster) {
+  // El poster se cierra directamente vía su API
+  if (cameraFocus.targetKey === "poster") {
    wallPoster.userData.triggerClose(now);
   }
 
@@ -877,43 +863,14 @@ export function initHeroScene(wrapperEl) {
  // ════════════════════════════════════════════════════════════════════════
  // OBJETOS VIVOS — neón + perro hologram + orrery
  // ════════════════════════════════════════════════════════════════════════
- // En móvil saltamos todos los interactivos:
- //   - Neon: depende de hover (color + glow al pasar el ratón)
- //   - Dog Hologram: shader custom + textura de scan + halo + ring
- //   - Orrery: shader del planeta + glow texture
- // Sin hover, ninguno es funcional. Ahorramos ~6 MB VRAM y varios
- // ShaderMaterials que la GPU Mali estaba intentando compilar.
- //
- // Stubs API-compatible: el resto del archivo asume que existen estos
- // objetos. En vez de pinchar guardas en 20 sitios, devolvemos objetos
- // que cumplen la API (params vacíos, update/dispose no-op).
- //
  // Construcción + tick + cleanup viven en ./hero/interactives.js
- let neon, dogHologramRef, orreryRef;
- if (isMobile) {
-  neon = {
-   params: {}, // GUI no se monta en móvil → vacío basta
-   letterHalos: [], // forEach() en algún tick → array vacío seguro
-   update: () => {},
-   dispose: () => {},
-  };
-  dogHologramRef = {
-   group: null,
-   dispose: () => {},
-  };
-  orreryRef = {
-   group: null,
-   dispose: () => {},
-  };
- } else {
-  neon = buildNeon({ scene, requestRender });
-  dogHologramRef = buildDogHologram({
-   attachToDesk,
-   getDeskTopSupport: () => deskTopSupport,
-   requestRender,
-  });
-  orreryRef = buildOrrery({ scene });
- }
+ const neon = buildNeon({ scene, requestRender });
+ const dogHologramRef = buildDogHologram({
+  attachToDesk,
+  getDeskTopSupport: () => deskTopSupport,
+  requestRender,
+ });
+ const orreryRef = buildOrrery({ scene });
 
  // Aliases para GUI y cleanup
  const neonParams = neon.params;
@@ -935,6 +892,7 @@ export function initHeroScene(wrapperEl) {
   getDeskSupportMeshes: () => deskSupportMeshes,
   getFloor: () => room.floor,
   requestRender,
+  isMobile,
  });
 
  // Aliases para GUI (Cohete folder)
