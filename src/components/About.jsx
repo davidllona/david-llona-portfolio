@@ -469,7 +469,7 @@ export function About() {
     {isDesktop && (
      <>
       <div className="absolute inset-y-0 right-0 z-[2] w-[60vw] xl:w-[58vw]">
-       <ConstellationScene {...constellationProps} />
+       <ConstellationScene {...constellationProps} compact={false} />
       </div>
 
       {/* Indicador de stage — solo info. El botón de volver
@@ -503,7 +503,7 @@ export function About() {
      estrellas de la derecha.
     */}
     <div className="pointer-events-none relative z-[3] mx-auto w-full max-w-[1440px] px-6 py-24 md:px-10 md:py-32 lg:px-16 lg:py-40">
-     <div className="grid grid-cols-12 gap-10">
+     <div className="grid grid-cols-12 gap-x-0 gap-y-10 lg:gap-10">
       <div className="pointer-events-auto col-span-12 lg:col-span-6">
        <span className="mb-12 block text-[11px] uppercase tracking-[0.25em] text-primary/80 md:mb-16">
         Sobre mí
@@ -540,7 +540,7 @@ export function About() {
      {/* Mobile: constelación en flujo, debajo del texto */}
      {!isDesktop && (
       <div className="pointer-events-auto relative z-[2] mt-16 h-[58vh] w-full">
-       <ConstellationScene {...constellationProps} />
+       <ConstellationScene {...constellationProps} compact={false} />
 
        <div className="pointer-events-none absolute left-0 top-0 z-[3] flex w-full items-center justify-between px-2">
         <span

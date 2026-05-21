@@ -311,14 +311,20 @@ export function BackgroundStars({ count = 580 }) {
  * El core es el sprite clickable.
  * El label se renderiza con drei.Html para tener tipografía nítida.
  */
-function ConstellationNode({ node, onClick, onHover, onLeave, hidden }) {
+function ConstellationNode({ node, onClick, onHover, onLeave, hidden, compact = false }) {
+
  const groupRef = useRef();
  const haloRef = useRef();
  const coreRef = useRef();
  const texture = useMemo(() => getGlowTexture(), []);
  const [hovered, setHovered] = useState(false);
 
- const baseSize = SIZE_MAP[node.size] || SIZE_MAP.md;
+// En compact (móvil) amplificamos el nodo sin tocar el SCALE del
+ // mapeo: el layout de la composición se mantiene, solo los puntos
+ // de luz ganan presencia. 1.5 es el sweet spot — más alto satura
+ // la escena, más bajo y se siguen viendo perdidos.
+ const sizeBoost = compact ? 1.5 : 1;
+ const baseSize = (SIZE_MAP[node.size] || SIZE_MAP.md) * sizeBoost;
  const haloSize = baseSize * 3.5;
  const coreSize = baseSize;
  const tint = node.accent ? PRIMARY_HEX : "#ffffff";
@@ -381,8 +387,9 @@ function ConstellationNode({ node, onClick, onHover, onLeave, hidden }) {
   onClick?.(node);
  };
 
- const labelFontSize =
+const labelFontSizeRaw =
   node.size === "xl" ? 13 : node.size === "lg" ? 12 : node.size === "md" ? 11 : 10.5;
+ const labelFontSize = compact ? labelFontSizeRaw + 1.5 : labelFontSizeRaw;
 
  return (
   <group ref={groupRef} position={worldPos}>
@@ -503,7 +510,7 @@ function ConstellationLines({ lines, hidden, hoveredNodeId }) {
  *     · Bajamos el lookTarget en Y → la constelación sube visualmente
  *       en el frame y queda alineada con el bloque de texto izquierdo.
  */
-function CameraRig({ stage, focusPosition }) {
+function CameraRig({ stage, focusPosition, compact = false }) {
  const camera = useThree((state) => state.camera);
  const size = useThree((state) => state.size);
  const targetPos = useRef(new THREE.Vector3(0, 0, 9.5));
@@ -515,8 +522,13 @@ function CameraRig({ stage, focusPosition }) {
   // Aspect estrecho → frustum más cerrado horizontalmente → constelación
   // se corta. Compensamos alejando proporcionalmente.
   const aspectFactor = aspect < 1.1 ? 1.1 / Math.max(aspect, 0.55) : 1;
-  const mainZ = 9.5 * aspectFactor;
-  const detailZ = 7.6 * aspectFactor;
+// En móvil acercamos un punto la cámara: el canvas es pequeño y la
+  // constelación quedaba flotando en un frame demasiado abierto. 0.86
+  // mantiene el conjunto entero dentro del encuadre y da más presencia
+  // a cada nodo.
+  const compactZoom = compact ? 0.86 : 1;
+  const mainZ = 9.5 * aspectFactor * compactZoom;
+  const detailZ = 7.6 * aspectFactor * compactZoom;
 
   // Cuando el aspect es estrecho, el texto vive en la mitad superior
   // y la constelación quedaba visualmente "baja". Miramos un poco
@@ -534,7 +546,7 @@ function CameraRig({ stage, focusPosition }) {
    );
    lookTarget.current.set(0, yLookOffset, 0);
   }
- }, [stage, focusPosition, size.width, size.height]);
+  }, [stage, focusPosition, size.width, size.height, compact]);
 
  useFrame((state) => {
   const t = state.clock.getElapsedTime();
@@ -603,6 +615,7 @@ export function ConstellationScene({
  skillLayouts,
  onMainNodeClick,
  onDetailNodeClick,
+ compact = false,
 }) {
  const [hoveredId, setHoveredId] = useState(null);
 
@@ -638,7 +651,7 @@ export function ConstellationScene({
 
    <ambientLight intensity={0.5} />
 
-   <CameraRig stage={stage} focusPosition={focusPosition} />
+      <CameraRig stage={stage} focusPosition={focusPosition} compact={compact} />
 
    <Nebula />
 
@@ -649,6 +662,7 @@ export function ConstellationScene({
       key={node.id}
       node={node}
       hidden={mainHidden}
+      compact={compact}
       onClick={onMainNodeClick}
       onHover={(n) => setHoveredId(n.id)}
       onLeave={() => setHoveredId(null)}
