@@ -640,10 +640,46 @@ export function initContactScene(container, onBeaconReady) {
  kick();
 
  // ── Resize ───────────────────────────────────────────────────────────────
+
+ // ── Encuadre responsive ─────────────────────────────────────────────────
+ // El astronauta vive en X≈-1.85. En desktop wide el frustum es ancho de
+ // sobra y entra con margen. En móvil portrait (aspect < 0.95) el ancho
+ // visible se estrecha tanto que el astronauta queda fuera del frame por
+ // la izquierda. En lugar de moverlo (rompería la relación con el beacon
+ // y las huellas), hacemos un pan lateral de cámara hacia su lado y la
+ // acercamos un punto en Z para que gane presencia en el frame estrecho.
+ //
+ // Los dos pomos artísticos son PAN_MAX y ZOOM_IN: si quieres el astronauta
+ // más centrado en móvil, sube |PAN_MAX|; si quieres verlo más grande,
+ // baja ZOOM_IN (te acerca más).
+ function applyResponsiveLayout() {
+  const aspect = W / Math.max(H, 1);
+
+  // Curva: t=0 en aspect ≥ 0.95 (desktop/tablet landscape), t=1 en
+  // aspect ≤ 0.50 (móviles portrait estrechos tipo 390×750).
+  const t = THREE.MathUtils.clamp((0.95 - aspect) / (0.95 - 0.5), 0, 1);
+
+  const PAN_MAX = -1.3; // hasta dónde se desplaza la cámara en móvil extremo
+  const ZOOM_IN = 6.6; // Z de cámara en móvil extremo (desktop = 7.5)
+
+  const camX = THREE.MathUtils.lerp(0, PAN_MAX, t);
+  const camZ = THREE.MathUtils.lerp(7.5, ZOOM_IN, t);
+
+  camera.position.set(camX, 3.6, camZ);
+  // El lookAt sigue al pan para mantener el mismo ángulo de mirada
+  // (pan puro, no rotación). Así la perspectiva del astronauta no se
+  // deforma — solo cambia el centro del encuadre.
+  camera.lookAt(camX, 0.0, 0);
+ }
+
+ // Aplicar una vez al montar, antes del primer frame.
+ applyResponsiveLayout();
+
  function onResize() {
   W = container.offsetWidth || window.innerWidth;
   H = container.offsetHeight || window.innerHeight;
   camera.aspect = W / H;
+  applyResponsiveLayout(); // ← recompone el encuadre antes de updateProjectionMatrix
   camera.updateProjectionMatrix();
   renderer.setSize(W, H);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1 : 1.5));
