@@ -2,40 +2,12 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { loadingManager } from "../loadingManager";
 
-/**
- * Reduce el tamaño de las texturas embebidas de un GLB tras cargar.
- *
- * ¿Por qué existe esta función?
- * ─────────────────────────────────────────────────────────────────────
- * Los GLBs con texturas baked en alta resolución (2K/4K) son el
- * principal disparador del WebGL CONTEXT LOST en GPUs móviles ARM
- * (Mali-G68, Adreno gama media). Aunque el archivo descargado pese
- * pocos MB, al uploadearlo a GPU cada textura reserva:
- *
- *   - 2048×2048 RGBA = 16 MB de VRAM
- *   - 4096×4096 RGBA = 64 MB de VRAM
- *
- * Un GLB con 5 texturas PBR (basecolor + normal + roughness +
- * metalness + AO) a 2K consume 80 MB. En un Mali con 256-512 MB
- * compartidos con el sistema, eso es suficiente para crashear el
- * contexto WebGL durante el upload.
- *
- * Cómo funciona
- * ─────────────────────────────────────────────────────────────────────
- * Recorre todos los materiales del GLB, lee cada textura, y la
- * redimensiona usando canvas 2D al lado más largo `maxSize`. La
- * textura original se dispose() para liberar el HTMLImageElement
- * decodificado, y la nueva (canvas pequeño) se asigna en su lugar.
- *
- * @param {THREE.Object3D} root  - El gltf.scene del GLB cargado
- * @param {number} maxSize       - Lado máximo en píxeles (ej. 512)
- */
 function downscaleGLBTextures(root, maxSize = 512) {
  const cache = new WeakMap();
 
  const resize = (texture) => {
   if (!texture || !texture.image) return texture;
-  // Reusa la textura ya redimensionada si la compartían varios materiales
+
   if (cache.has(texture)) return cache.get(texture);
 
   const img = texture.image;
@@ -43,14 +15,11 @@ function downscaleGLBTextures(root, maxSize = 512) {
   const h = img.height || img.naturalHeight;
   if (!w || !h) return texture;
 
-  // Si ya es pequeña no la tocamos
   if (Math.max(w, h) <= maxSize) {
    cache.set(texture, texture);
    return texture;
   }
 
-  // Calcular nuevo tamaño manteniendo aspect ratio + potencia de 2
-  // (las GPUs móviles van más rápido con tamaños POT incluso en WebGL2)
   const scale = maxSize / Math.max(w, h);
   const newW = Math.max(1, Math.floor((w * scale) / 2) * 2);
   const newH = Math.max(1, Math.floor((h * scale) / 2) * 2);
@@ -62,7 +31,7 @@ function downscaleGLBTextures(root, maxSize = 512) {
   ctx.drawImage(img, 0, 0, newW, newH);
 
   const newTex = new THREE.CanvasTexture(canvas);
-  // Copiar las propiedades importantes para que el material siga igual
+
   newTex.colorSpace = texture.colorSpace;
   newTex.wrapS = texture.wrapS;
   newTex.wrapT = texture.wrapT;
@@ -72,7 +41,6 @@ function downscaleGLBTextures(root, maxSize = 512) {
   newTex.flipY = texture.flipY;
   newTex.needsUpdate = true;
 
-  // Liberar la textura original — esto es lo que recupera la VRAM
   texture.dispose();
 
   cache.set(texture, newTex);
@@ -84,7 +52,7 @@ function downscaleGLBTextures(root, maxSize = 512) {
   const mats = Array.isArray(child.material) ? child.material : [child.material];
   mats.forEach((mat) => {
    if (!mat) return;
-   // Lista completa de slots de textura PBR estándar de Three.js
+
    if (mat.map) mat.map = resize(mat.map);
    if (mat.normalMap) mat.normalMap = resize(mat.normalMap);
    if (mat.roughnessMap) mat.roughnessMap = resize(mat.roughnessMap);
@@ -99,35 +67,6 @@ function downscaleGLBTextures(root, maxSize = 512) {
  });
 }
 
-/**
- * props.js
- * ─────────────────────────────────────────────────────────────────────────
- * Props del Hero: silla + astronauta + lámpara/cohete + teclado + ratón.
- * También: las 3 luces que dependen del sistema flame del cohete.
- *
- * Contiene:
- *   - Chair  (silla GLB con raycast contra suelo+mesa para apoyarse)
- *   - Astronauta (sentado sobre la silla, hijo de chairYaw)
- *   - Lámpara/cohete (sobre la mesa, esquina derecha)
- *   - Teclado (delante de los monitores)
- *   - Ratón (a la derecha del teclado)
- *   - Sistema flame (3 conos + sprite glow para la base del cohete)
- *   - 3 luces: warmLight (key cálida), lamparaLight, lamparaFlameLight
- *   - Tick del flame system (jitter orgánico tipo fuego real)
- *
- * Dependencias externas (vía getters porque son async):
- *   - getDeskAnchor / getDeskTopSupport / getDeskSupportMeshes (de desk.js)
- *   - getFloor (de room.js, para raycast de la silla)
- *   - attachToDesk (de desk.js, para adjuntar lámpara/teclado/ratón)
- *
- * Interfaz con el orquestador:
- *   - El orquestador llama updateChair/updateLampara/etc. dentro del
- *     onDeskReady callback para que se reposicionen cuando la mesa carga.
- *   - update({ elapsedTime, roomFade, warmFade }) anima warmLight + flame
- *     + las luces del cohete cada frame. warmFade es opcional y, si se
- *     pasa, se aplica solo a las luces cálidas (atenuación temprana
- *     respecto del resto del interior).
- */
 export function buildProps({
  scene,
  attachToDesk,
@@ -138,17 +77,10 @@ export function buildProps({
  requestRender,
  isMobile = false, // opcional; en móvil saltamos props no esenciales
 }) {
- // ════════════════════════════════════════════════════════════════════════
- // SISTEMA FLAME — 3 conos + sprite glow para la base del cohete
- // ════════════════════════════════════════════════════════════════════════
- // El flame es un grupo independiente que se posiciona dinámicamente sobre
- // la base de la lámpara cada vez que updateLampara se ejecuta. Se mantiene
- // invisible hasta que la lámpara carga.
  const flameGroup = new THREE.Group();
  scene.add(flameGroup);
  flameGroup.visible = false;
 
- // ── Canvas de glow para el sprite ────────────────────────────────────────
  const flameGlowCv = document.createElement("canvas");
  flameGlowCv.width = flameGlowCv.height = 64;
  (() => {
@@ -180,14 +112,12 @@ export function buildProps({
   return { mesh, mat };
  }
 
- // Núcleo blanco-ámbar tibio — el centro más caliente
  const flameCore = makeFlameCone(0, 0, 0.055, 0.006, "#ffd88a", 0.82);
- // Media naranja profundo — más fuego que lámpara
+
  const flameMid = makeFlameCone(0, 0, 0.09, 0.014, "#ff8a28", 0.48);
- // Exterior rojo-ámbar muy diáfano — "humo caliente"
+
  const flameOuter = makeFlameCone(0, 0, 0.12, 0.022, "#d84a0c", 0.22);
 
- // Sprite de glow — escala hacia abajo (Y negativo = bajo el cohete)
  const flameGlowMat = new THREE.SpriteMaterial({
   map: flameGlowTex,
   transparent: true,
@@ -202,7 +132,6 @@ export function buildProps({
 
  const flames = [flameCore, flameMid, flameOuter];
 
- // Parámetros de llama (no se exponen en GUI actualmente — encapsulados)
  const flameParams = {
   rocketFlameIntensity: 1.0,
   rocketFlameScale: 1.0,
@@ -210,39 +139,18 @@ export function buildProps({
   rocketLightIntensity: 1.8,
  };
 
- // ════════════════════════════════════════════════════════════════════════
- // LUCES DEL COHETE — 3 luces que dependen del sistema flame
- // ════════════════════════════════════════════════════════════════════════
- // WARM KEY del cohete — cálida pero CONTENIDA.
- //
- // distance afinado para que NO sangre por la ventana.
- // La pared izquierda está a x=-5 y estas luces están a x≈-3.8 → solo 1.2u
- // de separación. Three.js no proyecta sombras desde PointLights (y activarlas
- // costaría 6 renderTargets cubemap por luz), por lo que la única forma de
- // contener el bleed es recortar el radio físico de cada luz.
- //
- // Con decay=2 la influencia visible cae al ~70% del distance → estos valores
- // mantienen el halo cálido alrededor del cohete y dejan la pared/ventana
- // fuera del rango perceptible.
  const warmLight = new THREE.PointLight("#ff9a52", 2.6, 2.4, 2);
  warmLight.position.set(-4.03, 3.09, -2.12);
  scene.add(warmLight);
 
- // Luz de la lámpara/cohete — íntima, zona mesa/base del cohete.
- // distance 1.8: queda contenida en el lateral del cohete.
  const lamparaLight = new THREE.PointLight("#ff8c45", 1.4, 1.8, 2);
  lamparaLight.position.set(-3.8, 2.8, -2.0);
  scene.add(lamparaLight);
 
- // Llama del cohete — la peor de las tres para el bleed porque estaba a
- // z=0.33 (dentro del rango Z de la ventana, z∈[-1.685, 2.785]).
- // distance 1.9: el halo de la llama sigue iluminando cohete y base, pero
- // no llega a la pared con intensidad visible.
  const lamparaFlameLight = new THREE.PointLight("#ff7a2a", 1.85, 1.9, 2);
  lamparaFlameLight.position.set(-3.74, 2.5, 0.33);
  scene.add(lamparaFlameLight);
 
- // Config del warmLight (flicker controlado)
  const warmConfig = {
   color: warmLight.color.getHexString(),
   flicker: true,
@@ -251,9 +159,6 @@ export function buildProps({
   flickerSpeed: 10,
  };
 
- // ════════════════════════════════════════════════════════════════════════
- // CHAIR — silla con raycast contra suelo + soporte de la mesa
- // ════════════════════════════════════════════════════════════════════════
  const chairLoader = new GLTFLoader(loadingManager);
  const chairRaycaster = new THREE.Raycaster();
 
@@ -281,21 +186,6 @@ export function buildProps({
  chairLoader.load("/modelos/astronauta_silla_2.glb", (gltf) => {
   chair = gltf.scene;
 
-  // ──────────────────────────────────────────────────────────────────────
-  // CRÍTICO PARA MÓVIL
-  // ──────────────────────────────────────────────────────────────────────
-  // Este GLB pesa 10-20 MB. Casi todo ese tamaño son texturas baked
-  // (basecolor, normal, roughness…) embebidas a 2K o 4K. Aunque la
-  // descarga sea aceptable, al uploadearlas a GPU el Mali-G68 reserva
-  // VRAM proporcional a la resolución *original* — fácilmente 80 MB
-  // solo en este modelo, y dispara WebGL CONTEXT LOST.
-  //
-  // Solución: redimensionar las texturas en código justo después de
-  // descargar, antes de que Three.js las suba a GPU. 512 px es
-  // invisible a la resolución de un viewport móvil (384 CSS px ≈
-  // 1080 px reales en DPR 2.8), pero reduce VRAM 16×.
-  //
-  // En desktop NO se toca — calidad visual completa.
   if (isMobile) {
    downscaleGLBTextures(chair, 512);
   }
@@ -334,14 +224,10 @@ export function buildProps({
   updateChair();
  });
 
- // Raycast vertical contra suelo + soporte de la mesa para encontrar la
- // cota Y donde la silla debe asentarse.
  function getChairSupportY(x, z) {
   const floor = getFloor();
   const deskSupportMeshes = getDeskSupportMeshes();
 
-  // Si aún no hay floor cargado, devolver 0 (la silla quedará en y=0
-  // hasta el siguiente updateChair tras cargar el room).
   if (!floor) return 0;
 
   chairRaycaster.set(new THREE.Vector3(x, 20, z), new THREE.Vector3(0, -1, 0));
@@ -407,9 +293,6 @@ export function buildProps({
   requestRender();
  }
 
- // ════════════════════════════════════════════════════════════════════════
- // LÁMPARA / COHETE — sobre la mesa, esquina derecha
- // ════════════════════════════════════════════════════════════════════════
  let lamparaRoot = null;
  let lamparaAnchor = null;
 
@@ -448,10 +331,9 @@ export function buildProps({
     });
    });
 
-   // Adjuntar a deskAnchor cuando esté disponible
    attachToDesk(lamparaAnchor);
    updateLampara();
-   // Activar y posicionar las llamas del cohete
+
    flameGroup.visible = true;
    requestRender();
   },
@@ -459,41 +341,24 @@ export function buildProps({
   (err) => console.error("[Lámpara] Error:", err),
  );
 
- // ── Helper: cota de la superficie del escritorio ─────────────────────────
- // deskTopSupport.position.y es la referencia canónica — la calcula updateDesk()
- // y es exactamente la Y local (en espacio de deskAnchor) del tablero.
- // Usamos eso en lugar de recalcular bbox del deskAnchor completo,
- // lo que evita que los objetos hijos contaminen el resultado.
  function getDeskSurfaceLocalY() {
   const deskTopSupport = getDeskTopSupport();
   if (!deskTopSupport) return 0;
   return deskTopSupport.position.y;
  }
 
- // ── Helper: ajustar un modelo sobre la superficie del escritorio ────────
- // anchor: el Group hijo de deskAnchor
- // root:   el gltf.scene dentro del anchor (ya escalado)
- // params: { x, y, z, rotY }
- // Calcula el punto base real del modelo (min.y de su bbox) y lo apoya
- // sobre la cota del tablero. params.y es un offset corrector ajustable.
  function placeOnDesk(anchor, root, params) {
   const deskTopSupport = getDeskTopSupport();
   if (!anchor || !root || !deskTopSupport) return;
 
-  // Aseguramos que la escala/posición base del root están aplicadas
-  // antes de medir su bbox
   root.position.set(0, 0, 0);
   root.rotation.set(0, 0, 0);
   root.updateMatrixWorld(true);
 
-  // Bbox del modelo en world-space → convertimos a local de deskAnchor
   const worldBox = new THREE.Box3().setFromObject(root);
-  // El origen del anchor está en deskAnchor-space, así que el min.y del
-  // modelo en world-space = anchor.position.y + modelo_localMin.y
-  // Necesitamos localMin.y para saber cuánto sobresale por debajo del origin
+
   const modelLocalMinY = worldBox.min.y - anchor.getWorldPosition(new THREE.Vector3()).y;
 
-  // Cota del tablero en local de deskAnchor
   const surfaceY = getDeskSurfaceLocalY();
 
   anchor.position.set(params.x, surfaceY - modelLocalMinY + params.y, params.z);
@@ -508,7 +373,6 @@ export function buildProps({
   lamparaRoot.scale.setScalar(lamparaParams.scale);
   placeOnDesk(lamparaAnchor, lamparaRoot, lamparaParams);
 
-  // Mantener llamas alineadas con la base de la lámpara
   if (flameGroup && deskAnchor) {
    const wp = new THREE.Vector3();
    lamparaAnchor.getWorldPosition(wp);
@@ -528,9 +392,6 @@ export function buildProps({
   requestRender();
  }
 
- // ════════════════════════════════════════════════════════════════════════
- // TECLADO — sobre la mesa, delante de los monitores
- // ════════════════════════════════════════════════════════════════════════
  let tecladoRoot = null;
  let tecladoAnchor = null;
 
@@ -594,9 +455,6 @@ export function buildProps({
   requestRender();
  }
 
- // ════════════════════════════════════════════════════════════════════════
- // RATÓN — a la derecha del teclado
- // ════════════════════════════════════════════════════════════════════════
  let ratonRoot = null;
  let ratonAnchor = null;
 
@@ -611,9 +469,6 @@ export function buildProps({
   brightness: 1.0,
  };
 
- // En móvil saltamos el ratón: GLB no esencial, una HTTP request menos
- // y un upload de geometría menos. updateRaton() es no-op con ratonRoot
- // siendo null, así que el resto del módulo sigue funcionando.
  if (!isMobile) {
   const ratonLoader = new GLTFLoader(loadingManager);
   ratonLoader.load(
@@ -665,21 +520,6 @@ export function buildProps({
   requestRender();
  }
 
- // ════════════════════════════════════════════════════════════════════════
- // ASTRONAUTA — sentado sobre la silla, hijo de chairYaw
- // ════════════════════════════════════════════════════════════════════════
- //
- // Jerarquía:
- //   chairAnchor
- //     └── chairYaw         ← aquí se adjunta, hereda posición+rotación
- //           ├── chairModelFix → chair
- //           └── astronautAnchor → astronautRoot
- //
- // La bbox de la silla se calcula solo sobre chairModelFix (nunca incluyendo
- // al astronauta) para no contaminar el cálculo de groundOffset.
- //
- // seatApproxY: punto de apoyo inicial = min.y + altura * seatRatio
- // Luego params.y corrige cualquier desviación sin fórmulas cerradas.
  let astronautRoot = null;
  let astronautAnchor = null;
 
@@ -701,12 +541,10 @@ export function buildProps({
   (gltf) => {
    astronautRoot = gltf.scene;
 
-   // Ver comentario en chairLoader — misma estrategia anti-CONTEXT-LOST
    if (isMobile) {
     downscaleGLBTextures(astronautRoot, 512);
    }
 
-   // Ajuste de materiales — misma paleta que la silla
    astronautRoot.traverse((child) => {
     if (!child.isMesh) return;
     child.castShadow = false;
@@ -727,7 +565,6 @@ export function buildProps({
    astronautAnchor = new THREE.Group();
    astronautAnchor.add(astronautRoot);
 
-   // Adjuntar a chairYaw — hereda posición del anchor + rotación del yaw
    if (chairYaw) {
     chairYaw.add(astronautAnchor);
    }
@@ -742,47 +579,33 @@ export function buildProps({
  function updateAstronaut() {
   if (!astronautRoot || !astronautAnchor || !chairModelFix) return;
 
-  // 1. Aplicar escala + rotación local al root
   astronautRoot.scale.setScalar(astronautParams.scale);
   astronautRoot.rotation.set(0, 0, 0);
   astronautRoot.position.set(0, 0, 0);
 
-  // 2. Calcular la bbox de la silla (solo chairModelFix — sin astronauta)
-  //    Temporalmente quitamos el astronauta del árbol para una bbox limpia
   if (chairYaw && astronautAnchor.parent === chairYaw) {
    chairYaw.remove(astronautAnchor);
   }
   chairModelFix.updateMatrixWorld(true);
   const chairBox = new THREE.Box3().setFromObject(chairModelFix);
 
-  // 3. Calcular seatY en coordenadas locales de chairYaw
-  //    min.y + (max.y - min.y) * seatRatio da la altura del asiento
-  //    Convertimos a coordenadas locales de chairYaw con worldToLocal
   const seatWorldY = chairBox.min.y + (chairBox.max.y - chairBox.min.y) * astronautParams.seatRatio;
 
-  // 4. Calcular la bbox propia del astronauta para encontrar su punto base
-  //    Necesitamos la bbox en local-space del anchor → escalamos el root primero
   const tempBox = new THREE.Box3().setFromObject(astronautRoot);
   const astronautBaseOffset = tempBox.min.y; // cuánto sobresale por abajo del origen
 
-  // 5. Colocar el anchor: su Y en coordenadas locales de chairYaw
-  //    para que el pie del astronauta coincida con seatY
   astronautAnchor.position.set(
    astronautParams.x,
    seatWorldY - astronautBaseOffset + astronautParams.y,
    astronautParams.z,
   );
 
-  // 6. Rotación: mira hacia los monitores (en la dirección del yaw de la silla)
-  //    rotY=0 = misma dirección que la silla, positivo = giro hacia la izquierda
   astronautAnchor.rotation.set(astronautParams.rotX, astronautParams.rotY, astronautParams.rotZ);
 
-  // 7. Re-adjuntar a chairYaw
   if (chairYaw && astronautAnchor.parent !== chairYaw) {
    chairYaw.add(astronautAnchor);
   }
 
-  // 8. Brightness
   astronautRoot.traverse((child) => {
    if (!child.isMesh) return;
    const applyB = (mat) => {
@@ -797,35 +620,14 @@ export function buildProps({
   requestRender();
  }
 
- // ════════════════════════════════════════════════════════════════════════
- // TICK — warmLight (con flicker) + flame system + 2 luces del cohete
- // ════════════════════════════════════════════════════════════════════════
- // Recibe roomFade del orquestador (calculado a partir del scroll).
- // Las intensidades de las llamas (opacidades de mesh + sprite) se escalan
- // por roomFade → al salir de la habitación las llamas se apagan con el
- // resto del interior.
- //
- // warmFade es un segundo factor opcional, específico para las LUCES cálidas
- // (warmLight + lamparaLight + lamparaFlameLight). Se desvanecen antes que
- // el resto del interior por dos motivos:
- //   1) Son las luces con más bleed por la ventana (las más cercanas a la
- //      pared izquierda).
- //   2) Cinematográficamente, deben "quedarse atrás" cuando la cámara sale
- //      al espacio.
- // Si el orquestador no pasa warmFade, hace fallback a roomFade → cero
- // regresiones si otros consumidores aún no se han migrado.
  function update({ elapsedTime, roomFade, warmFade }) {
   const wf = warmFade ?? roomFade;
 
-  // ── warmLight con flicker controlado ────────────────────────────────────
   const warmBase = warmConfig.flicker
    ? warmConfig.baseIntensity + Math.sin(elapsedTime * warmConfig.flickerSpeed) * warmConfig.flickerAmplitude
    : warmConfig.baseIntensity;
   warmLight.intensity = warmBase * wf;
 
-  // ── Flicker de la llama del cohete — tres senos a frecuencias primas ────
-  // Las frecuencias primas (7.3, 13.1, 4.7) evitan el patrón perceptible
-  // que daría usar múltiplos enteros. Resultado: luz de fuego "viva".
   const fSpd = flameParams.rocketFlickerSpeed;
   const fA = Math.sin(elapsedTime * 7.3 * fSpd) * 0.16;
   const fB = Math.sin(elapsedTime * 13.1 * fSpd + 1.2) * 0.09;
@@ -834,18 +636,13 @@ export function buildProps({
   const fInt = flameParams.rocketFlameIntensity;
   const fScl = flameParams.rocketFlameScale;
 
-  // Las LUCES del cohete usan warmFade (atenuación temprana).
   lamparaLight.intensity = Math.max(0.3, flameParams.rocketLightIntensity * 0.75 * flameBrightness) * wf;
   lamparaFlameLight.intensity = Math.max(0.25, flameParams.rocketLightIntensity * 0.85 * flameBrightness) * wf;
 
-  // Animar las tres capas de llama más el sprite de glow
   if (flameGroup.visible) {
-   // Jitter común de posición (las tres capas lo comparten → coherencia)
-   // Ruido sumado de tres senos = fluctuación orgánica tipo fuego real.
    const jitterX = Math.sin(elapsedTime * 6.7 * fSpd + 1.3) * 0.004 + Math.sin(elapsedTime * 11.9 * fSpd + 3.1) * 0.002;
    const jitterY = Math.sin(elapsedTime * 4.9 * fSpd) * 0.006 + Math.sin(elapsedTime * 8.3 * fSpd + 2.2) * 0.003;
 
-   // Núcleo — corto, oscila rápido en altura
    const fcore = flameCore;
    const fcHeight = 0.92 + Math.sin(elapsedTime * 10.5 * fSpd) * 0.15;
    const fcWidth = 0.94 + Math.sin(elapsedTime * 13.7 * fSpd + 1.1) * 0.08;
@@ -853,7 +650,6 @@ export function buildProps({
    fcore.mesh.position.set(jitterX * 0.5, jitterY * 0.5, 0);
    fcore.mat.opacity = (0.72 + Math.sin(elapsedTime * 8.9 * fSpd) * 0.1) * fInt * roomFade;
 
-   // Media — más amplitud de altura, da la "lengua" del fuego
    const fmid = flameMid;
    const fmHeight = 0.85 + Math.sin(elapsedTime * 6.2 * fSpd + 0.7) * 0.22;
    const fmWidth = 0.9 + Math.sin(elapsedTime * 7.8 * fSpd + 0.9) * 0.12;
@@ -861,7 +657,6 @@ export function buildProps({
    fmid.mesh.position.set(jitterX, jitterY, 0);
    fmid.mat.opacity = (0.4 + Math.sin(elapsedTime * 5.3 * fSpd + 0.6) * 0.14) * fInt * roomFade;
 
-   // Exterior — lento, amplio, casi humo
    const fout = flameOuter;
    const foHeight = 0.8 + Math.sin(elapsedTime * 3.8 * fSpd + 2.1) * 0.25;
    const foWidth = 0.85 + Math.sin(elapsedTime * 4.5 * fSpd + 1.8) * 0.18;
@@ -869,7 +664,6 @@ export function buildProps({
    fout.mesh.position.set(jitterX * 1.3, jitterY * 0.7, 0);
    fout.mat.opacity = (0.18 + Math.sin(elapsedTime * 3.0 * fSpd + 1.5) * 0.08) * fInt * roomFade;
 
-   // Sprite glow — pulso lento
    const glowPulse = 0.35 + Math.sin(elapsedTime * 2.4 * fSpd) * 0.12;
    flameGlowSprite.material.opacity = glowPulse * fInt * roomFade;
    const glowS = fScl * (1.0 + Math.sin(elapsedTime * 3.1 * fSpd) * 0.08) * 0.085;
@@ -877,14 +671,9 @@ export function buildProps({
   }
  }
 
- // ════════════════════════════════════════════════════════════════════════
- // CLEANUP — todos los GLBs + flame + 3 luces del cohete
- // ════════════════════════════════════════════════════════════════════════
  function dispose() {
   const deskAnchor = getDeskAnchor();
 
-  // Astronauta (hijo de chairYaw, se elimina con chairAnchor pero
-  // hacemos dispose explícito de geometrías y materiales)
   if (astronautRoot) {
    astronautRoot.traverse((child) => {
     if (!child.isMesh) return;
@@ -896,7 +685,6 @@ export function buildProps({
    });
   }
 
-  // Lámpara (hija de deskAnchor)
   if (lamparaAnchor && deskAnchor) deskAnchor.remove(lamparaAnchor);
   if (lamparaRoot) {
    lamparaRoot.traverse((child) => {
@@ -909,7 +697,6 @@ export function buildProps({
    });
   }
 
-  // Teclado (hija de deskAnchor)
   if (tecladoAnchor && deskAnchor) deskAnchor.remove(tecladoAnchor);
   if (tecladoRoot) {
    tecladoRoot.traverse((child) => {
@@ -922,7 +709,6 @@ export function buildProps({
    });
   }
 
-  // Ratón (hija de deskAnchor)
   if (ratonAnchor && deskAnchor) deskAnchor.remove(ratonAnchor);
   if (ratonRoot) {
    ratonRoot.traverse((child) => {
@@ -935,7 +721,6 @@ export function buildProps({
    });
   }
 
-  // Silla (incluye al astronauta como hijo)
   if (chairAnchor) {
    scene.remove(chairAnchor);
   }
@@ -953,7 +738,6 @@ export function buildProps({
    });
   }
 
-  // Llamas del cohete — conos + sprite glow + texturas
   flames.forEach(({ mesh, mat }) => {
    mesh.geometry.dispose();
    mat.dispose();
@@ -963,29 +747,22 @@ export function buildProps({
   flameGroup.remove(flameGlowSprite);
   scene.remove(flameGroup);
 
-  // 3 luces del cohete
   scene.remove(warmLight);
   scene.remove(lamparaLight);
   scene.remove(lamparaFlameLight);
  }
 
- // ════════════════════════════════════════════════════════════════════════
- // SALIDA — solo lo que GUI o el orquestador necesitan
- // ════════════════════════════════════════════════════════════════════════
  return {
-  // Refs para GUI
   lamparaParams,
   warmLight,
   lamparaFlameLight,
 
-  // Funciones que el orquestador llama desde onDeskReady
   updateChair,
   updateLampara,
   updateTeclado,
   updateRaton,
   updateAstronaut,
 
-  // Tick + cleanup
   update,
   dispose,
  };

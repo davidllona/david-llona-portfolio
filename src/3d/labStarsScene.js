@@ -1,11 +1,6 @@
 import * as THREE from "three";
 import { createVisibilityGate } from "./visibilityGate";
 
-/**
- * =========================================================
- * FONDO GENERAL DEL LAB
- * =========================================================
- */
 export function initLabStarsScene() {
  const canvas = document.querySelector("#lab-stars-canvas");
 
@@ -258,34 +253,10 @@ export function initLabStarsScene() {
  const brightStars = new THREE.Points(brightGeometry, brightMaterial);
  scene.add(brightStars);
 
- // ══════════════════════════════════════════════════════
- // CONSTELACIONES INTERACTIVAS
- // ══════════════════════════════════════════════════════
- //
- // 3 constelaciones latentes en zonas estratégicas del campo
- // estelar. Permanecen invisibles hasta que el cursor entra en
- // su radio de activación. Una vez activas, "señales de luz"
- // recorren sus líneas y al impactar con cada estrella ancla
- // producen un destello que expande y se desvanece.
- //
- // Lectura conceptual:
- //   · onda  → guiño al shader de agua del lab
- //   · órbita → exploración / espacio
- //   · grafo → interactividad / nodos conectados
- //
- // Diseño:
- //   · estáticas en world space (no rotan con el cosmos —
- //     son landmarks deliberados, no ruido de fondo)
- //   · activación por proximidad cursor↔NDC con smoothstep
- //   · señales y destellos vienen de pools fijos (sin GC)
- //   · disposición: en márgenes, lejos del HTML central
-
- // ── Definición de formas ────────────────────────────────
  const _v3 = new THREE.Vector3();
  const _proj = new THREE.Vector3();
 
  function makeWaveAnchors() {
-  // 7 puntos a lo largo de una sinusoide
   const arr = [];
   for (let i = 0; i < 7; i++) {
    const u = i / 6;
@@ -295,7 +266,6 @@ export function initLabStarsScene() {
  }
 
  function makeOrbitAnchors() {
-  // 6 puntos en elipse, conectados en bucle
   const arr = [];
   for (let i = 0; i < 6; i++) {
    const a = (i / 6) * Math.PI * 2 - Math.PI * 0.25;
@@ -305,7 +275,6 @@ export function initLabStarsScene() {
  }
 
  function makeGraphAnchors() {
-  // 5 nodos con conexiones cruzadas — forma de grafo
   return [
    new THREE.Vector3(0, 1.25, 0),
    new THREE.Vector3(-1.55, 0.05, 0.2),
@@ -315,9 +284,6 @@ export function initLabStarsScene() {
   ];
  }
 
- // Posiciones en world space — alejadas del centro para no pisar
- // el contenido HTML. Se distribuyen en distintas profundidades
- // para que el parallax del cursor las separe sutilmente.
  const constellationDefs = [
   {
    name: "wave",
@@ -368,13 +334,10 @@ export function initLabStarsScene() {
   },
  ];
 
- // ── Construcción de cada constelación ──────────────────
  function buildConstellation(def) {
   const group = new THREE.Group();
   group.position.copy(def.center);
 
-  // Anchor stars: sprites con la misma textura que el campo
-  // de fondo, así no se nota que son objetos distintos.
   const anchorSprites = def.anchors.map((relPos) => {
    const mat = new THREE.SpriteMaterial({
     map: starTexture,
@@ -393,7 +356,6 @@ export function initLabStarsScene() {
    return s;
   });
 
-  // Líneas: un único LineSegments con todos los pares
   const positions = new Float32Array(def.connections.length * 2 * 3);
   for (let i = 0; i < def.connections.length; i++) {
    const [a, b] = def.connections[i];
@@ -436,7 +398,6 @@ export function initLabStarsScene() {
 
  const constellations = constellationDefs.map(buildConstellation);
 
- // ── Pool de señales (light traveling along lines) ──────
  const SIGNAL_POOL = 6;
  const signalPool = [];
  for (let i = 0; i < SIGNAL_POOL; i++) {
@@ -468,7 +429,6 @@ export function initLabStarsScene() {
   free.sprite.visible = true;
  }
 
- // ── Pool de destellos (impact bursts) ──────────────────
  const BURST_POOL = 10;
  const burstPool = [];
  for (let i = 0; i < BURST_POOL; i++) {
@@ -496,45 +456,32 @@ export function initLabStarsScene() {
   free.sprite.visible = true;
  }
 
- // ── Update por frame ───────────────────────────────────
- // Se llama desde tick() después de actualizar la cámara,
- // para que la proyección a NDC use el camera.position
- // ya panneada por el cursor.
  function updateConstellations(dt, elapsed) {
-  // Cursor en NDC (-1..1). cursor.x ya está en -0.5..0.5,
-  // multiplicamos *2 y flipeamos Y (screen-y va al revés).
   const curNdcX = cursor.x * 2;
   const curNdcY = -cursor.y * 2;
 
   for (const c of constellations) {
-   // Proyectar centro a NDC (incluye el pan de cámara automático)
    _proj.copy(c.def.center).project(camera);
 
    const dx = _proj.x - curNdcX;
    const dy = _proj.y - curNdcY;
    const dist = Math.sqrt(dx * dx + dy * dy);
 
-   // Smoothstep: outer = empieza a aparecer, inner = llena
    const outer = c.def.activationRadius;
    const inner = outer * 0.35;
    let t = (outer - dist) / (outer - inner);
    t = Math.max(0, Math.min(1, t));
    const target = t * t * (3 - 2 * t);
 
-   // Suavizar el cambio (evita flicker si el cursor entra y sale rápido)
    c.activation += (target - c.activation) * 0.09;
 
-   // Aplicar a líneas y anchors
    const a = c.activation;
    c.lineMat.opacity = a * 0.5;
 
-   // Breath sutil — respiración temporal para que las estrellas
-   // ancla no se sientan estáticas cuando están reveladas
    for (const sp of c.anchors) {
     const breath = 0.88 + Math.sin(elapsed * 1.6 + sp.position.x * 1.8) * 0.08;
     let op = a * breath;
 
-    // Flash superpuesto si la estrella fue impactada por una señal
     if (sp.userData.flashTimer > 0) {
      sp.userData.flashTimer = Math.max(0, sp.userData.flashTimer - dt);
      const flash = sp.userData.flashTimer / 0.45;
@@ -547,7 +494,6 @@ export function initLabStarsScene() {
     sp.material.opacity = op;
    }
 
-   // Spawn de señales solo cuando la activación está alta
    if (a > 0.78) {
     c.signalTimer -= dt;
     if (c.signalTimer <= 0) {
@@ -555,19 +501,15 @@ export function initLabStarsScene() {
      c.signalTimer = 0.85 + Math.random() * 1.3;
     }
    } else {
-    // Reset del timer para que al activarse próximamente
-    // dispare casi de inmediato (sensación de "se enciende")
     c.signalTimer = 0.25;
    }
   }
 
-  // Update señales viajando por las líneas
   for (const s of signalPool) {
    if (!s.active) continue;
    s.t += dt * 1.6; // ~0.62s para recorrer una línea
 
    if (s.t >= 1) {
-    // Impacto — destello + flash en la estrella destino
     const target = s.c.anchors[s.toIdx];
     target.getWorldPosition(_v3);
     spawnBurst(_v3, s.c.def.color);
@@ -577,20 +519,17 @@ export function initLabStarsScene() {
     continue;
    }
 
-   // Posición a lo largo de la línea (espacio local del grupo)
    const ap = s.c.def.anchors[s.fromIdx];
    const bp = s.c.def.anchors[s.toIdx];
    _v3.lerpVectors(ap, bp, s.t);
    s.c.group.localToWorld(_v3);
    s.sprite.position.copy(_v3);
 
-   // Brillo: pico en la mitad del recorrido
    const fade = Math.sin(s.t * Math.PI);
    s.mat.opacity = fade * 0.95 * Math.max(0.4, s.c.activation);
    s.sprite.scale.setScalar(0.32 + fade * 0.32);
   }
 
-  // Update destellos
   for (const b of burstPool) {
    if (!b.active) continue;
    b.life -= dt * 1.7; // ~0.59s
@@ -600,9 +539,9 @@ export function initLabStarsScene() {
     continue;
    }
    const k = 1 - b.life; // 0→1
-   // Expansión rápida
+
    b.sprite.scale.setScalar(0.4 + k * 2.6);
-   // Fade cuadrático (sale fuerte y se apaga rápido)
+
    b.mat.opacity = b.life * b.life * 1.25;
   }
  }
@@ -637,10 +576,6 @@ export function initLabStarsScene() {
  window.addEventListener("scroll", handleScroll);
  window.addEventListener("mousemove", handleMouseMove);
 
- // Gate de visibilidad — el loop solo corre cuando la sección Lab está
- // en pantalla. Antes esta escena renderizaba a 60 fps aunque estuvieses
- // en Hero o en Contact. El kick() se llama desde el helper cuando la
- // sección vuelve a entrar en viewport (o la pestaña vuelve a estar visible).
  const kick = () => {
   if (!animationId && gate.shouldAnimate()) {
    animationId = window.requestAnimationFrame(tick);
@@ -674,9 +609,6 @@ export function initLabStarsScene() {
 
   brightMaterial.opacity = 0.82 + Math.sin(elapsedTime * 1.4) * 0.06;
 
-  // Constelaciones — se actualizan después del pan de cámara
-  // para que la proyección a NDC sea coherente con lo que ve
-  // el usuario.
   updateConstellations(dt, elapsedTime);
 
   renderer.render(scene, camera);
@@ -703,7 +635,6 @@ export function initLabStarsScene() {
   brightMaterial.dispose();
   starTexture.dispose();
 
-  // Constelaciones, señales y bursts
   for (const c of constellations) {
    for (const sp of c.anchors) sp.material.dispose();
    c.lineGeo.dispose();
@@ -723,11 +654,6 @@ export function initLabStarsScene() {
  };
 }
 
-/**
- * =========================================================
- * PREVIEW PRINCIPAL - AGUA
- * =========================================================
- */
 export function initMainWaterPreview() {
  const canvas = document.querySelector('[data-preview-id="preview-main"]');
 
@@ -1025,10 +951,6 @@ void main()
  canvas.addEventListener("mouseleave", handleMouseLeave);
  window.addEventListener("resize", handleResize);
 
- // Gate de visibilidad — el preview del agua animada solo renderiza
- // cuando su canvas está en pantalla. Era el más caro de los previews
- // (uniforms de shader + rotación de starfield) y antes seguía corriendo
- // incluso desde Hero o Contact.
  const kick = () => {
   if (!animationId && gate.shouldAnimate()) {
    animationId = window.requestAnimationFrame(tick);
@@ -1124,22 +1046,6 @@ function createMiniStars({ count = 100, spreadX = 4, spreadY = 4, spreadZ = 4, s
  };
 }
 
-/**
- * =========================================================
- * FONDO DE ESTRELLAS PARA PROJECTS
- * =========================================================
- * Mismo sistema que el Lab para mantener continuidad visual
- * (un solo "universo" a lo largo del portfolio), pero ajustado
- * al contexto de Projects:
- *
- *  – La cámara está sticky, así que NO hay scroll-parallax
- *    (las estrellas no se desplazan en Y al hacer scroll).
- *  – Densidad reducida (1800/700/60 vs 2200/900/90) para que
- *    la pantalla CRT siga siendo la protagonista.
- *  – Opacidad de las estrellas brillantes recortada para no
- *    competir con el monitor.
- * =========================================================
- */
 export function initProjectsStarsScene() {
  const canvas = document.querySelector("#projects-stars-canvas");
 
@@ -1148,8 +1054,6 @@ export function initProjectsStarsScene() {
   return;
  }
 
- // Ancla al sticky directo (100vh). El wrapper exterior tiene 550vh
- // y no nos sirve para dimensionar el canvas.
  const stickyEl = canvas.parentElement;
  if (!stickyEl) return;
 
@@ -1174,7 +1078,6 @@ export function initProjectsStarsScene() {
  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
  renderer.setClearColor("#03030a", 1);
 
- // ── Texture de estrella (idéntica al Lab) ────────────────
  const starTexture = (() => {
   const size = 128;
   const c = document.createElement("canvas");
@@ -1209,7 +1112,6 @@ export function initProjectsStarsScene() {
 
  const color = new THREE.Color();
 
- // ── Capa 1: estrellas medias ─────────────────────────────
  const starsCount = 1800;
  const sPos = new Float32Array(starsCount * 3);
  const sCol = new Float32Array(starsCount * 3);
@@ -1256,7 +1158,6 @@ export function initProjectsStarsScene() {
  const stars = new THREE.Points(sGeo, sMat);
  scene.add(stars);
 
- // ── Capa 2: estrellas lejanas ────────────────────────────
  const farCount = 700;
  const fPos = new Float32Array(farCount * 3);
  const fCol = new Float32Array(farCount * 3);
@@ -1298,7 +1199,6 @@ export function initProjectsStarsScene() {
  const farStars = new THREE.Points(fGeo, fMat);
  scene.add(farStars);
 
- // ── Capa 3: estrellas brillantes (más contenidas que en Lab) ─
  const brightCount = 60;
  const bPos = new Float32Array(brightCount * 3);
  const bCol = new Float32Array(brightCount * 3);
@@ -1340,9 +1240,6 @@ export function initProjectsStarsScene() {
  const brightStars = new THREE.Points(bGeo, bMat);
  scene.add(brightStars);
 
- // ── Animación: rotación temporal + parallax suave de cursor ─
- // Sin scroll-parallax: la cámara está sticky, las estrellas
- // tampoco deben desplazarse en Y al hacer scroll.
  const cursor = { x: 0, y: 0 };
  const clock = new THREE.Clock();
  let animationId = null;
@@ -1364,8 +1261,6 @@ export function initProjectsStarsScene() {
  window.addEventListener("resize", onResize);
  window.addEventListener("mousemove", onMouseMove);
 
- // Gate de visibilidad — las estrellas de Projects solo renderizan
- // cuando la sección está en pantalla.
  const kick = () => {
   if (!animationId && gate.shouldAnimate()) {
    animationId = window.requestAnimationFrame(tick);
@@ -1388,11 +1283,9 @@ export function initProjectsStarsScene() {
   brightStars.rotation.y = t * 0.005;
   brightStars.rotation.x = t * 0.0025;
 
-  // Parallax muy sutil con el cursor — da vida sin distraer
   camera.position.x += (cursor.x * 0.6 - camera.position.x) * 0.02;
   camera.position.y += (-cursor.y * 0.45 - camera.position.y) * 0.02;
 
-  // Pulso lento de las brillantes
   bMat.opacity = 0.74 + Math.sin(t * 1.2) * 0.05;
 
   renderer.render(scene, camera);
@@ -1418,25 +1311,6 @@ export function initProjectsStarsScene() {
  };
 }
 
-/**
- * =========================================================
- * LAB ROOM SCENE — "El observatorio" (primera persona)
- * =========================================================
- * Cabina desde la que se EMITEN las transmisiones que llegan
- * a Projects. La cámara está fija en posición de operador,
- * mirando hacia fuera a través de una ventana enmarcada.
- *
- * Composición de la escena:
- *  – Marco de la ventana (geometría real, oscura, en primer plano)
- *  – Cristal sutil con leve reflejo
- *  – Nebula lejana azulada
- *  – Asteroides flotando con movimiento lento (dan profundidad)
- *  – Estrellas detrás (campo profundo)
- *
- * Los displays HUD (agua + vídeos) van encima en HTML, dentro
- * del marco de la ventana. La escena 3D solo provee el "fuera".
- * =========================================================
- */
 export function initLabRoomScene() {
  const canvas = document.querySelector("#lab-room-canvas");
  if (!canvas) {
@@ -1454,7 +1328,6 @@ export function initLabRoomScene() {
   height: parent.clientHeight,
  };
 
- // Cámara: FOV ancho para sensación inmersiva, posición de operador
  const camera = new THREE.PerspectiveCamera(58, sizes.width / sizes.height, 0.1, 200);
  camera.position.set(0, 0, 0);
  camera.lookAt(0, 0, -10);
@@ -1469,24 +1342,17 @@ export function initLabRoomScene() {
  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
  renderer.setClearColor(0x000000, 0);
 
- // ── Luz tenue para los asteroides ────────────────────────
  const ambient = new THREE.AmbientLight(0x1a2a4a, 0.45);
  scene.add(ambient);
 
- // Luz direccional ámbar muy suave — tiñe los asteroides como
- // si reflejaran la luz interior del observatorio
  const keyLight = new THREE.DirectionalLight(0xfdba74, 0.35);
  keyLight.position.set(2, 1, 4);
  scene.add(keyLight);
 
- // Luz fría desde la dirección de la nebula
  const rimLight = new THREE.DirectionalLight(0x4a7fc4, 0.6);
  rimLight.position.set(-3, 0, -8);
  scene.add(rimLight);
 
- // ══════════════════════════════════════════════════════
- // NEBULA LEJANA (sprite con textura procedural)
- // ══════════════════════════════════════════════════════
  const nebulaTexture = (() => {
   const size = 256;
   const c = document.createElement("canvas");
@@ -1494,7 +1360,6 @@ export function initLabRoomScene() {
   c.height = size;
   const cx = c.getContext("2d");
 
-  // Fondo radial con dos colores
   const g = cx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
   g.addColorStop(0, "rgba(80,120,200,0.55)");
   g.addColorStop(0.4, "rgba(60,90,160,0.28)");
@@ -1503,7 +1368,6 @@ export function initLabRoomScene() {
   cx.fillStyle = g;
   cx.fillRect(0, 0, size, size);
 
-  // Manchas irregulares para textura
   for (let i = 0; i < 60; i++) {
    const x = Math.random() * size;
    const y = Math.random() * size;
@@ -1537,26 +1401,19 @@ export function initLabRoomScene() {
  nebula.position.set(-8, -2, -45);
  scene.add(nebula);
 
- // Nebula secundaria más pequeña, otro lado
  const nebula2 = new THREE.Sprite(nebulaMat.clone());
  nebula2.material.opacity = 0.32;
  nebula2.scale.set(35, 25, 1);
  nebula2.position.set(12, 4, -38);
  scene.add(nebula2);
 
- // ══════════════════════════════════════════════════════
- // ASTEROIDES FLOTANTES
- // ══════════════════════════════════════════════════════
- // Pocos (8), low-poly, con movimiento muy lento. Dan parallax
- // y escala. Distribuidos en distintas profundidades.
  const asteroids = [];
  const ASTEROID_COUNT = 8;
 
  for (let i = 0; i < ASTEROID_COUNT; i++) {
-  // Geometría irregular (icosahedron deformado)
   const baseRadius = 0.25 + Math.random() * 0.55;
   const geo = new THREE.IcosahedronGeometry(baseRadius, 0);
-  // Deformar vértices para irregularidad
+
   const pos = geo.attributes.position;
   for (let v = 0; v < pos.count; v++) {
    const x = pos.getX(v);
@@ -1576,8 +1433,6 @@ export function initLabRoomScene() {
 
   const mesh = new THREE.Mesh(geo, mat);
 
-  // Distribución: a los lados (no en el centro, para no tapar
-  // el contenido HTML que va dentro del frame)
   const side = Math.random() > 0.5 ? 1 : -1;
   mesh.position.set(side * (3 + Math.random() * 6), (Math.random() - 0.5) * 5, -8 - Math.random() * 18);
 
@@ -1592,9 +1447,6 @@ export function initLabRoomScene() {
   asteroids.push(mesh);
  }
 
- // ══════════════════════════════════════════════════════
- // CAMPO ESTELAR (más profundo que el de fondo)
- // ══════════════════════════════════════════════════════
  const starTex = (() => {
   const s = 64;
   const c = document.createElement("canvas");
@@ -1645,9 +1497,6 @@ export function initLabRoomScene() {
  const stars = new THREE.Points(starGeo, starMat);
  scene.add(stars);
 
- // ══════════════════════════════════════════════════════
- // ESTRELLA FUGAZ ocasional
- // ══════════════════════════════════════════════════════
  const shooting = {
   mesh: null,
   active: false,
@@ -1675,9 +1524,6 @@ export function initLabRoomScene() {
   shooting.velocity.set(0.18 + Math.random() * 0.08, -0.06 - Math.random() * 0.04, 0.02);
  }
 
- // ══════════════════════════════════════════════════════
- // INTERACCIÓN: parallax suave con el cursor
- // ══════════════════════════════════════════════════════
  const cursor = { x: 0, y: 0 };
  const cursorTarget = { x: 0, y: 0 };
 
@@ -1688,9 +1534,6 @@ export function initLabRoomScene() {
  };
  window.addEventListener("mousemove", onMouseMove);
 
- // ══════════════════════════════════════════════════════
- // RESIZE
- // ══════════════════════════════════════════════════════
  const onResize = () => {
   sizes.width = parent.clientWidth;
   sizes.height = parent.clientHeight;
@@ -1701,14 +1544,9 @@ export function initLabRoomScene() {
  };
  window.addEventListener("resize", onResize);
 
- // ══════════════════════════════════════════════════════
- // TICK
- // ══════════════════════════════════════════════════════
  const clock = new THREE.Clock();
  let animId = null;
 
- // Gate de visibilidad — el "observatorio" (cabina con asteroides, nebula
- // y estrella fugaz) solo se anima cuando su canvas está en pantalla.
  const kick = () => {
   if (!animId && gate.shouldAnimate()) {
    animId = requestAnimationFrame(tick);
@@ -1723,41 +1561,34 @@ export function initLabRoomScene() {
   const elapsed = clock.getElapsedTime();
   const dt = Math.min(clock.getDelta() || 1 / 60, 0.05);
 
-  // Parallax cámara (muy sutil — la cámara casi no se mueve,
-  // solo gira ligeramente para sensación de "operador atento")
   cursor.x += (cursorTarget.x - cursor.x) * 0.04;
   cursor.y += (cursorTarget.y - cursor.y) * 0.04;
   camera.rotation.y = -cursor.x * 0.04;
   camera.rotation.x = cursor.y * 0.025;
 
-  // Asteroides: drift + bob + rotación propia
   for (const a of asteroids) {
    a.position.x = a.userData.basePos.x + Math.sin(elapsed * 0.15 + a.userData.bobPhase) * 0.3;
    a.position.y = a.userData.basePos.y + Math.cos(elapsed * 0.12 + a.userData.bobPhase) * 0.25;
    a.userData.basePos.x += a.userData.driftX;
    a.userData.basePos.y += a.userData.driftY;
-   // Rotación lenta sobre eje propio
+
    a.rotateOnAxis(a.userData.rotAxis, a.userData.rotSpeed);
 
-   // Wrap horizontal: si se va muy lejos, vuelve por el otro lado
    if (Math.abs(a.userData.basePos.x) > 12) {
     a.userData.basePos.x = -Math.sign(a.userData.basePos.x) * 12;
    }
   }
 
-  // Nebula: rotación muy lenta para sensación viva
   nebula.material.rotation = elapsed * 0.005;
   nebula2.material.rotation = -elapsed * 0.003;
 
-  // Estrellas: rotación casi imperceptible
   stars.rotation.y = elapsed * 0.002;
 
-  // Estrella fugaz
   if (shooting.active) {
    shooting.life -= dt * 1.5;
    shooting.mesh.position.add(shooting.velocity);
    shootMat.opacity = Math.max(0, shooting.life) * 0.85;
-   // Trail: dos puntos, el segundo arrastrado hacia atrás
+
    shootPos[0] = 0;
    shootPos[1] = 0;
    shootPos[2] = 0;
@@ -1779,9 +1610,6 @@ export function initLabRoomScene() {
  };
  kick();
 
- // ══════════════════════════════════════════════════════
- // CLEANUP
- // ══════════════════════════════════════════════════════
  return () => {
   gate.dispose();
   window.removeEventListener("resize", onResize);

@@ -1,15 +1,7 @@
 import { useEffect, useRef } from "react";
 import { initHeroScene } from "../3d/heroScene";
 
-/**
- * Hero.jsx — wrapper 380vh + sticky 100vh
- *
- * Overlay HTML "DESLIZA PARA COMENZAR":
- *  - texto UPPERCASE con tracking generoso
- *  - línea horizontal fina con gradiente cálido (matchea glow del cohete)
- *  - flecha ↓ animada debajo
- *  - fade-out al hacer scroll
- */
+
 
 export function Hero() {
  const wrapperRef = useRef(null);
@@ -18,34 +10,34 @@ export function Hero() {
  useEffect(() => {
   const cleanup = initHeroScene(wrapperRef.current);
 
-  // ── DEFENSA EN PROFUNDIDAD: contexto WebGL perdido ────────────────
-  // Aunque la orquestación de App.jsx (Hero solo se monta tras LoadingDoor)
-  // ya elimina la causa principal de context loss en móvil, mantenemos
-  // estos handlers como red de seguridad. Si por cualquier motivo el
-  // navegador decide matar el contexto WebGL (poca memoria, segunda
-  // pestaña pesada, cambio de GPU, etc), al menos:
-  //   1) Prevenimos el comportamiento por defecto (canvas en negro).
-  //   2) Logueamos para tener traza.
-  //   3) Si el contexto se restaura, pedimos un re-render.
-  //
-  // Sin esto, una pérdida de contexto deja el canvas mudo sin error
-  // visible — exactamente el bug del "sad face" que tuvimos.
+
+
+
+
+
+
+
+
+
+
+
+
   const canvasEl = document.querySelector("#webgl");
   let onContextLost = null;
   let onContextRestored = null;
   if (canvasEl) {
    onContextLost = (e) => {
-    // preventDefault() le dice al navegador que vamos a manejar la
-    // pérdida — necesario para que el evento 'webglcontextrestored'
-    // pueda dispararse después.
+
+
+
     e.preventDefault();
     console.warn("[Hero] WebGL context lost — esperando restauración…");
    };
    onContextRestored = () => {
     console.warn("[Hero] WebGL context restaurado");
-    // Forzamos un repaint: el render loop interno está controlado por
-    // requestRender() dentro de heroScene, así que un resize sintético
-    // lo despierta sin acoplarnos a su API.
+
+
+
     window.dispatchEvent(new Event("resize"));
    };
    canvasEl.addEventListener("webglcontextlost", onContextLost, false);
@@ -60,10 +52,10 @@ export function Hero() {
    const scrolled = Math.max(0, -rect.top);
    const progress = range > 0 ? scrolled / range : 0;
 
-   // Hint visible solo dentro de la habitación.
-   // - 0%-4%   → opacity 1 (estable, no parpadea con scrolls mínimos)
-   // - 4%-10%  → fade out cinemático
-   // - >10%    → opacity 0 (mucho antes de cruzar la ventana ~25-29%)
+
+
+
+
    const FADE_START = 0.04;
    const FADE_END = 0.1;
    let op;
@@ -74,7 +66,7 @@ export function Hero() {
    } else {
     op = 1 - (progress - FADE_START) / (FADE_END - FADE_START);
    }
-   // pointer-events fuera cuando ya no se ve — evita que capture ratón muerto
+
    hintRef.current.style.opacity = String(op);
    hintRef.current.style.visibility = op === 0 ? "hidden" : "visible";
   };
@@ -115,7 +107,7 @@ export function Hero() {
      }}
     />
 
-    {/* Scroll hint premium */}
+    {}
     <div ref={hintRef} className="hero-scroll-hint" aria-hidden="true">
      <span className="hero-scroll-hint__label">DESLIZA PARA COMENZAR</span>
      <span className="hero-scroll-hint__line" />
@@ -142,8 +134,7 @@ export function Hero() {
     gap: 14px;
     pointer-events: none;
     user-select: none;
-    /* Halo dark + warm: el dark da contraste sobre cualquier fondo,
-       el warm conserva la identidad cálida del cohete. */
+    
     filter: drop-shadow(0 2px 18px rgba(0, 0, 0, 0.55));
     animation: hero-hint-fadein 1.4s ease-out 0.6s both;
   }
@@ -154,7 +145,7 @@ export function Hero() {
   font-weight: 500;
   letter-spacing: 0.42em;
   color: rgba(255, 225, 200, 0.96);
-  white-space: nowrap;             /* ← nunca rompe línea */
+  white-space: nowrap;             
   text-shadow:
     0 0 1px rgba(0, 0, 0, 0.9),
     0 0 14px rgba(0, 0, 0, 0.55),
@@ -164,16 +155,16 @@ export function Hero() {
 
 @media (max-width: 767px) {
   .hero-scroll-hint {
-    /* Respeta el home indicator del iPhone sin pegarse al borde */
+    
     bottom: max(24px, env(safe-area-inset-bottom));
     gap: 10px;
   }
   .hero-scroll-hint__label {
-    font-size: 9.5px;              /* baja un punto */
-    letter-spacing: 0.26em;        /* tracking más cerrado → cabe en una línea */
+    font-size: 9.5px;              
+    letter-spacing: 0.26em;        
   }
   .hero-scroll-hint__line {
-    width: 150px;                  /* coherente con el texto más corto */
+    width: 150px;                  
   }
   .hero-scroll-hint__arrow {
     width: 12px;
@@ -181,7 +172,7 @@ export function Hero() {
   }
 }
 
-  /* Línea cálida — densidad un punto arriba */
+  
   .hero-scroll-hint__line {
     width: 240px;
     height: 1px;
@@ -207,7 +198,7 @@ export function Hero() {
     to   { opacity: 1; transform: translate(-50%, 0); }
   }
 
-  /* Floor subido: ya nunca baja de 0.88 */
+  
   @keyframes hero-hint-breathe {
     0%, 100% { opacity: 0.88; }
     50%      { opacity: 1;    }

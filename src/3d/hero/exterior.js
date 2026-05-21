@@ -3,27 +3,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { easeIn3, easeOut3, easeIO3, clamp01, lerpV, phase } from "./math";
 import { loadingManager } from "../loadingManager";
 
-/**
- * buildExterior
- * ─────────────────────────────────────────────────────────────────────────
- * Construye toda la escena del exterior espacial vista a través de la
- * ventana del Hero: estrellas (4 capas), luna, nebula, viñeta, satélite,
- * asteroides, estrella fugaz, UFO con haz, claim narrativo y plano técnico.
- *
- * Filosofía: este módulo es propietario de TODOS sus objetos (los crea, los
- * añade a la escena, los actualiza en cada frame y los disposea en cleanup).
- * El orquestador (heroScene.js) solo pasa contexto de entrada y llama a
- * `update()` cada frame. Las referencias que devuelve son SOLO las que la
- * GUI necesita pinchar (params, refs y funciones update específicas).
- *
- * @param {object} ctx
- * @param {THREE.Scene} ctx.scene
- * @param {THREE.PerspectiveCamera} ctx.camera
- * @param {THREE.WebGLRenderer} ctx.renderer
- * @param {boolean} ctx.isMobile
- * @param {object} ctx.atmosphereParams  Objeto global. Solo se lee `.vignetteOpacity`.
- * @param {Function} ctx.requestRender   Para repintar fuera del tick (cambios de GUI).
- */
+
 export function buildExterior({ scene, camera, renderer, isMobile, atmosphereParams, requestRender }) {
  // ════════════════════════════════════════════════════════════════════════
  // CENTRO DEL EXTERIOR
@@ -125,7 +105,7 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
  };
 
  // ── Shader compartido — sprite + atributos por vértice + twinkle ─────────
- const starVertexShader = /* glsl */ `
+ const starVertexShader =  `
   attribute float aSize;
   attribute vec3 aColor;
   attribute float aPhase;
@@ -147,7 +127,7 @@ export function buildExterior({ scene, camera, renderer, isMobile, atmospherePar
   }
  `;
 
- const starFragmentShader = /* glsl */ `
+ const starFragmentShader =  `
   uniform sampler2D uSprite;
   uniform float uOpacity;
   varying vec3 vColor;

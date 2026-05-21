@@ -2,41 +2,21 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { subscribeProgress } from "../3d/loadingManager";
 
-/**
- * LoadingDoor v9 — Wireframe + glyph (sin puerta)
- *
- * Concepto: una figura geométrica en wireframe naranja rotando
- * lentamente sobre un grid de perspectiva infinito. Tipografía
- * editorial debajo. Al completar la carga, la figura se expande,
- * libera un breath de luz, y sus aristas se disipan → fade out.
- *
- * Decisiones de dirección artística:
- *  · Wireframe en lugar de superficies sólidas → robusto: las líneas
- *    se ven a la opacidad que les pongas, sin depender de luces.
- *  · Grid de perspectiva → ancla la cámara en el espacio sin necesidad
- *    de un entorno completo. Pura geometría, cero materiales complejos.
- *  · Tipografía protagonista con mucho espacio negativo → editorial,
- *    senior, no compite con la figura.
- *  · Brasas atmosféricas (puntos pulsando) → vida sutil, vibración
- *    sin saturar.
- *  · La transición no es "atravesar algo", es "soltar la figura" →
- *    expansión radial + disipación. Más limpio que cualquier cruce.
- */
 
-// ─── Constantes de timing ──────────────────────────────────────────
+
 const MIN_DISPLAY_MS = 2000;
 const MAX_WAIT_MS = 9000;
 const PRE_ENTER_DELAY_MS = 400;
-const ENTER_DURATION_MS = 1600; // más corto: ya no hay que cruzar nada
+const ENTER_DURATION_MS = 1600; 
 const FADE_OUT_MS = 700;
 
-// ─── Easings ───────────────────────────────────────────────────────
+
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 const easeOutQuart = (t) => 1 - Math.pow(1 - t, 4);
 const easeInOutCubic = (t) =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
-// ─── Textura procedural para brasas atmosféricas ──────────────────
+
 function makeEmberTexture() {
   const cv = document.createElement("canvas");
   cv.width = cv.height = 64;
@@ -52,60 +32,14 @@ function makeEmberTexture() {
   return tex;
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// LoadingDoor — móvil
-// ════════════════════════════════════════════════════════════════════════
-// En móvil renderizamos una versión SIN WebGL: solo HTML + CSS.
-//
-// Diagnóstico: en GPUs ARM (Samsung Mali-G68 y similares) la VRAM total
-// es escasa y se comparte con el sistema. Tener dos WebGLRenderers vivos
-// a la vez (LoadingDoor + heroScene) supera el budget de VRAM → Android
-// mata el contexto del Hero por OOM → "WebGL CONTEXT LOST" → pantalla
-// negra eterna.
-//
-// El loader HTML conserva la misma dirección artística que la versión
-// WebGL — anillo respirando, marca tipográfica, HUD inferior — pero
-// con 0 consumo de GPU. Visualmente es coherente con la versión desktop;
-// el icosaedro 3D simplemente no aparece en móvil. Es el tipo de
-// compromiso que se hace en producción cuando los datos lo exigen.
-// ════════════════════════════════════════════════════════════════════════
+
 function LoadingDoorMobile({ onComplete }) {
   const wrapperRef = useRef(null);
-  // Refs directos al DOM de la barra y el contador % para que el rAF
-  // pueda actualizar los nodos sin pasar por React state. Esto era la
-  // causa raíz del context loss en Mali-G68: con setState a 60 fps
-  // durante 2s, cada cambio disparaba un re-render que aplicaba un
-  // nuevo `transform: scaleX(${pct})` en el JSX. Como el CSS tenía
-  // `transition: transform 320ms`, cada frame INTERRUMPÍA la transición
-  // previa para empezar otra → GPU thrashing → la GPU móvil se saturaba
-  // de recalcular composition layers y por presión de VRAM mataba el
-  // contexto WebGL del Hero al arrancar.
-  //
-  // Con ref directo: el rAF aplica `style.transform` directamente al
-  // nodo, cero re-renders, y la CSS transition (que también quitamos en
-  // la sección de estilos) ya no se interrumpe.
   const barFillRef = useRef(null);
   const pctTextRef = useRef(null);
   const [pct, setPct] = useState(0);
   const [hidden, setHidden] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
-
-  // Trigger de salida — misma lógica que la versión desktop, con
-  // suavizado de la barra para evitar el "salto del 0 al 100" cuando la
-  // descarga real termina muy rápido (assets en caché, localhost, red
-  // veloz).
-  //
-  // El truco: separamos el "progreso real" del "progreso mostrado".
-  //   realPct  → lo que reporta el loadingManager (puede saltar al 100%
-  //              en 50ms si los assets ya están cacheados)
-  //   displayPct → lo que pinta la barra, calculado como
-  //                Math.min(realPct, elapsed / MIN_DISPLAY_MS)
-  //
-  // Resultado: la barra se mueve suavemente acompañando el tiempo mínimo
-  // de display (2s). Si la descarga va por detrás, manda el contenido y
-  // la barra refleja la realidad. Nunca miente. Nunca salta. Cuando
-  // ambos llegan al 100% Y la descarga real ha terminado, dispara el
-  // trigger.
   useEffect(() => {
     let triggered = false;
     let realPct = 0;
@@ -116,18 +50,10 @@ function LoadingDoorMobile({ onComplete }) {
     const trigger = () => {
       if (triggered) return;
       triggered = true;
-      // Una sola vez al cerrar: sincronizar el state al 100% para que el
-      // contador `pctDisplay` muestre 100 y la barra esté completa cuando
-      // el componente entre en fase de salida. A partir de aquí no hay
-      // más actualizaciones, así que un único re-render es coste cero.
       setPct(1);
 
       setTimeout(() => {
         setIsLeaving(true);
-        // Notificar al gate de App.jsx para que monte el `<main>` ahora.
-        // Lo hacemos AL INICIO del fade-out, no después de hidden=true,
-        // para que el Hero tenga ~700ms para arrancar mientras este
-        // loader se desvanece por encima.
         if (typeof onComplete === "function") onComplete();
         setTimeout(() => {
           if (wrapperRef.current) wrapperRef.current.style.opacity = "0";
@@ -140,10 +66,6 @@ function LoadingDoorMobile({ onComplete }) {
       const elapsed = performance.now() - startedAt;
       const timeProgress = Math.min(elapsed / MIN_DISPLAY_MS, 1);
       const displayPct = Math.min(realPct, timeProgress);
-
-      // Aplicar al DOM directamente — sin pasar por React state.
-      // Esto evita 120+ re-renders durante la carga y el CSS thrashing
-      // que mataba el contexto WebGL en GPUs móviles ARM Mali.
       if (barFillRef.current) {
         barFillRef.current.style.transform = `scaleX(${displayPct})`;
       }
@@ -153,8 +75,7 @@ function LoadingDoorMobile({ onComplete }) {
         ).padStart(3, "0");
       }
 
-      // Solo disparamos cuando AMBOS están al 100%: la barra ha llegado
-      // visualmente al final Y la descarga real ha terminado.
+
       if (realDone && displayPct >= 0.999) {
         trigger();
         return;
@@ -168,9 +89,7 @@ function LoadingDoorMobile({ onComplete }) {
       if (done) realDone = true;
     });
 
-    // Safety: tras MAX_WAIT_MS forzamos realDone=true para que el rAF
-    // pueda completar la barra y disparar el trigger aunque algún asset
-    // se haya quedado colgado.
+
     const safetyId = setTimeout(() => {
       realPct = 1;
       realDone = true;
@@ -183,7 +102,7 @@ function LoadingDoorMobile({ onComplete }) {
     };
   }, [onComplete]);
 
-  // Bloqueo de scroll
+
   useEffect(() => {
     if (hidden) return;
     const prev = document.body.style.overflow;
@@ -198,13 +117,13 @@ function LoadingDoorMobile({ onComplete }) {
 
   return (
     <div ref={wrapperRef} className="loading-mobile" aria-hidden="true">
-      {/* Marca top-left — coherente con desktop */}
+      {}
       <div className={`loading-mobile__mark${isLeaving ? " is-fading" : ""}`}>
         <span className="loading-mobile__mark-bullet" />
         <span className="loading-mobile__mark-label">D / LL</span>
       </div>
 
-      {/* Anillo central respirando — análogo HTML del icosaedro */}
+      {}
       <div className={`loading-mobile__ring-wrap${isLeaving ? " is-leaving" : ""}`}>
         <div className="loading-mobile__ring loading-mobile__ring--outer" />
         <div className="loading-mobile__ring loading-mobile__ring--mid" />
@@ -212,7 +131,7 @@ function LoadingDoorMobile({ onComplete }) {
         <div className="loading-mobile__core" />
       </div>
 
-      {/* HUD inferior */}
+      {}
       <div className={`loading-mobile__hud${isLeaving ? " is-fading" : ""}`}>
         <div className="loading-mobile__caption">PREPARANDO LA ESCENA</div>
         <div className="loading-mobile__bar">
@@ -238,7 +157,7 @@ function LoadingDoorMobile({ onComplete }) {
           overflow: hidden;
         }
 
-        /* Vignette sutil para dar profundidad */
+        
         .loading-mobile::before {
           content: "";
           position: absolute;
@@ -251,7 +170,7 @@ function LoadingDoorMobile({ onComplete }) {
           pointer-events: none;
         }
 
-        /* Marca top-left */
+        
         .loading-mobile__mark {
           position: absolute;
           top: 20px;
@@ -276,7 +195,7 @@ function LoadingDoorMobile({ onComplete }) {
           box-shadow: 0 0 8px rgba(255, 154, 74, 0.55);
         }
 
-        /* Anillos concéntricos centrales — sustituto del icosaedro */
+        
         .loading-mobile__ring-wrap {
           position: absolute;
           top: 50%;
@@ -346,7 +265,7 @@ function LoadingDoorMobile({ onComplete }) {
           50%      { transform: translate(-50%, -50%) scale(1.4); opacity: 1;   }
         }
 
-        /* HUD inferior */
+        
         .loading-mobile__hud {
           position: absolute;
           left: 50%;
@@ -383,13 +302,7 @@ function LoadingDoorMobile({ onComplete }) {
             rgba(255, 210, 150, 1));
           transform-origin: left center;
           transform: scaleX(0);
-          /* Sin transition: el rAF del trigger actualiza scaleX cada frame
-             vía ref directo al DOM. Antes había transition de 320ms aquí,
-             pero al combinarse con un setState a 60 fps causaba que el
-             navegador interrumpiese una transición cada frame para iniciar
-             otra — GPU thrashing que mataba el contexto WebGL en móviles
-             ARM Mali. Sin transition es lo correcto cuando ya controlamos
-             el frame-rate desde JS. */
+          
           box-shadow: 0 0 12px rgba(255, 175, 100, 0.5);
         }
         .loading-mobile__pct {
@@ -419,15 +332,7 @@ function LoadingDoorMobile({ onComplete }) {
 }
 
 export function LoadingDoor({ onComplete }) {
-  // ─── Detección de móvil ─────────────────────────────────────────────
-  // ARM Mali y otras GPUs móviles de gama media no aguantan dos
-  // contextos WebGL simultáneos (LoadingDoor + heroScene) → OOM →
-  // "WebGL CONTEXT LOST" en el Hero. La solución: en móvil, el
-  // LoadingDoor NO usa WebGL. Renderiza una versión HTML/CSS pura
-  // que comparte la misma dirección artística pero a coste GPU 0.
-  //
-  // Detección con triple OR (igual que en heroScene.js) para cubrir
-  // dispositivos que no reportan correctamente todas las señales.
+  
   const isMobile =
     typeof window !== "undefined" &&
     (window.matchMedia("(hover: none) and (pointer: coarse)").matches ||
@@ -435,39 +340,21 @@ export function LoadingDoor({ onComplete }) {
       "ontouchstart" in window);
 
   if (isMobile) return <LoadingDoorMobile onComplete={onComplete} />;
-
-  // ─── A partir de aquí: versión desktop con WebGL ────────────────────
-  // ── Refs ───────────────────────────────────────────────────────────
-  // wrapperRef: el div externo. El canvas se crea/destruye con JS dentro
-  //             del wrapper en cada montaje, NO con una ref de React.
-  //
-  // ¿Por qué crear el canvas con JS y no con <canvas ref={...} />?
-  //   React StrictMode (modo dev) monta y desmonta cada componente DOS
-  //   veces seguidas para detectar bugs de cleanup. Si el canvas es una
-  //   ref de React, se reutiliza la MISMA instancia DOM en los dos
-  //   montajes. El primer cleanup llama a renderer.forceContextLoss(),
-  //   que marca el contexto WebGL del canvas como "perdido para siempre".
-  //   El segundo montaje intenta crear un WebGLRenderer sobre ese canvas
-  //   muerto → null context → "Cannot read properties of null".
-  //
-  //   Creando el canvas con JS, cada montaje tiene SU canvas nuevo,
-  //   limpio, sin baggage de un cleanup previo. Cuando React desmonta
-  //   el componente de verdad, el canvas se elimina junto al wrapper.
   const wrapperRef = useRef(null);
   const stateRef = useRef({});
   const [pct, setPct] = useState(0);
   const [hidden, setHidden] = useState(false);
   const [isEntering, setIsEntering] = useState(false);
 
-  // ─── Setup Three.js ─────────────────────────────────────────────
+
   useEffect(() => {
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
 
-    // ── Canvas creado dinámicamente — ver explicación arriba ──────
+
     const canvas = document.createElement("canvas");
     canvas.className = "loading-glyph__canvas";
-    // Insertar como primer hijo del wrapper para que quede detrás del HUD
+  
     wrapper.insertBefore(canvas, wrapper.firstChild);
 
     const w = window.innerWidth;
@@ -475,11 +362,9 @@ export function LoadingDoor({ onComplete }) {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
-    // Niebla muy lejana → el grid se desvanece hacia el horizonte
+
     scene.fog = new THREE.Fog(0x000000, 6, 22);
 
-    // Cámara con FOV cinematográfico (35° ≈ 70mm). Compresión espacial
-    // que hace la figura central protagonista.
     const camera = new THREE.PerspectiveCamera(35, w / h, 0.1, 100);
     camera.position.set(0, 0.5, 5);
     camera.lookAt(0, 0, 0);
@@ -491,10 +376,6 @@ export function LoadingDoor({ onComplete }) {
       powerPreference: "high-performance",
     });
     renderer.setSize(w, h);
-    // En móvil bajamos el pixelRatio máximo a 1.5 — el LoadingDoor coexiste
-    // unos segundos con el Hero antes de desmontarse, y mantener dos canvas
-    // a pixelRatio 2 en móviles modestos satura la VRAM (provoca el "sad
-    // face" / context lost que mata el WebGL del Hero).
     const isMobile = window.innerWidth < 768;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -503,8 +384,7 @@ export function LoadingDoor({ onComplete }) {
 
     const disposables = [];
 
-    // ─── FIGURA WIREFRAME CENTRAL ────────────────────────────────
-    // Icosaedro (20 caras, 30 aristas) → limpio, reconocible, simétrico.
+
     const figureGeom = new THREE.IcosahedronGeometry(1.0, 0);
     const figureEdges = new THREE.EdgesGeometry(figureGeom);
     const figureLineMat = new THREE.LineBasicMaterial({
@@ -515,7 +395,6 @@ export function LoadingDoor({ onComplete }) {
     const figure = new THREE.LineSegments(figureEdges, figureLineMat);
     disposables.push(figureGeom, figureEdges, figureLineMat);
 
-    // Vértices marcados con pequeños puntos → más peso visual
     const vertexPositions = [];
     const positionAttr = figureGeom.attributes.position;
     for (let i = 0; i < positionAttr.count; i++) {
@@ -540,7 +419,6 @@ export function LoadingDoor({ onComplete }) {
     const vertexPoints = new THREE.Points(vertexGeom, vertexMat);
     disposables.push(vertexGeom, vertexMat);
 
-    // Halo esférico aditivo sutil. Se intensifica al completar la carga.
     const haloGeom = new THREE.SphereGeometry(1.05, 32, 24);
     const haloMat = new THREE.MeshBasicMaterial({
       color: 0xff9a4a,
@@ -552,14 +430,14 @@ export function LoadingDoor({ onComplete }) {
     const halo = new THREE.Mesh(haloGeom, haloMat);
     disposables.push(haloGeom, haloMat);
 
-    // Agrupa para rotar todo junto
+
     const figureGroup = new THREE.Group();
     figureGroup.add(figure, vertexPoints, halo);
     scene.add(figureGroup);
 
-    // ─── GRID DE PERSPECTIVA ────────────────────────────────────
-    // Suelo plano bajo la figura. Cae hacia el horizonte y se funde
-    // con la niebla, dando profundidad sin entorno.
+
+
+
     const gridSize = 24;
     const gridDivs = 24;
     const grid = new THREE.GridHelper(gridSize, gridDivs, 0xff7a3a, 0xff7a3a);
@@ -569,9 +447,9 @@ export function LoadingDoor({ onComplete }) {
     scene.add(grid);
     disposables.push(grid.geometry, grid.material);
 
-    // ─── BRASAS ATMOSFÉRICAS ────────────────────────────────────
-    // Puntos cálidos distribuidos alrededor de la figura. Solo 40 para
-    // que no saturen. Pulsan suavemente.
+
+
+
     const emberCount = 40;
     const emberGeom = new THREE.BufferGeometry();
     const emberPos = new Float32Array(emberCount * 3);
@@ -605,8 +483,8 @@ export function LoadingDoor({ onComplete }) {
     scene.add(embers);
     disposables.push(emberGeom, emberMat, emberTex);
 
-    // ─── FLASH PROCEDURAL ───────────────────────────────────────
-    // Para el momento de "liberación" al 100%. Empieza invisible.
+
+
     const flashMat = new THREE.MeshBasicMaterial({
       color: 0xffd8a0,
       transparent: true,
@@ -622,7 +500,7 @@ export function LoadingDoor({ onComplete }) {
     scene.add(flashMesh);
     disposables.push(flashGeom, flashMat);
 
-    // ─── ESTADO COMPARTIDO ──────────────────────────────────────
+
     stateRef.current = {
       camera,
       figureGroup,
@@ -641,7 +519,7 @@ export function LoadingDoor({ onComplete }) {
       currentPct: 0,
     };
 
-    // ─── LOOP de render ─────────────────────────────────────────
+
     let animId;
     let lastTime = performance.now();
     const animate = (now) => {
@@ -650,7 +528,7 @@ export function LoadingDoor({ onComplete }) {
       lastTime = now;
       const s = stateRef.current;
 
-      // Pulse sutil de las brasas: drift orbital muy lento + parpadeo
+
       const eAttr = s.embers.geometry.attributes.position;
       const eArr = eAttr.array;
       for (let i = 0; i < emberCount; i++) {
@@ -661,30 +539,30 @@ export function LoadingDoor({ onComplete }) {
       eAttr.needsUpdate = true;
 
       if (!s.entering) {
-        // ROTACIÓN CONTINUA: lenta, en dos ejes para percepción 3D
+
         s.figureGroup.rotation.y += dt * 0.22;
         s.figureGroup.rotation.x += dt * 0.07;
 
-        // Halo respira muy sutilmente
+
         s.haloMat.opacity = 0.04 + Math.sin(t * 1.2) * 0.018;
 
-        // Aristas refuerzan opacidad con el progreso de carga (la figura
-        // se "energiza" conforme la carga avanza)
+
+
         let baseLineOp = 0.78 + s.currentPct * 0.18;
-        // Pulse de líneas: cada ~2.5s un breve flash global
+
         const pulse = Math.max(0, Math.sin(t * 1.3));
         const pulseBoost = Math.pow(pulse, 8) * 0.25;
         s.figureLineMat.opacity = Math.min(1, baseLineOp + pulseBoost);
 
-        // Brasas pulsan suavemente
+
         s.emberMat.opacity = 0.45 + Math.sin(t * 0.8) * 0.15;
       } else {
-        // ──── FASE DE LIBERACIÓN ────
-        // 1) Anticipación (0–25%): la figura se contrae ligeramente,
-        //    como tomando aire.
-        // 2) Expansión (25–70%): scale explota hacia afuera, aristas
-        //    se desvanecen, halo crece.
-        // 3) Liberación (70–100%): flash domina, todo se disuelve.
+
+
+
+
+
+
         const elapsed = now - s.enterStart;
         const p = Math.min(1, elapsed / ENTER_DURATION_MS);
 
@@ -719,11 +597,11 @@ export function LoadingDoor({ onComplete }) {
         s.flashMat.opacity = flashOpacity;
         s.flashMesh.lookAt(s.camera.position);
 
-        // El grid se difumina con la liberación: la figura ya no
-        // necesita anclaje porque está disolviéndose
+
+
         s.grid.material.opacity = Math.max(0, 0.09 * (1 - p * 1.3));
 
-        // Brasas: se intensifican y luego desvanecen
+
         if (p < 0.7) {
           s.emberMat.opacity = 0.45 + p * 0.55;
         } else {
@@ -736,7 +614,7 @@ export function LoadingDoor({ onComplete }) {
     };
     animId = requestAnimationFrame(animate);
 
-    // Resize
+
     const onResize = () => {
       const W = window.innerWidth;
       const H = window.innerHeight;
@@ -751,46 +629,46 @@ export function LoadingDoor({ onComplete }) {
       window.removeEventListener("resize", onResize);
       disposables.forEach((d) => d.dispose && d.dispose());
 
-      // ── Liberar contexto WebGL inmediatamente ──────────────────────
-      // dispose() solo borra recursos GPU pero NO libera el contexto.
-      // En móvil el contexto vive hasta que el GC lo recoja (segundos),
-      // y mientras tanto cuenta contra el límite de contextos del
-      // navegador. Si el Hero ya está montando su propio canvas, hay
-      // dos contextos compitiendo → Chrome mata uno → "sad face".
-      //
-      // forceContextLoss() es la única forma fiable de liberar ya.
-      // Nota: como ahora cada montaje tiene SU canvas nuevo (creado
-      // arriba con createElement), esto NO afecta a futuros montajes
-      // — el problema del StrictMode con canvas reciclado está
-      // eliminado de raíz.
+
+
+
+
+
+
+
+
+
+
+
+
       try {
         renderer.forceContextLoss();
       } catch {
-        // Navegadores muy viejos pueden no exponer forceContextLoss.
+
       }
       renderer.dispose();
 
-      // Eliminar el canvas del DOM. React eliminará el wrapper en sí,
-      // pero el canvas lo creamos nosotros con createElement así que
-      // somos responsables de quitarlo (sobre todo en StrictMode, donde
-      // el wrapper SOBREVIVE entre los dos montajes consecutivos).
+
+
+
+
       if (canvas.parentNode) {
         canvas.parentNode.removeChild(canvas);
       }
     };
   }, []);
 
-  // ─── Trigger de salida ───────────────────────────────────────────
-  // Mismo suavizado que la versión móvil: separamos progreso real de
-  // progreso mostrado para evitar saltos del 0 al 100 cuando la
-  // descarga termina muy rápido. Ver explicación detallada en
-  // LoadingDoorMobile arriba.
-  //
-  // Diferencia frente a móvil: aquí también propagamos el displayPct al
-  // `stateRef.current.currentPct`, que el render loop del icosaedro usa
-  // para animar la "respiración" / glow de la figura conforme avanza la
-  // carga. Si la barra avanza suave, la respiración del icosaedro
-  // también, en sincro con lo que ve el usuario.
+
+
+
+
+
+
+
+
+
+
+
   useEffect(() => {
     let triggered = false;
     let realPct = 0;
@@ -809,13 +687,13 @@ export function LoadingDoor({ onComplete }) {
           stateRef.current.entering = true;
           stateRef.current.enterStart = performance.now();
         }
-        // El HUD se desvanece durante la liberación, no junto al wrapper.
-        // Evita solape con "DESLIZA PARA COMENZAR" del Hero.
+
+
         setIsEntering(true);
-        // Notificar al gate de App.jsx para que monte el `<main>` ahora.
-        // Lo hacemos AL INICIO de la fase de salida, no después de
-        // hidden=true: así el Hero arranca su WebGL mientras este loader
-        // sigue visible pero fadeando.
+
+
+
+
         if (typeof onComplete === "function") onComplete();
         setTimeout(() => {
           if (wrapperRef.current) wrapperRef.current.style.opacity = "0";
@@ -856,7 +734,7 @@ export function LoadingDoor({ onComplete }) {
     };
   }, [onComplete]);
 
-  // Bloqueo de scroll
+
   useEffect(() => {
     if (hidden) return;
     const prev = document.body.style.overflow;
@@ -872,11 +750,9 @@ export function LoadingDoor({ onComplete }) {
 
   return (
     <div ref={wrapperRef} className="loading-glyph" aria-hidden="true">
-      {/* El <canvas> se inserta dinámicamente aquí desde el useEffect.
-          NO usamos <canvas ref={...} /> a propósito — ver explicación
-          al inicio del componente sobre StrictMode + WebGL. */}
+      {}
 
-      {/* Marca discreta top-left — referencia tipográfica */}
+      {}
       <div
         className={`loading-glyph__mark${isEntering ? " is-fading" : ""}`}
       >
@@ -884,7 +760,7 @@ export function LoadingDoor({ onComplete }) {
         <span className="loading-glyph__mark-label">D / LL</span>
       </div>
 
-      {/* HUD inferior */}
+      {}
       <div
         className={`loading-glyph__hud${isEntering ? " is-fading" : ""}`}
       >
@@ -918,7 +794,7 @@ export function LoadingDoor({ onComplete }) {
           display: block;
         }
 
-        /* Marca top-left — pequeña ancla tipográfica */
+        
         .loading-glyph__mark {
           position: absolute;
           top: 32px;
@@ -943,7 +819,7 @@ export function LoadingDoor({ onComplete }) {
           box-shadow: 0 0 10px rgba(255, 154, 74, 0.55);
         }
 
-        /* HUD inferior */
+        
         .loading-glyph__hud {
           position: absolute;
           left: 50%;

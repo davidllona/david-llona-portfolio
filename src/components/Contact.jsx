@@ -1,26 +1,11 @@
-/**
- * Contact.jsx — Sección de contacto espacial
- *
- * UI con Tailwind + estilos custom (clases cs-*). Three.js en contact.js.
- *
- * v4 — Textos tuneables vía GUI:
- *   · Todos los strings y tamaños tipográficos viven en `uiParams` (useRef).
- *   · lil-gui muta el ref directamente y dispara `forceRender` para que
- *     React re-renderice con los nuevos valores.
- *   · El 3D no se ve afectado (contact.js sigue intacto).
- *
- * v3 — Limpieza visual previa:
- *   · Tipografía heredada del body (sans), Georgia solo en el título.
- *   · Sin jargon de transmisión.
- *   · Brillo trabajado vía box-shadow + transitions.
- */
+
 
 import { useRef, useEffect, useState, useReducer, useMemo } from "react";
 import { initContactScene } from "../3d/contact";
 import { onGuiReady, attachContactGUI } from "../3d/hero/gui";
 import { BackgroundStars } from "../3d/ConstellationScene";
 
-// ─── Configuración fija (no entra al GUI) ────────────────────────────────────
+
 const EMAIL = "hello@davidllona.com";
 
 const LINKS = [
@@ -29,7 +14,7 @@ const LINKS = [
  { label: "Email", href: `mailto:${EMAIL}`, Icon: IconEmail },
 ];
 
-// ─── Iconos SVG inline ───────────────────────────────────────────────────────
+
 function IconLinkedIn() {
  return (
   <svg
@@ -82,42 +67,42 @@ function IconEmail() {
  );
 }
 
-// ─── Defaults de los textos / tamaños tuneables ──────────────────────────────
-// Estos valores se copian a `uiParams.current` al montar. lil-gui los muta
-// en vivo y el `forceRender` los reflejará en pantalla.
+
+
+
 function makeUIDefaults() {
  return {
-  // ── Título ───────────────────────────────────
+
   titleText: "Hablemos",
   titlePunct: ".", // el punto naranja al final
   titleDotColor: "#f97316", // tailwind orange-500
   titleFontSizeMax: 76, // px (clamp lo escala en mobile)
   titleLetterSpacing: 0.24, // em
 
-  // ── Subtexto ─────────────────────────────────
+
   subtextLine1: "¿Tienes un proyecto en mente?",
   subtextLine2: "Me encantaría saber de él.",
   subtextFontSizeMax: 16, // px
   subtextLineHeight: 1.65,
   subtextOpacity: 0.88,
 
-  // ── Formulario ───────────────────────────────
+
   emailPlaceholder: "tu@email.com",
   buttonLabel: "Enviar mensaje",
   sentMessage: "Recibido — te respondo pronto",
 
-  // ── Footer ───────────────────────────────────
+
   footerLeft: `David Llona · ${new Date().getFullYear()}`,
   footerRight: "Madrid, España",
 
-  // ── Layout ───────────────────────────────────
+
   formMaxWidth: 480, // px
  };
 }
 
-// ─── Estilos custom ──────────────────────────────────────────────────────────
+
 const KEYFRAMES = `
-  /* ── Entrada escalonada ────────────────────────────── */
+  
   @keyframes cs-fade-up {
     from { opacity: 0; transform: translateY(16px); }
     to   { opacity: 1; transform: translateY(0);    }
@@ -128,14 +113,14 @@ const KEYFRAMES = `
   .cs-a4 { animation: cs-fade-up .85s cubic-bezier(.22,1,.36,1) .44s both; }
   .cs-a5 { animation: cs-fade-up .85s cubic-bezier(.22,1,.36,1) .58s both; }
 
-  /* ── Pulso del dot del separador ───────────────────── */
+  
   @keyframes cs-dot-pulse {
     0%,100% { box-shadow: 0 0 5px 1px rgba(255,112,32,0.5);  }
     50%     { box-shadow: 0 0 11px 3px rgba(255,112,32,0.85); }
   }
   .cs-pulse { animation: cs-dot-pulse 2.8s ease-in-out infinite; }
 
-  /* ── Input ─────────────────────────────────────────── */
+  
   .cs-input-wrap {
     position: relative;
     display: flex;
@@ -182,7 +167,7 @@ const KEYFRAMES = `
     color: rgba(180,185,210,0.38);
   }
 
-  /* ── Botón ─────────────────────────────────────────── */
+  
   .cs-btn {
     position: relative;
     display: flex;
@@ -240,7 +225,7 @@ const KEYFRAMES = `
   .cs-btn:hover .cs-btn-label { transform: translateX(-2px); }
   .cs-btn:hover .cs-btn-arrow { transform: translateX(5px);  }
 
-  /* ── Estado enviado ────────────────────────────────── */
+  
   .cs-sent {
     display: flex;
     align-items: center;
@@ -263,7 +248,7 @@ const KEYFRAMES = `
     box-shadow: 0 0 10px rgba(120,210,140,0.85);
   }
 
-  /* ── Sociales ──────────────────────────────────────── */
+  
   .cs-nodes {
     display: flex;
     gap: 14px;
@@ -311,7 +296,7 @@ const KEYFRAMES = `
     outline-offset: 4px;
   }
 
-  /* ─── HABLEMOS · Transmisión espacial decodificándose ─── */
+  
 .cs-headline {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-weight: 200;
@@ -333,22 +318,21 @@ const KEYFRAMES = `
 .cs-glyph {
   display: inline-block;
   position: relative;
-  /* Ancho fijo por glyph: evita que el layout brinque cuando los
-     caracteres del scramble cambian de ancho (la M es más ancha que la I) */
+  
   min-width: 0.78em;
   text-align: center;
   transition: color 0.35s ease, text-shadow 0.45s ease, transform 0.4s cubic-bezier(0.18, 1.2, 0.4, 1);
   will-change: color, text-shadow, transform;
 }
 
-/* Carácter "scrambleando": cian frío, baja luminancia → se siente a señal cruda */
+
 .cs-glyph.is-scrambling {
   color: rgba(140, 180, 220, 0.55);
   text-shadow: 0 0 2px rgba(120, 170, 220, 0.4);
   filter: blur(0.4px);
 }
 
-/* Carácter "bloqueado" (su forma final): blanco limpio + flash en el momento del lock */
+
 .cs-glyph.is-locked {
   color: rgba(248, 250, 255, 0.97);
   text-shadow:
@@ -358,7 +342,7 @@ const KEYFRAMES = `
   animation: cs-glyph-lock 0.55s cubic-bezier(0.2, 1.3, 0.35, 1) both;
 }
 
-/* Flash al bloquear: scale + glow cálido momentáneo (sensación de "click" / "fix") */
+
 @keyframes cs-glyph-lock {
   0% {
     transform: scale(1.18);
@@ -377,9 +361,9 @@ const KEYFRAMES = `
   }
 }
 
-/* Punto final · señal confirmada · entra con un pulso naranja */
+
 .cs-period {
-  color: rgba(80, 60, 40, 0.0); /* invisible hasta que se "bloquea" */
+  color: rgba(80, 60, 40, 0.0); 
   margin-left: 0.04em;
   min-width: auto;
 }
@@ -396,7 +380,7 @@ const KEYFRAMES = `
   100% { opacity: 1; transform: scale(1); }
 }
 
-/* Accesibilidad: si el usuario pidió reducir movimiento, ir directo al final */
+
 @media (prefers-reduced-motion: reduce) {
   .cs-glyph.is-scrambling,
   .cs-glyph.is-locked {
@@ -406,17 +390,7 @@ const KEYFRAMES = `
 }
 `;
 
-/**
- * HablemosHeadline — Decodificación de transmisión espacial
- * ───────────────────────────────────────────────────────────────
- * Narrativa: el visitante recibe una señal. Cada glyph cicla por
- * caracteres aleatorios y se va "bloqueando" uno a uno hasta
- * formar HABLEMOS. El punto naranja entra como "señal estable".
- *
- * Implementación: estado mutable en useRef + forceRender.
- * Evita el bug de closure stale que tendría useState dentro
- * del setTimeout recursivo.
- */
+
 function HablemosHeadline() {
  const ref = useRef(null);
  const [visible, setVisible] = useState(false);
@@ -425,13 +399,13 @@ function HablemosHeadline() {
  const FINAL = "HABLEMOS";
  const SCRAMBLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ▓▒░◆◇◈△▽⊙⊕#%&*+=<>/\\";
 
- // Estado mutable en refs → tick() siempre lee el valor más reciente.
- // forceRender() solo se usa para re-pintar el JSX cuando cambian.
+
+
  const charsRef = useRef(FINAL.split("").map(() => "▓"));
  const lockedRef = useRef(FINAL.split("").map(() => false));
  const periodLockedRef = useRef(false);
 
- // IntersectionObserver — dispara cuando entra en viewport
+
  useEffect(() => {
   if (!ref.current) return;
   const obs = new IntersectionObserver(([entry]) => entry.isIntersecting && setVisible(true), { threshold: 0.35 });
@@ -439,18 +413,18 @@ function HablemosHeadline() {
   return () => obs.disconnect();
  }, []);
 
- // Decodificación: scramble continuo + lock escalonado
+
  useEffect(() => {
   if (!visible) return;
   let mounted = true;
   let tickId = 0;
 
-  // DESPUÉS
-  // ── Timing parameters — ajusta aquí si quieres más rápido/lento ─────
-  // SCRAMBLE_RATE: cada cuánto cambia un carácter no fijado.
-  // PRE_LOCK:      cuánto tiempo scramblea ANTES de empezar a fijar letras.
-  // LOCK_STAGGER:  cuánto tiempo entre cada lock de letra.
-  // PERIOD_DELAY:  pausa entre la última letra fijada y la entrada del punto.
+
+
+
+
+
+
   const SCRAMBLE_RATE = 70; // ms — un pelín más lento, más legible
   const PRE_LOCK = 1100; // ms — segundo entero de scramble antes de fijar
   const LOCK_STAGGER = 230; // ms — entre cada letra fijada
@@ -510,24 +484,24 @@ function HablemosHeadline() {
  );
 }
 
-// ─── Componente ──────────────────────────────────────────────────────────────
+
 export function Contact() {
  const mountRef = useRef(null);
  const [uiVisible, setUiVisible] = useState(false);
  const [emailVal, setEmailVal] = useState("");
  const [sent, setSent] = useState(false);
 
- // ── Params tuneables vía GUI ─────────────────────────────────────────────
- // useRef → lil-gui muta el objeto directamente sin pasar por setState.
- // useReducer → forzamos re-render cuando lil-gui dispara onChange.
+
+
+
  const uiParams = useRef(makeUIDefaults());
  const [, forceRender] = useReducer((x) => x + 1, 0);
 
  useEffect(() => {
   const cleanup = initContactScene(mountRef.current, () => setUiVisible(true));
 
-  // GUI broker — engancha la escena 3D Y los textos de la UI.
-  // attachContactGUI ahora acepta un tercer arg con los hooks de UI.
+
+
   const offGui = onGuiReady((gui) => {
    if (cleanup) {
     attachContactGUI(gui, cleanup, {
@@ -562,7 +536,7 @@ function handleSend(e) {
   setSent(true);
 }
 
- // Alias corto para legibilidad en el JSX
+
  const u = uiParams.current;
 
  return (
@@ -573,35 +547,30 @@ function handleSend(e) {
     className="relative flex min-h-screen w-full flex-col overflow-hidden"
     style={{ background: "#05070b" }}
    >
-    {/* ── Capa 0 · Campo estelar de fondo ──
-      MISMO componente que usa About → continuidad real (no es un
-      gradient maquillando, es el mismo "universo" extendido). Esto
-      elimina la zona muerta sobre el horizonte planetario. */}
+    {}
     <div className="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
      <BackgroundStars />
     </div>
 
-    {/* ── Capa 1 · Canvas Three.js (luna, rocket, beacon) ── */}
+    {}
     <div ref={mountRef} className="absolute inset-0 z-[1]" aria-hidden="true" />
 
-    {/* ── Capa 2 · Gradient cinemático ──
-      Muy ligero arriba (deja respirar las estrellas), oscurecimiento
-      progresivo abajo donde la atmósfera del horizonte ya manda. */}
+    {}
     <div
   className="pointer-events-none absolute inset-0 z-10"
   style={{
     background: `linear-gradient(to bottom,
-      /* — Tope: opaco con el color exacto de About → frontera invisible — */
+      
       rgba(5, 7, 11, 1.00)   0%,
       rgba(5, 7, 11, 0.85)   3%,
       rgba(5, 7, 11, 0.50)   8%,
       rgba(5, 7, 11, 0.18)  14%,
       rgba(5, 7, 11, 0.0)   22%,
 
-      /* — Zona libre: la escena 3D respira con su atmósfera azul — */
+      
       rgba(5, 7, 11, 0.0)   60%,
 
-      /* — Anclaje inferior: oscurecimiento sutil hacia el final — */
+      
       rgba(5, 7, 11, 0.18)  78%,
       rgba(5, 7, 11, 0.42) 100%
     )`,
@@ -609,7 +578,7 @@ function handleSend(e) {
   aria-hidden="true"
 />
 
-    {/* ── UI overlay ── */}
+    {}
     <div
      className="relative z-20 flex flex-1 flex-col items-center justify-center px-6 pb-4"
      style={{
@@ -618,12 +587,11 @@ function handleSend(e) {
       transition: "opacity 1.15s cubic-bezier(.22,1,.36,1), transform 1.15s cubic-bezier(.22,1,.36,1)",
      }}
     >
-     {/* Título — FUERA del wrapper de 480px porque su escala visual
-    necesita todo el ancho para centrarse correctamente. */}
+     {}
      <HablemosHeadline />
 
      <div className="flex w-full flex-col items-center" style={{ maxWidth: `${u.formMaxWidth}px` }}>
-      {/* ── Separador con dot pulsante ── */}
+      {}
       <div className="cs-a2 my-5 flex items-center gap-2" aria-hidden="true">
        <span
         className="block h-px"
@@ -642,7 +610,7 @@ function handleSend(e) {
        />
       </div>
 
-      {/* ── Subtexto ── */}
+      {}
       <p
        className="cs-a3 mb-10 text-center"
        style={{
@@ -658,7 +626,7 @@ function handleSend(e) {
        {u.subtextLine2}
       </p>
 
-      {/* ── Formulario ── */}
+      {}
       <div className="cs-a4 flex w-full flex-col gap-3">
        {sent ? (
         <div className="cs-sent" role="status">
@@ -694,7 +662,7 @@ function handleSend(e) {
        )}
       </div>
 
-      {/* ── Sociales ── */}
+      {}
       <div className="cs-a5 cs-nodes mt-12">
        {LINKS.map(({ label, href, Icon }) => (
         <a
@@ -713,7 +681,7 @@ function handleSend(e) {
      </div>
     </div>
 
-    {/* ── Footer ── */}
+    {}
     <footer
      className="relative z-20 flex items-center justify-between px-6 py-3"
      style={{

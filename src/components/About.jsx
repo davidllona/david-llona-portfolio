@@ -2,11 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { RobotPopupScene } from "../3d/RobotPopupScene";
 import { ConstellationScene, BackgroundStars } from "../3d/ConstellationScene";
 
-/**
- * =========================================================
- * DATA
- * =========================================================
- */
+
 
 const mainOrbit = {
  title: "Órbita principal",
@@ -254,11 +250,7 @@ function getPopupData(label) {
  return popupDescriptions[label] || fallback;
 }
 
-/**
- * =========================================================
- * POPUP — Se mantiene tal cual estaba: usa RobotPopupScene
- * =========================================================
- */
+
 
 function SkillPopup({ item, onClose, activeMainSkill }) {
  useEffect(() => {
@@ -341,25 +333,21 @@ function SkillPopup({ item, onClose, activeMainSkill }) {
  );
 }
 
-/**
- * =========================================================
- * MAIN
- * =========================================================
- */
+
 
 export function About() {
  const [stage, setStage] = useState("main");
  const [activeMainSkill, setActiveMainSkill] = useState("javascript");
  const [activePopup, setActivePopup] = useState(null);
 
- // Ref a la <section> para anclar el botón flotante de "Volver"
- // solo cuando About está realmente visible. Sin esto, el botón
- // (que es position:fixed) seguiría apareciendo en otras secciones.
+
+
+
  const sectionRef = useRef(null);
  const [aboutVisible, setAboutVisible] = useState(false);
 
- // Detección de viewport para alternar layout sin
- // duplicar la escena Three.js en montaje.
+
+
  const [isDesktop, setIsDesktop] = useState(() => {
   if (typeof window === "undefined") return true;
   return window.innerWidth >= 1024;
@@ -381,9 +369,9 @@ export function About() {
   };
  }, []);
 
- // IntersectionObserver — el botón flotante solo aparece
- // cuando la section About está siendo mirada. Margin negativo
- // para que el botón se oculte un poco antes de salir del todo.
+
+
+
  useEffect(() => {
   if (typeof window === "undefined" || !sectionRef.current) return undefined;
 
@@ -395,9 +383,9 @@ export function About() {
   return () => observer.disconnect();
  }, []);
 
- // ESC en stage detail vuelve a la órbita principal.
- // El popup tiene su propio ESC, y este sólo actúa cuando
- // el popup está cerrado para no encadenar dos saltos.
+
+
+
  useEffect(() => {
   if (stage !== "detail" || activePopup) return undefined;
 
@@ -447,35 +435,28 @@ export function About() {
     className="relative overflow-hidden"
     style={{ backgroundColor: "#05070b" }}
    >
-    {/* Atmósfera de fondo. Sin gradient oscuro: la sección
-        debe fluir desde la anterior sin frontera visible. */}
+    {}
     <div className="pointer-events-none absolute inset-0 z-0">
      <div className="absolute left-[14%] top-[18%] h-[280px] w-[280px] rounded-full bg-primary/5 blur-[140px]" />
      <div className="absolute right-[8%] top-[55%] h-[340px] w-[340px] rounded-full bg-primary/4 blur-[160px]" />
     </div>
 
-    {/* Campo estelar de fondo, full-section. Da continuidad
-        con la sección anterior (Lab). Sin pointer events. */}
+    {}
     <div className="pointer-events-none absolute inset-0 z-[1]">
      <BackgroundStars />
     </div>
 
-    {/* Gradient overlay — replica el de InteractiveLab para
-        que la frontera entre secciones desaparezca. */}
+    {}
     <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(to_bottom,rgba(0,0,0,0.52),rgba(0,0,0,0.12),rgba(0,0,0,0.46))]" />
 
-    {/* Constelación expandida — solo en desktop, ocupa la
-        derecha de la pantalla. Sin marco ni panel: es espacio. */}
+    {}
     {isDesktop && (
      <>
       <div className="absolute inset-y-0 right-0 z-[2] w-[60vw] xl:w-[58vw]">
        <ConstellationScene {...constellationProps} compact={false} />
       </div>
 
-      {/* Indicador de stage — solo info. El botón de volver
-          es un overlay fixed (más abajo, fuera de la section)
-          para escapar del z-index del GUI panel y quedar
-          siempre anclado al viewport visible. */}
+      {}
       <div className="pointer-events-none absolute right-10 top-10 z-[4] flex items-center gap-5 xl:right-14">
        <span
         className={`text-[10px] uppercase tracking-[0.22em] transition-colors duration-500 ${
@@ -494,14 +475,7 @@ export function About() {
      </>
     )}
 
-    {/*
-     Contenedor de contenido. Va por encima del canvas
-     pero ocupa el ancho completo de la sección, así que
-     pointer-events-none aquí, y se reactiva explícitamente
-     solo en los bloques que necesitan eventos. Sin esto, el
-     contenedor se come los clicks que deberían llegar a las
-     estrellas de la derecha.
-    */}
+    {}
     <div className="pointer-events-none relative z-[3] mx-auto w-full max-w-[1440px] px-6 py-24 md:px-10 md:py-32 lg:px-16 lg:py-40">
      <div className="grid grid-cols-12 gap-x-0 gap-y-10 lg:gap-10">
       <div className="pointer-events-auto col-span-12 lg:col-span-6">
@@ -509,10 +483,7 @@ export function About() {
         Sobre mí
        </span>
 
-       {/* Título — escalonado por breakpoints para que en laptop
-           (lg, ~1024px col-span-6) no salte a 5rem y desborde.
-           El salto a 5rem se reserva para xl (≥1280px), donde
-           la columna ya tiene espacio real. */}
+       {}
        <div className="mb-14 space-y-1 md:mb-20">
         <p className="text-[2.25rem] font-semibold leading-[1.04] tracking-[-0.04em] text-text sm:text-5xl md:text-6xl lg:text-[4rem] xl:text-[5rem]">
          Entre lo visual
@@ -537,7 +508,7 @@ export function About() {
       </div>
      </div>
 
-     {/* Mobile: constelación en flujo, debajo del texto */}
+     {}
      {!isDesktop && (
       <div className="pointer-events-auto relative z-[2] mt-16 h-[58vh] w-full">
        <ConstellationScene {...constellationProps} compact />
@@ -592,18 +563,7 @@ export function About() {
     </div>
    </section>
 
-   {/*
-    Botón "Volver a la órbita" — overlay flotante FIXED (anclado
-    al viewport, no a la section). La section About mide ~2000px
-    en desktop por el espaciado entre constelación y bloque inferior;
-    si el botón fuera absolute dentro de la section quedaría fuera
-    del frame visible. Con position:fixed siempre acompaña al usuario
-    mientras está mirando la constelación, y desaparece automáticamente
-    cuando About sale del viewport (IntersectionObserver).
-
-    z-[60] queda sobre el contenido propio pero por debajo del popup
-    de skills (z-[80]) para no taparlo cuando se abre.
-   */}
+   {}
    {isDesktop && stage === "detail" && aboutVisible && (
     <div className="pointer-events-none fixed bottom-[6vh] right-0 z-[60] flex w-[60vw] justify-center xl:w-[58vw]">
      <button

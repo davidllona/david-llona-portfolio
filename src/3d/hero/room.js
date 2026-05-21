@@ -1,36 +1,12 @@
 import * as THREE from "three";
 import { loadingManager } from "../loadingManager";
 
-/**
- * room.js
- * ─────────────────────────────────────────────────────────────────────────
- * "La habitación" del Hero: estructura física + iluminación interior + poster.
- *
- * Contiene:
- *   - Suelo + pared trasera + pared izquierda (con corte para ventana)
- *   - Sistema completo de ventana (marco + cristal + reveals + sill + glow)
- *   - Espacio detrás del cristal (estrellas internas + luna)
- *   - 11 luces que dan ambiente a la escena interior
- *   - Cuadro de pared con retrato + mini-about (click) + spot dedicado
- *   - Sistema de raycast del poster (hover + click + escape)
- *
- * Lo que NO contiene (vive aún en heroScene.js, irá a props.js en Fase 4C):
- *   - warmLight, lamparaLight, lamparaFlameLight (luces del cohete)
- *   - flameGroup (llama del cohete)
- *   - sistema cameraFocus (responsabilidad de la cámara, no del room)
- *
- * El sistema cameraFocus vive fuera porque modifica la cámara. Cuando el
- * usuario hace click en el poster, room avisa al orquestador vía callback
- * `onPosterFocusEnter(now)` y este decide cómo mover la cámara.
- */
 export function buildRoom({
- // Contexto Three
  scene,
  camera,
  canvas,
  clock,
 
- // Materiales y geometrías compartidas (creadas en heroScene)
  floorMaterial,
  wallMaterial,
  windowFrameMaterial,
@@ -44,33 +20,16 @@ export function buildRoom({
  moonGeometry,
  moonMaterial,
 
- // Config de calidad (afecta a count/size de estrellas internas)
  quality,
 
- // Utilities
  requestRender,
 
- // Callbacks del orquestador — comunicación con el sistema cameraFocus
  onPosterFocusEnter, // (now: number) => void
  onPosterFocusExit, // (now: number) => void
  isCameraFocusActive, // () => boolean
 }) {
- // ════════════════════════════════════════════════════════════════════════
- // MOBILE STRIP-DOWN
- // ════════════════════════════════════════════════════════════════════════
- // En móvil omitimos elementos que:
- //   1) No funcionan sin hover/click cómodo (el cuadro depende de click +
- //      cinematic focus + animación de apertura).
- //   2) Consumen mucha VRAM. Las dos CanvasTextures 768×1024 del poster
- //      (retrato + mini-about) son ~8 MB de VRAM en GPUs ARM — uno de
- //      los disparadores del WebGL CONTEXT LOST en Mali-G68.
- //
- // Desktop no cambia: si !isMobile, todo idéntico.
  const isMobile = window.innerWidth < 768;
 
- // ════════════════════════════════════════════════════════════════════════
- // ROOM BASE — suelo + pared trasera
- // ════════════════════════════════════════════════════════════════════════
  const floor = new THREE.Mesh(planeGeometry14, floorMaterial);
  floor.rotation.x = -Math.PI * 0.5;
  floor.position.y = 0;
@@ -80,9 +39,6 @@ export function buildRoom({
  backWall.position.set(0, 3.5, -4);
  scene.add(backWall);
 
- // ════════════════════════════════════════════════════════════════════════
- // WINDOW PARAMS — geometría de la ventana (editables)
- // ════════════════════════════════════════════════════════════════════════
  const windowParams = {
   x: -4.94,
   y: 4.51,
@@ -108,9 +64,6 @@ export function buildRoom({
   glowColor: "#5d7bff",
  };
 
- // ════════════════════════════════════════════════════════════════════════
- // LEFT WALL WITH WINDOW CUTOUT — pared izquierda en 4 piezas alrededor del hueco
- // ════════════════════════════════════════════════════════════════════════
  const leftWallGroup = new THREE.Group();
  scene.add(leftWallGroup);
 
@@ -167,9 +120,6 @@ export function buildRoom({
   leftWallRight.position.set(winRight + rightWidth * 0.5, (winBottom + winTop) * 0.5, 0);
  }
 
- // ════════════════════════════════════════════════════════════════════════
- // WINDOW SYSTEM — marco + cristal + reveals + sill + glow exterior
- // ════════════════════════════════════════════════════════════════════════
  const windowGroup = new THREE.Group();
  scene.add(windowGroup);
  windowGroup.rotation.y = Math.PI * 0.5;
@@ -189,9 +139,7 @@ export function buildRoom({
 
  const windowSill = new THREE.Mesh(unitBoxGeometry, windowRevealMaterial);
  const outerGlow = new THREE.Mesh(unitPlaneGeometry, outerGlowMaterial);
- // Glow exterior SIEMPRE detrás del cristal (windowGlass.renderOrder = 20).
- // Sin esto, al rotar cámara el sort por distancia hace flickering azul
- // alrededor del marco.
+
  outerGlow.renderOrder = 19;
 
  windowGroup.add(
@@ -209,12 +157,6 @@ export function buildRoom({
   outerGlow,
  );
 
- // ════════════════════════════════════════════════════════════════════════
- // SPACE OUTSIDE WINDOW — estrellas internas + luna interior
- // ════════════════════════════════════════════════════════════════════════
- // Estas estrellas viven DENTRO del marco de la ventana (vistas a través
- // del cristal). NO son las estrellas del exterior espacial gigante (esas
- // están en exterior.js).
  const spaceParams = {
   width: 3.95,
   height: 3.71,
@@ -293,9 +235,6 @@ export function buildRoom({
   requestRender();
  }
 
- // ════════════════════════════════════════════════════════════════════════
- // UPDATE WINDOW — recalcula geometría completa según windowParams
- // ════════════════════════════════════════════════════════════════════════
  function updateWindow() {
   const outerWidth = windowParams.width;
   const outerHeight = windowParams.height;
@@ -361,88 +300,52 @@ export function buildRoom({
 
  updateWindow();
 
- // ════════════════════════════════════════════════════════════════════════
- // LIGHTS — 11 luces que dan ambiente a la habitación
- // ════════════════════════════════════════════════════════════════════════
- // Las 3 luces del cohete (warmLight, lamparaLight, lamparaFlameLight) NO
- // están aquí — se quedan en heroScene.js hasta que la Fase 4C las traslade
- // junto con el cohete a props.js. Tienen una dependencia con `flameBrightness`
- // que vive en el sistema de la llama.
-
- // Ambient — azul-violeta profundo. Los negros ganan tinte cromático.
  const ambientLight = new THREE.AmbientLight("#2e3860", 0.14);
  scene.add(ambientLight);
 
- // Key fría lateral: entra por ventana, recorta bordes.
  const moonLight = new THREE.DirectionalLight("#8a9cff", 1.0);
  moonLight.position.set(-5, 4, 1);
  scene.add(moonLight);
 
- // Rebote frío de luna entrando por ventana.
  const windowFillLight = new THREE.PointLight("#5a72d8", 0.75, 14, 2);
  windowFillLight.position.set(-4.2, 3.0, 0.5);
  scene.add(windowFillLight);
 
- // Fill frío lado derecho — muy sutil, equilibra la composición.
  const fillLight = new THREE.PointLight("#5a72ff", 0.35, 8.5, 2);
  fillLight.position.set(4.2, 1.2, 1.5);
  scene.add(fillLight);
 
- // Rim light trasero — separa astronauta+silla del fondo.
  const rimLight = new THREE.PointLight("#3d4db5", 0.55, 7, 2);
  rimLight.position.set(0.5, 3.8, -3.4);
  scene.add(rimLight);
 
- // Luz de área de luna — rebote frío marcado desde ventana.
  const moonAreaLight = new THREE.PointLight("#4f68d0", 0.75, 14, 2);
  moonAreaLight.position.set(-4.8, 3.4, 0.6);
  scene.add(moonAreaLight);
 
- // ⭐ BACK RIM — detrás de la mesa, evita negro muerto, separa planos.
  const backRimLight = new THREE.PointLight("#4a5ebd", 0.5, 6.5, 2.2);
  backRimLight.position.set(0.4, 1.2, -3.0);
  scene.add(backRimLight);
 
- // LED único, intensidad contenida, decay alto → solo zona justo bajo monitores.
  const ledUnderDesk = new THREE.PointLight("#4a78ff", 1.1, 4.5, 2.2);
  ledUnderDesk.position.set(1.3, 2.55, -1.15);
  scene.add(ledUnderDesk);
 
- // Rebote cálido sobre la superficie de la mesa (zona cohete).
  const deskBounceLight = new THREE.PointLight("#ff9a60", 0.8, 1.9, 2.6);
  deskBounceLight.position.set(-3.5, 2.65, -1.65);
  scene.add(deskBounceLight);
 
- // ── deskBounceLightR — rebote sutil sobre la mesa, NO sobre la silla.
- //    Baja intensidad (0.55 → 0.3), color menos saturado, distance corta,
- //    Y elevada para que caiga sobre mesa, no sobre silla. Se siente como
- //    rebote de mesa, no como luz artificial.
  const deskBounceLightR = new THREE.PointLight("#e69165", 0.3, 1.8, 3.0);
  deskBounceLightR.position.set(-0.4, 2.75, -1.4);
  scene.add(deskBounceLightR);
 
- // ── rightWallFill — llena pared derecha sin pegar al respaldo de la silla.
- //    X +5.0, Y alta → trabaja sobre la pared. Intensidad muy baja.
  const rightWallFill = new THREE.PointLight("#c97a4a", 0.22, 5.5, 2.4);
  rightWallFill.position.set(5.0, 4.4, -2.4);
  scene.add(rightWallFill);
 
- // ════════════════════════════════════════════════════════════════════════
- // WALL POSTER — retrato (Yo.png) + mini-about al click
- // ════════════════════════════════════════════════════════════════════════
- // Marco fino metálico + retrato tratado cinematográficamente + halo cálido
- // detrás + spot dedicado. La viñeta cálida del retrato dialoga con el
- // posterSpot naranja → la foto NO parece pegada, parece iluminada por la
- // luz que ya existe en la escena.
- //
- // Doble estado:
- //   - idle  → retrato (Yo.png) con viñeta cálida + nombre
- //   - click → mini-about (nombre, rol, manifiesto, firma)
  function createWallPoster() {
   const group = new THREE.Group();
 
-  // ── HELPER: dibuja texto con tracking manual ─────────────────────────
-  // (canvas no soporta letter-spacing CSS fiable — posicionamos letra a letra)
   const drawTrackedText = (ctx, text, cx, cy, tracking) => {
    const widths = text.split("").map((c) => ctx.measureText(c).width);
    const total = widths.reduce((a, b) => a + b, 0) + tracking * (text.length - 1);
@@ -453,18 +356,11 @@ export function buildRoom({
    }
   };
 
-  // ════════════════════════════════════════════════════════════════════
-  // 1) CANVAS DEL RETRATO — Yo.png + viñeta cálida + nombre inferior
-  // ════════════════════════════════════════════════════════════════════
-  // Resolución 768×1024 (mismo ratio del marco 1.04×1.34).
-  // La foto se carga async: hasta que llega, mostramos un fondo neutro
-  // con el nombre — el cuadro nunca aparece "vacío" o roto.
   const portraitCanvas = document.createElement("canvas");
   portraitCanvas.width = 768;
   portraitCanvas.height = 1024;
   const pctx = portraitCanvas.getContext("2d");
 
-  // ── Helper: pinta el fondo (se reutiliza al cargar la foto) ──────────
   const paintPortraitBackground = () => {
    const bg = pctx.createLinearGradient(0, 0, 0, 1024);
    bg.addColorStop(0, "#070a14");
@@ -474,13 +370,7 @@ export function buildRoom({
    pctx.fillRect(0, 0, 768, 1024);
   };
 
-  // ── Helper: pinta los overlays cinematográficos sobre la foto ────────
-  // Estos overlays son los que "casan" el retrato con el posterSpot:
-  //   - Viñeta cálida (screen) → como si la luz naranja entrara por arriba-izq
-  //   - Viñeta oscura radial → enfoca la mirada al centro, mata esquinas
-  //   - Banda inferior con nombre + tagline (pista de clickable)
   const paintPortraitOverlays = () => {
-   // Viñeta cálida — el spot naranja "cae" sobre el retrato
    pctx.globalCompositeOperation = "screen";
    const warm = pctx.createRadialGradient(220, 220, 40, 384, 512, 720);
    warm.addColorStop(0, "rgba(255,150,80,0.28)");
@@ -490,21 +380,18 @@ export function buildRoom({
    pctx.fillRect(0, 0, 768, 1024);
    pctx.globalCompositeOperation = "source-over";
 
-   // Viñeta oscura perimetral — look "cine"
    const vignette = pctx.createRadialGradient(384, 512, 280, 384, 512, 620);
    vignette.addColorStop(0, "rgba(0,0,0,0)");
    vignette.addColorStop(1, "rgba(0,0,0,0.55)");
    pctx.fillStyle = vignette;
    pctx.fillRect(0, 0, 768, 1024);
 
-   // Banda inferior — degradado muy sutil, solo lo justo para legibilidad del hint
    const stripGrad = pctx.createLinearGradient(0, 900, 0, 1024);
    stripGrad.addColorStop(0, "rgba(0,0,0,0)");
    stripGrad.addColorStop(1, "rgba(0,0,0,0.55)");
    pctx.fillStyle = stripGrad;
    pctx.fillRect(0, 900, 768, 124);
 
-   // Hint sutil de que el cuadro es clicable — sin nombre, deja a la foto respirar
    pctx.font = "500 20px 'Helvetica Neue', Arial, sans-serif";
    pctx.textAlign = "left";
    pctx.textBaseline = "alphabetic";
@@ -515,7 +402,6 @@ export function buildRoom({
    pctx.shadowBlur = 0;
   };
 
-  // Pintado inicial (sin foto todavía) — el cuadro YA tiene presencia
   paintPortraitBackground();
   paintPortraitOverlays();
 
@@ -524,10 +410,6 @@ export function buildRoom({
   posterTex.anisotropy = 8;
   posterTex.needsUpdate = true;
 
-  // ── Cargar Yo.png y repintar encima ─────────────────────────────────
-  // Usamos ImageLoader (no TextureLoader) porque queremos la <img> para
-  // poder hacer drawImage con recorte tipo "object-fit: cover".
-  // Enganchado al loadingManager → entra en la barra de carga global.
   const photoLoader = new THREE.ImageLoader(loadingManager);
   photoLoader.setCrossOrigin("anonymous");
   photoLoader.load(
@@ -535,28 +417,23 @@ export function buildRoom({
    (img) => {
     paintPortraitBackground();
 
-    // "object-fit: cover" manual: ajusta al canvas 768×1024 sin deformar
     const targetRatio = 768 / 1024;
     const imgRatio = img.width / img.height;
     let sx, sy, sw, sh;
     if (imgRatio > targetRatio) {
-     // Imagen más ancha que el marco: recortamos lados
      sh = img.height;
      sw = sh * targetRatio;
      sx = (img.width - sw) * 0.5;
      sy = 0;
     } else {
-     // Imagen más alta: recortamos arriba/abajo, favoreciendo la cara
      sw = img.width;
      sh = sw / targetRatio;
      sx = 0;
-     // Factor 0.35 = encuadre ligeramente alto → muestra más cara que torso.
-     // Subir → baja el encuadre (más cabeza). Bajar → lo sube (más torso).
+
      sy = Math.max(0, (img.height - sh) * 0.35);
     }
     pctx.drawImage(img, sx, sy, sw, sh, 0, 0, 768, 1024);
 
-    // Overlays POR ENCIMA de la foto
     paintPortraitOverlays();
 
     posterTex.needsUpdate = true;
@@ -564,23 +441,15 @@ export function buildRoom({
    },
    undefined,
    () => {
-    // Fallback silencioso — el cuadro mantiene fondo + nombre
     console.warn("[wallPoster] No se pudo cargar /images/Yo.png");
    },
   );
 
-  // ════════════════════════════════════════════════════════════════════
-  // 2) CANVAS DEL MINI-ABOUT — se muestra tras el click
-  // ════════════════════════════════════════════════════════════════════
-  // Mantiene el lenguaje visual del eclipse (anillo cálido en cabecera)
-  // para que NO se sienta como un cuadro diferente, sino como el mismo
-  // cuadro contando otra cosa.
   const aboutCanvas = document.createElement("canvas");
   aboutCanvas.width = 768;
   aboutCanvas.height = 1024;
   const actx = aboutCanvas.getContext("2d");
 
-  // Cielo sobrio
   const aSky = actx.createLinearGradient(0, 0, 0, 1024);
   aSky.addColorStop(0, "#070a14");
   aSky.addColorStop(0.5, "#0e1422");
@@ -588,7 +457,6 @@ export function buildRoom({
   actx.fillStyle = aSky;
   actx.fillRect(0, 0, 768, 1024);
 
-  // Polvo estelar tenue
   for (let i = 0; i < 120; i++) {
    const x = Math.random() * 768;
    const y = Math.random() * 1024;
@@ -598,8 +466,6 @@ export function buildRoom({
    actx.fillRect(x, y, s, s);
   }
 
-  // Anillo del eclipse en la cabecera — firma visual del cuadro
-  // Compacto y arriba: deja respirar todo el espacio para el texto
   const cx = 384;
   const aRingGrad = actx.createRadialGradient(cx, 165, 50, cx, 165, 95);
   aRingGrad.addColorStop(0.5, "rgba(255,170,90,0)");
@@ -610,7 +476,6 @@ export function buildRoom({
   actx.arc(cx, 165, 95, 0, Math.PI * 2);
   actx.fill();
 
-  // Nombre grande con glow cálido
   actx.font = "600 50px 'Helvetica Neue', Arial, sans-serif";
   actx.textAlign = "left";
   actx.fillStyle = "rgba(245,232,212,0.97)";
@@ -619,17 +484,13 @@ export function buildRoom({
   drawTrackedText(actx, "DAVID LLONA", 384, 360, 7);
   actx.shadowBlur = 0;
 
-  // Rol — en cálido apagado, debajo del nombre
   actx.font = "500 22px 'Helvetica Neue', Arial, sans-serif";
   actx.fillStyle = "rgba(255,170,95,0.82)";
   drawTrackedText(actx, "DESARROLLADOR  ·  3D  ·  WEB", 384, 405, 5);
 
-  // Separador minimalista — línea cálida bajo el rol
   actx.fillStyle = "rgba(255,170,90,0.35)";
   actx.fillRect(cx - 40, 425, 80, 1);
 
-  // Cuerpo — manifiesto personal en dos bloques
-  // Bloque 1: lo que hago (presente)
   actx.font = "400 28px 'Helvetica Neue', Arial, sans-serif";
   actx.textAlign = "center";
   actx.fillStyle = "rgba(230,220,205,0.95)";
@@ -638,7 +499,6 @@ export function buildRoom({
    actx.fillText(l, 384, 490 + i * 42);
   });
 
-  // Bloque 2: manifiesto (poético, en cursiva visual con peso ligero)
   actx.font = "italic 400 24px 'Helvetica Neue', Arial, sans-serif";
   actx.fillStyle = "rgba(220,200,180,0.78)";
   const block2 = ["Cada proyecto es un ensayo", "del siguiente.", "Cada error, una iteración."];
@@ -646,16 +506,11 @@ export function buildRoom({
    actx.fillText(l, 384, 680 + i * 36);
   });
 
-  // Firma — discreta, alineada a la derecha como un autógrafo
   actx.font = "500 18px 'Helvetica Neue', Arial, sans-serif";
   actx.textAlign = "right";
   actx.fillStyle = "rgba(255,170,95,0.6)";
   drawTrackedText(actx, "— D.L.", 540, 830, 4);
 
-  // Hint de cierre — justo bajo la firma, centrado.
-  // Se sube respecto al borde inferior del canvas para que NO se pise
-  // visualmente con el hint HTML "DESLIZA PARA COMENZAR" del Hero, que
-  // queda fijo al borde inferior del viewport.
   actx.font = "500 16px 'Helvetica Neue', Arial, sans-serif";
   actx.textAlign = "center";
   actx.fillStyle = "rgba(200,185,165,0.55)";
@@ -666,9 +521,6 @@ export function buildRoom({
   manifestoTex.anisotropy = 8;
   manifestoTex.needsUpdate = true;
 
-  // ════════════════════════════════════════════════════════════════════
-  // 3) HALO / BACKLIGHT — cálido detrás del marco
-  // ════════════════════════════════════════════════════════════════════
   const haloCanvas = document.createElement("canvas");
   haloCanvas.width = haloCanvas.height = 256;
   const hctx = haloCanvas.getContext("2d");
@@ -693,11 +545,6 @@ export function buildRoom({
   halo.position.z = -0.05;
   group.add(halo);
 
-  // ════════════════════════════════════════════════════════════════════
-  // 4) MARCO con PROFUNDIDAD — BoxGeometry, no Plane
-  // ════════════════════════════════════════════════════════════════════
-  // Las aristas laterales + superior atrapan la luz del posterSpot →
-  // se ve el marco como un objeto físico, no como un color plano.
   const frameMat = new THREE.MeshStandardMaterial({
    color: "#18181f",
    roughness: 0.32,
@@ -710,9 +557,6 @@ export function buildRoom({
   frame.position.z = 0;
   group.add(frame);
 
-  // ════════════════════════════════════════════════════════════════════
-  // 5) MOUNT INTERIOR — passe-partout entre marco y poster
-  // ════════════════════════════════════════════════════════════════════
   const mountMat = new THREE.MeshStandardMaterial({
    color: "#262230",
    roughness: 0.8,
@@ -722,9 +566,6 @@ export function buildRoom({
   mount.position.z = 0.021;
   group.add(mount);
 
-  // ════════════════════════════════════════════════════════════════════
-  // 6) PÓSTER — encima del mount, con emissive sutil
-  // ════════════════════════════════════════════════════════════════════
   const posterMat = new THREE.MeshStandardMaterial({
    map: posterTex,
    roughness: 0.85,
@@ -738,14 +579,6 @@ export function buildRoom({
   poster.name = "wallPoster_clickable";
   group.add(poster);
 
-  // ════════════════════════════════════════════════════════════════════
-  // 7) ESTADO + UPDATE METHOD
-  // ════════════════════════════════════════════════════════════════════
-  // Modos:
-  //   - idle      → respiración sutil + retrato visible (Yo.png)
-  //   - opening   → flash + swap textura a mini-about (~0.55s)
-  //   - open      → mini-about visible, mantenido hasta cierre del usuario
-  //   - closing   → flash de salida + swap a retrato (~0.55s)
   const state = {
    hover: 0,
    hoverTarget: 0,
@@ -763,14 +596,11 @@ export function buildRoom({
   group.userData.textures = [posterTex, manifestoTex, haloTex];
   group.userData.materials = [haloMat, frameMat, mountMat, posterMat];
 
-  // Duración de los flashes de entrada y salida (segundos).
   const FLASH_DURATION = 0.55;
 
   group.userData.update = (t, roomFade) => {
-   // Hover suavizado
    state.hover += (state.hoverTarget - state.hover) * 0.12;
 
-   // Respiración idle — pista continua de que el cuadro "vive"
    const breath = Math.sin(t * 2.1) * 0.5 + 0.5;
    const idleBoost = breath * 0.1;
 
@@ -781,9 +611,6 @@ export function buildRoom({
    const e = t - state.modeStart;
 
    if (state.mode === "opening") {
-    // La textura YA se cambió en triggerOpen — aquí solo gestionamos el flash.
-    // El flash emisivo tapa el cambio visual, así que el usuario percibe una
-    // transición lumínica suave en vez de un "pop" de imagen.
     const k = Math.min(1, e / FLASH_DURATION);
     if (k < 0.36) {
      const k2 = k / 0.36;
@@ -798,13 +625,10 @@ export function buildRoom({
     }
     if (k >= 1) state.mode = "open";
    } else if (state.mode === "open") {
-    // Mini-about visible — mantenemos un emissive medio para que el texto
-    // se lea con presencia incluso si la habitación está oscurecida.
     emissive = 0.55;
     haloOpacity = 0.45;
     spotBoost = 0.4;
    } else if (state.mode === "closing") {
-    // El swap de vuelta a la foto se hizo en triggerClose — solo flash.
     const k = Math.min(1, e / FLASH_DURATION);
     if (k < 0.36) {
      const k2 = k / 0.36;
@@ -819,7 +643,6 @@ export function buildRoom({
     }
     if (k >= 1) state.mode = "idle";
    } else {
-    // idle — añadir efecto hover
     haloOpacity += state.hover * 0.25;
     emissive += state.hover * 0.12;
     spotBoost += state.hover * 0.5;
@@ -830,10 +653,6 @@ export function buildRoom({
    return 2.2 + spotBoost;
   };
 
-  // ── triggerOpen: SWAP INMEDIATO ─────────────────────────────────────────
-  // Cambiamos la textura aquí (no en el update) para garantizar que el
-  // mini-about se ve sí o sí en cuanto empieza la animación de cámara.
-  // El flash emisivo del update tapa la transición visualmente.
   group.userData.triggerOpen = (t) => {
    if (state.mode !== "idle") return false;
    state.mode = "opening";
@@ -848,7 +667,6 @@ export function buildRoom({
    return true;
   };
 
-  // ── triggerClose: SWAP INMEDIATO de vuelta a la foto ────────────────────
   group.userData.triggerClose = (t) => {
    if (state.mode !== "open" && state.mode !== "opening") return false;
    state.mode = "closing";
@@ -872,12 +690,6 @@ export function buildRoom({
   return group;
  }
 
- // ════════════════════════════════════════════════════════════════════════
- // POSTER + SPOT — solo desktop
- // ════════════════════════════════════════════════════════════════════════
- // En móvil saltamos esto entero. Las variables se quedan a null y el
- // resto del archivo (update, dispose, raycast) tiene guardas para
- // tolerarlo.
  let wallPoster = null;
  let posterSpot = null;
 
@@ -886,9 +698,6 @@ export function buildRoom({
   wallPoster.position.set(4.0, 4.6, -3.94);
   scene.add(wallPoster);
 
-  // ── SpotLight cálido dedicado — resalta solo el póster ──────────────────
-  // Distance corta + decay medio → no moja la pared entera.
-  // Penumbra alta → borde de luz orgánico, no un haz duro.
   posterSpot = new THREE.SpotLight(
    "#ff9a55", // familia cálida del warmLight del cohete
    2.2,
@@ -903,11 +712,6 @@ export function buildRoom({
   scene.add(posterSpot.target);
  }
 
- // ════════════════════════════════════════════════════════════════════════
- // RAYCAST — pointer hover y click sobre el poster
- // ════════════════════════════════════════════════════════════════════════
- // El sistema cameraFocus vive en heroScene. Aquí solo detectamos clicks
- // y los notificamos vía callbacks (onPosterFocusEnter / onPosterFocusExit).
  const clickRaycaster = new THREE.Raycaster();
  const clickPointer = new THREE.Vector2();
  let posterRoomFade = 1; // actualizado desde update()
@@ -929,22 +733,7 @@ export function buildRoom({
   if (!wallPoster) return;
   if (isCameraFocusActive && isCameraFocusActive()) return;
 
-  // Si el usuario está arrastrando con un botón pulsado (típicamente para
-  // orbitar la cámara), saltamos el raycast del poster. Razón:
-  // mientras orbitas, la cámara cambia frame a frame y el rayo
-  // proyectado oscila entre "hit" y "no-hit" sobre el poster. Eso hace
-  // que el `hoverTarget` salte entre 0 y 1, y como `spotBoost` depende
-  // de `state.hover`, la intensidad de `posterSpot` parpadea visiblemente
-  // durante el orbit. Bloquear el hover mientras arrastras elimina el
-  // bug y además es la semántica correcta: "hover" es para cuando miras,
-  // no para cuando arrastras.
-  //
-  // event.buttons es un bitmask: 0 = ningún botón, 1 = primario, etc.
-  // Cualquier botón pulsado → estamos en gesto activo → no calcular hover.
   if (event.buttons > 0) {
-   // Garantizar que el estado de hover se limpia si el usuario empieza
-   // a arrastrar justo encima del poster (estaría con hover=true y se
-   // quedaría "encendido" todo el drag).
    wallPoster.userData.setHover(false);
    canvas.style.cursor = "";
    return;
@@ -960,8 +749,6 @@ export function buildRoom({
   if (!wallPoster) return;
   const now = clock.getElapsedTime();
 
-  // Si hay focus activo → cualquier click cierra. El orquestador internamente
-  // gestiona triggerClose del poster vía onPosterFocusExit.
   if (isCameraFocusActive && isCameraFocusActive()) {
    if (onPosterFocusExit) onPosterFocusExit(now);
    canvas.style.cursor = "";
@@ -984,26 +771,17 @@ export function buildRoom({
   if (onPosterFocusExit) onPosterFocusExit(clock.getElapsedTime());
  };
 
- // Listeners solo en desktop: en móvil no hay cuadro que clickar y
- // los pointer events podrían interferir con scroll-driven natural.
  if (!isMobile) {
   canvas.addEventListener("pointermove", onScenePointerMove);
   canvas.addEventListener("pointerdown", onScenePointerDown);
   window.addEventListener("keydown", onSceneKeyDown);
  }
 
- // ════════════════════════════════════════════════════════════════════════
- // UPDATE — tick de la habitación: estrellas + luces + poster
- // ════════════════════════════════════════════════════════════════════════
- // Recibe roomFade del orquestador (calculado en heroScene a partir del scroll).
- // lightMultipliers son los multiplicadores GUI editables.
  function update({ elapsedTime, roomFade, lightMultipliers, isMobile }) {
-  // Estrellas internas — rotación lenta cuando estamos en habitación
   if (starsPoints && !isMobile) {
    starsPoints.rotation.z = elapsedTime * 0.003;
   }
 
-  // Luces interiores — todas escaladas por roomFade (se apagan al salir)
   ambientLight.intensity = 0.14 * roomFade * lightMultipliers.ambient;
   moonLight.intensity = 1.0 * roomFade * lightMultipliers.moonDir;
   moonAreaLight.intensity = 0.75 * roomFade * lightMultipliers.moonArea;
@@ -1016,34 +794,27 @@ export function buildRoom({
   deskBounceLightR.intensity = 0.55 * roomFade;
   rightWallFill.intensity = 0.3 * roomFade * lightMultipliers.rightFill;
 
-  // Poster — el raycast usa esto para bloquear hover cuando estamos fuera
   posterRoomFade = roomFade;
-  // En móvil wallPoster es null — saltamos su update.
+
   if (wallPoster && posterSpot) {
    const posterSpotIntensity = wallPoster.userData.update(elapsedTime, roomFade);
    posterSpot.intensity = posterSpotIntensity * roomFade;
   }
  }
 
- // ════════════════════════════════════════════════════════════════════════
- // DISPOSE — limpieza completa de la habitación
- // ════════════════════════════════════════════════════════════════════════
  function dispose() {
-  // Listeners de raycast — solo se registraron en desktop.
   if (!isMobile) {
    canvas.removeEventListener("pointermove", onScenePointerMove);
    canvas.removeEventListener("pointerdown", onScenePointerDown);
    window.removeEventListener("keydown", onSceneKeyDown);
   }
 
-  // Estrellas internas
   if (starsPoints) {
    spaceGroup.remove(starsPoints);
    if (starsGeometry) starsGeometry.dispose();
    if (starsMaterial) starsMaterial.dispose();
   }
 
-  // Poster — solo si se creó
   if (wallPoster) {
    wallPoster.userData.textures.forEach((t) => t && t.dispose && t.dispose());
    wallPoster.userData.materials.forEach((m) => m && m.dispose && m.dispose());
@@ -1057,7 +828,6 @@ export function buildRoom({
    scene.remove(posterSpot.target);
   }
 
-  // Luces interiores
   scene.remove(ambientLight);
   scene.remove(moonLight);
   scene.remove(windowFillLight);
@@ -1070,19 +840,13 @@ export function buildRoom({
   scene.remove(deskBounceLightR);
   scene.remove(rightWallFill);
 
-  // Estructura
   scene.remove(floor);
   scene.remove(backWall);
   scene.remove(leftWallGroup);
   scene.remove(windowGroup);
-  // (geometrías y materiales compartidos los dispone heroScene en su cleanup)
  }
 
- // ════════════════════════════════════════════════════════════════════════
- // SALIDA — solo lo que el orquestador o la GUI necesitan
- // ════════════════════════════════════════════════════════════════════════
  return {
-  // Estructura — refs para que GUI o el resto puedan modificar
   windowParams,
   windowGroup,
   leftWallGroup,
@@ -1091,15 +855,12 @@ export function buildRoom({
   floor,
   backWall,
 
-  // Poster system — la GUI lee posición de wallPoster, intensity de posterSpot
   wallPoster,
   posterSpot,
 
-  // Funciones para regenerar al cambiar params (GUI o resize)
   updateWindow,
   updateSpace,
 
-  // Tick + cleanup
   update,
   dispose,
  };

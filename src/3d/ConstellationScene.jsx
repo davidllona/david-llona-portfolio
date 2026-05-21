@@ -3,16 +3,7 @@ import { Html, PerspectiveCamera } from "@react-three/drei";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 
-/**
- * =========================================================
- * CONSTELLATION SCENE
- * =========================================================
- * Reemplaza el grafo SVG/HTML por una escena 3D coherente con
- * el resto del portfolio. Los nodos son puntos de luz (no cajas),
- * las conexiones son líneas tenues, y la cámara responde con
- * parallax + zoom narrativo entre stages.
- * =========================================================
- */
+
 
 const PRIMARY_HEX = "#f58a5c";
 const SCALE = 3.6;
@@ -25,10 +16,7 @@ const SIZE_MAP = {
  xs: 0.26,
 };
 
-/**
- * Textura blanda compartida — un único canvas reutilizado para
- * todos los puntos de luz (estrellas, nodos, halos).
- */
+
 let _glowTexture = null;
 function getGlowTexture() {
  if (_glowTexture) return _glowTexture;
@@ -53,11 +41,7 @@ function getGlowTexture() {
  return _glowTexture;
 }
 
-/**
- * Mapeo de coordenadas del dataset (0–100) al espacio 3D.
- * Mantengo el mismo layout visual del grafo original para no
- * romper la composición ya pensada.
- */
+
 function mapToWorld(x, y) {
  return new THREE.Vector3(
   ((x - 50) / 50) * SCALE,
@@ -66,10 +50,7 @@ function mapToWorld(x, y) {
  );
 }
 
-/**
- * Estrellas de fondo — pueblan el espacio detrás de la
- * constelación principal, dan sensación de profundidad.
- */
+
 function AmbientStarfield({ count = 140 }) {
  const ref = useRef();
  const texture = useMemo(() => getGlowTexture(), []);
@@ -138,10 +119,7 @@ function AmbientStarfield({ count = 140 }) {
  );
 }
 
-/**
- * Nebulosa — una sola mancha cálida muy difusa. Aporta calor
- * y profundidad sin meter un acento frío que compita con la paleta.
- */
+
 function Nebula() {
  const texture = useMemo(() => getGlowTexture(), []);
 
@@ -159,15 +137,7 @@ function Nebula() {
  );
 }
 
-/**
- * SectionStarfield — Campo estelar denso pero con menos
- * carga que el del Lab. Una sola nube de puntos con tres
- * "tiers" baked en los buffers: estrellas lejanas y pequeñas
- * (mayoría), estrellas medias (variadas en tono) y unas pocas
- * brillantes que dan acento. Paleta calibrada al Lab para
- * que la sección se sienta como continuación, no como otra
- * isla. Sin pointer events: ambiente puro.
- */
+
 function SectionStarfield({ count = 580 }) {
  const ref = useRef();
  const texture = useMemo(() => getGlowTexture(), []);
@@ -181,9 +151,9 @@ function SectionStarfield({ count = 580 }) {
   for (let i = 0; i < count; i += 1) {
    const i3 = i * 3;
 
-   // Distribución por tiers — 65% lejanas, 30% medias, 5% brillantes.
-   // Cada tier tiene su propio rango de tamaño y profundidad para
-   // crear sensación de capas sin necesidad de tres <points>.
+
+
+
    const tier = Math.random();
 
    if (tier < 0.65) {
@@ -203,8 +173,8 @@ function SectionStarfield({ count = 580 }) {
     siz[i] = 1.85 + Math.random() * 1.4;
    }
 
-   // Paleta del Lab: blanco dominante, azul pálido y dos
-   // calores cálidos para los acentos.
+
+
    const cr = Math.random();
    if (cr < 0.74) c.set("#ffffff");
    else if (cr < 0.88) c.set("#cfe7ff");
@@ -273,8 +243,8 @@ function SectionStarfield({ count = 580 }) {
      varying float vSize;
      void main() {
       vec4 t = texture2D(uMap, gl_PointCoord);
-      // Las estrellas más grandes opacan algo más, las pequeñas
-      // se quedan tenues — refuerza la jerarquía de capas.
+
+
       float opacity = 0.45 + min(vSize, 2.0) * 0.22;
       gl_FragColor = vec4(vColor, t.a * opacity);
      }
@@ -284,14 +254,7 @@ function SectionStarfield({ count = 580 }) {
  );
 }
 
-/**
- * BackgroundStars — Canvas independiente, full-section, solo
- * estrellas. Sirve para que el fondo de About sea un campo
- * estelar continuo que conecte con la sección de arriba (Lab),
- * en lugar de tener estrellas únicamente en la mitad derecha
- * donde vive la constelación. Sin pointer events: las estrellas
- * son ambiente, no interactúan.
- */
+
 export function BackgroundStars({ count = 580 }) {
  return (
   <Canvas
@@ -305,12 +268,7 @@ export function BackgroundStars({ count = 580 }) {
  );
 }
 
-/**
- * Nodo individual — halo + core + label en HTML.
- * El halo es decorativo y reacciona al hover.
- * El core es el sprite clickable.
- * El label se renderiza con drei.Html para tener tipografía nítida.
- */
+
 function ConstellationNode({ node, onClick, onHover, onLeave, hidden, compact = false }) {
 
  const groupRef = useRef();
@@ -319,12 +277,12 @@ function ConstellationNode({ node, onClick, onHover, onLeave, hidden, compact = 
  const texture = useMemo(() => getGlowTexture(), []);
  const [hovered, setHovered] = useState(false);
 
- // Tamaño en mundo. Ya no aplicamos sizeBoost en compact: ahora la
- // cámara está a Z≈7 (vs Z≈10 de desktop), así que los sprites ya
- // ganan ~36% de tamaño en pantalla solo por la cámara. Multiplicar
- // de nuevo aquí inflaba los halos hasta convertirlos en blobs
- // blancos que invadían el fondo. Mantenemos el tamaño en mundo
- // intacto y dejamos que el zoom de cámara haga el trabajo.
+
+
+
+
+
+
  const baseSize = SIZE_MAP[node.size] || SIZE_MAP.md;
  const haloSize = baseSize * 3.5;
  const coreSize = baseSize;
@@ -336,13 +294,13 @@ function ConstellationNode({ node, onClick, onHover, onLeave, hidden, compact = 
   const t = state.clock.getElapsedTime();
   const visibility = hidden ? 0 : 1;
 
-  // Drift sutil en Z
+
   if (groupRef.current) {
    const phase = node.x * 0.07 + node.y * 0.05;
    groupRef.current.position.z = Math.sin(t * 0.6 + phase) * 0.06;
   }
 
-  // Halo: opacidad y escala según hover y visibilidad
+
   if (haloRef.current) {
    const baseHalo = node.accent ? 0.50 : 0.30;
    const targetOpacity = (hovered ? 0.85 : baseHalo) * visibility;
@@ -354,7 +312,7 @@ function ConstellationNode({ node, onClick, onHover, onLeave, hidden, compact = 
    haloRef.current.scale.setScalar(THREE.MathUtils.lerp(cur, targetScale, 0.08));
   }
 
-  // Core: opacidad + pulse (solo accent)
+
   if (coreRef.current) {
    const m = coreRef.current.material;
    m.opacity = THREE.MathUtils.lerp(m.opacity, visibility, 0.10);
@@ -451,10 +409,7 @@ const labelFontSizeRaw =
  );
 }
 
-/**
- * Línea de conexión — lineBasicMaterial con opacidad animada.
- * Si el hover es uno de sus extremos, la línea se intensifica.
- */
+
 function ConstellationLine({ from, to, hidden, hovered }) {
  const matRef = useRef();
 
@@ -501,17 +456,7 @@ function ConstellationLines({ lines, hidden, hoveredNodeId }) {
  });
 }
 
-/**
- * Cámara — drift idle + parallax con ratón + zoom narrativo
- * cuando se entra a una skill (stage = "detail").
- *
- * Compensación de aspect:
- *  - Cuando el viewport es ancho (aspect ≥ 1.1): comportamiento clásico.
- *  - Cuando el viewport es estrecho (laptop, móvil rotado, etc.):
- *     · Alejamos la cámara en Z para que la constelación entera entre.
- *     · Bajamos el lookTarget en Y → la constelación sube visualmente
- *       en el frame y queda alineada con el bloque de texto izquierdo.
- */
+
 function CameraRig({ stage, focusPosition, compact = false }) {
  const camera = useThree((state) => state.camera);
  const size = useThree((state) => state.size);
@@ -522,37 +467,37 @@ function CameraRig({ stage, focusPosition, compact = false }) {
 useEffect(() => {
   const aspect = size.width / Math.max(size.height, 1);
 
-  // Z base separada por modo. La constelación real mide ~4.04 × 3.91
-  // unidades (no los 7.2 × 5.9 que el dataset sugeriría — los nodos
-  // están concentrados en la zona 22–78 del rango 0–100). Por eso la
-  // Z de desktop (9.5) deja demasiado espacio vacío en cualquier
-  // viewport estrecho. En compact recalibramos a 6.0 — calibrado para
-  // que la composición REAL ocupe el frame con presencia.
+
+
+
+
+
+
   let mainZ, detailZ;
 
   if (compact) {
-   // En aspect < 1.0 (móvil portrait) seguimos necesitando alejar
-   // para que la constelación entera entre, pero arrancando desde
-   // una base mucho más cercana.
+
+
+
    const compactAspectFactor = aspect < 1.0 ? 1.0 / Math.max(aspect, 0.45) : 1;
    mainZ = 6.0 * compactAspectFactor;
    detailZ = 5.4 * compactAspectFactor;
   } else {
-   // Desktop / tablet wide: comportamiento original — la constelación
-   // vive en la mitad derecha del viewport y el texto en la izquierda,
-   // así que el frustum puede permitirse aire extra.
+
+
+
    const aspectFactor = aspect < 1.1 ? 1.1 / Math.max(aspect, 0.55) : 1;
    mainZ = 9.5 * aspectFactor;
    detailZ = 7.6 * aspectFactor;
   }
 
-  // En desktop con aspect estrecho (laptop pequeño con la constelación
-  // en la columna derecha) sí queremos subir el contenido para alinearlo
-  // con el bloque de texto. En compact (móvil) la constelación tiene su
-  // propio contenedor con altura fija, ningún texto compitiendo a su
-  // lado, y la cámara está mucho más cerca — el mismo offset aquí
-  // sobrecompensaría y la mandaría arriba del frame. Por eso en compact
-  // anclamos el lookTarget al centro.
+
+
+
+
+
+
+
   const yLookOffset = compact ? 0.7 : (aspect < 1.1 ? -0.6 : 0);
 
   if (stage === "main") {
@@ -606,12 +551,7 @@ function buildLinesForLayout(layout) {
   .filter(Boolean);
 }
 
-/**
- * StageGroup — montaje y desmontaje diferido para que las
- * transiciones entre orbit principal y detalle puedan
- * fundirse correctamente sin que el "hidden" mantenga
- * objetos en escena innecesariamente.
- */
+
 function StageGroup({ visible, fadeMs = 650, children }) {
  const [mounted, setMounted] = useState(visible);
 
@@ -654,7 +594,7 @@ export function ConstellationScene({
  const mainHidden = stage !== "main";
  const detailHidden = stage !== "detail";
 
- // Limpieza del cursor al desmontar (por si quedó en pointer)
+
  useEffect(() => {
   return () => {
    document.body.style.cursor = "auto";

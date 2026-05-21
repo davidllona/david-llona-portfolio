@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { initLabStarsScene, initMainWaterPreview } from "../3d/labStarsScene";
 
-// Vídeos alojados en GitHub Releases para no inflar el repo.
-// Si subes a una nueva versión de assets, cambia el tag al final de la URL.
+
+
 const ASSETS_BASE =
   "https://github.com/davidllona/david-llona-portfolio/releases/download/assets-v1";
 
@@ -41,17 +41,7 @@ const secondaryProjects = [
  },
 ];
 
-/**
- * LazyVideo
- * ────────────────────────────────────────────────────────────
- * Reproduce el vídeo SOLO cuando está visible en el viewport y
- * lo pausa al salir. Evita que dos (o más) vídeos consuman GPU
- * simultáneamente y que carguen al instante al abrir la página.
- *
- *  · preload="metadata"   → solo pide cabecera, no el archivo entero.
- *  · IntersectionObserver → play/pause según visibilidad real.
- *  · Fade-in con onCanPlay → cero frame negro al arrancar.
- */
+
 function LazyVideo({ src, fit = "cover", scale = 1, onError }) {
  const videoRef = useRef(null);
  const [isReady, setIsReady] = useState(false);
@@ -64,7 +54,7 @@ function LazyVideo({ src, fit = "cover", scale = 1, onError }) {
    ([entry]) => {
     if (entry.isIntersecting) {
      video.play().catch(() => {
-      /* autoplay puede ser rechazado por el navegador; lo ignoramos */
+      
      });
     } else {
      video.pause();

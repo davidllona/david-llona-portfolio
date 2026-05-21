@@ -10,11 +10,6 @@ export function IntroStory() {
 
       const rect = sectionRef.current.getBoundingClientRect();
       const windowHeight = window.innerHeight;
-
-      /**
-       * Queremos que el efecto ocurra solo mientras la sección
-       * entra y empieza a salir del viewport.
-       */
       const rawProgress = (windowHeight - rect.top) / (windowHeight + rect.height);
 
       const clamped = Math.max(0, Math.min(rawProgress, 1));
@@ -31,14 +26,14 @@ export function IntroStory() {
     };
   }, []);
 
-  // Movimiento más elegante y menos agresivo
+
   const translateY = progress * -90;
   const scale = 1 - progress * 0.04;
 
-  // Ya no desaparece casi del todo
+
   const opacity = 1 - progress * 0.28;
 
-  // Glow suave, pero sin apagarse demasiado rápido
+
   const glowOpacity = 0.12 - progress * 0.05;
 
   return (

@@ -2,29 +2,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { loadingManager } from "../loadingManager";
 
-/**
- * desk.js
- * ─────────────────────────────────────────────────────────────────────────
- * El escritorio del Hero + los dos monitores con sus pantallas procedurales.
- *
- * Contiene:
- *   - GLB del escritorio (carga + recentrado + posicionamiento contra paredes)
- *   - 2 monitores GLB (clonados del mismo .glb, posicionados con tilt simétrico)
- *   - Pantalla izquierda: editor estilo VSCode con typing animado (canvas)
- *   - Pantalla derecha: visor 3D wireframe con 3 viewports CUBE/ICO/TORUS (canvas)
- *   - SWAP de la textura original del GLB por el canvas procedural
- *   - Plano invisible "deskTopSupport" que sirve de superficie para
- *     adjuntar objetos (lámpara, teclado, ratón, perro, …)
- *
- * Patrón de comunicación con el orquestador:
- *   - El orquestador pasa `onDeskReady` que se ejecuta cuando termina la carga
- *     del .glb del escritorio y permite que props (chair, lampara, teclado,
- *     ratón) se reposicionen sobre la mesa.
- *   - El orquestador puede consultar el estado de carga vía getters
- *     (getDeskAnchor, getDeskTopSupport).
- *   - `attachToDesk(child)` añade un hijo al deskAnchor; si el desk aún no
- *     está cargado, el hijo se encola y se adjunta cuando llega.
- */
+
 export function buildDesk({ scene, requestRender, onDeskReady }) {
  // ════════════════════════════════════════════════════════════════════════
  // CONFIG EN VIVO DE LA PANTALLA WIREFRAME
@@ -202,10 +180,7 @@ export function buildDesk({ scene, requestRender, onDeskReady }) {
  // por deltaTime).
  const screenAnimators = [];
 
- /**
-  * Pantalla izquierda — editor de código estilo VSCode con typing lento.
-  * Registra un updater en screenAnimators que redibuja cuando hay cambios.
-  */
+ 
  function makeCodeScreenTexture() {
   const W = 1024,
    H = 640;
@@ -373,11 +348,7 @@ export function buildDesk({ scene, requestRender, onDeskReady }) {
   return tex;
  }
 
- /**
-  * Pantalla derecha — visor 3D wireframe minimalista.
-  * Renderiza 3 viewports con geometrías primitivas rotando, estilo CAD.
-  * Cero texto denso: transmite "portfolio 3D" sin gritar.
-  */
+ 
  function makeWireframeViewerScreenTexture() {
   // Canvas final 460×300 — mitad de píxeles que el original sin pérdida
   // visible a la distancia a la que se ve desde la cámara.
@@ -761,13 +732,7 @@ export function buildDesk({ scene, requestRender, onDeskReady }) {
  // por textura + área funciona.
  const MONITOR_SCREEN_MESH_NAME = null;
 
- /**
-  * Detecta la mesh "pantalla" y hace SWAP del map del material existente.
-  * Estrategia robusta: busca meshes cuyo material ya tenga una textura (map
-  * o emissiveMap) — en GLBs de monitores, la pantalla siempre trae wallpaper,
-  * el resto del chasis no. Preservamos el material original (roughness,
-  * metalness, etc.) y solo intercambiamos la textura.
-  */
+ 
  function applyMonitorScreenContent(root, kind) {
   if (!root) return;
   let screenMesh = null;

@@ -1,28 +1,6 @@
 import * as THREE from "three";
 
-/**
- * ─────────────────────────────────────────────────────────────────────────
- * GUI BROKER (productor / consumidor)
- * ─────────────────────────────────────────────────────────────────────────
- * heroScene.js es el único sitio que CREA la instancia de lil-gui.
- * Otras escenas (Projects, futuros laboratorios, etc.) la CONSUMEN para
- * añadir sus propios folders.
- *
- * Patrón:
- *
- *   // En heroScene.js (productor) — UNA vez, después de `new GUI()`:
- *   import { setGui } from "./hero/gui";
- *   setGui(gui);
- *
- *   // En cualquier consumidor (Projects.jsx, etc.):
- *   import { onGuiReady, attachProjectsGUI } from "../3d/hero/gui";
- *   const off = onGuiReady((gui) => attachProjectsGUI(gui, refs));
- *   // ... y en cleanup: off();
- *
- * Si el productor ya creó el GUI antes de que el consumidor se monte,
- * el callback se ejecuta inmediatamente. Si no, queda en cola hasta
- * que setGui() lo dispare. Sin polling, sin window globals.
- */
+
 let _gui = null;
 let _waiters = [];
 
@@ -59,22 +37,7 @@ export function clearGui() {
  _waiters = [];
 }
 
-/**
- * attachHeroGUI
- * ─────────────────────────────────────────────────────────────────────────
- * Engancha todos los folders de debug a la instancia `gui` de lil-gui que
- * crea `heroScene.js`. La función NO crea ni destruye el GUI: solo añade
- * controles. El owner del ciclo de vida del GUI sigue siendo `heroScene.js`.
- *
- * Filosofía: este archivo es un consumidor puro. No produce objetos, no
- * mantiene estado interno, no toca el render loop. Recibe referencias y
- * las cablea a sliders. Por eso recibe TODO por parámetro: si en el
- * futuro extraemos un módulo (p. ej. la luna), basta con cambiar la ref
- * que se pasa aquí.
- *
- * @param {GUI}    gui   Instancia de lil-gui ya creada en heroScene.
- * @param {object} refs  Todas las referencias necesarias (ver destructuring).
- */
+
 export function attachHeroGUI(gui, refs) {
  const {
   // ── Params (objetos plain editables) ───────────────────────────────
@@ -514,21 +477,7 @@ export function attachHeroGUI(gui, refs) {
  exteriorFolder.close();
 }
 
-/**
- * attachProjectsGUI
- * ─────────────────────────────────────────────────────────────────────────
- * Mismo patrón que attachHeroGUI: consumidor puro. Recibe la instancia de
- * lil-gui creada por heroScene y los params expuestos por initProjectsScene
- * (cleanup.layoutParams, cleanup.lightParams, etc.).
- *
- * Uso:
- *   const cleanupProjects = initProjectsScene(canvas);
- *   attachProjectsGUI(gui, cleanupProjects);
- *
- * @param {GUI}    gui   Instancia de lil-gui ya creada en heroScene.
- * @param {object} refs  El cleanup devuelto por initProjectsScene
- *                       (lleva adjuntos los params y requestRender).
- */
+
 export function attachProjectsGUI(gui, refs) {
  const { layoutParams, textParams, lightParams, cameraParamsP, entryParams, requestRender } = refs;
 
@@ -625,34 +574,7 @@ export function attachProjectsGUI(gui, refs) {
  projectsFolder.close();
 }
 
-/**
- * attachContactGUI
- * ─────────────────────────────────────────────────────────────────────────
- * Mismo patrón que attachHeroGUI / attachProjectsGUI. Recibe el cleanup
- * devuelto por initContactScene (lleva adjuntos cleanup.P y cleanup.refs).
- *
- * El loop de contact.js es continuo y lee P cada frame, así que para los
- * params dinámicos (pulse, drift, glow, opacidades animadas) basta con
- * mutar P. Para los que se aplican una sola vez al setup (posiciones,
- * escalas, opacidades fijas) usamos onChange para mutar la ref viva.
- *
- * Tercer parámetro opcional `uiHooks`: permite tunear los TEXTOS de la
- * sección Contact desde el GUI. lil-gui muta `uiHooks.uiParams` directamente
- * y dispara `uiHooks.onUIChange()` para que React re-renderice. Si no se
- * pasa, el folder de textos no se monta.
- *
- * Uso desde Contact.jsx:
- *   const cleanup = initContactScene(mountRef.current, ...);
- *   onGuiReady((gui) => attachContactGUI(gui, cleanup, {
- *     uiParams: uiParamsRef.current,
- *     onUIChange: forceRender,
- *   }));
- *
- * @param {GUI}     gui      Instancia de lil-gui ya creada en heroScene.
- * @param {object}  cleanup  Cleanup devuelto por initContactScene
- *                           (con .P y .refs adjuntos).
- * @param {object} [uiHooks] { uiParams, onUIChange } — opcional.
- */
+
 export function attachContactGUI(gui, cleanup, uiHooks) {
  const P = cleanup.P;
  const r = cleanup.refs;
@@ -695,7 +617,7 @@ export function attachContactGUI(gui, cleanup, uiHooks) {
   .add(P, "astroY", -2, 3, 0.01)
   .name("posición Y (base)")
   .onChange(() => {
-   /* el loop la lee cada frame en idleAstronaut */
+   
   });
  astroFolder
   .add(P, "astroZ", -2, 2, 0.01)
@@ -722,13 +644,13 @@ export function attachContactGUI(gui, cleanup, uiHooks) {
   .add(P, "astroRotY", -1, 1, 0.005)
   .name("rotación Y")
   .onChange(() => {
-   /* el loop lo aplica cada frame en idleAstronaut */
+   
   });
  astroFolder
   .add(P, "astroRotZ", -0.3, 0.3, 0.005)
   .name("inclinación Z")
   .onChange(() => {
-   /* lo lee idleAstronaut */
+   
   });
  astroFolder.close();
 
