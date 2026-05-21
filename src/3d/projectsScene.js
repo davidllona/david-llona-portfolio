@@ -25,7 +25,7 @@ import * as THREE from "three";
 export const PROJECTS = [
  {
   id: 0,
-  name: "TemyPlast Configurator",
+  name: "Configurador Temyplast",
   year: "2026",
   tagline: "Simulador visual de alfombras a medida",
   description:
@@ -37,7 +37,7 @@ export const PROJECTS = [
  },
  {
   id: 1,
-  name: "Diploma3D System",
+  name: "Sistema de Diplomas 3D",
   year: "2026",
   tagline: "Generación dinámica de diplomas en 3D",
   description:
@@ -49,7 +49,7 @@ export const PROJECTS = [
  },
  {
   id: 2,
-  name: "Space Portfolio",
+  name: "Porfolio Espacial",
   year: "2026",
   tagline: "Experiencia interactiva en Three.js narrativa",
   description:
