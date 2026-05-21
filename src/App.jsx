@@ -9,6 +9,7 @@ import { LoadingDoor } from './components/LoadingDoor'
 import { LazyMount } from './components/LazyMount'
 import { preloadCriticalAssets } from './3d/assetPreloader'
 import { SpeedInsights } from "@vercel/speed-insights/react"
+   import { Analytics } from "@vercel/analytics/react";
 
 
 function App() {
@@ -35,6 +36,7 @@ function App() {
         </main>
       )}
       <SpeedInsights />
+      <Analytics />
     </div>
   )
 }
