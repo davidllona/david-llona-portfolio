@@ -319,12 +319,13 @@ function ConstellationNode({ node, onClick, onHover, onLeave, hidden, compact = 
  const texture = useMemo(() => getGlowTexture(), []);
  const [hovered, setHovered] = useState(false);
 
-// En compact (móvil) amplificamos el nodo sin tocar el SCALE del
- // mapeo: el layout de la composición se mantiene, solo los puntos
- // de luz ganan presencia. 1.5 es el sweet spot — más alto satura
- // la escena, más bajo y se siguen viendo perdidos.
- const sizeBoost = compact ? 1.5 : 1;
- const baseSize = (SIZE_MAP[node.size] || SIZE_MAP.md) * sizeBoost;
+ // Tamaño en mundo. Ya no aplicamos sizeBoost en compact: ahora la
+ // cámara está a Z≈7 (vs Z≈10 de desktop), así que los sprites ya
+ // ganan ~36% de tamaño en pantalla solo por la cámara. Multiplicar
+ // de nuevo aquí inflaba los halos hasta convertirlos en blobs
+ // blancos que invadían el fondo. Mantenemos el tamaño en mundo
+ // intacto y dejamos que el zoom de cámara haga el trabajo.
+ const baseSize = SIZE_MAP[node.size] || SIZE_MAP.md;
  const haloSize = baseSize * 3.5;
  const coreSize = baseSize;
  const tint = node.accent ? PRIMARY_HEX : "#ffffff";
@@ -389,7 +390,8 @@ function ConstellationNode({ node, onClick, onHover, onLeave, hidden, compact = 
 
 const labelFontSizeRaw =
   node.size === "xl" ? 13 : node.size === "lg" ? 12 : node.size === "md" ? 11 : 10.5;
- const labelFontSize = compact ? labelFontSizeRaw + 1.5 : labelFontSizeRaw;
+ const labelFontSize = compact ? labelFontSizeRaw + 1 : labelFontSizeRaw;
+
 
  return (
   <group ref={groupRef} position={worldPos}>
@@ -517,23 +519,41 @@ function CameraRig({ stage, focusPosition, compact = false }) {
  const lookTarget = useRef(new THREE.Vector3(0, 0, 0));
  const tmpLookAt = useRef(new THREE.Vector3());
 
- useEffect(() => {
+useEffect(() => {
   const aspect = size.width / Math.max(size.height, 1);
-  // Aspect estrecho → frustum más cerrado horizontalmente → constelación
-  // se corta. Compensamos alejando proporcionalmente.
-  const aspectFactor = aspect < 1.1 ? 1.1 / Math.max(aspect, 0.55) : 1;
-// En móvil acercamos un punto la cámara: el canvas es pequeño y la
-  // constelación quedaba flotando en un frame demasiado abierto. 0.86
-  // mantiene el conjunto entero dentro del encuadre y da más presencia
-  // a cada nodo.
-  const compactZoom = compact ? 0.86 : 1;
-  const mainZ = 9.5 * aspectFactor * compactZoom;
-  const detailZ = 7.6 * aspectFactor * compactZoom;
 
-  // Cuando el aspect es estrecho, el texto vive en la mitad superior
-  // y la constelación quedaba visualmente "baja". Miramos un poco
-  // hacia abajo para subirla en el frame y alinearla con el texto.
-  const yLookOffset = aspect < 1.1 ? -0.6 : 0;
+  // Z base separada por modo. La constelación real mide ~4.04 × 3.91
+  // unidades (no los 7.2 × 5.9 que el dataset sugeriría — los nodos
+  // están concentrados en la zona 22–78 del rango 0–100). Por eso la
+  // Z de desktop (9.5) deja demasiado espacio vacío en cualquier
+  // viewport estrecho. En compact recalibramos a 6.0 — calibrado para
+  // que la composición REAL ocupe el frame con presencia.
+  let mainZ, detailZ;
+
+  if (compact) {
+   // En aspect < 1.0 (móvil portrait) seguimos necesitando alejar
+   // para que la constelación entera entre, pero arrancando desde
+   // una base mucho más cercana.
+   const compactAspectFactor = aspect < 1.0 ? 1.0 / Math.max(aspect, 0.45) : 1;
+   mainZ = 6.0 * compactAspectFactor;
+   detailZ = 5.4 * compactAspectFactor;
+  } else {
+   // Desktop / tablet wide: comportamiento original — la constelación
+   // vive en la mitad derecha del viewport y el texto en la izquierda,
+   // así que el frustum puede permitirse aire extra.
+   const aspectFactor = aspect < 1.1 ? 1.1 / Math.max(aspect, 0.55) : 1;
+   mainZ = 9.5 * aspectFactor;
+   detailZ = 7.6 * aspectFactor;
+  }
+
+  // En desktop con aspect estrecho (laptop pequeño con la constelación
+  // en la columna derecha) sí queremos subir el contenido para alinearlo
+  // con el bloque de texto. En compact (móvil) la constelación tiene su
+  // propio contenedor con altura fija, ningún texto compitiendo a su
+  // lado, y la cámara está mucho más cerca — el mismo offset aquí
+  // sobrecompensaría y la mandaría arriba del frame. Por eso en compact
+  // anclamos el lookTarget al centro.
+  const yLookOffset = compact ? 0.7 : (aspect < 1.1 ? -0.6 : 0);
 
   if (stage === "main") {
    targetPos.current.set(0, 0, mainZ);
@@ -546,7 +566,7 @@ function CameraRig({ stage, focusPosition, compact = false }) {
    );
    lookTarget.current.set(0, yLookOffset, 0);
   }
-  }, [stage, focusPosition, size.width, size.height, compact]);
+ }, [stage, focusPosition, size.width, size.height, compact]);
 
  useFrame((state) => {
   const t = state.clock.getElapsedTime();

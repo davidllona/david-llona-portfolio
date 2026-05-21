@@ -540,7 +540,7 @@ export function About() {
      {/* Mobile: constelación en flujo, debajo del texto */}
      {!isDesktop && (
       <div className="pointer-events-auto relative z-[2] mt-16 h-[58vh] w-full">
-       <ConstellationScene {...constellationProps} compact={false} />
+       <ConstellationScene {...constellationProps} compact />
 
        <div className="pointer-events-none absolute left-0 top-0 z-[3] flex w-full items-center justify-between px-2">
         <span
