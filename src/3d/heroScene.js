@@ -326,9 +326,17 @@ export function initHeroScene(wrapperEl) {
   * al subir todo el contenido a la vez, Android nos mataba el contexto.
   *
   * Reducciones aplicadas SOLO en móvil:
-  *   - pixelRatio: 0.7 → renderiza al 70 % de la resolución lógica,
-  *     escala con CSS al canvas. Reduce el framebuffer en ~50 %.
-  *     A simple vista en móvil pequeño no se distingue.
+  *   - pixelRatio: cap a 1.5 (no a 0.7 como antes). 0.7 ahorraba mucha
+  *     VRAM pero hacía que todo se viera pixelado de cerca. Con la
+  *     orquestación de App.jsx + LazyMount + visibilityGate la presión
+  *     de VRAM ya es manejable, así que podemos subir a 1.5 sin
+  *     reactivar el context loss.
+  *     · En iPhone con DPR=3 → renderiza a 1.5x (suficiente para no
+  *       verse pixelado, no llega al doble framebuffer).
+  *     · En Android low-end con DPR=2 → renderiza a 1.5x igualmente.
+  *   - antialias: true. MSAA hardware es barato en GPUs modernas (sí,
+  *     incluso Mali-G68). Lo que mataba el A54 era la VRAM, no MSAA.
+  *     Bordes limpios sin coste perceptible.
   *   - starsCount: 80 → tercio que antes; el espacio sigue lleno
   *     porque hay 3 capas (estática + lejana + ambient).
   *   - moonSegments: 10 → menos triángulos, esfera sigue pareciendo
@@ -339,8 +347,8 @@ export function initHeroScene(wrapperEl) {
   *   - shadowMap ya estaba desactivado, sin cambios.
   */
  const quality = {
-  antialias: !isMobile,
-  pixelRatio: isMobile ? Math.min(window.devicePixelRatio, 0.7) : Math.min(window.devicePixelRatio, 1.25),
+  antialias: true,
+  pixelRatio: isMobile ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 1.25),
   starsCount: isMobile ? 80 : isTablet ? 350 : 550,
   starsSize: isMobile ? 0.014 : 0.018,
   moonSegments: isMobile ? 10 : 20,
@@ -1177,7 +1185,7 @@ export function initHeroScene(wrapperEl) {
   sizes.height = window.innerHeight;
 
   const newIsMobile = window.innerWidth < 768;
-  const newPixelRatio = Math.min(window.devicePixelRatio, newIsMobile ? 1 : 1.25);
+  const newPixelRatio = Math.min(window.devicePixelRatio, newIsMobile ? 1.5 : 1.25);
 
   renderer.setSize(sizes.width, sizes.height);
   renderer.setPixelRatio(newPixelRatio);

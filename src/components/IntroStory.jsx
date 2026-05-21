@@ -60,12 +60,12 @@ export function IntroStory() {
           opacity,
         }}
       >
-        <h2 className="max-w-4xl text-4xl font-semibold tracking-[-0.04em] text-text md:text-6xl lg:text-7xl">
+        <h2 className="max-w-4xl text-5xl font-semibold tracking-[-0.04em] text-text md:text-6xl lg:text-7xl">
           Diseñando experiencias
           <span className="block text-primary">de otro planeta</span>
         </h2>
 
-        <p className="mt-6 max-w-2xl text-sm leading-relaxed text-text-muted md:text-base">
+        <p className="mt-6 max-w-2xl text-base leading-relaxed text-text-muted md:text-base">
           Desarrollo interfaces y experiencias interactivas donde el diseño,
           el frontend y el 3D trabajan juntos para construir algo más inmersivo,
           visual y memorable.
