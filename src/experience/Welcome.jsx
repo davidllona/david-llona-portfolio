@@ -133,7 +133,6 @@ function Fireflies({ count = 16 }) {
 }
 
 function Islet({ onMounted }) {
- const light = useRef(null);
  // Si esto se monta, los modelos de los personajes ya se han descargado.
  useEffect(() => onMounted?.(), [onMounted]);
  const moon = useRef(null);
@@ -186,10 +185,8 @@ function Islet({ onMounted }) {
   };
  }, []);
 
- useFrame(({ clock }) => {
-  // La farola respira un poco; la luna y todo lo demás se apagan al marcharse.
-  const time = clock.elapsedTime;
-  light.current.intensity = 34 * (1 + 0.05 * Math.sin(time * 7.3) + 0.04 * Math.sin(time * 13.1));
+ useFrame(() => {
+  // La luna y todo lo demás se apagan al marcharse.
   moon.current.material.opacity = Math.min(1, rig.intro * 1.6);
  });
 
@@ -210,11 +207,10 @@ function Islet({ onMounted }) {
    <Instances geometry={plants.mushrooms[0]} material={material.still} items={items.mushrooms} />
    <Instances geometry={plants.clover} material={material.still} items={items.clover} />
 
-   {/* Farol encendido y su luz, que es la que da el tono cálido a la escena. */}
+   {/* Farol encendido (su luz y las demás del islote, en IsletLights). */}
    <Glow light={false} night={3.2} position={[LAMP[0] - 0.62, 2.82, LAMP[2]]}>
     <boxGeometry args={[0.2, 0.34, 0.2]} />
    </Glow>
-   <pointLight ref={light} color="#ffb060" position={[LAMP[0] - 0.75, 2.75, LAMP[2] + 0.5]} distance={17} decay={1.5} />
    {/* Farolillos colgados del árbol. */}
    {HERO_LANTERNS.map(([x, y, z], i) => (
     <group key={i} position={[TREE[0] + (x * Math.cos(0.25) + z * Math.sin(0.25)) * 0.88, y * 0.88, TREE[2] + (-x * Math.sin(0.25) + z * Math.cos(0.25)) * 0.88]}>
@@ -227,10 +223,6 @@ function Islet({ onMounted }) {
      </Glow>
     </group>
    ))}
-   <pointLight color="#ff9a4a" position={[TREE[0] + 1.6, 4.0, TREE[2] + 1.4]} intensity={9} distance={9} decay={1.6} />
-   {/* Luz de relleno por delante: sin ella los protagonistas quedan a contraluz de la luna. */}
-   <pointLight color="#ffd9a8" position={[0.4, 2.6, 6.2]} intensity={30} distance={13} decay={1.4} />
-   <pointLight color="#8fb4ff" position={[-5.5, 3.5, 3.5]} intensity={10} distance={12} decay={1.5} />
 
    <Poser url="/models/characters/astronauta.glb" palette={ASTRONAUT_PALETTE} clip="Astro_Idle_Breathe" position={ASTRONAUT} rotation={[0, 0.32, 0]} scale={ASTRONAUT_SCALE} />
    <Poser url="/models/characters/woody.glb" palette={WOODY_PALETTE} clip="Woody_SitIdle" position={DOG} rotation={[0, -0.45, 0]} scale={WOODY_SCALE} />
@@ -259,6 +251,39 @@ function Islet({ onMounted }) {
  );
 }
 
+// Las luces del islote. Viven fuera de él y no se desmontan nunca: al llegar al
+// planeta se quedan apagadas. Si salieran de la escena cambiaría el conjunto de
+// luces y el renderer recompilaría todos los materiales iluminados justo al
+// aterrizar (un tirón de ~280 ms). Es lo mismo que hace WarmLights de día.
+const ISLET_LIGHTS = [
+ // La del farol, que da el tono cálido a la escena y respira un poco.
+ { color: "#ffb060", position: [LAMP[0] - 0.75, 2.75, LAMP[2] + 0.5], power: 34, distance: 17, decay: 1.5, flicker: true },
+ // Los farolillos del árbol.
+ { color: "#ff9a4a", position: [TREE[0] + 1.6, 4.0, TREE[2] + 1.4], power: 9, distance: 9, decay: 1.6 },
+ // Relleno por delante: sin ella los protagonistas quedan a contraluz de la luna.
+ { color: "#ffd9a8", position: [0.4, 2.6, 6.2], power: 30, distance: 13, decay: 1.4 },
+ { color: "#8fb4ff", position: [-5.5, 3.5, 3.5], power: 10, distance: 12, decay: 1.5 },
+];
+
+function IsletLights() {
+ const lights = useRef([]);
+ useFrame(({ clock }) => {
+  const on = rig.intro > 0;
+  const time = clock.elapsedTime;
+  ISLET_LIGHTS.forEach((spec, i) => {
+   const breath = spec.flicker ? 1 + 0.05 * Math.sin(time * 7.3) + 0.04 * Math.sin(time * 13.1) : 1;
+   lights.current[i].intensity = on ? spec.power * breath : 0;
+  });
+ });
+ return (
+  <group position={WELCOME.origin}>
+   {ISLET_LIGHTS.map((spec, i) => (
+    <pointLight key={i} ref={(node) => (lights.current[i] = node)} color={spec.color} position={spec.position} intensity={spec.power} distance={spec.distance} decay={spec.decay} />
+   ))}
+  </group>
+ );
+}
+
 // Monta el islote mientras dura la bienvenida y conduce el descenso.
 export function Welcome({ onMounted }) {
  const [mounted, setMounted] = useState(rig.intro > 0);
@@ -282,5 +307,10 @@ export function Welcome({ onMounted }) {
    emit("arrived"); // la interfaz de juego aparece al llegar
   }
  });
- return mounted ? <Islet onMounted={onMounted} /> : null;
+ return (
+  <>
+   <IsletLights />
+   {mounted && <Islet onMounted={onMounted} />}
+  </>
+ );
 }

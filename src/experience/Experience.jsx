@@ -42,18 +42,120 @@ function createRenderer(canvas, onReady) {
  // La inicialización es asíncrona (pide el adaptador y el dispositivo de GPU):
  // hasta que termina no se dibuja nada.
  renderer.init().then(() => {
-  if (import.meta.env.DEV) window.__world.backend = renderer.backend.isWebGPUBackend ? "webgpu" : "webgl2"; // para las pruebas automáticas
+  if (import.meta.env.DEV) Object.assign(window.__world, { renderer, backend: renderer.backend.isWebGPUBackend ? "webgpu" : "webgl2" }); // para las pruebas automáticas
   stage("gpu");
   onReady();
  });
  return renderer;
 }
 
+// El pase que dibuja la escena dentro del posproceso (lo publica Pipeline).
+// `depth` es a qué profundidad de llamadas anidadas dibuja el renderer la
+// escena: el posproceso dibuja su rectángulo final y, dentro de esa llamada,
+// los pases intermedios y por fin la escena (1 o 2 según haya suavizado de
+// bordes; las sombras, una más). Se anota al dibujar, no se supone.
+// `uncull` es una tanda de objetos que el siguiente fotograma dibuja sin
+// descartar por encuadre (ver `drawOnce`).
+const live = { scenePass: null, depth: null, uncull: null };
+const WARM_GROUP = 3; // objetos que se compilan de una vez
+const WARM_BUDGET = 8; // ms por fotograma dedicados a compilar el planeta
+const isDrawn = (object) => object.isMesh || object.isLine || object.isPoints || object.isSprite;
+
+// Compila por adelantado lo que hay en la escena (o solo la tanda `slice`), tal
+// y como se va a dibujar de verdad. Para que sirva hacen falta cuatro cosas:
+//  · el mismo destino: el búfer del posproceso, no el lienzo (el formato de
+//    color forma parte de cada pipeline);
+//  · el mismo contexto de dibujado: `compileAsync` usa siempre el de
+//    profundidad 0 y la escena se dibuja en uno más hondo. Son objetos de
+//    dibujado distintos y, en las mallas instanciadas, sombreadores distintos,
+//    así que lo compilado no se aprovecharía. three r183 no ofrece otra forma
+//    de pedirlo: se le indica la profundidad mientras dura la llamada;
+//  · todo lo que la cámara no ve ahora (el renderer descarta con el encuadre
+//    del último fotograma, el de la bienvenida) y lo que está oculto de
+//    momento: césped, polvo, llama y humo de la nave, destellos;
+//  · las luces definitivas (las del islote no salen nunca de la escena; ver
+//    IsletLights en Welcome.jsx).
+// La lista de lo que hay que compilar se arma en el acto, así que el estado
+// forzado se deshace antes de volver: ningún fotograma real lo llega a ver. Lo
+// que se espera después es solo a la GPU.
+function compileNow(gl, scene, camera, slice = null) {
+ const forced = [];
+ scene.traverse((object) => {
+  forced.push([object, object.visible, object.frustumCulled, object.layers.mask]);
+  object.visible = true;
+  object.frustumCulled = false;
+  // Lo que no toca en esta tanda se salta sin ocultar a sus hijos.
+  if (slice && isDrawn(object) && !slice.has(object)) object.layers.mask = 0;
+ });
+ const pass = live.scenePass;
+ const target = gl.getRenderTarget();
+ const mrt = gl.getMRT();
+ const contexts = gl._renderContexts;
+ const depth = gl._callDepth;
+ const aligned = Boolean(pass && contexts && typeof depth === "number" && live.depth !== null);
+ if (pass) {
+  gl.setRenderTarget(pass.renderTarget);
+  gl.setMRT(pass.getMRT());
+ }
+ if (aligned) {
+  contexts.get = (renderTarget, renderMrt, callDepth) => Object.getPrototypeOf(contexts).get.call(contexts, renderTarget, renderMrt, callDepth ?? live.depth);
+  gl._callDepth = live.depth;
+ }
+ let done;
+ try {
+  done = gl.compileAsync(scene, camera);
+ } finally {
+  if (aligned) {
+   delete contexts.get;
+   gl._callDepth = depth;
+  }
+  gl.setRenderTarget(target);
+  gl.setMRT(mrt);
+  for (const [object, visible, frustumCulled, mask] of forced) {
+   object.visible = visible;
+   object.frustumCulled = frustumCulled;
+   object.layers.mask = mask;
+  }
+ }
+ return done;
+}
+
+// Dibuja de verdad, una vez, los objetos dados aunque queden fuera de cuadro.
+// Es lo que compila sus sombras: el mapa de sombras solo se redibuja en un
+// fotograma real, y en la bienvenida no cae nada del planeta dentro de él, así
+// que sin esto se compilarían todas a la vez en el instante de entrar. Fuera
+// de cuadro no se ve nada distinto. Lo ejecuta Pipeline al dibujar.
+const drawOnce = (objects) => new Promise((resolve) => (live.uncull = { objects, resolve }));
+
+// Precalentamiento completo. Con `spread` se reparte entre fotogramas para no
+// congelar la bienvenida mientras se prepara el planeta: se compila de pocos
+// en pocos objetos y, agotado el presupuesto del fotograma, se cede el turno.
+async function warmUp(gl, scene, camera, spread = false) {
+ if (!spread) return compileNow(gl, scene, camera);
+ const drawn = [];
+ scene.traverse((object) => isDrawn(object) && drawn.push(object));
+ let next = 0;
+ while (next < drawn.length) {
+  const started = performance.now();
+  const first = next;
+  const pending = [];
+  while (next < drawn.length && performance.now() - started < WARM_BUDGET) {
+   pending.push(compileNow(gl, scene, camera, new Set(drawn.slice(next, next + WARM_GROUP))));
+   next += WARM_GROUP;
+  }
+  await Promise.all(pending);
+  await drawOnce(drawn.slice(first, next).filter((object) => object.castShadow));
+ }
+ // Una pasada final con todo: lo que ya está compilado no cuesta, y recoge lo
+ // que se haya montado mientras tanto.
+ return compileNow(gl, scene, camera);
+}
+
 // Espera a que lo que hay montado en la escena esté compilado y dibujado unas
 // cuantas veces, y entonces avisa. Se usa dos veces: primero para la
 // bienvenida (y ahí se retira la pantalla de carga) y luego para el planeta
 // (y ahí se puede entrar). Así nada aparece a medio hacer.
-function Ready({ onCompiling, onReady }) {
+function Ready({ spread, onCompiling, onReady }) {
  const frames = useRef(0);
  const compiled = useRef(false);
  const { gl, scene, camera } = useThree();
@@ -61,7 +163,9 @@ function Ready({ onCompiling, onReady }) {
   if (frames.current === 1 && !compiled.current) {
    compiled.current = "pending";
    onCompiling?.();
-   gl.compileAsync(scene, camera).then(() => (compiled.current = true));
+   warmUp(gl, scene, camera, spread)
+    .catch((error) => console.error("No se pudo precompilar la escena", error)) // se entra igualmente
+    .then(() => (compiled.current = true));
   }
   if (frames.current > 5) return;
   if (frames.current < 2 || compiled.current === true) frames.current += 1;
@@ -92,14 +196,33 @@ function Pipeline({ quality, effects }) {
   result.outputColorTransform = false;
   output = renderOutput(output);
   result.outputNode = quality.smoothEdges && flag("aa", 1) > 0 ? fxaa(output) : output;
-  return { render: () => result.render(), dispose: () => result.dispose(), glow };
+  return { render: () => result.render(), dispose: () => result.dispose(), glow, scenePass };
  }, [gl, scene, camera, quality, effects]);
- useEffect(() => () => pipeline.dispose(), [pipeline]);
+ useEffect(() => {
+  live.scenePass = pipeline.scenePass;
+  live.depth = null;
+  // Anota a qué profundidad se dibuja la escena (ver `live`).
+  scene.onBeforeRender = (renderer, _scene, _camera, target) => {
+   if (target === pipeline.scenePass.renderTarget && typeof renderer._callDepth === "number") live.depth = renderer._callDepth;
+  };
+  return () => {
+   live.scenePass = null;
+   scene.onBeforeRender = () => {};
+   pipeline.dispose();
+  };
+ }, [pipeline, scene]);
 
  useFrame(() => {
   scene.fog.density = current.fogDensity;
   if (pipeline.glow) pipeline.glow.strength.value = current.bloom;
+  const once = live.uncull;
+  if (!once) return pipeline.render();
+  live.uncull = null;
+  const culled = once.objects.filter((object) => object.frustumCulled);
+  culled.forEach((object) => (object.frustumCulled = false));
   pipeline.render();
+  culled.forEach((object) => (object.frustumCulled = true));
+  once.resolve();
  }, 1);
  return null;
 }
@@ -162,7 +285,7 @@ export function Experience({ active, lowPower, onReady }) {
       <Player active={active} />
       <Woody active={active} />
      </group>
-     {built && <Ready onReady={onReady} />}
+     {built && <Ready spread onReady={onReady} />}
     </Suspense>
    )}
    <Interactions active={active} />
