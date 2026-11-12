@@ -19,9 +19,12 @@ check(/Jump|Fall/.test(await astro()), `saltando: ${await astro()}`);
 await wait(1500);
 check(/Idle|Land/.test(await astro()), `tras aterrizar: ${await astro()}`);
 
-// Woody sigue al jugador y se queda cerca.
-await t.put(0, 7);
-await t.hold("KeyW", 3500);
+// Woody sigue al jugador y se queda cerca. Se anda por un tramo despejado,
+// que depende del planeta.
+const worldId = await t.evaluate(() => window.__world.world().id);
+const [startX, startZ, walkKey] = worldId === "living" ? [-6, 0.2, "KeyA"] : [0, 7, "KeyW"];
+await t.put(startX, startZ);
+await t.hold(walkKey, 3500);
 let p = await t.pos(); let w = await t.woody();
 check(Math.hypot(w.x - p.x, w.z - p.z) < 4.5, `Woody te sigue: a ${Math.hypot(w.x - p.x, w.z - p.z).toFixed(1)} m tras andar 12 m`);
 await page.keyboard.down("ShiftLeft"); await page.keyboard.down("KeyD"); await wait(1500);
@@ -60,15 +63,25 @@ check(options.includes("Muéstrame proyectos") && options.includes("Llévame al 
 await t.evaluate(() => [...document.querySelectorAll(".woody-menu__list button")].find((b) => b.textContent === "Muéstrame proyectos").click());
 await wait(3500);
 w = await t.woody(); p = await t.pos();
-check(w.mode === "guide" && w.z < p.z - 3, `Woody va delante hacia Proyectos (z=${w.z}, tú en ${p.z})`);
+check(w.mode === "guide" && Math.hypot(w.x - p.x, w.z - p.z) > 3, `Woody va delante hacia Proyectos (a ${Math.hypot(w.x - p.x, w.z - p.z).toFixed(1)} m de ti)`);
 await wait(3000);
-w = await t.woody(); check(w.waiting && /GuideWait/.test(await dog()), `si no le sigues, te espera (${await dog()}) en z=${w.z}`);
+w = await t.woody(); check(w.waiting && /GuideWait/.test(await dog()), `si no le sigues, te espera (${await dog()})`);
 await t.shot("woody-espera");
 const destination = await t.evaluate(() => window.__world.world().guide.nodes.proyectos);
-await page.keyboard.down("KeyW");
+// Se le sigue: en cada paso se pulsa hacia donde está Woody.
 let arrived = false;
-for (let i = 0; i < 60 && !arrived; i++) { await wait(250); arrived = (await t.woody()).mode === "follow"; }
-await page.keyboard.up("KeyW");
+const held = new Set();
+for (let i = 0; i < 120 && !arrived; i++) {
+ w = await t.woody(); p = await t.pos();
+ const want = new Set();
+ if (w.z < p.z - 0.8) want.add("KeyW"); else if (w.z > p.z + 0.8) want.add("KeyS");
+ if (w.x < p.x - 0.8) want.add("KeyA"); else if (w.x > p.x + 0.8) want.add("KeyD");
+ for (const key of held) if (!want.has(key)) { await page.keyboard.up(key); held.delete(key); }
+ for (const key of want) if (!held.has(key)) { await page.keyboard.down(key); held.add(key); }
+ await wait(200);
+ arrived = w.mode === "follow";
+}
+for (const key of held) await page.keyboard.up(key);
 w = await t.woody();
 check(arrived && Math.hypot(w.x - destination[0], w.z - destination[1]) < 2.5, `al seguirle, llega a Proyectos y vuelve a acompañarte (${w.x}, ${w.z})`);
 check(/Woody: /.test((await t.text(".hud__toast")) ?? ""), `avisa al llegar: "${await t.text(".hud__toast")}"`);

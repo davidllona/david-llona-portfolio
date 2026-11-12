@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { player, rig } from "./state";
-import { current, updateTheme } from "./theme";
+import { player, rig, woody } from "./state";
+import { current, uniforms, updateTheme } from "./theme";
 
 // Dirección desde la que llega el sol (o la luna): desde el suroeste y arriba,
 // para que las sombras caigan hacia el fondo de la pantalla.
@@ -19,6 +19,7 @@ export function Lights({ shadowMapSize }) {
 
  useFrame(({ clock }, delta) => {
   updateTheme(Math.min(delta, 0.05), clock.elapsedTime);
+  uniforms.uActors.value.set(player.position.x, player.position.z, woody.position.x, woody.position.z);
   hemisphere.current.color.copy(current.hemiSky);
   hemisphere.current.groundColor.copy(current.hemiGround);
   hemisphere.current.intensity = current.hemiPower;

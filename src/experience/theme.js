@@ -34,12 +34,15 @@ const SPACE = new THREE.Color("#05041a");
 
 const COLOR_KEYS = ["hemiSky", "hemiGround", "sun", "fog", "background", "waterShallow", "waterDeep"];
 const NUMBER_KEYS = ["hemiPower", "sunPower", "glow"];
-const parsed = Object.fromEntries(
- Object.entries(THEMES).map(([name, values]) => [
-  name,
-  Object.fromEntries(Object.entries(values).map(([key, value]) => [key, COLOR_KEYS.includes(key) ? new THREE.Color(value) : value])),
- ]),
-);
+const parse = (themes) =>
+ Object.fromEntries(
+  Object.entries(themes).map(([name, values]) => [
+   name,
+   Object.fromEntries(Object.entries(values).map(([key, value]) => [key, COLOR_KEYS.includes(key) ? new THREE.Color(value) : value])),
+  ]),
+ );
+// La paleta en uso. Cada planeta trae la suya (ver setPalette).
+let parsed = parse(THEMES);
 
 // Valores actuales, ya mezclados.
 export const current = Object.fromEntries([
@@ -51,11 +54,25 @@ export const current = Object.fromEntries([
 // Uniformes compartidos por los sombreadores propios (agua, vaivén de plantas).
 export const uniforms = {
  uTime: { value: 0 },
+ // Ráfaga de viento que se propaga desde un punto: x, z, instante de inicio, fuerza.
+ uGust: { value: new THREE.Vector4(0, 0, -100, 0) },
+ // Quién aparta la hierba al pasar: xz del jugador y xz de Woody.
+ uActors: { value: new THREE.Vector4(0, 0, 0, 0) },
  uWaterShallow: { value: current.waterShallow },
  uWaterDeep: { value: current.waterDeep },
  uGlow: { value: 0 },
  uSpace: { value: 0 }, // 0 en tierra, 1 en órbita
 };
+
+// Cambia la paleta de día y de noche (al llegar a otro planeta).
+export function setPalette(themes) {
+ parsed = parse(themes ?? THEMES);
+}
+
+// Lanza una ráfaga de viento desde (x, z). Las plantas la notan al pasar el frente.
+export function startGust(x, z, strength = 1) {
+ uniforms.uGust.value.set(x, z, uniforms.uTime.value, strength);
+}
 
 const STORAGE_KEY = "planeta-tema";
 function stored() {
@@ -108,25 +125,55 @@ export function updateTheme(delta, elapsed) {
  for (const { material, day, night, property } of glowing) material[property] = day + (night - day) * t;
 }
 
-// Añade a un material un vaivén de viento. `byHeight`: se mueve más cuanto más
-// alto está el vértice (briznas de hierba); si no, se mece la pieza entera.
+// Añade a un material un vaivén de viento, que además responde a las ráfagas.
+// `byHeight`: se mueve más cuanto más alto está el vértice y se aparta al paso
+// del jugador y de Woody (briznas de hierba, flores); si no, se mece la pieza entera.
 export function addSway(material, strength, byHeight = false) {
  material.onBeforeCompile = (shader) => {
   shader.uniforms.uTime = uniforms.uTime;
+  shader.uniforms.uGust = uniforms.uGust;
+  shader.uniforms.uActors = uniforms.uActors;
   shader.vertexShader = shader.vertexShader
-   .replace("#include <common>", "#include <common>\nuniform float uTime;")
+   .replace("#include <common>", "#include <common>\nuniform float uTime;\nuniform vec4 uGust;\nuniform vec4 uActors;")
    .replace(
     "#include <begin_vertex>",
     `#include <begin_vertex>
     #ifdef USE_INSTANCING
      vec3 swayOrigin = instanceMatrix[3].xyz;
+     vec3 swayAxisX = instanceMatrix[0].xyz;
+     vec3 swayAxisZ = instanceMatrix[2].xyz;
+     float swayHeight = max(position.y, 0.0) * length(instanceMatrix[1].xyz);
     #else
      vec3 swayOrigin = vec3(0.0);
+     vec3 swayAxisX = vec3(1.0, 0.0, 0.0);
+     vec3 swayAxisZ = vec3(0.0, 0.0, 1.0);
+     float swayHeight = max(position.y, 0.0);
     #endif
     float swayPhase = swayOrigin.x * 0.31 + swayOrigin.z * 0.27;
-    float swayAmount = ${byHeight ? "max(position.y, 0.0) * " : ""}${strength.toFixed(3)};
-    transformed.x += sin(uTime * 1.7 + swayPhase) * swayAmount;
-    transformed.z += cos(uTime * 1.3 + swayPhase * 1.3) * swayAmount * 0.7;`,
+    // Metros que se mueve este vértice con viento flojo.
+    float swayAmount = ${byHeight ? "swayHeight * " : ""}${strength.toFixed(3)};
+
+    // Ráfaga: un frente circular que avanza a 16 m/s y dobla lo que encuentra.
+    vec2 fromGust = swayOrigin.xz - uGust.xy;
+    float gustDistance = length(fromGust);
+    float gustFront = (uTime - uGust.z) * 16.0;
+    float gust = uGust.w * smoothstep(9.0, 0.0, abs(gustDistance - gustFront)) * smoothstep(75.0, 30.0, gustFront);
+
+    vec2 sway = vec2(sin(uTime * 1.7 + swayPhase), cos(uTime * 1.3 + swayPhase * 1.3) * 0.7) * swayAmount * (1.0 + gust * 2.0);
+    sway += (gustDistance > 0.01 ? fromGust / gustDistance : vec2(0.0)) * gust * swayAmount * 5.0;
+    ${
+     byHeight
+      ? `// Se aparta de quien pasa cerca.
+    vec2 away = swayOrigin.xz - uActors.xy;
+    vec2 awayDog = swayOrigin.xz - uActors.zw;
+    float near = 1.0 - smoothstep(0.35, 1.25, length(away));
+    float nearDog = 1.0 - smoothstep(0.3, 1.0, length(awayDog));
+    sway += (normalize(away + 0.0001) * near + normalize(awayDog + 0.0001) * nearDog) * swayHeight * 0.75;`
+      : ""
+    }
+    // El desplazamiento está en metros del mundo: se pasa a los ejes de la pieza.
+    transformed.x += dot(vec3(sway.x, 0.0, sway.y), swayAxisX) / dot(swayAxisX, swayAxisX);
+    transformed.z += dot(vec3(sway.x, 0.0, sway.y), swayAxisZ) / dot(swayAxisZ, swayAxisZ);`,
    );
  };
  return material;

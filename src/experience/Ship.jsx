@@ -215,7 +215,7 @@ export function Ship() {
    <group position={[SHIP.x, 0, SHIP.z]}>
     <mesh position-y={0.1} receiveShadow>
      <cylinderGeometry args={[SHIP.padRadius, SHIP.padRadius + 0.3, 0.2, 24]} />
-     <meshLambertMaterial color="#3b2a5c" flatShading />
+     <meshLambertMaterial color={SHIP.color ?? "#3b2a5c"} flatShading />
     </mesh>
     <mesh position-y={0.21} rotation-x={-Math.PI / 2} material={ringMaterial}>
      <ringGeometry args={[SHIP.padRadius - 0.75, SHIP.padRadius - 0.45, 40]} />
