@@ -5,7 +5,7 @@ import { Tracker } from "./achievements/Tracker";
 import { Sounds } from "./audio/Sounds";
 import { Experience } from "./experience/Experience";
 import { useDesktopControls } from "./experience/useDesktopControls";
-import { emit } from "./experience/state";
+import { emit, events, rig } from "./experience/state";
 import { AchievementToast, AchievementsPanel } from "./ui/Achievements";
 import { ErrorBoundary, Fallback } from "./ui/Fallback";
 import { Hud } from "./ui/Hud";
@@ -32,6 +32,8 @@ function App() {
  // según se haya tocado con el dedo o hecho clic con el ratón.
  const [touch, setTouch] = useState(prefersTouch);
  const [active, setActive] = useState(false);
+ // ¿Se ha entrado ya alguna vez? Antes, la portada es la bienvenida; después, la pausa.
+ const [entered, setEntered] = useState(false);
  // La estación tarda un momento en descargar sus piezas.
  const [ready, setReady] = useState(false);
  // Portfolio legible abierto encima (menú rápido o modo directo): sección a mostrar.
@@ -39,6 +41,14 @@ function App() {
  const closeSheet = useCallback(() => setSheet(null), []);
  const [achievements, setAchievements] = useState(false);
  const closeAchievements = useCallback(() => setAchievements(false), []);
+ // ¿Ha terminado el descenso desde la bienvenida? Hasta entonces no hay interfaz de juego.
+ const [arrived, setArrived] = useState(false);
+ useEffect(() => {
+  const onArrived = () => setArrived(true);
+  events.addEventListener("arrived", onArrived);
+  return () => events.removeEventListener("arrived", onArrived);
+ }, []);
+ const playing = active && arrived;
  const lastPointerType = useRef("mouse");
  const onReady = useCallback(() => setReady(true), []);
 
@@ -56,6 +66,9 @@ function App() {
   if (!ready) return;
   // Se confirma cómo se controla según se haya entrado con el dedo o con el ratón.
   setTouch(lastPointerType.current === "touch");
+  // La primera vez, la cámara desciende del islote de bienvenida al planeta.
+  rig.introTarget = 0;
+  setEntered(true);
   setActive(true);
  };
 
@@ -76,6 +89,7 @@ function App() {
     <Flash />
     <StartOverlay
      visible={!active}
+     intro={!entered}
      ready={ready}
      touch={touch}
      onPointerDown={(event) => {
@@ -84,17 +98,17 @@ function App() {
      onEnter={enter}
      onDirect={() => setSheet("proyectos")}
     />
-    {active && <Hud touch={touch} />}
-    {active && touch && <TouchControls onPause={() => setActive(false)} />}
+    {playing && <Hud touch={touch} />}
+    {playing && touch && <TouchControls onPause={() => setActive(false)} />}
     <Sounds active={active} />
-    {active && <ThemeToggle />}
-    {active && <SoundToggle />}
-    {active && <WoodyMenu />}
+    {playing && <ThemeToggle />}
+    {playing && <SoundToggle />}
+    {playing && <WoodyMenu />}
     {active && <Modal />}
-    {active && !sheet && !achievements && <QuickMenu onOpen={setSheet} onAchievements={() => setAchievements(true)} />}
+    {playing && !sheet && !achievements && <QuickMenu onOpen={setSheet} onAchievements={() => setAchievements(true)} />}
     {achievements && <AchievementsPanel onClose={closeAchievements} />}
     <Tracker active={active} />
-    {active && <AchievementToast />}
+    {playing && <AchievementToast />}
     {sheet && (
      <Sheet
       section={sheet}

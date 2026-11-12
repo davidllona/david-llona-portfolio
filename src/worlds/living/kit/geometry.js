@@ -126,3 +126,35 @@ export function blade(points, width, { facing = 0, tipWidth = 0 } = {}) {
 export const blob = (detail = 1) => new THREE.IcosahedronGeometry(1, detail);
 // Tronco o rama: cilindro que se afina, apoyado en su base.
 export const limb = (bottomRadius, topRadius, length, sides = 6) => new THREE.CylinderGeometry(topRadius, bottomRadius, length, sides, 1).translate(0, length / 2, 0);
+
+// Tubo que sigue una curva y cambia de grosor: troncos y ramas que se tuercen.
+//  · points: [[x, y, z], …] por los que pasa; radius(t): radio en cada punto (t de 0 a 1).
+// Acaba en punta cerrada.
+export function tube(points, radius, { sides = 7, segments = 9 } = {}) {
+ const curve = new THREE.CatmullRomCurve3(points.map((p) => new THREE.Vector3(...p)));
+ const frames = curve.computeFrenetFrames(segments, false);
+ const rings = [];
+ for (let i = 0; i <= segments; i++) {
+  const centre = curve.getPointAt(i / segments);
+  const size = radius(i / segments);
+  rings.push(
+   Array.from({ length: sides }, (_, j) => {
+    const angle = (j / sides) * Math.PI * 2;
+    return centre.clone().addScaledVector(frames.normals[i], Math.cos(angle) * size).addScaledVector(frames.binormals[i], Math.sin(angle) * size);
+   }),
+  );
+ }
+ const positions = [];
+ const push = (...vertices) => vertices.forEach((v) => positions.push(v.x, v.y, v.z));
+ for (let i = 0; i < segments; i++) {
+  for (let j = 0; j < sides; j++) {
+   const k = (j + 1) % sides;
+   push(rings[i][j], rings[i][k], rings[i + 1][j], rings[i][k], rings[i + 1][k], rings[i + 1][j]);
+  }
+ }
+ const tip = curve.getPointAt(1);
+ for (let j = 0; j < sides; j++) push(rings[segments][j], rings[segments][(j + 1) % sides], tip);
+ const geometry = new THREE.BufferGeometry();
+ geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+ return geometry;
+}

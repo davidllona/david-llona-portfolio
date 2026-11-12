@@ -88,6 +88,8 @@ export async function open({ mobile = false, viewport, query = "", uncapped = fa
   // Entra desde la pantalla de inicio.
   enter: async () => {
    await page.click(".overlay__enter");
+   // La primera vez la cámara baja del islote de bienvenida: se espera a que llegue.
+   await page.waitForFunction(() => window.__world.rig.intro === 0, { timeout: 15000 });
    await wait(500);
   },
   pos: async () => {

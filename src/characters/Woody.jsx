@@ -6,22 +6,14 @@ import { emit, events, player, woody } from "../experience/state";
 import { world } from "../worlds";
 import clipData from "./data/woody_clips.json";
 import { createBrain, startGuide, startPet, stopGuide, updateBrain } from "./WoodyBrain";
+import { WOODY_PALETTE, WOODY_SCALE } from "./looks";
 import { useRiggedModel } from "./useRiggedModel";
 
 const URL = "/models/characters/woody.glb";
 // El modelo mide 0,82 m hasta la cabeza; en el juego, algo más de 1 m.
-const SCALE = 1.25;
+const SCALE = WOODY_SCALE;
 const CLIP_SPEED = { walk: 0.56 * SCALE, trot: 1.42 * SCALE, run: 3.5 * SCALE };
 
-// En el modelo el pelo es negro puro: aquí se aclara un punto para que las
-// facetas se lean con la luz del juego. La mancha del pecho es blanca.
-const PALETTE = {
- Woody_Fur: { color: "#3a3943" },
- Woody_FurSoft: { color: "#4b4a56" },
- Woody_Chest: { color: "#f2efe6" },
- Woody_Nose: { color: "#0d0d10" },
- Woody_Eye: { color: "#6b4a26", emissive: "#6b4a26", glow: 0.5 },
-};
 
 // Lo que hace de pie y quieto cada pocos segundos.
 const IDLE_GESTURES = ["Woody_Idle_LookAround", "Woody_HeadTiltLeft", "Woody_HeadTiltRight", "Woody_SniffGround", "Woody_TailWag_Slow"];
@@ -33,7 +25,7 @@ export function Woody({ active }) {
  const brain = useMemo(createBrain, []);
  const idle = useRef({ timer: 0, next: 6 });
  const { scene, controller } = useRiggedModel(URL, {
-  palette: PALETTE,
+  palette: WOODY_PALETTE,
   aliases: clipData.aliases,
   onEvent: (name) => emit("anim", { who: "woody", name }),
  });

@@ -131,22 +131,24 @@ export function updateTheme(delta, elapsed) {
  const target = theme.name === "night" ? 1 : 0;
  theme.mix += (target - theme.mix) * Math.min(1, delta * 3);
  if (Math.abs(target - theme.mix) < 0.001) theme.mix = target;
- const t = theme.mix;
+ // En la bienvenida es de noche; al entrar amanece (o no, si se dejó en noche).
+ const t = Math.max(theme.mix, rig.intro * rig.intro * (3 - 2 * rig.intro));
  for (const key of COLOR_KEYS) current[key].copy(parsed.day[key]).lerp(parsed.night[key], t);
  for (const key of NUMBER_KEYS) current[key] = parsed.day[key] + (parsed.night[key] - parsed.day[key]) * t;
 
- // Al subir con la nave, el cielo se va volviendo espacio.
- current.background.lerp(SPACE, rig.space);
- current.fog.lerp(SPACE, rig.space);
- current.skyTop.lerp(SPACE, rig.space);
- current.skyHorizon.lerp(SPACE, rig.space * 0.85);
- current.fogDensity *= 1 - rig.space * 0.8;
+ // Al subir con la nave (y en el islote de la bienvenida), el cielo es espacio.
+ const space = Math.max(rig.space, rig.intro);
+ current.background.lerp(SPACE, space);
+ current.fog.lerp(SPACE, space);
+ current.skyTop.lerp(SPACE, space);
+ current.skyHorizon.lerp(SPACE, space * 0.85);
+ current.fogDensity *= 1 - space * 0.8;
  sunDirection.copy(SUN_DAY).lerp(SUN_NIGHT, t).normalize();
  uniforms.uNight.value = t;
 
  uniforms.uTime.value = elapsed;
  uniforms.uGlow.value = current.glow;
- uniforms.uSpace.value = rig.space;
+ uniforms.uSpace.value = space;
  for (const { material, day, night, property } of glowing) material[property] = day + (night - day) * t;
 }
 

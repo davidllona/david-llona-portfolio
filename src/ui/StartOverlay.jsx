@@ -56,45 +56,81 @@ const TOUCH_CONTROLS = [
  { action: "Correr", art: <StickIcon pushed /> },
 ];
 
+// Indicación de entrada dibujada a mano: una flecha y un subrayado que se trazan solos.
+const Scribble = () => (
+ <svg className="hint__scribble" viewBox="0 0 260 130" aria-hidden="true">
+  <path className="hint__underline" d="M4 40c36-6 74-1 108-5 30-3 62 3 92-3" pathLength="1" />
+  <path className="hint__arrow" d="M150 52c30 2 54 14 70 34 6 8 10 17 12 27" pathLength="1" />
+  <path className="hint__arrow hint__arrow--head" d="M214 98c7 6 12 11 18 16 2-10 5-18 11-27" pathLength="1" />
+ </svg>
+);
+
 // Pantalla de inicio y de pausa. Un toque o un clic en cualquier punto entra.
 // `onPointerDown` permite saber si se entró con el dedo o con el ratón.
-export function StartOverlay({ visible, ready, touch, onPointerDown, onEnter, onDirect }) {
+//  · intro: es la bienvenida (el islote se ve detrás, sin velo); si no, es la pausa.
+export function StartOverlay({ visible, intro, ready, touch, onPointerDown, onEnter, onDirect }) {
  const controls = touch ? TOUCH_CONTROLS : MOUSE_CONTROLS;
  const note = touch
   ? "Pulgar izquierdo para moverte; toca los objetos para usarlos. Mejor en horizontal."
   : "También valen las flechas. E usa lo que tengas cerca, N cambia entre día y noche y Esc pausa.";
+ const direct = (
+  <button
+   type="button"
+   className="overlay__direct"
+   tabIndex={visible ? 0 : -1}
+   onClick={(event) => {
+    event.stopPropagation();
+    onDirect();
+   }}
+  >
+   Ver el portfolio sin jugar
+  </button>
+ );
+
+ if (intro) {
+  return (
+   <div className={`overlay overlay--intro${visible ? "" : " overlay--hidden"}`} aria-hidden={!visible} onPointerDown={onPointerDown} onClick={onEnter}>
+    <header className="intro__title">
+     <p className="overlay__eyebrow">Portfolio · Frontend developer</p>
+     <h1 className="overlay__title">
+      David <span>Llona</span>
+     </h1>
+     <p className="overlay__lead">Un planeta para explorar con Woody. Dentro está mi trabajo.</p>
+    </header>
+
+    <div className="intro__hint">
+     <Scribble />
+     <button type="button" className="overlay__enter intro__enter" tabIndex={visible ? 0 : -1} disabled={!ready}>
+      {!ready ? "Preparando el planeta…" : touch ? "Toca para aterrizar" : "Haz clic para aterrizar"}
+     </button>
+    </div>
+
+    <footer className="intro__foot">
+     <ul className="intro__keys" aria-label="Controles">
+      {controls.map((control) => (
+       <li key={control.action}>{control.action}</li>
+      ))}
+     </ul>
+     {direct}
+    </footer>
+   </div>
+  );
+ }
 
  return (
-  <div
-   className={`overlay${visible ? "" : " overlay--hidden"}`}
-   aria-hidden={!visible}
-   onPointerDown={onPointerDown}
-   onClick={onEnter}
-  >
+  <div className={`overlay${visible ? "" : " overlay--hidden"}`} aria-hidden={!visible} onPointerDown={onPointerDown} onClick={onEnter}>
    <div className="overlay__panel">
-    <p className="overlay__eyebrow">Planeta · Portfolio</p>
+    <p className="overlay__eyebrow">En pausa</p>
     <h1 className="overlay__title">
      David <span>Llona</span>
     </h1>
     <p className="overlay__lead">Frontend developer. Explora el planeta para ver mi trabajo.</p>
 
     <button type="button" className="overlay__enter" tabIndex={visible ? 0 : -1} disabled={!ready}>
-     {!ready ? "Cargando el planeta…" : touch ? "Toca para entrar" : "Haz clic para entrar"}
-     {ready && <span aria-hidden="true">→</span>}
+     {touch ? "Toca para seguir" : "Haz clic para seguir"}
+     <span aria-hidden="true">→</span>
     </button>
-
-    {/* Modo directo: el portfolio sin jugar. No entra al planeta. */}
-    <button
-     type="button"
-     className="overlay__direct"
-     tabIndex={visible ? 0 : -1}
-     onClick={(event) => {
-      event.stopPropagation();
-      onDirect();
-     }}
-    >
-     Ver el portfolio sin jugar
-    </button>
+    {direct}
 
     <ul className="controls">
      {controls.map((control) => (

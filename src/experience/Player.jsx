@@ -4,7 +4,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { Astronaut } from "../characters/Astronaut";
 import { world } from "../worlds";
 import { moveAgent } from "../worlds/collision";
-import { emit, input, player, rig, ui } from "./state";
+import { WELCOME, emit, input, player, rig, ui } from "./state";
 
 const WALK_SPEED = 3.6; // m/s
 const RUN_SPEED = 6.2;
@@ -28,6 +28,8 @@ const PUFFS = 10;
 // y la animación del personaje están en characters/Astronaut.jsx.
 export function Player({ active }) {
  const camera = useThree((state) => state.camera);
+ const look = useMemo(() => new THREE.Vector3(), []);
+ const introPoint = useMemo(() => new THREE.Vector3(), []);
  const aspect = useThree((state) => state.size.width / state.size.height);
  const group = useRef(null);
  const shadow = useRef(null);
@@ -65,7 +67,8 @@ export function Player({ active }) {
   const state = body.current;
   const { position, velocity } = player;
   const { keys, stick } = input;
-  const controllable = active && !player.frozen && !player.gesture && !ui.open;
+  // Durante el descenso de la bienvenida aún no se maneja.
+  const controllable = active && !player.frozen && !player.gesture && !ui.open && rig.intro < 0.12;
   const waterLevel = world.waterLevel;
 
   // Movimiento relativo a la pantalla: arriba es el norte (-Z), derecha el este (+X).
@@ -164,7 +167,16 @@ export function Player({ active }) {
    state.focus.y + offsetY + (Math.random() - 0.5) * shake,
    state.focus.z + offsetZ,
   );
-  camera.lookAt(state.focus.x, state.focus.y, state.focus.z);
+  look.set(state.focus.x, state.focus.y, state.focus.z);
+  // Bienvenida: la cámara está en el islote y, al entrar, viaja hasta aquí.
+  if (rig.intro > 0) {
+   const pose = aspect < 1 ? WELCOME.tall : WELCOME.wide;
+   const k = rig.intro * rig.intro * (3 - 2 * rig.intro);
+   const [ox, oy, oz] = WELCOME.origin;
+   camera.position.lerp(introPoint.set(ox + pose.camera[0], oy + pose.camera[1], oz + pose.camera[2]), k);
+   look.lerp(introPoint.set(ox + pose.look[0], oy + pose.look[1], oz + pose.look[2]), k);
+  }
+  camera.lookAt(look);
  });
 
  return (

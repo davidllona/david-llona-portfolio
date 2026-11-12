@@ -156,7 +156,7 @@ export function Grass({ quality = "high" }) {
   size.value = PATCH * zoom;
   centre.value.set(focus.x, focus.z - 4 * zoom);
   // Desde el espacio no se distingue: se ahorra.
-  mesh.current.visible = rig.space < 0.6;
+  mesh.current.visible = Math.max(rig.space, rig.intro) < 0.6;
  });
 
  return <mesh ref={mesh} geometry={geometry} material={material} frustumCulled={false} receiveShadow />;

@@ -15,6 +15,7 @@ import { Ship } from "./Ship";
 import { Sky } from "./Sky";
 import { current } from "./theme";
 import { WarmLights } from "./WarmLights";
+import { Welcome } from "./Welcome";
 
 // Dos niveles de calidad. El planeta es el mismo; en móvil se recorta lo que
 // cuesta por píxel (resolución, sombras y suavizado de bordes).
@@ -136,6 +137,7 @@ export function Experience({ active, lowPower, onReady }) {
      <Player active={active} />
      <Woody active={active} />
     </group>
+    <Welcome />
     <Ready onReady={onReady} />
    </Suspense>
    <Interactions active={active} />

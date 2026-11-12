@@ -33,7 +33,17 @@ export const woody = {
 };
 
 // Cámara: a quién sigue y desde cuánto de lejos. `focus` nulo = al jugador.
-export const rig = { focus: null, distance: 1, shake: 0, space: 0 };
+export const rig = { focus: null, distance: 1, shake: 0, space: 0, intro: 1, introTarget: 1 };
+// `intro`: 1 mientras se muestra la bienvenida (la cámara está en el islote, de
+// noche) y baja a 0 al entrar; `introTarget` es hacia dónde va.
+
+// Dónde está el islote de la bienvenida y desde dónde se mira (ver Welcome.jsx).
+export const WELCOME = {
+ origin: [0, 150, 78],
+ // Cámara y punto al que mira, relativos al islote; en vertical, más lejos y centrada.
+ wide: { camera: [-2.9, 2.5, 13.4], look: [-2.8, 2.05, 0] },
+ tall: { camera: [0.2, 3.6, 24], look: [0.2, 3.3, 0] },
+};
 
 // Avisos puntuales de la escena a la interfaz: "hint", "toast", "open",
 // "score", "flash"…

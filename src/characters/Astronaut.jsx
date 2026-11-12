@@ -4,20 +4,14 @@ import { useFrame } from "@react-three/fiber";
 import { emit, player } from "../experience/state";
 import eventData from "./data/anim_events.json";
 import clipData from "./data/astronauta_clips.json";
+import { ASTRONAUT_PALETTE, ASTRONAUT_SCALE } from "./looks";
 import { useRiggedModel } from "./useRiggedModel";
 
 const URL = "/models/characters/astronauta.glb";
-// El modelo mide 1,25 m; en el juego, 1,75 m.
-export const ASTRONAUT_SCALE = 1.4;
 const WALK_CLIP_SPEED = 0.55 * ASTRONAUT_SCALE; // m/s a los que avanza cada clip a velocidad 1
 const RUN_CLIP_SPEED = 2.08 * ASTRONAUT_SCALE;
 const RUN_FROM = 1.7; // m/s a partir de los cuales corre en vez de andar
 
-const PALETTE = {
- Astro_Visor: { color: "#15131f", emissive: "#2a2456", glow: 0.5 },
- Astro_Teal: { color: "#1fb3a4", emissive: "#1fb3a4", glow: 0.35 },
- Astro_Yellow: { color: "#ffb21f", emissive: "#ffb21f", glow: 0.3 },
-};
 
 // El astronauta riggeado. No decide a dónde va (eso es Player.jsx): mira el
 // estado del jugador y elige el clip. Otros sistemas le piden gestos con
@@ -28,7 +22,7 @@ export function Astronaut() {
  const wasGrounded = useRef(true);
  const landing = useRef(false);
  const { scene, controller, sockets } = useRiggedModel(URL, {
-  palette: PALETTE,
+  palette: ASTRONAUT_PALETTE,
   aliases: clipData.aliases,
   events: eventData.events,
   onEvent: (name) => emit("anim", { who: "astro", name }),
