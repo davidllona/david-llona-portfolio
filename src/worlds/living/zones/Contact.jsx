@@ -286,7 +286,7 @@ export function Contact() {
       <circleGeometry args={[window.round, 10]} />
      </Glow>
     ))}
-    <Glow power={0.6} forward={0.5} night={2.3} position={station.lantern}>
+    <Glow power={0.5} forward={1.0} drop={0.4} night={2.3} position={station.lantern}>
      <boxGeometry args={[0.16, 0.24, 0.16]} />
     </Glow>
     <group ref={beacon} position={station.mast}>
@@ -308,7 +308,7 @@ export function Contact() {
    {/* Farola y cartel de la zona. */}
    <group position={[x - 4.3, 0, z + 2.6]} rotation-y={Math.PI}>
     <mesh geometry={models.lamp} material={models.material} castShadow />
-    <Glow power={0.9} reach={10} forward={0.2} night={2.6} position={LAMP_GLASS}>
+    <Glow power={0.9} reach={10} forward={0.7} drop={0.9} night={2.6} position={LAMP_GLASS}>
      <boxGeometry args={[0.2, 0.34, 0.2]} />
     </Glow>
    </group>

@@ -14,7 +14,7 @@ const PALETTE = {
  wetsand: ["#d3bd88", "#c9b27d"],
  sand: ["#f3e2ad", "#ecd79b", "#f7e9bb"],
  path: ["#e3ca98", "#dcc08b"],
- pathEdge: ["#c5a676", "#b99868"],
+ pathEdge: ["#c3c184", "#b9bb7c"], // a medio camino entre la tierra y la hierba: el borde se funde
  stone: ["#a9a6b3", "#9b98a6"],
  plaza: ["#cdbfa6", "#c2b49a", "#d6c9b1"],
  bed: ["#4f9f9c", "#3f8f90", "#2f7f86"],

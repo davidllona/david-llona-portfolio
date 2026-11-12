@@ -33,7 +33,12 @@ export const woody = {
 };
 
 // Cámara: a quién sigue y desde cuánto de lejos. `focus` nulo = al jugador.
-export const rig = { focus: null, distance: 1, shake: 0, space: 0, intro: 1, introTarget: 1 };
+export const rig = { focus: null, distance: 1, zoom: 1, shake: 0, space: 0, intro: 1, introTarget: 1 };
+// `zoom`: lo que acerca o aleja el usuario con la rueda o el pellizco, entre estos límites.
+export const ZOOM = { min: 0.72, max: 1.9 };
+export function zoomBy(factor) {
+ rig.zoom = Math.min(ZOOM.max, Math.max(ZOOM.min, rig.zoom * factor));
+}
 // `intro`: 1 mientras se muestra la bienvenida (la cámara está en el islote, de
 // noche) y baja a 0 al entrar; `introTarget` es hacia dónde va.
 

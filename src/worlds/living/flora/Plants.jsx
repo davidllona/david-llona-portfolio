@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { Instances } from "../../../experience/Instances";
 import { WIND, withWind } from "../../../experience/environment/wind";
+import { withSeeThrough } from "../../../experience/environment/seeThrough";
 import { lambert } from "../../../experience/materials";
 import { POND, SCATTER, WATER_LEVEL, groundHeight, surface } from "../layout";
 import { createPlantModels } from "./plantModels";
@@ -26,6 +27,7 @@ export function Plants() {
    reeds: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.reed, cap: 1.4, trail: 0.5 }),
    bushes: withWind(lambert(), { flex: WIND.flex.bush, power: 1.5, cap: 1.1 }),
    still: lambert(),
+   rocks: withSeeThrough(lambert()), // la roca que tape al astronauta se vuelve translúcida
   }),
   [],
  );
@@ -88,8 +90,8 @@ export function Plants() {
    {each(models.bushes, items.bushes, material.bushes, { castShadow: true, receiveShadow: true })}
    {each(models.reeds, items.reeds, material.reeds)}
    {each(models.mushrooms, items.mushrooms, material.still, { castShadow: true })}
-   {each(models.rocks, items.rocks, material.still, { colored: true, castShadow: true, receiveShadow: true })}
-   {each(models.mossy, items.mossy, material.still, { colored: true, castShadow: true, receiveShadow: true })}
+   {each(models.rocks, items.rocks, material.rocks, { colored: true, castShadow: true, receiveShadow: true })}
+   {each(models.mossy, items.mossy, material.rocks, { colored: true, castShadow: true, receiveShadow: true })}
    <Instances geometry={models.pebble} material={material.still} items={items.pebbles} colored />
    {each(models.lilies, items.lilies, material.still)}
   </>

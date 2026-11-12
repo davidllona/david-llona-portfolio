@@ -209,16 +209,26 @@ export const PAD = { x: 0, z: 0, padRadius: 4.6, color: "#8f8c99" }; // platafor
 // expositor; la casa queda detrás, girada `turn` hacia la plaza.
 export const PLAZA = { x: -24.5, z: -1.6, r: 5.5 };
 export const WELL = { x: -24.5, z: -3.5 };
-// `side`: hacia qué lado queda el expositor (+1 este, −1 oeste); el cartel va al otro.
-// Las dos parcelas del este y las dos del oeste son espejo, con los expositores hacia el centro.
+// Cada parcela está a una distancia y con un giro distintos, sin simetría. La
+// captura del proyecto va en un escaparate adosado a la fachada: `window` dice
+// dónde, en el sistema de la casa (x a lo ancho, z hacia el frente, giro propio).
 export const PROJECT_CABINS = [
- { x: -13.4, z: -4.9, turn: -0.2, side: -1 },
- { x: -19.9, z: -9.5, turn: -0.06, side: -1 },
- { x: -29.1, z: -9.5, turn: 0.06, side: 1 },
- { x: -35.4, z: -4.9, turn: 0.2, side: 1 },
+ { x: -14.2, z: -5.6, turn: -0.34, window: { x: 1.1, z: 2.2, turn: 0 } },
+ { x: -20.6, z: -10.4, turn: -0.1, window: { x: 1.95, z: 1.25, turn: -0.42 } },
+ { x: -28.2, z: -8.7, turn: 0.17, window: { x: -0.5, z: 1.72, turn: 0 } },
+ { x: -34.7, z: -3.8, turn: 0.44, window: { x: -2.5, z: 1.2, turn: 0.38 } },
 ];
-// Dónde cae cada pieza de una parcela.
-export const cabinParts = (c) => ({ house: { x: c.x - 0.9 * c.side, z: c.z - 1.6 }, stand: { x: c.x + 1.75 * c.side, z: c.z + 0.95 }, sign: { x: c.x - 2.7 * c.side, z: c.z + 0.7 } });
+// Dónde cae cada pieza de una parcela (la casa, y su escaparate ya girado).
+export const cabinParts = (c) => {
+ const house = { x: c.x, z: c.z - 1.6 };
+ const cos = Math.cos(c.turn), sin = Math.sin(c.turn);
+ return { house, stand: { x: house.x + c.window.x * cos + c.window.z * sin, z: house.z - c.window.x * sin + c.window.z * cos } };
+};
+// Bancos de la plaza (x, z, giro).
+export const BENCHES = [
+ { x: PLAZA.x - 3.9, z: PLAZA.z + 4.0, turn: Math.PI - 0.42 },
+ { x: PLAZA.x + 2.7, z: PLAZA.z + 4.7, turn: Math.PI + 0.2 },
+];
 // Jardín del laboratorio: tres pedestales al sur de la plaza, con su sendero.
 export const LAB_TOTEMS = [
  { x: -19.2, z: 6.3 },
@@ -237,6 +247,14 @@ export const BASKET = {
 };
 export const PITCH = { x0: -33, x1: -14, z0: 17, z1: 29 }; // fútbol
 export const WIND_CHIME = { x: -27.5, z: -22.5 }; // despierta al bosque
+// Postes indicadores de madera, junto al camino que llega a cada sitio.
+export const SIGNPOSTS = [
+ { text: "NAVE", x: -3.7, z: 8.7, turn: 0.22 },
+ { text: "CV", x: 8.4, z: 7.4, turn: -0.28 },
+ { text: "BALONCESTO", x: -2.3, z: 18.5, turn: 0.18 },
+ { text: "FÚTBOL", x: -14.6, z: 15.2, turn: -0.3 },
+ { text: "OBSERVATORIO", x: 16.2, z: -21.8, turn: 0.2 },
+];
 export const ANCIENT_TREES = [
  { x: -29.5, z: -25.5, scale: 1.25 },
  { x: 26.5, z: -31, scale: 1.05 },
@@ -430,7 +448,7 @@ const trees = allTrees.map((tree) => {
 });
 // Huellas de los edificios y carteles: dentro no crece nada.
 const FOOTPRINTS = [
- ...PROJECT_CABINS.flatMap((c) => { const p = cabinParts(c); return [{ ...p.house, r: 3.1 }, { ...p.stand, r: 1.4 }, { ...p.sign, r: 0.9 }]; }),
+ ...PROJECT_CABINS.flatMap((c) => { const p = cabinParts(c); return [{ ...p.house, r: 3.1 }, { ...p.stand, r: 1.4 }]; }),
  ...LAB_TOTEMS.map((t) => ({ ...t, r: 0.8 })),
  { ...CV_KIOSK, r: 0.9 },
  { x: TREEHOUSE.x, z: TREEHOUSE.z - 1.6, r: 1.7 },
@@ -440,28 +458,37 @@ const FOOTPRINTS = [
  { ...CONTACT.antenna, r: 1.5 },
  ...CONTACT.terminals.map((t) => ({ ...t, r: 0.8 })),
  { ...WIND_CHIME, r: 0.5 },
+ ...SIGNPOSTS.map((s) => ({ x: s.x, z: s.z, r: 0.7 })),
  // Rótulos tumbados en el suelo: la hierba no debe taparlos.
  ...LAB_TOTEMS.flatMap((t) => [-0.8, 0.8].map((dx) => ({ x: t.x + dx, z: t.z + 1.5, r: 0.8 }))),
- { x: CV_KIOSK.x, z: CV_KIOSK.z + 1.3, r: 0.9 },
  { x: TREEHOUSE.x, z: TREEHOUSE.z - 0.9, r: 3.0 },
  { x: TREEHOUSE.x - 3.9, z: TREEHOUSE.z - 0.2, r: 1.6 },
- ...[-1.2, 0, 1.2].map((dx) => ({ x: OBSERVATORY.x + dx, z: OBSERVATORY.z + 3.9, r: 0.9 })),
  { x: CONTACT.x, z: CONTACT.z + 0.4, r: 4.4 },
  ...CONTACT.terminals.map((t) => ({ x: t.x, z: t.z + 1.3, r: 0.9 })),
- ...[-1.6, 0, 1.6].map((dx) => ({ x: (COURT.x0 + COURT.x1) / 2 + dx, z: COURT.z1 + 1.6, r: 1 })),
- ...[-1, 1].map((dx) => ({ x: (PITCH.x0 + PITCH.x1) / 2 + dx, z: PITCH.z1 + 1.5, r: 1 })),
 ];
 const built = (x, z) => FOOTPRINTS.some((f) => (f.x - x) ** 2 + (f.z - z) ** 2 < f.r * f.r);
 
 // Cuánta hierba crece en un punto, de 0 (nada) a 1 (pradera alta). De aquí
 // sale la máscara que lee el césped: densidad y altura a la vez.
-const GRASS_AMOUNT = { meadow: 1, grass: 0.7, moss: 0.86, shade: 0.5, pathEdge: 0.22 };
+const GRASS_AMOUNT = { meadow: 1, grass: 0.7, moss: 0.86, shade: 0.5, pathEdge: 0.3 };
+const toRect = (x, z, rect) => Math.hypot(Math.max(rect.x0 - x, 0, x - rect.x1), Math.max(rect.z0 - z, 0, z - rect.z1));
+// Distancia a lo construido más cercano (edificios, carteles, pistas, plataforma, plaza).
+function toBuilt(x, z) {
+ let best = Math.min(toRect(x, z, COURT), toRect(x, z, PITCH), distance(x, z, PAD.x, PAD.z) - PAD.padRadius, distance(x, z, PLAZA.x, PLAZA.z) - PLAZA.r);
+ for (const f of FOOTPRINTS) {
+  const dx = f.x - x, dz = f.z - z;
+  if (Math.abs(dx) > f.r + 4 || Math.abs(dz) > f.r + 4) continue;
+  best = Math.min(best, Math.hypot(dx, dz) - f.r);
+ }
+ return best;
+}
 // `kind`: tipo de suelo, si quien llama ya lo ha calculado.
 export function grassAmount(x, z, kind = surface(x, z)) {
  const base = GRASS_AMOUNT[kind] ?? 0;
  if (base === 0 || built(x, z)) return 0;
- // Junto a los caminos, césped corto (una franja segada); la hierba alta queda para las praderas.
- const verge = 0.5 + 0.5 * smooth(1.6, 4.2, pathDistance(x, z));
+ // Junto a los caminos y a lo construido, césped corto (una franja segada); la
+ // hierba alta queda para las praderas.
+ const verge = (0.36 + 0.64 * smooth(1.3, 4.6, pathDistance(x, z))) * (0.4 + 0.6 * smooth(0.2, 3.2, toBuilt(x, z)));
  // Dentro de cada zona, manchas algo más altas y más bajas.
  return base * (0.8 + meadow(x, z) * 0.4) * verge;
 }
@@ -602,10 +629,9 @@ const colliders = [
  ...lanterns.map((l) => ({ x: l.x, z: l.z, r: 0.2 })),
  // Cabañas: tres círculos a lo ancho de cada una.
  // Casas de la aldea (tres círculos a lo ancho), su expositor y su cartel.
- ...PROJECT_CABINS.flatMap((c) => { const p = cabinParts(c); return [...[-1.4, 0, 1.4].map((dx) => ({ x: p.house.x + dx, z: p.house.z, r: 1.5 })), { ...p.stand, r: 0.55 }, { ...p.sign, r: 0.22 }]; }),
+ ...PROJECT_CABINS.flatMap((c) => { const p = cabinParts(c); return [...[-1.4, 0, 1.4].map((dx) => ({ x: p.house.x + dx, z: p.house.z, r: 1.5 })), { ...p.stand, r: 0.85 }]; }),
  { ...WELL, r: 1.0 },
- { x: PLAZA.x - 3.4, z: PLAZA.z + 4.3, r: 0.65 },
- { x: PLAZA.x + 3.4, z: PLAZA.z + 4.3, r: 0.65 },
+ ...BENCHES.map((b) => ({ x: b.x, z: b.z, r: 0.65 })),
  { x: PLAZA.x, z: PLAZA.z - 7.2, r: 0.5 },
  ...LAB_TOTEMS.map((t) => ({ ...t, r: 0.7 })),
  { ...CV_KIOSK, r: 0.85 },
@@ -624,6 +650,7 @@ const colliders = [
  { ...CONTACT.antenna, r: 1.2 },
  ...CONTACT.terminals.map((t) => ({ ...t, r: 0.5 })),
  { ...WIND_CHIME, r: 0.35 },
+ ...SIGNPOSTS.map((s) => ({ x: s.x, z: s.z, r: 0.22 })),
  { x: BASKET.hoop.x + 0.6, z: BASKET.hoop.z, r: 0.35 },
  { ...BASKET.ballStand, r: 0.24 },
  // Barandillas del puente: solo se cruza por el tablero.

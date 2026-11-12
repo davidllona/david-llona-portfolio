@@ -23,7 +23,8 @@ function Lanterns() {
  const material = useMemo(
   () => ({
    lamp: lambert(),
-   glass: new THREE.MeshLambertMaterial({ color: "#ffd98a", emissive: "#ffb44a" }),
+   // Solo emite (ver buildings/Glow.jsx): así la luz de la propia farola no lo quema.
+   glass: new THREE.MeshLambertMaterial({ color: "#000000", emissive: "#ffc878" }),
    pool: new THREE.MeshBasicMaterial({ map: glow, color: "#ffc070", transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, fog: false }),
   }),
   [glow],
@@ -32,9 +33,9 @@ function Lanterns() {
  const lamps = useMemo(() => SCATTER.lanterns.map((l, i) => ({ ...l, turn: ((i * 2.4) % 6.28) })), []);
  useEffect(() => {
   const stop = [
-   registerGlow(material.glass, 0.35, 3),
+   registerGlow(material.glass, 0.7, 1.3),
    registerGlow(material.pool, 0, 0.3, "opacity"),
-   ...lamps.map((l) => addWarmSource({ x: l.x - Math.cos(l.turn) * 0.62, y: l.y + 2.7, z: l.z + Math.sin(l.turn) * 0.62 })),
+   ...lamps.map((l) => addWarmSource({ x: l.x - Math.cos(l.turn) * 1.0, y: l.y + 1.9, z: l.z + Math.sin(l.turn) * 1.0 })),
   ];
   return () => {
    stop.forEach((off) => off());

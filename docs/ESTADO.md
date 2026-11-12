@@ -9,7 +9,8 @@ Trabajo en curso: **revisión definitiva de The Living World** (fases A–F del 
 
 ```
 npm run dev -- --port 5199     # http://localhost:5199
-npm run e2e                    # 113 comprobaciones en Chrome sin ventana (con el servidor encendido)
+npm run e2e                    # 126 comprobaciones en Chrome sin ventana (con el servidor encendido)
+node tests/e2e/camera.mjs      # cámara, zoom, indicación «E», postes y oclusión (incluida en e2e)
 node tests/e2e/living.mjs fps  # además mide fps a 2880 × 1620 sin límite
 node tests/e2e/motion.mjs      # viento, ráfaga y rastro en la hierba; guarda fotogramas
 node tests/e2e/look.mjs tests/e2e/views.json   # las 12 vistas fijas, de día y de noche
@@ -17,7 +18,7 @@ node tests/e2e/look.mjs tests/e2e/views.json   # las 12 vistas fijas, de día y 
 
 Atajos de desarrollo: `?world=cosmic` abre el planeta antiguo; `?webgl=0` simula un navegador sin GPU; `?backend=webgl` fuerza el respaldo WebGL2.
 
-Controles: WASD o flechas, Espacio saltar, Shift correr, E usar, G menú de Woody, N día/noche, M sonido, Esc pausa. Con el ratón se hace clic en los objetos.
+Controles: WASD o flechas, Espacio saltar, Shift correr, E usar, G menú de Woody, N día/noche, M sonido, Esc pausa. Con el ratón se hace clic en los objetos; la rueda (o el pellizco en móvil) acerca y aleja la cámara.
 
 Capturas de comparación (fuera de git), mismas 12 vistas de día y de noche: `capturas/0-antes/` (antes del pulido), `capturas/1-webgpu/` (tras la migración) y `capturas/4-rediseno/` (ahora). Además: `capturas/2-bienvenida/` (portada en escritorio y móvil, y el descenso), `capturas/3-aldea/` y `capturas/movimiento/`.
 
@@ -51,12 +52,23 @@ Capturas de comparación (fuera de git), mismas 12 vistas de día y de noche: `c
 | Carteles de madera con letra crema en la aldea, el laboratorio, Contacto y Sobre mí (fuera las placas negras) | capturas `capturas/6-zonas/` |
 | **Carga**: pantalla del astronauta sentado en el HTML (se pinta a los 16 ms), porcentaje por etapas reales, bienvenida primero y planeta por partes; terreno 30 veces más rápido de calcular. Sin botón «sin jugar». Precalentamiento real antes de habilitar la entrada: tras pulsar no se compila nada ni se salta ningún fotograma | `docs/RENDIMIENTO.md`, `tests/perf/load.mjs`, `tests/perf/entrada.mjs` |
 | Cascada con canal de roca mojada y almohadas de espuma | capturas |
+| **Cámara cercana** (12-11-2026): 39° de inclinación, el astronauta ocupa ~17 % del alto; zoom con rueda y pellizco entre 0,72× y 1,9×; sin viñeta. Tras un salto de sitio se coloca sin barrido | `camera` 14; `capturas/8-camara/` |
+| **Oclusión**: árboles, rocas y casas de la aldea se vuelven translúcidos (tramado) alrededor del astronauta cuando lo tapan (`experience/environment/seeThrough.js`) | capturas `capturas/8-camara/pruebas/oclusion-*` |
+| **Postes indicadores de madera** (NAVE, CV, BALONCESTO, FÚTBOL, OBSERVATORIO) con la letra del título; fuera todos los rótulos negros del suelo. Con colisión (`SIGNPOSTS` en `layout.js`) | `camera`; capturas |
+| **Indicación «E»** clara, una sola, y solo de lo que cae dentro de la pantalla | `camera` |
+| **Aldea**: parcelas sin simetría; la captura de cada proyecto va en un escaparate adosado a la casa con su único rótulo de madera encima; fuera expositores y carteles colgados | `living` (las cuatro fichas); capturas |
+| **Caminos**: adoquines pequeños e irregulares en tramos (también en la plaza), borde de tierra fundido con la hierba, césped corto junto a caminos y a lo construido | capturas |
+| **Pistas** (solo aspecto): bordillo de piedra (baloncesto) y de madera (fútbol), zona en terracota, postes en madera, portería separada del borde | capturas |
+| **Cohete** torneado en crema y naranja, con aletas que se apoyan en la plataforma | capturas |
+| **Luces sin quemar**: los cristales solo emiten (0,7 de día, 1,3 como mucho de noche), caída de luz más suave y luces separadas de postes y fachadas | capturas de noche |
 
 Rendimiento medido en este Mac a 2880 × 1620 sobre WebGPU: 192–221 fps tras el rediseño (224–263 justo antes;  antes de la migración, 187–224). Con el césped nuevo y sin el hueco de visión de los árboles eran 272–362: ese tramado cuesta en torno a una cuarta parte y es lo primero a optimizar si hiciera falta.
 
 ## Parcial
 
 - **Logros**: 6 de 21 se pueden conseguir ya (Primeros pasos, Explorador, Primer contacto, Primer enceste, Mejor amigo, Viajero espacial). Los otros 15 salen en la vitrina como «Próximamente»: su disparador llega con su fase. Para activarlos: `ready: true` en `src/achievements/list.js` y su regla en `src/achievements/Tracker.jsx`.
+- **Oclusión**: es un tramado por píxel, no mezcla alfa; no cubre el observatorio, la casa del árbol, la estación de Contacto ni el cohete. La indicación «E» comprueba que el objeto esté en pantalla, no que no lo tape otra cosa.
+- **Pistas**: se mantiene su tamaño (16 × 10,4 m y 19 × 12 m); con la cámara cercana ya no caben enteras en pantalla. Reducirlas toca el juego de baloncesto, no solo el aspecto.
 - **Baloncesto**: balón físico, aro, tablero, marcador y sonido. Falta el minijuego (fase 6).
 - **Fútbol**: solo el campo y la portería como escenario (fase 7).
 - **Cohete**: despega, queda en órbita y aterriza en el mismo planeta, con sonido. Falta el planeta esférico, el selector y el viaje (fase 9).
@@ -100,8 +112,8 @@ Plan en curso (aprobado el 12-11-2026), fases A–F. Hecho: **A** (carga y panta
 
 1. **Fase E — Fútbol real** (lo más reclamado y aún sin empezar): `src/game/ballPhysics.js` extraído de `worlds/living/Court.jsx`; `worlds/living/Football.jsx` con apuntado y carga, salida del balón en `kick_impact`, gol por cruce de línea, postes y larguero, red, barrera de maniquíes, tres modos, marcador, sonidos, Woody, logros y vitrina 2010. Hoy solo existe el campo y la portería como decorado (`Pitch` en `Zones.jsx`).
 2. **Fase B — Estándar con Blender**: canal `tools/blender/*.py` → `public/models/living/*.glb`; árbol de bienvenida con copas más finas, una cabaña de máxima calidad, farola definitiva. Aún no se ha usado Blender: todo sigue saliendo del kit de código.
-3. **Fase C, lo que falta**: proyectos como instalaciones distintas según el proyecto (hoy son cuatro casas distintas, pero todas «casa + expositor»); cámara que se acerca al abrir una ficha; rótulos tumbados que quedan (Observatorio, CV, Baloncesto, Fútbol); atril del CV y plataforma del cohete siguen de bloque.
-4. **Fase D**: observatorio (más segmentos, uniones, telescopio alineado, colisiones de escalones), árboles con masas menores, agua sin el dibujo de celdas tan evidente, cascada menos blanca, caminos sin tanta losa hexagonal.
+3. **Fase C, lo que falta**: proyectos como instalaciones distintas según el proyecto (hoy son cuatro casas distintas, todas «casa + escaparate»); cámara que se acerca al abrir una ficha; atril del CV y plataforma del cohete siguen de bloque; placas de los tótems del laboratorio con letra muy pequeña para la cámara nueva.
+4. **Fase D**: observatorio (más segmentos, uniones, telescopio alineado, colisiones de escalones), árboles con masas menores, agua sin el dibujo de celdas tan evidente, cascada menos blanca.
 5. **Baloncesto**: comprobar contra el encargo (apuntado con carga, triples, barrera, celebraciones); hoy es coger y tirar con marcador.
 6. **Fase F**: las 12 capturas, tabla de rendimiento, pruebas nuevas, respaldo WebGL2.
 

@@ -119,7 +119,14 @@ export function setTheme(name) {
 // Materiales que brillan más de noche (farolas, cristales, ventanas…).
 const glowing = new Set();
 // Registra un material: `property` vale `day` de día y `night` de noche.
+// El brillo propio tiene tope: por encima, farolas y ventanas se queman a blanco
+// con el resplandor del posproceso y pierden su color.
+const GLOW_LIMIT = { day: 0.9, night: 1.3 };
 export function registerGlow(material, day, night, property = "emissiveIntensity") {
+ if (property === "emissiveIntensity") {
+  day = Math.min(day, GLOW_LIMIT.day);
+  night = Math.min(night, GLOW_LIMIT.night);
+ }
  const entry = { material, day, night, property };
  glowing.add(entry);
  material[property] = day + (night - day) * theme.mix;

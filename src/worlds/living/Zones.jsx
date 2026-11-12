@@ -14,6 +14,7 @@ import { Observatory } from "./buildings/Observatory";
 import { AboutMe } from "./zones/AboutMe";
 import { Contact } from "./zones/Contact";
 import { ProjectVillage } from "./zones/ProjectVillage";
+import { Signposts } from "./props/Signpost";
 import { COLORS, CONTACT, CV_KIOSK, LAB_TOTEMS, PITCH, PLATEAU, PROJECT_CABINS, TREEHOUSE, WIND_CHIME, height } from "./layout";
 
 const WOOD = "#c58a55";
@@ -150,7 +151,6 @@ function CvKiosk() {
     <boxGeometry args={[0.72, 0.035, 0.1]} />
     <Flat color={CV.file ? COLORS.cv : "#b9b4c4"} />
    </mesh>
-   <Label text="CV" color={COLORS.cv} width={1.6} position={[0, 0.17, 1.3]} plate flat />
   </group>
  );
 }
@@ -201,13 +201,25 @@ function Pitch() {
  const cx = (PITCH.x0 + PITCH.x1) / 2;
  const cz = (PITCH.z0 + PITCH.z1) / 2;
  const line = <meshBasicMaterial color="#f4f8ee" />;
- const goalX = PITCH.x0 + 0.6;
+ const goalX = PITCH.x0 + 2.3; // la portería, separada del borde
  return (
   <group>
    <mesh position={[cx, 0.03, cz]} receiveShadow>
     <boxGeometry args={[width, 0.06, depth]} />
     <Flat color="#4f9f4c" />
    </mesh>
+   {/* Bordillo de madera alrededor. */}
+   {[
+    [cx, PITCH.z0 - 0.14, width + 0.56, 0.28],
+    [cx, PITCH.z1 + 0.14, width + 0.56, 0.28],
+    [PITCH.x0 - 0.14, cz, 0.28, depth],
+    [PITCH.x1 + 0.14, cz, 0.28, depth],
+   ].map(([x, z, w, d], i) => (
+    <mesh key={i} position={[x, 0.08, z]} castShadow receiveShadow>
+     <boxGeometry args={[w, 0.16, d]} />
+     <Flat color={i % 2 ? WOOD : "#b37a48"} />
+    </mesh>
+   ))}
    {/* Franjas de siega. */}
    {Array.from({ length: 5 }, (_, i) => (
     <mesh key={i} position={[PITCH.x0 + (width / 9) * (i * 2 + 0.5), 0.062, cz]} receiveShadow>
@@ -232,6 +244,7 @@ function Pitch() {
     <mesh position={[goalX + 2.7, 0, cz - 3.6]} rotation-x={-Math.PI / 2}><planeGeometry args={[5.4, 0.1]} />{line}</mesh>
     <mesh position={[goalX + 2.7, 0, cz + 3.6]} rotation-x={-Math.PI / 2}><planeGeometry args={[5.4, 0.1]} />{line}</mesh>
     <mesh position={[goalX + 5.4, 0, cz]} rotation-x={-Math.PI / 2}><planeGeometry args={[0.1, 7.3]} />{line}</mesh>
+    <mesh position={[goalX, 0, cz]} rotation-x={-Math.PI / 2}><planeGeometry args={[0.1, 7.3]} />{line}</mesh>
     <mesh position={[goalX + 7.4, 0, cz]} rotation-x={-Math.PI / 2}><circleGeometry args={[0.16, 12]} />{line}</mesh>
    </group>
    {/* Portería: dos postes y el larguero. */}
@@ -249,7 +262,6 @@ function Pitch() {
     <boxGeometry args={[1.5, 2.2, 4.8]} />
     <meshBasicMaterial color="#ffffff" wireframe transparent opacity={0.35} />
    </mesh>
-   <Label text="FÚTBOL" color={COLORS.deporte} width={3.4} position={[cx, 0.17, PITCH.z1 + 1.5]} plate flat />
   </group>
  );
 }
@@ -267,6 +279,7 @@ export function Zones() {
    <Contact />
    <WindChime />
    <Pitch />
+   <Signposts />
   </>
  );
 }

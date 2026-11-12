@@ -29,7 +29,9 @@ const LABEL_FONT = '"Bricolage Grotesque"';
 // Rótulo de texto. El tamaño de letra se ajusta para que el texto quepa siempre.
 // `plate`: lo dibuja en blanco sobre una placa oscura con una franja del color
 // del ala, para que se lea sobre cualquier fondo (rótulos de las puertas).
-export function createLabelTexture(text, color, { plate = false } = {}) {
+// `title`: con la letra del título de la portada (estrecha, sin contorno), para
+// los carteles de madera.
+export function createLabelTexture(text, color, { plate = false, title = false } = {}) {
  const canvas = document.createElement("canvas");
  canvas.width = 1024;
  canvas.height = 256;
@@ -43,11 +45,12 @@ export function createLabelTexture(text, color, { plate = false } = {}) {
   ctx.clearRect(0, 0, width, height);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  if ("letterSpacing" in ctx) ctx.letterSpacing = "8px";
+  if ("letterSpacing" in ctx) ctx.letterSpacing = title ? "2px" : "8px";
+  if ("fontStretch" in ctx) ctx.fontStretch = title ? "condensed" : "normal";
 
   // Se reduce la letra hasta que el texto quepa con margen.
   const room = width - (plate ? 150 : 70);
-  let size = plate ? 150 : 128;
+  let size = plate ? 150 : title ? 190 : 128;
   do {
    ctx.font = `800 ${size}px ${LABEL_FONT}, system-ui, sans-serif`;
    size -= 6;
@@ -64,6 +67,29 @@ export function createLabelTexture(text, color, { plate = false } = {}) {
    ctx.fill();
    ctx.fillStyle = "#ffffff";
    ctx.fillText(text, width / 2 + 12, height / 2 + 8);
+  } else if (title) {
+   // Los nombres largos van en dos renglones, partidos por el espacio más
+   // cercano al centro: así la letra no se queda diminuta.
+   let lines = [text];
+   const spaces = [...text.matchAll(/ /g)].map((match) => match.index);
+   if (text.length > 13 && spaces.length > 0) {
+    const cut = spaces.reduce((best, at) => (Math.abs(at - text.length / 2) < Math.abs(best - text.length / 2) ? at : best));
+    lines = [text.slice(0, cut), text.slice(cut + 1)];
+    size = 124;
+    do {
+     ctx.font = `800 ${size}px ${LABEL_FONT}, system-ui, sans-serif`;
+     size -= 6;
+    } while (Math.max(...lines.map((line) => ctx.measureText(line).width)) > room && size > 40);
+   }
+   // Como pintado sobre la madera: una sombra corta debajo y la letra encima.
+   const step = lines.length > 1 ? 112 : 0;
+   lines.forEach((line, i) => {
+    const y = height / 2 + 10 + (i - (lines.length - 1) / 2) * step;
+    ctx.fillStyle = "rgba(58, 36, 22, 0.55)";
+    ctx.fillText(line, width / 2 + 4, y + 6);
+    ctx.fillStyle = color;
+    ctx.fillText(line, width / 2, y);
+   });
   } else {
    // Contorno oscuro: se lee igual sobre paneles claros que sobre el espacio.
    ctx.lineJoin = "round";

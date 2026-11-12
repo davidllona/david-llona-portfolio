@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { Label } from "../../experience/Label";
 import { clickable, useInteractable } from "../../experience/interact";
 import { emit, events, game, player } from "../../experience/state";
 import { createBackboardTexture, createBasketballTexture } from "../../experience/textures";
@@ -289,10 +288,10 @@ function createScoreTexture() {
  texture.colorSpace = THREE.SRGBColorSpace;
  const draw = (score) => {
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#1a1238";
+  ctx.fillStyle = "#3a2619";
   ctx.fillRect(0, 0, 512, 160);
   ctx.textBaseline = "middle";
-  ctx.fillStyle = "#a9a4c8";
+  ctx.fillStyle = "#e3c9a3";
   ctx.font = '700 34px "Bricolage Grotesque", sans-serif';
   if ("letterSpacing" in ctx) ctx.letterSpacing = "8px";
   ctx.fillText("CANASTAS", 36, 84);
@@ -338,7 +337,7 @@ function Hoop() {
   rim.emissiveIntensity = 0.4 + flash.current * 3;
  });
 
- const dark = <meshLambertMaterial color="#3b2a5c" flatShading />;
+ const dark = <meshLambertMaterial color="#5a3b28" flatShading />;
  const poleX = hoop.x + 0.6;
  return (
   <group>
@@ -394,12 +393,24 @@ function CourtFloor() {
   <group>
    <mesh position={[cx, 0.03, cz]} receiveShadow>
     <boxGeometry args={[width, 0.06, depth]} />
-    <meshLambertMaterial color="#2f8fb3" flatShading />
+    <meshLambertMaterial color="#4c9a8c" flatShading />
    </mesh>
    <mesh position={[freeThrowX + keyLength / 2, 0.062, cz]} receiveShadow>
     <boxGeometry args={[keyLength, 0.005, 3.7]} />
-    <meshLambertMaterial color="#8a5bd6" flatShading />
+    <meshLambertMaterial color="#c8643c" flatShading />
    </mesh>
+   {/* Bordillo de piedra alrededor. */}
+   {[
+    [cx, court.z0 - 0.16, width + 0.64, 0.32],
+    [cx, court.z1 + 0.16, width + 0.64, 0.32],
+    [court.x0 - 0.16, cz, 0.32, depth],
+    [court.x1 + 0.16, cz, 0.32, depth],
+   ].map(([x, z, w, d], i) => (
+    <mesh key={i} position={[x, 0.07, z]} castShadow receiveShadow>
+     <boxGeometry args={[w, 0.14, d]} />
+     <meshLambertMaterial color={i % 2 ? "#b9b4ab" : "#c6c1b7"} flatShading />
+    </mesh>
+   ))}
    <group position-y={0.07}>
     {/* Borde de la pista. */}
     {[court.z0 + 0.1, court.z1 - 0.1].map((z) => (
@@ -433,11 +444,11 @@ function BallStand() {
   <group position={[ballStand.x, 0, ballStand.z]}>
    <mesh position-y={STAND_TOP / 2} castShadow>
     <cylinderGeometry args={[0.08, 0.2, STAND_TOP - 0.06, 8]} />
-    <meshLambertMaterial color="#3b2a5c" flatShading />
+    <meshLambertMaterial color="#5a3b28" flatShading />
    </mesh>
    <mesh position-y={STAND_TOP - 0.03} rotation-x={Math.PI / 2}>
     <torusGeometry args={[0.13, 0.03, 6, 16]} />
-    <meshBasicMaterial color={COLOR} toneMapped={false} />
+    <meshBasicMaterial color="#ff7a2f" toneMapped={false} />
    </mesh>
   </group>
  );
@@ -446,7 +457,6 @@ function BallStand() {
 export function Court() {
  return (
   <>
-   <Label text="BALONCESTO" color={COLOR} width={5} position={[center.x, 0.17, court.z1 + 1.6]} plate flat />
    <CourtFloor />
    <Hoop />
    <BallStand />

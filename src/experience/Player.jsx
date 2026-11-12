@@ -4,6 +4,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { Astronaut } from "../characters/Astronaut";
 import { world } from "../worlds";
 import { moveAgent } from "../worlds/collision";
+import { updateSeeThrough } from "./environment/seeThrough";
 import { WELCOME, emit, input, player, rig, ui } from "./state";
 
 const WALK_SPEED = 3.6; // m/s
@@ -17,9 +18,13 @@ const JUMP_SPEED = 6;
 const MAX_STEP = 0.05; // s; evita saltos al volver a la pestaña
 const TURN_RESPONSE = 13;
 
-// Cámara elevada que sigue al personaje desde el sur. `rig` puede pedirle que
-// siga otra cosa (la nave), que se aleje o que mire más desde arriba.
-const CAMERA = { height: 16.5, back: 14.5, lookAhead: 1.5, response: 4.5, fov: 40 };
+// Cámara cercana que sigue al personaje desde el sur, inclinada 39° sobre el
+// suelo: el astronauta ocupa en torno al 17 % del alto de la pantalla. `rig`
+// puede pedirle que siga otra cosa (la nave), que se aleje o que mire más desde
+// arriba; el usuario la acerca y la aleja con la rueda o el pellizco (`rig.zoom`).
+const CAMERA_DISTANCE = 13.4; // m hasta el punto que mira
+const CAMERA_PITCH = (39 * Math.PI) / 180;
+const CAMERA = { height: CAMERA_DISTANCE * Math.sin(CAMERA_PITCH), back: CAMERA_DISTANCE * Math.cos(CAMERA_PITCH), lookAhead: 0.5, lookUp: 1.0, response: 4.5, fov: 40 };
 
 const PUFFS = 10;
 
@@ -62,7 +67,7 @@ export function Player({ active }) {
   puff.visible = true;
  };
 
- useFrame((_, rawDelta) => {
+ useFrame(({ size }, rawDelta) => {
   const dt = Math.min(rawDelta, MAX_STEP);
   const state = body.current;
   const { position, velocity } = player;
@@ -150,24 +155,30 @@ export function Player({ active }) {
 
   // Cámara.
   const target = rig.focus ?? position;
-  const follow = state.started ? 1 - Math.exp(-CAMERA.response * dt) : 1;
+  // Si lo seguido aparece de golpe lejos (un salto de sitio, no un paseo), la
+  // cámara se coloca sin barrido: con el encuadre cercano tardaría en llegar.
+  const jumped = !rig.focus && Math.hypot(target.x - state.focus.x, target.z - state.focus.z) > 10;
+  const follow = state.started && !jumped ? 1 - Math.exp(-CAMERA.response * dt) : 1;
   state.started = true;
   state.focus.x += (target.x - state.focus.x) * follow;
   state.focus.y += (target.y - state.focus.y) * follow * (rig.focus ? 1 : 0.5);
   state.focus.z += (target.z - (rig.focus ? 0 : CAMERA.lookAhead) - state.focus.z) * follow;
-  state.distance += (rig.distance * portrait - state.distance) * follow * 0.6;
+  state.distance += (rig.distance * rig.zoom * portrait - state.distance) * follow * 0.6;
   state.tilt += ((rig.focus ? rig.tilt ?? 0 : 0) - state.tilt) * follow * 0.6;
 
   rig.shake = Math.max(0, rig.shake - dt * 1.6);
   const shake = reducedMotion ? 0 : rig.shake * rig.shake;
-  const offsetY = CAMERA.height * state.distance;
+  // (La altura se cuenta desde el punto al que se mira, para que la inclinación sea la dicha.)
+  const lookUp = rig.focus ? 0 : CAMERA.lookUp;
+  const offsetY = lookUp + CAMERA.height * state.distance;
   const offsetZ = CAMERA.back * state.distance * (1 - state.tilt * 0.82);
   camera.position.set(
    state.focus.x + (Math.random() - 0.5) * shake,
    state.focus.y + offsetY + (Math.random() - 0.5) * shake,
    state.focus.z + offsetZ,
   );
-  look.set(state.focus.x, state.focus.y, state.focus.z);
+  // Se mira a la altura del pecho del astronauta, no a sus pies.
+  look.set(state.focus.x, state.focus.y + lookUp, state.focus.z);
   // Bienvenida: la cámara está en el islote y, al entrar, viaja hasta aquí.
   if (rig.intro > 0) {
    const pose = aspect < 1 ? WELCOME.tall : WELCOME.wide;
@@ -177,6 +188,8 @@ export function Player({ active }) {
    look.lerp(introPoint.set(ox + pose.look[0], oy + pose.look[1], oz + pose.look[2]), k);
   }
   camera.lookAt(look);
+  camera.updateMatrixWorld();
+  updateSeeThrough(camera, size);
  });
 
  return (

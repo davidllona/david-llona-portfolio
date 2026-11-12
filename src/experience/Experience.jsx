@@ -3,7 +3,7 @@ import { PerformanceMonitor } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
 import { fxaa } from "three/addons/tsl/display/FXAANode.js";
-import { pass, renderOutput, screenUV, smoothstep } from "three/tsl";
+import { pass, renderOutput } from "three/tsl";
 import { RenderPipeline, WebGPURenderer } from "three/webgpu";
 import { Woody } from "../characters/Woody";
 import { stage, whenLoaderLeaves } from "../ui/loaderControl";
@@ -175,7 +175,7 @@ function Ready({ spread, onCompiling, onReady }) {
 }
 
 // Posproceso con nodos: la escena se dibuja a un búfer de 16 bits por canal,
-// se le suma el resplandor de lo que emite luz, una viñeta suave, y al final
+// se le suma el resplandor de lo que emite luz, y al final
 // se aplican el mapeo de tonos y el suavizado de bordes. Toma el control del
 // dibujado (prioridad 1), así que también hace avanzar la niebla.
 function Pipeline({ quality, effects }) {
@@ -190,8 +190,7 @@ function Pipeline({ quality, effects }) {
    // Solo brilla lo que supera el blanco: farolas, ventanas, cristales.
    glow = bloom(color, 0.5, 0.75, 1.0);
    glow._nMips = quality.bloomMips;
-   const vignette = smoothstep(1.05, 0.35, screenUV.sub(0.5).length()).mul(0.42).add(0.58);
-   output = color.add(glow).mul(vignette);
+   output = color.add(glow);
   }
   result.outputColorTransform = false;
   output = renderOutput(output);

@@ -2,7 +2,9 @@ import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { Instances } from "../../experience/Instances";
 import { groundColor } from "./groundColor";
-import { BRIDGES, PATHS, groundHeight, noise2, surface } from "./layout";
+import { randomFrom } from "./kit/geometry";
+import { BRIDGES, PAD, PATHS, PLAZA, groundHeight, noise2, surface } from "./layout";
+import { cobble, createCobble } from "./props/cobbles";
 import { Water } from "./water/Water";
 import { Waterfall } from "./water/Waterfall";
 
@@ -54,7 +56,7 @@ function createGround() {
  return geometry;
 }
 
-// ── Puente y losas ──────────────────────────────────────────────────────────
+// ── Puente y adoquines ──────────────────────────────────────────────────────────
 function Bridges() {
  const plank = useMemo(() => new THREE.BoxGeometry(1, 0.12, 1), []);
  const wood = useMemo(() => new THREE.MeshLambertMaterial({ flatShading: true }), []);
@@ -97,33 +99,52 @@ function Bridges() {
  return <Instances geometry={plank} material={wood} items={items} colored castShadow receiveShadow />;
 }
 
-// Losas sueltas a lo largo de los caminos.
-function SteppingStones() {
- const geometry = useMemo(() => new THREE.CylinderGeometry(0.5, 0.56, 0.1, 6), []);
- const material = useMemo(() => new THREE.MeshLambertMaterial({ color: "#c9c4cf", flatShading: true }), []);
+// Adoquines pequeños e irregulares a lo largo de los caminos, agrupados en
+// tramos con tierra entre medias (no una fila de losas iguales).
+function PathCobbles() {
+ const geometry = useMemo(() => createCobble(), []);
+ const material = useMemo(() => new THREE.MeshLambertMaterial({ flatShading: true }), []);
+ useEffect(
+  () => () => {
+   geometry.dispose();
+   material.dispose();
+  },
+  [geometry, material],
+ );
  const items = useMemo(() => {
+  const random = randomFrom(0.713);
   const list = [];
-  let seed = 7;
-  const random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   for (const path of PATHS) {
+   let cluster = 0, gap = 0.6 + random() * 1.2, side = 0;
    for (let i = 0; i < path.length - 1; i++) {
     const [ax, az] = path[i];
     const [bx, bz] = path[i + 1];
-    const steps = Math.floor(Math.hypot(bx - ax, bz - az) / 1.5);
-    for (let k = 1; k < steps; k++) {
-     const t = k / steps;
-     const x = ax + (bx - ax) * t + (random() - 0.5) * 0.5;
-     const z = az + (bz - az) * t + (random() - 0.5) * 0.5;
-     const y = groundHeight(x, z);
-     if (y < -0.03) continue;
-     const scale = 0.75 + random() * 0.45;
-     list.push({ position: [x, y + 0.04, z], rotation: [0, random() * Math.PI, 0], scale: [scale, 1, scale] });
+    const length = Math.hypot(bx - ax, bz - az);
+    const nx = -(bz - az) / length, nz = (bx - ax) / length;
+    for (let d = 0.3; d < length; d += 0.34) {
+     if (cluster <= 0) {
+      gap -= 0.34;
+      if (gap > 0) continue;
+      cluster = 1.3 + random() * 2.4; // largo del tramo empedrado
+      gap = 0.9 + random() * 2.2; // tierra hasta el siguiente
+      side = (random() - 0.5) * 0.7; // cada tramo se arrima a un lado
+     }
+     cluster -= 0.34;
+     const count = 2 + Math.floor(random() * 2);
+     for (let k = 0; k < count; k++) {
+      const across = side + (random() - 0.5) * 1.25;
+      const x = ax + (bx - ax) * (d / length) + nx * across + (random() - 0.5) * 0.2;
+      const z = az + (bz - az) * (d / length) + nz * across + (random() - 0.5) * 0.2;
+      const y = groundHeight(x, z);
+      if (y < -0.03 || Math.hypot(x - PAD.x, z - PAD.z) < PAD.padRadius + 0.5 || Math.hypot(x - PLAZA.x, z - PLAZA.z) < PLAZA.r + 0.3) continue;
+      list.push(cobble(random, x, y + 0.015, z, 0.13 + random() * 0.13));
+     }
     }
    }
   }
   return list;
  }, []);
- return <Instances geometry={geometry} material={material} items={items} receiveShadow />;
+ return <Instances geometry={geometry} material={material} items={items} colored receiveShadow />;
 }
 
 export function Terrain() {
@@ -137,7 +158,7 @@ export function Terrain() {
    <Water />
    <Waterfall />
    <Bridges />
-   <SteppingStones />
+   <PathCobbles />
   </>
  );
 }

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { Label } from "./Label";
 import { useInteractable } from "./interact";
 import { emit, player, rig } from "./state";
 import { registerGlow } from "./theme";
@@ -16,63 +15,98 @@ const SMOKE = 26;
 
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
-// El cohete: cuerpo blanco, morro y aletas rojas, ojo de buey luminoso.
+// Perfil del casco (radio, altura): panzudo abajo y afilado arriba. Se tornea
+// alrededor del eje, así que sale redondeado en vez de un cilindro con un cono.
+const HULL = [[0.72, 1.0], [1.08, 1.5], [1.33, 2.4], [1.42, 3.4], [1.36, 4.4], [1.2, 5.3], [0.98, 6.05]];
+const NOSE = [[0.98, 6.05], [0.74, 6.75], [0.46, 7.35], [0.2, 7.78], [0, 7.95]];
+const SIDES = 16;
+const profile = (points) => points.map(([radius, y]) => new THREE.Vector2(radius, y));
+const hullRadius = (y) => {
+ for (let i = 0; i < HULL.length - 1; i++) {
+  const [r0, y0] = HULL[i], [r1, y1] = HULL[i + 1];
+  if (y >= y0 && y <= y1) return r0 + ((r1 - r0) * (y - y0)) / (y1 - y0);
+ }
+ return HULL[0][0];
+};
+
+// Aleta: nace en el casco, baja abriéndose y se apoya en la plataforma con una
+// zapata. Su punto más bajo queda sobre la losa, no dentro de ella.
+function createFin() {
+ const shape = new THREE.Shape();
+ shape.moveTo(1.18, 3.15);
+ shape.quadraticCurveTo(2.0, 2.5, 2.12, 0.5);
+ shape.lineTo(1.72, 0.5);
+ shape.quadraticCurveTo(1.6, 1.5, 1.0, 1.75);
+ shape.closePath();
+ return new THREE.ExtrudeGeometry(shape, { depth: 0.2, bevelEnabled: false, curveSegments: 5 }).translate(0, 0, -0.1);
+}
+
+// El cohete: casco torneado en crema, morro, franja y aletas en naranja, ojo de
+// buey luminoso.
+const CREAM_HULL = "#f6ead6";
+const ORANGE = "#ff7a2f";
+const ORANGE_DARK = "#e8591c";
+const METAL = "#5a4a44";
 function Rocket({ flame }) {
  const flat = (color) => <meshLambertMaterial color={color} flatShading />;
- const glass = useMemo(() => new THREE.MeshLambertMaterial({ color: "#5ff2ff", emissive: "#3fd8ff" }), []);
- useEffect(() => registerGlow(glass, 0.7, 2.6), [glass]);
+ const glass = useMemo(() => new THREE.MeshLambertMaterial({ color: "#8fe9f2", emissive: "#3fd8ff" }), []);
+ const geometry = useMemo(() => ({ hull: new THREE.LatheGeometry(profile(HULL), SIDES), nose: new THREE.LatheGeometry(profile(NOSE), SIDES), fin: createFin() }), []);
+ useEffect(() => {
+  const stop = registerGlow(glass, 0.3, 1.1);
+  return () => {
+   stop();
+   Object.values(geometry).forEach((one) => one.dispose());
+  };
+ }, [glass, geometry]);
  return (
   <group>
-   {/* Tres patas-aleta. */}
+   {/* Tres aletas con su zapata. */}
    {[0, 1, 2].map((i) => (
-    <group key={i} rotation-y={(i * Math.PI * 2) / 3 + Math.PI / 6}>
-     <mesh position={[0, 1.05, 1.5]} rotation-x={0.42} castShadow>
-      <boxGeometry args={[0.22, 2.3, 1.0]} />
-      {flat("#ff4f3a")}
+    <group key={i} rotation-y={(i * Math.PI * 2) / 3 + Math.PI / 2}>
+     <mesh geometry={geometry.fin} castShadow>
+      {flat(i === 0 ? ORANGE : ORANGE_DARK)}
      </mesh>
-     <mesh position={[0, 0.08, 2.0]}>
-      <cylinderGeometry args={[0.34, 0.4, 0.16, 8]} />
-      {flat("#3b2a5c")}
+     <mesh position={[1.92, 0.36, 0]}>
+      <cylinderGeometry args={[0.3, 0.36, 0.28, 8]} />
+      {flat(METAL)}
      </mesh>
     </group>
    ))}
-   {/* Tobera y faldón. */}
-   <mesh position-y={0.95}>
-    <cylinderGeometry args={[0.55, 0.85, 0.7, 10, 1, true]} />
-    <meshLambertMaterial color="#2a2140" flatShading side={THREE.DoubleSide} />
+   {/* Tobera. */}
+   <mesh position-y={0.72}>
+    <cylinderGeometry args={[0.5, 0.78, 0.62, 12, 1, true]} />
+    <meshLambertMaterial color={METAL} flatShading side={THREE.DoubleSide} />
    </mesh>
-   <mesh position-y={1.65} castShadow>
-    <cylinderGeometry args={[1.3, 0.75, 0.8, 10]} />
-    {flat("#3b2a5c")}
+   {/* Casco, franja y morro. */}
+   <mesh geometry={geometry.hull} castShadow>
+    <meshLambertMaterial color={CREAM_HULL} flatShading side={THREE.DoubleSide} />
    </mesh>
-   {/* Cuerpo, franja y morro. */}
-   <mesh position-y={3.9} castShadow>
-    <cylinderGeometry args={[1.18, 1.3, 3.7, 10]} />
-    {flat("#fbf3e4")}
+   <mesh position-y={5.42}>
+    <cylinderGeometry args={[hullRadius(5.62) + 0.03, hullRadius(5.22) + 0.03, 0.4, SIDES]} />
+    {flat(ORANGE)}
    </mesh>
-   <mesh position-y={5.3}>
-    <cylinderGeometry args={[1.2, 1.24, 0.45, 10]} />
-    {flat("#ffb238")}
+   <mesh position-y={1.72}>
+    <cylinderGeometry args={[hullRadius(1.9) + 0.03, hullRadius(1.54) + 0.03, 0.36, SIDES]} />
+    {flat(ORANGE)}
    </mesh>
-   <mesh position-y={6.95} castShadow>
-    <coneGeometry args={[1.18, 2.4, 10]} />
-    {flat("#ff4f3a")}
+   <mesh geometry={geometry.nose} castShadow>
+    {flat(ORANGE)}
    </mesh>
-   <mesh position-y={8.3}>
-    <sphereGeometry args={[0.13, 8, 6]} />
-    <meshBasicMaterial color="#ffcf4a" toneMapped={false} />
+   <mesh position-y={8.02}>
+    <sphereGeometry args={[0.12, 8, 6]} />
+    {flat("#ffd98a")}
    </mesh>
    {/* Ojo de buey, mirando a la cámara, y puerta. */}
-   <mesh position={[0, 4.4, 1.2]} rotation-x={Math.PI / 2}>
-    <cylinderGeometry args={[0.62, 0.62, 0.16, 14]} />
-    {flat("#3b2a5c")}
+   <mesh position={[0, 4.3, hullRadius(4.3) - 0.06]} rotation-x={Math.PI / 2}>
+    <cylinderGeometry args={[0.6, 0.6, 0.2, 16]} />
+    {flat(ORANGE)}
    </mesh>
-   <mesh position={[0, 4.4, 1.27]} rotation-x={Math.PI / 2} material={glass}>
-    <cylinderGeometry args={[0.46, 0.46, 0.1, 14]} />
+   <mesh position={[0, 4.3, hullRadius(4.3) + 0.02]} rotation-x={Math.PI / 2} material={glass}>
+    <cylinderGeometry args={[0.44, 0.44, 0.1, 16]} />
    </mesh>
-   <mesh position={[0, 2.75, 1.27]}>
-    <boxGeometry args={[0.8, 1.3, 0.08]} />
-    {flat("#d9d2e6")}
+   <mesh position={[0, 2.72, hullRadius(2.72) - 0.02]} rotation-x={-0.08}>
+    <boxGeometry args={[0.78, 1.2, 0.1]} />
+    {flat("#e3d3b8")}
    </mesh>
    {/* Llama: solo se ve en vuelo. */}
    <mesh ref={flame} position-y={-0.3} rotation-x={Math.PI} visible={false}>
@@ -174,7 +208,7 @@ export function Ship() {
    // La cámara deja de seguir al jugador: mira al planeta entero desde arriba.
    focus.set(SHIP.x * (1 - progress * 0.85), height * 0.28, SHIP.z * (1 - progress * 0.97));
    rig.focus = focus;
-   rig.distance = 1 + progress * 6.8;
+   rig.distance = 1 + progress * 11.8; // la cámara de a pie está más cerca: el mismo encuadre en órbita
    rig.tilt = progress;
    rig.space = Math.min(1, progress * 1.3);
    if (state.phase !== "orbit") rig.shake = Math.max(rig.shake, 0.22 * (1 - Math.abs(progress - 0.3)));
@@ -222,7 +256,6 @@ export function Ship() {
     <mesh position-y={0.21} rotation-x={-Math.PI / 2} material={ringMaterial}>
      <ringGeometry args={[SHIP.padRadius - 0.75, SHIP.padRadius - 0.45, 40]} />
     </mesh>
-    <Label text="NAVE" color={PAD_COLOR} width={2.4} position={[0, 0.17, SHIP.padRadius + 1.6]} plate flat />
    </group>
 
    <group ref={ship} position={[SHIP.x, 0, SHIP.z]} {...click}>

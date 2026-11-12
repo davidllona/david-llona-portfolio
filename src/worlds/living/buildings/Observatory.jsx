@@ -7,7 +7,7 @@ import { emit } from "../../../experience/state";
 import { current, setTheme, theme } from "../../../experience/theme";
 import { blob, limb, merge, piece } from "../kit/geometry";
 import { CREAM, STONE, WOOD } from "../kit/palette";
-import { COLORS, OBSERVATORY, PLATEAU } from "../layout";
+import { OBSERVATORY, PLATEAU } from "../layout";
 import { Glow } from "./Glow";
 
 const BRASS = ["#a8782f", "#e6b85a"];
@@ -259,7 +259,6 @@ export function Observatory() {
     <planeGeometry args={[0.88, 0.6]} />
     <meshBasicMaterial map={chart} toneMapped={false} />
    </mesh>
-   <Label text="OBSERVATORIO" color={COLORS.lab} width={4} position={[0, 0.17, 3.9]} plate flat />
   </group>
  );
 }

@@ -4,7 +4,11 @@ import { player, rig } from "./state";
 import { current } from "./theme";
 import { warmSources } from "./lightSources";
 
-const BASE_POWER = 19; // candelas de una farola de noche
+// Candelas de una farola de noche. Con una caída suave (`DECAY`) la luz llega
+// igual de lejos, pero no abrasa lo que tiene pegado (el poste, la fachada):
+// a 3 m alumbra lo mismo que con la caída física y a 30 cm, cinco veces menos.
+const BASE_POWER = 9;
+const DECAY = 0.9;
 
 // Reserva de luces puntuales cálidas. Solo existen `count`; en cada fotograma
 // se reparten entre las fuentes más cercanas a lo que sigue la cámara. Cuando
@@ -55,5 +59,5 @@ export function WarmLights({ count = 6 }) {
   });
  });
 
- return slots.map((_, i) => <pointLight key={i} ref={(node) => (lights.current[i] = node)} intensity={0} decay={1.6} />);
+ return slots.map((_, i) => <pointLight key={i} ref={(node) => (lights.current[i] = node)} intensity={0} decay={DECAY} />);
 }

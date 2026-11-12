@@ -122,7 +122,7 @@ export function AboutMe() {
        <circleGeometry args={[window.round, 10]} />
       </Glow>
      ))}
-     <Glow power={0.6} forward={0.5} night={2.3} position={house.lantern}>
+     <Glow power={0.5} forward={1.0} drop={0.4} night={2.3} position={house.lantern}>
       <boxGeometry args={[0.15, 0.22, 0.15]} />
      </Glow>
     </group>
