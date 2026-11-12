@@ -3,6 +3,7 @@
 Actualizado: 12 de noviembre de 2026 · rama `estacion-espacial` (solo commits locales, sin push).
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git).
+**En curso: objetivo 5 — casas y proyectos.** Hecho el paso 1 (una casa de referencia, el taller del Configurador, modelada en Blender) y **parado a la espera del visto bueno** antes de seguir con los pasos 2–8 (ver «Objetivo 5» más abajo).
 Último objetivo cerrado: **objetivo 4 — cohete y errores de terreno** (12-11-2026, terminado en Windows). El proyecto se trabaja ahora en Windows además de en Mac (ver «Windows» más abajo).
 Trabajo en curso: **revisión definitiva de The Living World** (fases A–F del plan del 12-11-2026: carga, estándar artístico, zonas, observatorio y naturaleza, fútbol, validación). Etiqueta de retorno: `antes-revision-definitiva`. Antes: **rediseño artístico de The Living World** (solo el Planeta 1): primero se valida un estándar en la bienvenida y la aldea de proyectos; después se extiende al resto. Modelos propios (kit de código; Blender si hace falta), nada de packs de terceros. Punto de retorno anterior: etiqueta `antes-rediseno-artistico`.
 
@@ -10,12 +11,13 @@ Trabajo en curso: **revisión definitiva de The Living World** (fases A–F del 
 
 ```
 npm run dev -- --port 5199     # http://localhost:5199
-npm run e2e                    # 188 comprobaciones en Chrome sin ventana (con el servidor encendido)
+npm run e2e                    # 191 comprobaciones en Chrome sin ventana (con el servidor encendido)
 node tests/e2e/woody.mjs       # bocadillos, ritmo, descanso, cuestas y ruta guiada (incluida en e2e)
 node tests/e2e/camera.mjs      # cámara, zoom, tarjeta «E», postes y oclusión, cohete incluido (incluida en e2e)
 node tests/e2e/rocket.mjs      # despegue: escala, empuje, cámara, aceleración; saca la serie de fotogramas (incluida en e2e)
 node tests/e2e/terrain.mjs     # objetos que flotan, hundidos o bajo el agua (incluida en e2e); «lista» y «capturas» como argumento
 node tests/perf/entrada.mjs    # tirones y pipelines compilados en caliente al entrar y al despegar
+node tests/e2e/buildings.mjs   # capturas de cada edificio (cerca y cámara de juego, día y noche) y llamadas de dibujo; no comprueba nada
 node tests/e2e/living.mjs fps  # además mide fps a 2880 × 1620 sin límite
 node tests/e2e/motion.mjs      # viento, ráfaga y rastro en la hierba; guarda fotogramas
 node tests/e2e/look.mjs tests/e2e/views.json   # las 12 vistas fijas, de día y de noche
@@ -30,6 +32,32 @@ Atajos de desarrollo: `?world=cosmic` abre el planeta antiguo; `?webgl=0` simula
 Controles: WASD o flechas, Espacio saltar, Shift correr, E usar, G menú de Woody, N día/noche, M sonido, Esc pausa. Con el ratón se hace clic en los objetos; la rueda (o el pellizco en móvil) acerca y aleja la cámara.
 
 Capturas de comparación (fuera de git), mismas 12 vistas de día y de noche: `capturas/0-antes/` (antes del pulido), `capturas/1-webgpu/` (tras la migración) y `capturas/4-rediseno/` (ahora). Además: `capturas/2-bienvenida/` (portada en escritorio y móvil, y el descenso), `capturas/3-aldea/` y `capturas/movimiento/`.
+
+## Objetivo 5 — casas y proyectos (en curso)
+
+**Canal de Blender** (Blender 5.0, en modo consola): `tools/blender/build.py` genera cada edificio como GLB en `public/models/living/`.
+
+```
+"C:/Program Files/Blender Foundation/Blender 5.0/blender.exe" -b -P tools/blender/build.py            # todos
+"C:/Program Files/Blender Foundation/Blender 5.0/blender.exe" -b -P tools/blender/build.py -- taller  # solo ese
+```
+
+- `tools/blender/kit.py`: primitivas biseladas (caja, cilindro, bola, prisma, torneado) escritas en los ejes del juego, pintadas en colores de vértice y unidas en una sola malla; exporta sin materiales ni normales. `parts.py`: piezas de oficio reutilizables (zócalo de sillares, tejado curvo de tejas, puerta con arco de dovelas, ventana con contraventanas y jardinera, escaparate con toldo, rótulo colgado, farol, chimenea, barril, leña…).
+- El GLB trae una malla y unas «anclas» con nombre (`screen`, `sign`, `lantern`, `smoke`, `glow_*`): ahí monta el juego la captura del proyecto, el rótulo, los cristales con luz y el humo. Lo carga `src/worlds/living/buildings/useBuilding.js`; el material es el compartido de la aldea (facetado, con el tramado de oclusión).
+- En `layout.js`, un edificio nuevo se marca con `solid` (sus círculos de colisión, en los ejes de la casa) y deja de tener escaparate aparte.
+
+| Paso | Estado |
+|---|---|
+| 1. Casa de referencia junto al cohete | **Hecha** (`taller.glb`, 25.272 triángulos, 1,25 MB). Pendiente de visto bueno. Capturas: `capturas/12-edificios/referencia/` |
+| 2. Un edificio distinto por proyecto | Solo el taller (Configurador). Faltan tienda (AIO), torre (porfolio) y estudio (diplomas), que siguen con la casa antigua y su expositor inclinado |
+| 3. Detalle (alero curvo, chimenea, vigas, puerta con marco, contraventanas, base de piedra, escalones, jardineras, farol) | En el taller, sí |
+| 4. Captura dentro de la fachada | En el taller, sí |
+| 5. Un rótulo por edificio; sustituir el arco de «PROYECTOS» | En el taller, sí; el arco sigue |
+| 6. Respuesta al acercarse y cámara que se acerca con E | En el taller: se aviva la luz del escaparate y el rótulo da un bote; la cámara ya se acercaba antes de abrir la ficha |
+| 7. Contacto, Sobre mí y pedestales del laboratorio | Sin empezar |
+| 8. Colliders y medidas | Colliders del taller ajustados. Medidas de partida y con la casa nueva, abajo |
+
+Medidas (desarrollo, 1440 × 900, este equipo Windows): antes, 296 llamadas de dibujo en la plaza con la cámara lejos y 263 junto al cohete, ~850.000 triángulos, botón de entrar a los 10,2 s. Con el taller nuevo: 293 y 258 llamadas, ~900.000 triángulos, 11,1 s. Capturas de partida de todos los edificios (cerca y cámara de juego, día y noche): `capturas/12-edificios/antes/`.
 
 ## Arquitectura gráfica
 

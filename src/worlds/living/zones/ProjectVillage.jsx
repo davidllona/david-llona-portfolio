@@ -10,6 +10,7 @@ import { emit, player } from "../../../experience/state";
 import { createLabelTexture } from "../../../experience/textures";
 import { createCottage } from "../buildings/cottageModels";
 import { Glow } from "../buildings/Glow";
+import { preloadBuilding, useBuilding } from "../buildings/useBuilding";
 import { withSeeThrough } from "../../../experience/environment/seeThrough";
 import { blob, limb, merge, piece, randomFrom } from "../kit/geometry";
 import { CREAM, STONE, WOOD } from "../kit/palette";
@@ -48,10 +49,10 @@ function Smoke({ position }) {
  );
 }
 
-function Picture({ url, width, height }) {
+function Picture({ url, width, height, lift = 0.06 }) {
  const texture = useTexture(url);
  return (
-  <mesh position-z={0.06}>
+  <mesh position-z={lift}>
    <planeGeometry args={[width, height]} />
    <meshBasicMaterial map={texture} toneMapped={false} fog={false} />
   </mesh>
@@ -80,6 +81,92 @@ const createShowcaseTop = () =>
   piece(box(SHOWCASE.width + 0.2, 0.62, 0.1), { bottom: WOOD.mid, top: WOOD.light, vary: 0.1, position: [0, 1.63, 0.03] }),
   piece(box(SHOWCASE.width + 0.3, 0.07, 0.16), { color: WOOD.dark, position: [0, 1.97, 0.03] }),
  ]);
+
+// Edificio modelado en Blender (uno por proyecto, con identidad propia). La
+// captura va dentro de su escaparate y el único rótulo, sobre la fachada. Al
+// acercarse responde: se aviva la luz del escaparate y el rótulo da un bote.
+const REBUILT = { 0: "taller" };
+Object.values(REBUILT).forEach(preloadBuilding);
+
+function Building({ project, site, name, models }) {
+ const { x, z, turn } = site;
+ const { geometry, anchors } = useBuilding(name);
+ const label = useMemo(() => createLabelTexture(project.name.toUpperCase(), CREAM, { title: true }), [project]);
+ useEffect(() => () => label.dispose(), [label]);
+ const sign = useRef(null);
+ const lamp = useRef(null);
+ // Un punto del modelo (en sus ejes) llevado al mundo.
+ const toWorld = ([px, py, pz]) => ({ x: x + px * Math.cos(turn) + pz * Math.sin(turn), y: py, z: z - 1.6 - px * Math.sin(turn) + pz * Math.cos(turn) });
+
+ const open = () =>
+  emit("open", {
+   kind: "project",
+   at: { ...toWorld(anchors.screen.position), distance: 0.42 }, // la cámara se acerca al escaparate antes de abrir la ficha
+   eyebrow: `Proyecto · ${project.year}`,
+   title: project.name,
+   paragraphs: [project.tagline, project.description],
+   tags: project.tags,
+   image: project.images[0],
+   link: project.link,
+   linkLabel: "Ver proyecto",
+  });
+ const click = useInteractable({ position: { x, z: z + 2.4 }, radius: 3.4, hint: `Ver «${project.name}»`, anywhere: true, action: open });
+
+ const state = useRef({ near: 0, wasNear: false, bounce: 1 });
+ useFrame((_, rawDelta) => {
+  const delta = Math.min(rawDelta, 0.05);
+  const memo = state.current;
+  const close = !player.hidden && Math.hypot(player.position.x - x, player.position.z - (z + 2.4)) < 3.4;
+  memo.near += ((close ? 1 : 0) - memo.near) * Math.min(1, delta * 4);
+  if (close && !memo.wasNear) memo.bounce = 0;
+  memo.wasNear = close;
+  memo.bounce = Math.min(1, memo.bounce + delta / 0.7);
+  // Rebote elástico del rótulo, sobre su borde de arriba (de donde cuelga).
+  const t = memo.bounce;
+  const spring = t >= 1 ? 0 : Math.pow(2, -7 * t) * Math.sin(t * 15);
+  sign.current.rotation.x = anchors.sign.rotation[0] + spring * 0.22;
+  sign.current.scale.setScalar(1 + spring * 0.05);
+  lamp.current.scale.set(1, 1 + memo.near * 0.6, 1);
+ });
+
+ const screen = anchors.screen;
+ return (
+  <group name={`casa de «${project.name}»`} userData={{ rests: 0, foot: 2.2 }} position={[x, 0, z - 1.6]} rotation-y={turn} {...click}>
+   <mesh geometry={geometry} material={models.material} castShadow receiveShadow />
+   {/* Cristales con luz cálida. */}
+   {Object.entries(anchors)
+    .filter(([key]) => key.startsWith("glow"))
+    .map(([key, anchor], i) => (
+     <Glow key={key} light={i === 0} position={anchor.position} rotation={anchor.rotation}>
+      {key.includes("round") ? <circleGeometry args={[anchor.size[0], 12]} /> : <planeGeometry args={[anchor.size[0], anchor.size[1]]} />}
+     </Glow>
+    ))}
+   <Glow power={0.6} forward={0.9} drop={0.5} position={anchors.lantern.position}>
+    <boxGeometry args={anchors.lantern.size} />
+   </Glow>
+   {anchors.smoke && <Smoke position={anchors.smoke.position} />}
+   {/* La captura del proyecto, dentro del escaparate. */}
+   <group position={screen.position} rotation={screen.rotation}>
+    <Suspense fallback={null}>
+     <Picture url={project.images[0]} width={screen.size[0]} height={screen.size[1]} lift={0.012} />
+    </Suspense>
+    {/* Luz del escaparate: una regleta bajo el dintel, que se aviva al acercarse. */}
+    <group ref={lamp} position={[0, screen.size[1] / 2 + 0.02, 0.1]}>
+     <Glow power={0.35} reach={6} forward={1.2} drop={0.5} night={1.4}>
+      <boxGeometry args={[screen.size[0] * 0.9, 0.04, 0.05]} />
+     </Glow>
+    </group>
+   </group>
+   {/* El rótulo: el nombre del proyecto sobre su tabla. */}
+   <group ref={sign} position={anchors.sign.position} rotation={anchors.sign.rotation}>
+    <mesh>
+     <planeGeometry args={[anchors.sign.size[0], anchors.sign.size[1]]} />
+     <meshBasicMaterial map={label} transparent toneMapped={false} fog={false} />
+    </mesh>
+   </group>
+  </group>
+ );
+}
 
 function Project({ project, site, index, models }) {
  const { x, z, turn } = site;
@@ -258,9 +345,13 @@ export function ProjectVillage() {
     </group>
    ))}
    <Board />
-   {PROJECTS.map((project, i) => (
-    <Project key={project.id} project={project} site={PROJECT_CABINS[i]} index={i} models={models} />
-   ))}
+   {PROJECTS.map((project, i) =>
+    REBUILT[i] ? (
+     <Building key={project.id} project={project} site={PROJECT_CABINS[i]} name={REBUILT[i]} models={models} />
+    ) : (
+     <Project key={project.id} project={project} site={PROJECT_CABINS[i]} index={i} models={models} />
+    ),
+   )}
   </>
  );
 }

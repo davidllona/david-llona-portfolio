@@ -213,7 +213,9 @@ export const WELL = { x: -24.5, z: -3.5 };
 // captura del proyecto va en un escaparate adosado a la fachada: `window` dice
 // dónde, en el sistema de la casa (x a lo ancho, z hacia el frente, giro propio).
 export const PROJECT_CABINS = [
- { x: -14.2, z: -5.6, turn: -0.34, window: { x: 1.1, z: 2.2, turn: 0 } },
+ // (Con `solid`, el edificio es de los nuevos: sin escaparate aparte, y esos son
+ // sus círculos de colisión —[dx, dz, radio] en los ejes de la casa—.)
+ { x: -14.2, z: -5.6, turn: -0.34, solid: [[-1.05, 0, 1.95], [1.05, 0, 1.95], [-3.2, 0.3, 1.3], [2.7, -1.1, 0.5], [2.7, 1.25, 0.45]] },
  { x: -20.6, z: -10.4, turn: -0.1, window: { x: 1.95, z: 1.25, turn: -0.42 } },
  { x: -28.2, z: -8.7, turn: 0.17, window: { x: -0.5, z: 1.72, turn: 0 } },
  { x: -34.7, z: -3.8, turn: 0.44, window: { x: -2.5, z: 1.2, turn: 0.38 } },
@@ -222,7 +224,10 @@ export const PROJECT_CABINS = [
 export const cabinParts = (c) => {
  const house = { x: c.x, z: c.z - 1.6 };
  const cos = Math.cos(c.turn), sin = Math.sin(c.turn);
- return { house, stand: { x: house.x + c.window.x * cos + c.window.z * sin, z: house.z - c.window.x * sin + c.window.z * cos } };
+ // Un punto dado en los ejes de la casa (x a lo largo de la fachada, z hacia fuera).
+ const at = (dx, dz) => ({ x: house.x + dx * cos + dz * sin, z: house.z - dx * sin + dz * cos });
+ if (c.solid) return { house, at, stand: null, solid: c.solid.map(([dx, dz, r]) => ({ ...at(dx, dz), r })) };
+ return { house, at, stand: at(c.window.x, c.window.z), solid: null };
 };
 // Bancos de la plaza (x, z, giro).
 export const BENCHES = [
@@ -448,7 +453,7 @@ const trees = allTrees.map((tree) => {
 });
 // Huellas de los edificios y carteles: dentro no crece nada.
 const FOOTPRINTS = [
- ...PROJECT_CABINS.flatMap((c) => { const p = cabinParts(c); return [{ ...p.house, r: 3.1 }, { ...p.stand, r: 1.4 }]; }),
+ ...PROJECT_CABINS.flatMap((c) => { const p = cabinParts(c); return p.solid ? [{ ...p.house, r: 3.3 }, ...p.solid.map((one) => ({ ...one, r: one.r + 0.7 }))] : [{ ...p.house, r: 3.1 }, { ...p.stand, r: 1.4 }]; }),
  ...LAB_TOTEMS.map((t) => ({ ...t, r: 0.8 })),
  { ...CV_KIOSK, r: 0.9 },
  { x: TREEHOUSE.x, z: TREEHOUSE.z - 1.6, r: 1.7 },
@@ -702,7 +707,7 @@ const colliders = [
  ...lanterns.map((l) => ({ x: l.x, z: l.z, r: 0.2 })),
  // Cabañas: tres círculos a lo ancho de cada una.
  // Casas de la aldea (tres círculos a lo ancho), su expositor y su cartel.
- ...PROJECT_CABINS.flatMap((c) => { const p = cabinParts(c); return [...[-1.4, 0, 1.4].map((dx) => ({ x: p.house.x + dx, z: p.house.z, r: 1.5 })), { ...p.stand, r: 0.85 }]; }),
+ ...PROJECT_CABINS.flatMap((c) => { const p = cabinParts(c); return p.solid ?? [...[-1.4, 0, 1.4].map((dx) => ({ x: p.house.x + dx, z: p.house.z, r: 1.5 })), { ...p.stand, r: 0.85 }]; }),
  { ...WELL, r: 1.0 },
  ...BENCHES.map((b) => ({ x: b.x, z: b.z, r: 0.65 })),
  { x: PLAZA.x, z: PLAZA.z - 7.2, r: 0.5 },

@@ -99,13 +99,15 @@ for (const sign of SIGNPOSTS.slice(0, 2)) {
  const p = await t.pos();
  check(p.z > sign.z + 0.3, `no se atraviesa el poste de ${sign.text} (z ${p.z} > ${sign.z})`);
 }
-// El escaparate de un proyecto tampoco.
-{
- const { stand } = cabinParts(PROJECT_CABINS[0]);
- await t.put(stand.x, stand.z + 2, { withWoody: false, settle: 300 });
- await t.hold("KeyW", 1100);
+// La fachada de un edificio de proyecto tampoco (ni el escaparate suelto de los que aún lo tienen).
+for (const cabin of PROJECT_CABINS) {
+ const { stand, at } = cabinParts(cabin);
+ const from = stand ? { x: stand.x, z: stand.z + 2 } : at(0.7, 4.4);
+ const wall = stand ? stand.z + 0.8 : at(0.7, 1.8).z;
+ await t.put(from.x, from.z, { withWoody: false, settle: 300 });
+ await t.hold("KeyW", 1300);
  const p = await t.pos();
- check(p.z > stand.z + 0.8, `no se atraviesa el escaparate (z ${p.z} > ${stand.z})`);
+ check(p.z > wall - 0.45, `no se atraviesa ${stand ? "el escaparate" : "la fachada"} del proyecto ${PROJECT_CABINS.indexOf(cabin)} (z ${p.z} > ${(wall - 0.45).toFixed(2)})`);
 }
 
 // ── Oclusión: capturas detrás de un árbol, una roca y una casa ───────────────
