@@ -70,6 +70,17 @@ export function Woody({ active }) {
   return () => events.removeEventListener("arrived", onArrived);
  }, [controller]);
 
+ // Celebra los goles.
+ useEffect(() => {
+  const onCheer = () => {
+   brain.posture = "stand";
+   controller.play("Woody_CelebrateGoal", { loop: false, fade: 0.15, hold: false });
+   emit("sound", { id: "bark", x: woody.position.x, z: woody.position.z });
+  };
+  events.addEventListener("woody-cheer", onCheer);
+  return () => events.removeEventListener("woody-cheer", onCheer);
+ }, [brain, controller]);
+
  // Peticiones de guía: desde su menú o desde el menú superior.
  useEffect(() => {
   const onGuide = (event) => {
@@ -205,11 +216,14 @@ export function Woody({ active }) {
   group.current.rotation.x = brain.posture === "stand" ? brain.pitch : brain.pitch * 0.5;
 
   // Cuando habla, mira al astronauta: gira el cuello y la cabeza hacia él.
-  memo.attend += ((speaking && !brain.moving ? 1 : 0) - memo.attend) * Math.min(1, delta * 5);
+  // (En el fútbol sigue el balón con la cabeza.)
+  const watched = woody.post?.look ?? player.position;
+  memo.attend += (((speaking || woody.post) && !brain.moving ? 1 : 0) - memo.attend) * Math.min(1, delta * 5);
   if (memo.attend > 0.02 && bones.neck && bones.head) {
-   const toward = Math.atan2(-(player.position.x - woody.position.x), -(player.position.z - woody.position.z));
+   const toward = Math.atan2(-(watched.x - woody.position.x), -(watched.z - woody.position.z));
    let aside = toward - group.current.rotation.y;
    aside = Math.max(-1.1, Math.min(1.1, Math.atan2(Math.sin(aside), Math.cos(aside)))) * memo.attend * 0.5;
+   if (import.meta.env.DEV) window.__world.woodyLook = aside; // para las pruebas automáticas
    for (const bone of [bones.neck, bones.head]) {
     // Giro alrededor de la vertical del mundo, expresado en el hueso.
     bone.parent.getWorldQuaternion(parentTurn);

@@ -32,7 +32,7 @@ export function AchievementsButton({ onOpen }) {
  );
 }
 
-// Vitrina con los 21 logros.
+// Vitrina con todos los logros.
 export function AchievementsPanel({ onClose }) {
  const card = useRef(null);
  const [confirming, setConfirming] = useState(false);

@@ -197,12 +197,48 @@ const SOUNDS = {
   hiss(out, t, { from: 1800, to: 140, peak: 0.45, attack: 0.8, decay: 3.4 });
   tone(out, t, { from: 90, to: 40, type: "sawtooth", peak: 0.15, attack: 0.6, decay: 3 });
  },
+ // Fútbol: cada contacto, su sonido.
+ "ball-kick": (out, t, s) => {
+  tone(out, t, { from: vary(170, 0.1), to: 58, peak: 0.55 * s, decay: 0.11 });
+  hiss(out, t, { filter: "bandpass", from: 900, q: 0.8, peak: 0.2 * s, decay: 0.045 });
+ },
+ "ball-grass": (out, t, s) => {
+  hiss(out, t, { filter: "lowpass", from: vary(900, 0.2), peak: 0.22 * s, attack: 0.006, decay: 0.09 });
+  tone(out, t, { from: 110, to: 60, peak: 0.16 * s, decay: 0.07 });
+ },
+ // Poste: metal hueco y seco. Larguero: más grave y con más cola.
+ "ball-woodwork": (out, t, s) => {
+  for (const [ratio, decay] of [[1, 0.22], [2.4, 0.12], [4.1, 0.06]]) tone(out, t, { from: 690 * ratio, peak: (0.26 * s) / ratio, decay });
+  hiss(out, t, { filter: "highpass", from: 4200, peak: 0.1 * s, decay: 0.02 });
+ },
+ "ball-crossbar": (out, t, s) => {
+  for (const [ratio, decay] of [[1, 0.55], [1.5, 0.4], [2.9, 0.2], [5.2, 0.08]]) tone(out, t, { from: 430 * ratio, peak: (0.26 * s) / ratio, decay });
+  tone(out, t, { from: 120, to: 70, peak: 0.2 * s, decay: 0.1 });
+ },
+ "ball-goalnet": (out, t, s) => {
+  hiss(out, t, { filter: "bandpass", from: 3600, to: 900, q: 0.7, peak: 0.3 * s, attack: 0.03, decay: 0.45 });
+  hiss(out, t + 0.12, { filter: "highpass", from: 2600, peak: 0.09 * s, attack: 0.05, decay: 0.3 });
+ },
+ "ball-wall": (out, t, s) => {
+  tone(out, t, { from: vary(130, 0.15), to: 70, type: "triangle", peak: 0.4 * s, decay: 0.09 });
+  hiss(out, t, { filter: "lowpass", from: 500, peak: 0.25 * s, decay: 0.07 });
+ },
+ "ball-save": (out, t, s) => {
+  hiss(out, t, { filter: "bandpass", from: 2200, q: 1.2, peak: 0.3 * s, decay: 0.05 });
+  tone(out, t, { from: 210, to: 120, type: "triangle", peak: 0.25 * s, decay: 0.08 });
+ },
+ "football-goal": (out, t) => {
+  [392, 523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(out, t + 0.1 + i * 0.1, { from: f, type: "triangle", peak: 0.15, decay: i === 4 ? 0.9 : 0.24 }));
+  hiss(out, t + 0.05, { filter: "bandpass", from: 700, to: 1500, q: 0.5, peak: 0.16, attack: 0.5, decay: 1.6 });
+ },
+ "football-target": (out, t) => [880, 1318.5].forEach((f, i) => tone(out, t + i * 0.07, { from: f, type: "square", peak: 0.08, decay: 0.16 })),
+ "football-trophy": (out, t) => [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568].forEach((f, i) => tone(out, t + i * 0.11, { from: f, type: "triangle", peak: 0.13, decay: i === 5 ? 1.2 : 0.3 })),
  // Logro: arpegio corto y brillante.
  achievement: (out, t) => [659.25, 783.99, 987.77, 1318.5].forEach((f, i) => tone(out, t + i * 0.085, { from: f, type: "triangle", peak: 0.14, decay: i === 3 ? 0.7 : 0.22 })),
 };
 
 // Mínimo entre dos repeticiones del mismo sonido, en segundos.
-const COOLDOWN = { default: 0.05, "ball-floor": 0.07, "ball-rim": 0.06, crate: 0.12, chirp: 0.5, flutter: 1.5, gust: 3 };
+const COOLDOWN = { default: 0.05, "ball-grass": 0.12, "ball-woodwork": 0.15, "ball-crossbar": 0.15, "ball-wall": 0.15, "ball-save": 0.15, "ball-goalnet": 0.8, "football-goal": 1.5, "ball-floor": 0.07, "ball-rim": 0.06, crate: 0.12, chirp: 0.5, flutter: 1.5, gust: 3 };
 
 // Reproduce un sonido. Con `x, z` suena desde ese punto del mundo: más flojo
 // cuanto más lejos del astronauta y desplazado a izquierda o derecha.

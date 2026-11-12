@@ -1356,3 +1356,193 @@
 .fallback__contact a {
  color: var(--color-primary-soft);
 }
+
+/* ── Fútbol: interfaz del minijuego ─────────────────────────────────────── */
+.football {
+ position: fixed;
+ inset: 0;
+ z-index: 6;
+ pointer-events: none;
+ font-family: var(--font-sans);
+ color: var(--color-text);
+}
+
+.football button {
+ pointer-events: auto;
+ height: 36px;
+ padding: 0 14px;
+ border: 0;
+ border-radius: 999px;
+ background: transparent;
+ color: inherit;
+ font: inherit;
+ font-size: 14px;
+ font-weight: 600;
+ cursor: pointer;
+ transition: background 0.15s ease;
+}
+
+.football button:hover,
+.football button:focus-visible {
+ background: rgba(255, 255, 255, 0.14);
+}
+
+.football button[aria-pressed="true"] {
+ background: var(--color-primary);
+ color: #1a0d05;
+}
+
+.football__top {
+ position: absolute;
+ top: calc(env(safe-area-inset-top) + 62px);
+ left: 50%;
+ display: flex;
+ flex-wrap: wrap;
+ justify-content: center;
+ gap: 8px;
+ width: max-content;
+ max-width: calc(100vw - 24px);
+ transform: translateX(-50%);
+}
+
+.football__modes,
+.football__tools {
+ display: flex;
+ gap: 2px;
+ padding: 4px;
+ border: 1px solid rgba(255, 255, 255, 0.2);
+ border-radius: 999px;
+ background: rgba(9, 11, 16, 0.6);
+ backdrop-filter: blur(8px);
+}
+
+.football .football__exit {
+ color: #ffb38a;
+}
+
+.football__score {
+ position: absolute;
+ top: calc(env(safe-area-inset-top) + 68px);
+ left: calc(env(safe-area-inset-left) + 14px);
+ display: flex;
+ gap: 4px;
+ margin: 0;
+ padding: 8px 10px;
+ border-radius: 18px;
+ background: rgba(58, 38, 25, 0.88);
+}
+
+.football__score div {
+ min-width: 78px;
+ text-align: center;
+}
+
+.football__score dt {
+ color: #e3c9a3;
+ font-size: 11px;
+ font-weight: 700;
+ letter-spacing: 0.12em;
+ text-transform: uppercase;
+}
+
+.football__score dd {
+ margin: 0;
+ color: #fff6e0;
+ font-size: 30px;
+ font-weight: 800;
+ line-height: 1.1;
+ font-variant-numeric: tabular-nums;
+}
+
+.football__bottom {
+ position: absolute;
+ bottom: calc(env(safe-area-inset-bottom) + 26px);
+ left: 50%;
+ width: min(420px, calc(100vw - 32px));
+ transform: translateX(-50%);
+ text-align: center;
+}
+
+.football__help {
+ margin: 0 0 10px;
+ font-size: 13px;
+ font-weight: 600;
+ text-shadow: 0 1px 6px rgba(0, 0, 0, 0.75);
+}
+
+/* Barra de potencia: se llena al mantener pulsado; la franja verde es la
+   potencia justa (más allá, el balón se va alto). */
+.football__power {
+ position: relative;
+ height: 18px;
+ border: 2px solid rgba(255, 255, 255, 0.85);
+ border-radius: 999px;
+ background: rgba(9, 11, 16, 0.55);
+ opacity: 0.35;
+ transition: opacity 0.15s ease;
+}
+
+.football__power[data-on="1"] {
+ opacity: 1;
+}
+
+.football__sweet {
+ position: absolute;
+ top: 0;
+ bottom: 0;
+ left: 50%;
+ width: 22%;
+ background: rgba(120, 220, 120, 0.55);
+}
+
+.football__fill {
+ position: absolute;
+ inset: 0;
+ border-radius: 999px;
+ background: linear-gradient(90deg, #ffd24a, #ff6b2c 70%, #ff3a2c);
+ transform-origin: left center;
+ transform: scaleX(0);
+ mix-blend-mode: screen;
+}
+
+/* Efecto: una bolita que se va al lado hacia el que curvará el balón. */
+.football__curl {
+ position: absolute;
+ top: 26px;
+ left: 50%;
+ width: 100px;
+ height: 6px;
+ margin-left: -50px;
+ border-radius: 999px;
+ background: rgba(255, 255, 255, 0.3);
+}
+
+.football__curl span {
+ position: absolute;
+ top: -3px;
+ left: 44px;
+ width: 12px;
+ height: 12px;
+ border-radius: 50%;
+ background: #fff6e0;
+}
+
+@media (max-width: 720px) {
+ .football button {
+  height: 32px;
+  padding: 0 9px;
+  font-size: 12px;
+ }
+
+ .football__score {
+  top: calc(env(safe-area-inset-top) + 112px);
+ }
+
+ .football__score div {
+  min-width: 58px;
+ }
+
+ .football__score dd {
+  font-size: 22px;
+ }
+}

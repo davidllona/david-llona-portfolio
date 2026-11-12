@@ -10,6 +10,7 @@ import { AchievementsPanel } from "./ui/Achievements";
 import { ErrorBoundary, Fallback } from "./ui/Fallback";
 import { stage } from "./ui/loaderControl";
 import { Modal } from "./ui/Modal";
+import { FootballHud } from "./ui/FootballHud";
 import { QuickMenu } from "./ui/QuickMenu";
 import { SoundToggle } from "./ui/SoundToggle";
 import { StartOverlay } from "./ui/StartOverlay";
@@ -44,6 +45,16 @@ function App() {
   return () => events.removeEventListener("arrived", onArrived);
  }, []);
  const playing = active && arrived;
+ // Jugando al fútbol la pantalla es para apuntar: se retiran el joystick y el salto.
+ const [football, setFootball] = useState(false);
+ useEffect(() => {
+  const onFootball = (event) => {
+   if (event.detail?.type === "enter") setFootball(true);
+   else if (event.detail?.type === "exit") setFootball(false);
+  };
+  events.addEventListener("football", onFootball);
+  return () => events.removeEventListener("football", onFootball);
+ }, []);
  const lastPointerType = useRef("mouse");
  const onReady = useCallback(() => setReady(true), []);
  // El código ya está aquí y en marcha: primera etapa real de la carga.
@@ -94,7 +105,8 @@ function App() {
      }}
      onEnter={enter}
     />
-    {playing && touch && <TouchControls onPause={() => setActive(false)} />}
+    {playing && touch && !football && <TouchControls onPause={() => setActive(false)} />}
+    {playing && <FootballHud touch={touch} />}
     <Sounds active={active} />
     {playing && <ThemeToggle />}
     {playing && <SoundToggle />}

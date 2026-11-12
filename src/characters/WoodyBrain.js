@@ -136,6 +136,11 @@ export function updateBrain(brain, dt, { world, player, woody, busy, attend = fa
  brain.playerIdle = playerSpeed < 0.3 ? brain.playerIdle + dt : 0;
  let target = feet;
  let gap = FOLLOW_GAP;
+ // Se le ha pedido esperar en un sitio (junto al campo de fútbol): va allí y se queda.
+ if (woody.post && brain.mode === "follow") {
+  target = woody.post;
+  gap = 0.4;
+ }
  let wantedSpeed = 0;
 
  if (brain.mode === "guide" && brain.route) {

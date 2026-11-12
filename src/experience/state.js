@@ -30,10 +30,14 @@ export const woody = {
  mode: "follow", // follow | guide | pet
  guideTo: null, // destino de la ruta en curso
  tips: true, // consejos activados
+ post: null, // { x, z, look }: sitio donde se le pide esperar y a qué mirar (el fútbol)
 };
 
 // Cámara: a quién sigue y desde cuánto de lejos. `focus` nulo = al jugador.
-export const rig = { focus: null, distance: 1, zoom: 1, shake: 0, space: 0, intro: 1, introTarget: 1 };
+export const rig = { focus: null, distance: 1, zoom: 1, shake: 0, space: 0, intro: 1, introTarget: 1, yaw: 0, lift: 1 };
+// `yaw`: giro de la cámara alrededor de lo que sigue (0 = mira al norte, como siempre);
+// `lift`: cuánto de su altura normal toma (1 = la de siempre; menos, más rasante).
+// Los usa el fútbol para ponerse a la espalda del balón; el resto no los toca.
 // `zoom`: lo que acerca o aleja el usuario con la rueda o el pellizco, entre estos límites.
 export const ZOOM = { min: 0.72, max: 1.9 };
 export function zoomBy(factor) {

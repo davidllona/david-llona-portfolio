@@ -173,7 +173,7 @@ export function WorldUi() {
   }
   if (!ui3d.achievement && achievement.k === 0 && pending.current.length) ui3d.achievement = { name: BY_ID[pending.current.shift()]?.name ?? "", age: 0 };
   const medal = ui3d.achievement;
-  place(achievement, camera, delta, medal?.name || null, drawAchievement, medal ? point.set(follow.x, follow.y + (rig.focus ? 7.6 : 3.9), follow.z) : null, SIZE.achievement, aspect);
+  place(achievement, camera, delta, medal?.name || null, drawAchievement, medal ? point.set(follow.x, follow.y + (rig.focus ? ((rig.lift ?? 1) < 1 ? 3.6 : 7.6) : 3.9), follow.z) : null, SIZE.achievement, aspect);
 
   // Bocadillo de Woody: sobre él, y apartado si fuera a tapar al astronauta.
   updateSpeech(delta);

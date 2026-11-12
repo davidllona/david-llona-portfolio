@@ -82,6 +82,18 @@ const GLYPHS = {
    <path d="M18 15.5l2.5 2M17.5 18.5l1.5 3M20 12.5l2.5.5" fill="none" />
   </>
  ),
+ // Portería con dianas en las escuadras.
+ dianas: (
+  <>
+   <path d="M2.5 21V5h19v16" fill="none" strokeWidth="2" />
+   <circle cx="7" cy="9.5" r="2.6" fill="none" />
+   <circle cx="7" cy="9.5" r="0.9" />
+   <circle cx="17" cy="9.5" r="2.6" fill="none" />
+   <circle cx="17" cy="9.5" r="0.9" />
+   <circle cx="12" cy="17" r="2.2" fill="none" />
+   <circle cx="12" cy="17" r="0.8" />
+  </>
+ ),
  // Diana con tres marcas.
  especialista: (
   <>

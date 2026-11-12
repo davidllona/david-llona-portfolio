@@ -1,4 +1,4 @@
-// Los 21 logros. Cada uno se desbloquea con un hecho real del juego (ver
+// Los 22 logros. Cada uno se desbloquea con un hecho real del juego (ver
 // Tracker.jsx); ninguno por simple cercanía cuando pide completar una acción.
 //  · `goal`: cuántas veces hay que hacerlo (si es más de una, enseña progreso).
 //  · `ready`: su disparador ya existe en el juego. Los que aún no, se ven en
@@ -11,9 +11,10 @@ export const ACHIEVEMENTS = [
  { id: "francotirador", name: "Francotirador", description: "Anota 3 triples en el reto de triples.", group: "Baloncesto", goal: 3 },
  { id: "mano-caliente", name: "Mano caliente", description: "Encadena 5 canastas sin fallar.", group: "Baloncesto", goal: 5 },
  { id: "contra-todo-pronostico", name: "Contra todo pronóstico", description: "Encesta con la barrera defensiva activa.", group: "Baloncesto" },
- { id: "primer-gol", name: "Primer gol", description: "Marca un gol.", group: "Fútbol" },
- { id: "al-palo", name: "Al palo", description: "Estrella el balón en el poste o el larguero.", group: "Fútbol" },
- { id: "especialista", name: "Especialista", description: "Marca 3 faltas directas.", group: "Fútbol", goal: 3 },
+ { id: "primer-gol", name: "Primer gol", description: "Marca un gol.", group: "Fútbol", ready: true },
+ { id: "al-palo", name: "Al palo", description: "Estrella el balón en el poste o el larguero.", group: "Fútbol", ready: true },
+ { id: "especialista", name: "Especialista", description: "Marca 3 faltas directas.", group: "Fútbol", goal: 3, ready: true },
+ { id: "dianas", name: "Dianas", description: "Derriba las cinco dianas en una ronda de precisión.", group: "Fútbol", ready: true },
  { id: "mejor-amigo", name: "Mejor amigo", description: "Acaricia a Woody 3 veces.", group: "Woody", goal: 3, ready: true },
  { id: "companeros-de-aventura", name: "Compañeros de aventura", description: "Viaja con Woody a los tres mundos.", group: "Woody", goal: 3 },
  { id: "viajero-espacial", name: "Viajero espacial", description: "Despega por primera vez en el cohete.", group: "Espacio", ready: true },

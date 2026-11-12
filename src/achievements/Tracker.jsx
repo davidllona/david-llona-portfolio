@@ -14,6 +14,15 @@ export function Tracker({ active }) {
    score: () => unlock("primer-enceste"),
    pet: () => count("mejor-amigo"),
    ship: (event) => event.detail?.phase === "launch" && unlock("viajero-espacial"),
+   // Fútbol: goles que cruzan la línea, golpes reales en el palo, faltas y dianas.
+   football: (event) => {
+    const { type, goal, free, cleared } = event.detail ?? {};
+    if (type === "result" && goal) {
+     unlock("primer-gol");
+     if (free) count("especialista");
+    } else if (type === "woodwork") unlock("al-palo");
+    else if (type === "target" && cleared) unlock("dianas");
+   },
   };
   for (const [type, handler] of Object.entries(handlers)) events.addEventListener(type, handler);
   return () => {

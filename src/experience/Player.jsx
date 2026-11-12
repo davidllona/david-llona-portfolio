@@ -42,6 +42,8 @@ export function Player({ active }) {
   focus: new THREE.Vector3(player.position.x, 0, player.position.z),
   distance: 1,
   tilt: 0,
+  yaw: 0,
+  lift: 1,
   started: false,
  });
  const reducedMotion = useMemo(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches, []);
@@ -139,17 +141,22 @@ export function Player({ active }) {
   state.focus.z += (target.z - (rig.focus ? 0 : CAMERA.lookAhead) - state.focus.z) * follow;
   state.distance += (rig.distance * rig.zoom * portrait - state.distance) * follow * 0.6;
   state.tilt += ((rig.focus ? rig.tilt ?? 0 : 0) - state.tilt) * follow * 0.6;
+  // Giro y altura (cámara de lanzamiento del fútbol): también llegan y se van sin saltos.
+  let swing = (rig.focus ? rig.yaw ?? 0 : 0) - state.yaw;
+  swing = Math.atan2(Math.sin(swing), Math.cos(swing));
+  state.yaw += swing * follow * 0.6;
+  state.lift += ((rig.focus ? rig.lift ?? 1 : 1) - state.lift) * follow * 0.6;
 
   rig.shake = Math.max(0, rig.shake - dt * 1.6);
   const shake = reducedMotion ? 0 : rig.shake * rig.shake;
   // (La altura se cuenta desde el punto al que se mira, para que la inclinación sea la dicha.)
   const lookUp = rig.focus ? 0 : CAMERA.lookUp;
-  const offsetY = lookUp + CAMERA.height * state.distance;
+  const offsetY = lookUp + CAMERA.height * state.distance * state.lift;
   const offsetZ = CAMERA.back * state.distance * (1 - state.tilt * 0.82);
   camera.position.set(
-   state.focus.x + (Math.random() - 0.5) * shake,
+   state.focus.x + Math.sin(state.yaw) * offsetZ + (Math.random() - 0.5) * shake,
    state.focus.y + offsetY + (Math.random() - 0.5) * shake,
-   state.focus.z + offsetZ,
+   state.focus.z + Math.cos(state.yaw) * offsetZ,
   );
   // Se mira a la altura del pecho del astronauta, no a sus pies.
   look.set(state.focus.x, state.focus.y + lookUp, state.focus.z);

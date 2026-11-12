@@ -11,6 +11,7 @@ import { emit } from "../../experience/state";
 import { registerGlow } from "../../experience/theme";
 import { addWarmSource } from "../../experience/lightSources";
 import { Observatory } from "./buildings/Observatory";
+import { Football } from "./football/Football";
 import { AboutMe } from "./zones/AboutMe";
 import { Contact } from "./zones/Contact";
 import { ProjectVillage } from "./zones/ProjectVillage";
@@ -193,8 +194,7 @@ function WindChime() {
  );
 }
 
-// Campo de fútbol. De momento es solo el campo y la portería; el juego llega
-// en su propia fase.
+// Campo de fútbol: el césped y sus líneas. El partido es football/Football.jsx.
 function Pitch() {
  const width = PITCH.x1 - PITCH.x0;
  const depth = PITCH.z1 - PITCH.z0;
@@ -247,21 +247,7 @@ function Pitch() {
     <mesh position={[goalX, 0, cz]} rotation-x={-Math.PI / 2}><planeGeometry args={[0.1, 7.3]} />{line}</mesh>
     <mesh position={[goalX + 7.4, 0, cz]} rotation-x={-Math.PI / 2}><circleGeometry args={[0.16, 12]} />{line}</mesh>
    </group>
-   {/* Portería: dos postes y el larguero. */}
-   {[-2.4, 2.4].map((dz) => (
-    <mesh key={dz} position={[goalX, 1.1, cz + dz]} castShadow>
-     <cylinderGeometry args={[0.07, 0.07, 2.2, 8]} />
-     <Flat color="#ffffff" />
-    </mesh>
-   ))}
-   <mesh position={[goalX, 2.2, cz]} rotation-x={Math.PI / 2} castShadow>
-    <cylinderGeometry args={[0.07, 0.07, 4.94, 8]} />
-    <Flat color="#ffffff" />
-   </mesh>
-   <mesh position={[goalX - 0.75, 1.1, cz]}>
-    <boxGeometry args={[1.5, 2.2, 4.8]} />
-    <meshBasicMaterial color="#ffffff" wireframe transparent opacity={0.35} />
-   </mesh>
+   {/* (La portería, la red, el balón y el juego los pone football/Football.jsx.) */}
   </group>
  );
 }
@@ -279,6 +265,7 @@ export function Zones() {
    <Contact />
    <WindChime />
    <Pitch />
+   <Football />
    <Signposts />
   </>
  );

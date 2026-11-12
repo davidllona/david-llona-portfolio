@@ -251,6 +251,16 @@ export const BASKET = {
  ballStand: { x: COURT.x0 + 5.8, z: COURT.z1 - 1.8 },
 };
 export const PITCH = { x0: -33, x1: -14, z0: 17, z1: 29 }; // fútbol
+// Lo que hay plantado en el campo y a su lado (ver football/Football.jsx).
+const FOOTBALL_SOLIDS = [
+ { x: PITCH.x0 + 2.3, z: 23 - 2.4, r: 0.16 },
+ { x: PITCH.x0 + 2.3, z: 23 + 2.4, r: 0.16 },
+ { x: PITCH.x0 + 0.8, z: 23 - 2.4, r: 0.12 },
+ { x: PITCH.x0 + 0.8, z: 23 + 2.4, r: 0.12 },
+ { x: PITCH.x0 + 1.4, z: 23 - 4.7, r: 0.55 },
+ { x: PITCH.x0 + 6.2 - 0.4, z: PITCH.z0 - 1.9, r: 0.62 },
+ { x: PITCH.x0 + 6.2 + 0.4, z: PITCH.z0 - 1.9, r: 0.62 },
+];
 export const WIND_CHIME = { x: -27.5, z: -22.5 }; // despierta al bosque
 // Postes indicadores de madera, junto al camino que llega a cada sitio.
 export const SIGNPOSTS = [
@@ -463,6 +473,7 @@ const FOOTPRINTS = [
  { ...CONTACT.antenna, r: 1.5 },
  ...CONTACT.terminals.map((t) => ({ ...t, r: 0.8 })),
  { ...WIND_CHIME, r: 0.5 },
+ { x: PITCH.x0 + 6.2, z: PITCH.z0 - 1.9, r: 1.5 },
  ...SIGNPOSTS.map((s) => ({ x: s.x, z: s.z, r: 0.7 })),
  // Rótulos tumbados en el suelo: la hierba no debe taparlos.
  ...LAB_TOTEMS.flatMap((t) => [-0.8, 0.8].map((dx) => ({ x: t.x + dx, z: t.z + 1.5, r: 0.8 }))),
@@ -709,6 +720,8 @@ const colliders = [
  // Casas de la aldea (tres círculos a lo ancho), su expositor y su cartel.
  ...PROJECT_CABINS.flatMap((c) => { const p = cabinParts(c); return p.solid ?? [...[-1.4, 0, 1.4].map((dx) => ({ x: p.house.x + dx, z: p.house.z, r: 1.5 })), { ...p.stand, r: 0.85 }]; }),
  { ...WELL, r: 1.0 },
+ // Fútbol: postes de la portería, marcador y vitrina del trofeo.
+ ...FOOTBALL_SOLIDS,
  ...BENCHES.map((b) => ({ x: b.x, z: b.z, r: 0.65 })),
  { x: PLAZA.x, z: PLAZA.z - 7.2, r: 0.5 },
  ...LAB_TOTEMS.map((t) => ({ ...t, r: 0.7 })),
