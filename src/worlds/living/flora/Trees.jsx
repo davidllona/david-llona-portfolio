@@ -1,8 +1,11 @@
 import { useEffect, useMemo } from "react";
+import { useFrame } from "@react-three/fiber";
+import { dot, fract, positionView, screenCoordinate, screenUV, smoothstep, step, uniform, vec2 } from "three/tsl";
 import * as THREE from "three";
 import { Instances } from "../../../experience/Instances";
 import { WIND, withWind } from "../../../experience/environment/wind";
 import { lambert } from "../../../experience/materials";
+import { player } from "../../../experience/state";
 import { ANCIENT_TREES, SCATTER, groundHeight } from "../layout";
 import { ancient, createTreeModels } from "./treeModels";
 
@@ -14,8 +17,30 @@ const TINTS = ["#ffffff", "#f1fbe9", "#fff6e2", "#e9f4f0", "#fbf2ee"];
 export function Trees() {
  const models = useMemo(createTreeModels, []);
  const old = useMemo(() => ancient(0.42), []);
- // El tronco apenas cede; la copa, arriba, se mueve más.
- const material = useMemo(() => withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.tree, power: 2, cap: 6 }), []);
+ // Dónde está el astronauta en pantalla (0–1), a qué profundidad y el aspecto de la ventana.
+ const view = useMemo(() => ({ screen: uniform(new THREE.Vector2(0.5, 0.5)), depth: uniform(-20), aspect: uniform(1.6) }), []);
+ const material = useMemo(() => {
+  // El tronco apenas cede; la copa, arriba, se mueve más.
+  const result = withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.tree, power: 2, cap: 6 });
+  // Hueco de visión: lo que queda entre la cámara y el astronauta se deshace
+  // en un tramado alrededor de él, para no perderlo nunca tras una copa.
+  // (La idea viene del follaje de folio-2025, MIT.)
+  const fromPlayer = screenUV.sub(view.screen).mul(vec2(view.aspect, 1)).length();
+  const inFront = step(view.depth.add(1.2), positionView.z);
+  const hole = smoothstep(0.17, 0.06, fromPlayer).mul(inFront);
+  const grain = fract(fract(dot(screenCoordinate.xy, vec2(0.06711056, 0.00583715))).mul(52.9829189));
+  result.opacityNode = step(hole.mul(1.1), grain.add(0.02));
+  result.alphaTest = 0.5;
+  return result;
+ }, [view]);
+ const point = useMemo(() => new THREE.Vector3(), []);
+ useFrame(({ camera, size }) => {
+  point.copy(player.position).setY(player.position.y + 1).applyMatrix4(camera.matrixWorldInverse);
+  view.depth.value = player.hidden ? -1e4 : point.z;
+  point.applyMatrix4(camera.projectionMatrix);
+  view.screen.value.set(point.x * 0.5 + 0.5, 0.5 - point.y * 0.5);
+  view.aspect.value = size.width / size.height;
+ });
  useEffect(
   () => () => {
    Object.values(models).flat().forEach((geometry) => geometry.dispose());

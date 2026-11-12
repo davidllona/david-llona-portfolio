@@ -41,6 +41,8 @@ Capturas de comparación (fuera de git): `capturas/0-antes/` (antes del pulido) 
 | Agua: oleaje facetado, bandas de profundidad, espuma irregular, corriente, rocas que asoman, ondas al vadear; cascada por láminas con bruma; arroyo con cauce | capturas |
 | Siete especies de árbol + árbol viejo; flores por especies, helechos, juncos, setas, rocas con musgo; suelo con doce tipos de superficie | capturas |
 | Observatorio nuevo (torre, galería, cúpula giratoria, telescopio, anexo, atrezo) | `living` (interacción día/noche) |
+| Hueco de visión: la copa que tapa al astronauta se deshace a su alrededor | capturas |
+| Cascada con canal de roca mojada y almohadas de espuma | capturas |
 
 Rendimiento medido en este Mac a 2880 × 1620 sobre WebGPU: 272–362 fps según la zona (antes de la migración, 187–224).
 
@@ -51,7 +53,7 @@ Rendimiento medido en este Mac a 2880 × 1620 sobre WebGPU: 272–362 fps según
 - **Fútbol**: solo el campo y la portería como escenario (fase 7).
 - **Cohete**: despega, queda en órbita y aterriza en el mismo planeta, con sonido. Falta el planeta esférico, el selector y el viaje (fase 9).
 - **Máquina de estados y ajustes** (plan, fase 1): no se han hecho `src/game/state.js` ni `settings.js`. Se usa `active` (App), `player.frozen/gesture/hidden` y `ui.open`. No hay todavía panel de ajustes de calidad ni de volumen (solo silenciar).
-- **Pulido del Planeta 1, lo que falta** (ver «Siguiente paso»): cascadas con roca y volumen, caída del río al mar, troncos curvados y árboles protagonistas, modelo de luz con sombras teñidas, agujero de visión cuando un árbol tapa al astronauta, acabado de cabañas/puente/farolas, vida ambiental nueva (hojas, humo, libélulas, ranas).
+- **Pulido del Planeta 1, lo que falta** (ver «Siguiente paso»): caída del río al mar, cascada aún muy blanca vista de cerca, troncos curvados y árboles protagonistas, modelo de luz con sombras teñidas, acabado de cabañas/puente/farolas, vida ambiental nueva (hojas, humo, libélulas, ranas).
 - **Variación espacial del viento**: está en el sombreador (ruido por posición) y se ve en las capturas, pero la prueba automática solo demuestra que hay movimiento y que la ráfaga avanza; no mide que dos zonas se muevan distinto.
 - **Ondas al vadear**: salen también bajo el puente cuando se cruza por encima.
 - **Sonido**: comprobado que cada acción pide su sonido y que el contexto arranca; **no se ha escuchado** (las pruebas son sin altavoces). Volúmenes y timbres pendientes de oído humano.
@@ -88,8 +90,8 @@ Rendimiento medido en este Mac a 2880 × 1620 sobre WebGPU: 272–362 fps según
 
 Seguir el pulido de The Living World, en este orden:
 
-1. **Cascadas** (`src/worlds/living/water/Waterfall.jsx`): canal de roca escalonado, láminas con borde recortado, almohadas de espuma en la base, roca mojada; añadir la caída del río al mar.
-2. **Árboles** (`flora/treeModels.js`): troncos curvados por spline, normales de volumen en las copas, cuatro protagonistas; agujero de visión alrededor del astronauta.
+1. **Cascadas** (`src/worlds/living/water/Waterfall.jsx`): bajar el blanco de las láminas y la bruma vistas de cerca; añadir la caída del río al mar.
+2. **Árboles** (`flora/treeModels.js`): troncos curvados por spline, normales de volumen en las copas, cuatro protagonistas.
 3. **Luz**: modelo de sombra teñida (color de sombra por hora) en los materiales de nodos; revisar si ACES lava la imagen.
 4. **Construcciones y ambiente**: cabañas, puente, farolas; hojas, humo, libélulas, ranas; la gran ráfaga coordinada.
 

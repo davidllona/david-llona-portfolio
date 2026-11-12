@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { createGlowTexture } from "../../../experience/textures";
-import { mix, smoothstep, step, uv, vec2, vec3 } from "three/tsl";
-import { unlit } from "../../../experience/materials";
+import { attribute, mix, positionLocal, sin, smoothstep, step, uv, vec2, vec3 } from "three/tsl";
+import { lambert, unlit } from "../../../experience/materials";
 import { current, uniforms } from "../../../experience/theme";
-import { PLATEAU, STREAM, STREAM_LEVEL, WATERFALL, WATER_LEVEL } from "../layout";
+import { blob, merge, piece } from "../kit/geometry";
+import { ROCK } from "../kit/palette";
+import { STREAM, STREAM_LEVEL, WATERFALL, WATER_LEVEL } from "../layout";
 import { cells } from "./nodes";
 
 // Agua que corre por una cinta: el arroyo de la meseta y las láminas de la
@@ -37,7 +39,8 @@ function flowMaterial({ speed, length, width, fall = 0, white = 0, seed = 0 }) {
 
 // Cinta que sigue una línea de puntos 3D; uv.y recorre su largo (0–1).
 // `columns`: divisiones a lo ancho; con `bulge` la cinta se abomba hacia fuera.
-function ribbon(points, width, { columns = 1, bulge = 0 } = {}) {
+//  · flare: cuánto se abre hacia el final (0 = ancho constante).
+function ribbon(points, width, { columns = 1, bulge = 0, flare = 0 } = {}) {
  const positions = [];
  const uvs = [];
  const indices = [];
@@ -53,7 +56,8 @@ function ribbon(points, width, { columns = 1, bulge = 0 } = {}) {
   for (let c = 0; c <= columns; c++) {
    const u = c / columns;
    const lift = Math.sin(u * Math.PI) * bulge;
-   positions.push(point.x + side.x * (u - 0.5) * width + out.x * lift, point.y + out.y * lift, point.z + side.z * (u - 0.5) * width + out.z * lift);
+   const wide = width * (1 - flare * 0.5 + (flare * lengths[i]) / total);
+   positions.push(point.x + side.x * (u - 0.5) * wide + out.x * lift, point.y + out.y * lift, point.z + side.z * (u - 0.5) * wide + out.z * lift);
    uvs.push(u, lengths[i] / total);
    if (i && c) {
     const a = (i - 1) * (columns + 1) + c - 1;
@@ -77,6 +81,36 @@ const SHEETS = [
  [0.3, 0.32, 0.3, 2.0, 0.08],
  [0.04, 0.2, 0.42, 2.35, 0.14],
 ];
+// La roca del salto: un canal oscuro y mojado por detrás del agua, bloques que
+// la encauzan a los lados, el labio del que cae y piedras donde rompe.
+function createRocks() {
+ const { x, z } = WATERFALL;
+ const drop = STREAM_LEVEL - WATER_LEVEL;
+ const wet = ["#4b4f55", "#6f747a"]; // piedra mojada, más oscura y azulada
+ const stone = (seed, position, scale, colors = [ROCK.dark, ROCK.light]) =>
+  piece(seed % 2 ? blob(0) : new THREE.DodecahedronGeometry(1, 0), { bottom: colors[0], top: colors[1], jitter: 0.2, vary: 0.1, seed, position, scale, rotation: [seed, seed * 2.1, seed * 0.7] });
+ const pieces = [];
+ // Pared del fondo, en escalones que avanzan hacia abajo.
+ for (let i = 0; i < 5; i++) {
+  const t = i / 4;
+  pieces.push(stone(i + 1, [x + (i % 2 ? 0.25 : -0.2), STREAM_LEVEL - 0.5 - drop * t * 0.9, z - 0.95 + t * 0.9], [1.75 - t * 0.25, 0.75, 0.75], wet));
+ }
+ // Columnas laterales que estrechan la caída, más altas arriba.
+ for (const side of [-1, 1]) {
+  for (let i = 0; i < 4; i++) {
+   const t = i / 3;
+   pieces.push(stone(10 + i + side, [x + side * (1.75 + (i % 2) * 0.3), STREAM_LEVEL - 0.2 - drop * t * 0.92, z - 0.5 + t * 1.3], [0.85 + (i % 2) * 0.25, 0.9, 0.85]));
+  }
+  // Labio: dos piedras que sujetan el arroyo antes de saltar.
+  pieces.push(stone(30 + side, [x + side * 1.5, STREAM_LEVEL + 0.12, z - 1.0], [0.6, 0.42, 0.7]));
+ }
+ // Piedra que parte el agua en lo alto y bloques donde rompe abajo.
+ pieces.push(stone(41, [x + 0.35, STREAM_LEVEL - 0.05, z - 0.55], [0.34, 0.3, 0.4], wet));
+ pieces.push(stone(42, [x - 1.25, WATER_LEVEL + 0.05, z + 1.2], [0.62, 0.42, 0.6], wet), stone(43, [x + 1.35, WATER_LEVEL + 0.02, z + 1.35], [0.5, 0.36, 0.55], wet), stone(44, [x + 0.15, WATER_LEVEL - 0.05, z + 0.75], [0.42, 0.3, 0.4], wet));
+ return merge(pieces);
+}
+
+const PILLOWS = 9; // almohadas de espuma en la base
 const DROPS = 46;
 const MIST = 8;
 const RINGS = 3;
@@ -86,6 +120,39 @@ export function Waterfall() {
  const mist = useRef([]);
  const rings = useRef([]);
  const helper = useMemo(() => new THREE.Object3D(), []);
+ const rocks = useMemo(createRocks, []);
+ const rockMaterial = useMemo(() => lambert(), []);
+ // Espuma con volumen: bultos blancos facetados que suben y bajan a destiempo.
+ const pillows = useMemo(() => {
+  const geometry = new THREE.IcosahedronGeometry(1, 0);
+  const seeds = new Float32Array(PILLOWS).map((_, i) => i * 1.93 + 0.4);
+  geometry.setAttribute("seed", new THREE.InstancedBufferAttribute(seeds, 1));
+  const material = lambert({ vertexColors: false, color: "#f4fbff", emissive: "#9fb9c9" });
+  const seed = attribute("seed", "float");
+  const swell = sin(uniforms.uTime.mul(2.6).add(seed)).mul(0.5).add(0.5);
+  material.positionNode = positionLocal.add(vec3(0, swell.mul(0.16), 0));
+  return { geometry, material };
+ }, []);
+ const pillowMesh = useRef(null);
+ useEffect(() => {
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < PILLOWS; i++) {
+   const angle = (i / PILLOWS) * Math.PI + 0.15;
+   const radius = 0.5 + (i % 3) * 0.42;
+   dummy.position.set(WATERFALL.x + Math.cos(angle) * radius * 1.5, WATER_LEVEL - 0.08, WATERFALL.z + 1.3 + Math.sin(angle) * radius * 0.75);
+   dummy.rotation.set(i, i * 2.3, i * 0.6);
+   dummy.scale.set(0.34 + (i % 4) * 0.09, 0.2 + (i % 3) * 0.05, 0.3 + (i % 2) * 0.12);
+   dummy.updateMatrix();
+   pillowMesh.current.setMatrixAt(i, dummy.matrix);
+  }
+  pillowMesh.current.instanceMatrix.needsUpdate = true;
+  return () => {
+   rocks.dispose();
+   rockMaterial.dispose();
+   pillows.geometry.dispose();
+   pillows.material.dispose();
+  };
+ }, [rocks, rockMaterial, pillows]);
  const glow = useMemo(() => createGlowTexture(), []);
  const spray = useMemo(
   () => Array.from({ length: DROPS }, () => ({ life: Math.random(), angle: Math.random() * Math.PI * 2, speed: 0.5 + Math.random() * 1.3, lift: 0.9 + Math.random() * 1.6, size: 0.04 + Math.random() * 0.075 })),
@@ -108,7 +175,7 @@ export function Waterfall() {
     const t = k / 17;
     return new THREE.Vector3(x + shift * width, STREAM_LEVEL - drop * t * t, z - 0.75 + t * (2.0 + forward) + forward * 0.4);
    });
-   const sheet = ribbon(path, width * share, { columns: i ? 2 : 4, bulge: i ? 0.08 : 0.16 });
+   const sheet = ribbon(path, width * share, { columns: i ? 2 : 4, bulge: i ? 0.08 : 0.16, flare: i ? 0.5 : 0.28 });
    list.push({ ...sheet, material: flowMaterial({ speed, length: sheet.length, width: width * share, fall: 1, white, seed: i * 7.3 }) });
   });
   void top;
@@ -176,6 +243,8 @@ export function Waterfall() {
    {parts.map((part, i) => (
     <mesh key={i} geometry={part.geometry} material={part.material} renderOrder={i} />
    ))}
+   <mesh geometry={rocks} material={rockMaterial} castShadow receiveShadow />
+   <instancedMesh ref={pillowMesh} args={[pillows.geometry, pillows.material, PILLOWS]} frustumCulled={false} />
    <instancedMesh ref={drops} args={[undefined, undefined, DROPS]} frustumCulled={false}>
     <tetrahedronGeometry args={[1, 0]} />
     <meshBasicMaterial color="#f4fbff" transparent opacity={0.9} />
