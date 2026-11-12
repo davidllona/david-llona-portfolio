@@ -25,6 +25,10 @@ export function Tracker({ active }) {
  useEffect(() => {
   if (!active) return undefined;
   const start = player.position.clone();
+  // Tras reiniciar el progreso se empieza de cero también aquí: los «primeros
+  // pasos» cuentan desde donde se esté.
+  const onReset = () => start.copy(player.position);
+  events.addEventListener("achievements-reset", onReset);
   const timer = window.setInterval(() => {
    if (player.hidden) return;
    const { x, z } = player.position;
@@ -35,7 +39,10 @@ export function Tracker({ active }) {
     }
    }
   }, 250);
-  return () => window.clearInterval(timer);
+  return () => {
+   window.clearInterval(timer);
+   events.removeEventListener("achievements-reset", onReset);
+  };
  }, [active]);
 
  return null;

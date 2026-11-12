@@ -167,10 +167,27 @@ export const COLORS = {
 
 export const SPAWN = { x: 0, z: 7.5 };
 export const PAD = { x: 0, z: 0, padRadius: 4.6, color: "#8f8c99" }; // plataforma del cohete, en el centro
-// Cuatro cabañas de proyecto a lo largo del camino del oeste, mirando al sur.
-export const PROJECT_CABINS = [-13, -20.5, -28, -35.5].map((x, i) => ({ x, z: -5.4 - Math.abs(i - 1.5) * 0.5 }));
-// Tres tótems de experimentos, al otro lado del mismo camino.
-export const LAB_TOTEMS = [-17, -24.5, -32].map((x) => ({ x, z: 5.6 }));
+// Aldea de proyectos: una plaza empedrada en el camino del oeste y cuatro casas
+// en arco al norte, cada una con su expositor delante. (x, z) es el punto del
+// expositor; la casa queda detrás, girada `turn` hacia la plaza.
+export const PLAZA = { x: -24.5, z: -1.6, r: 5.5 };
+export const WELL = { x: -24.5, z: -3.5 };
+// `side`: hacia qué lado queda el expositor (+1 este, −1 oeste); el cartel va al otro.
+// Las dos parcelas del este y las dos del oeste son espejo, con los expositores hacia el centro.
+export const PROJECT_CABINS = [
+ { x: -13.4, z: -4.9, turn: -0.2, side: -1 },
+ { x: -19.9, z: -9.5, turn: -0.06, side: -1 },
+ { x: -29.1, z: -9.5, turn: 0.06, side: 1 },
+ { x: -35.4, z: -4.9, turn: 0.2, side: 1 },
+];
+// Dónde cae cada pieza de una parcela.
+export const cabinParts = (c) => ({ house: { x: c.x - 0.9 * c.side, z: c.z - 1.6 }, stand: { x: c.x + 1.75 * c.side, z: c.z + 0.95 }, sign: { x: c.x - 2.7 * c.side, z: c.z + 0.7 } });
+// Jardín del laboratorio: tres pedestales al sur de la plaza, con su sendero.
+export const LAB_TOTEMS = [
+ { x: -19.2, z: 6.3 },
+ { x: -24.5, z: 7.7 },
+ { x: -29.8, z: 6.3 },
+];
 export const CV_KIOSK = { x: 6.6, z: 6.4 };
 export const TREEHOUSE = { x: 1.5, z: -27 }; // Sobre mí, en la meseta
 export const OBSERVATORY = { x: 19, z: -25.5 };
@@ -199,6 +216,7 @@ export const PATHS = [
  [[-7.6, -22.5], [-3, -25], [1.5, -24.4]],
  [[1.5, -24.4], [10, -23.2], [19, -22.6]],
  [[-3.3, 3.6], [-12, 11], [-17, 16.5]],
+ [[-24.5, 0], [-24.5, 5.6]],
  [[3.6, 3.4], [6.6, 5.4]],
 ];
 function pathDistance(x, z) {
@@ -247,6 +265,7 @@ export function surface(x, z) {
  const slope = Math.hypot(groundHeight(x + e, z) - groundHeight(x - e, z), groundHeight(x, z + e) - groundHeight(x, z - e)) / (2 * e);
  if (slope > 0.95) return "rock";
  if (distance(x, z, PAD.x, PAD.z) < PAD.padRadius + 0.6) return "stone";
+ if (distance(x, z, PLAZA.x, PLAZA.z) < PLAZA.r + rough * 0.5) return "plaza";
  // Bajo la pista y el campo no crece hierba.
  if ([COURT, PITCH].some((rect) => x > rect.x0 - 0.5 && x < rect.x1 + 0.5 && z > rect.z0 - 0.5 && z < rect.z1 + 0.5)) return "path";
  // Caminos de ancho irregular, con un borde de tierra más oscura.
@@ -288,7 +307,9 @@ const CLEARINGS = [
  { ...WIND_CHIME, r: 2.4 },
  { x: POND.x, z: POND.z, r: POND.r + 0.8 },
  { x: WATERFALL.x, z: WATERFALL.z - 1.5, r: 3 },
- ...PROJECT_CABINS.map((c) => ({ ...c, r: 4.2 })),
+ ...PROJECT_CABINS.map((c) => ({ ...c, r: 4.6 })),
+ { ...PLAZA, r: PLAZA.r + 6.5 },
+ { x: PLAZA.x, z: 7, r: 8.5 }, // jardín del laboratorio
  ...LAB_TOTEMS.map((c) => ({ ...c, r: 2.4 })),
  ...ANCIENT_TREES.map((t) => ({ ...t, r: 4.5 })),
 ];
@@ -336,9 +357,13 @@ const VIEWPOINTS = [
  ...PROJECT_CABINS.map((c) => ({ x: c.x + 0.4, z: c.z + 5, r: 3.6 })),
  ...LAB_TOTEMS.map((c) => ({ x: c.x, z: c.z + 3.6, r: 2.8 })),
 ];
+// Mapa de bosque: los árboles se juntan en bosquetes y dejan claros entre ellos.
+export const forest = (x, z) => noise2(x * 0.072 + 11.3, z * 0.072 - 5.1) * 0.75 + noise2(x * 0.19 - 3, z * 0.19 + 8) * 0.25;
 const treeSite = (x, z, y) =>
  dryLand(x, z, y) &&
- pathDistance(x, z) > 3.3 &&
+ forest(x, z) > 0.44 &&
+ // Lejos de los caminos: el corredor por el que se anda queda despejado.
+ pathDistance(x, z) > 4.4 &&
  !VIEWPOINTS.some((v) => distance(x, z, v.x, v.z) < v.r) &&
  ![COURT, PITCH].some((rect) => x > rect.x0 - 3 && x < rect.x1 + 3 && z > rect.z0 - 2 && z < rect.z1 + 7);
 
@@ -364,7 +389,7 @@ const trees = allTrees.map((tree) => {
 });
 // Huellas de los edificios y carteles: dentro no crece nada.
 const FOOTPRINTS = [
- ...PROJECT_CABINS.flatMap((c) => [{ x: c.x - 0.9, z: c.z - 1.2, r: 2.5 }, { x: c.x + 1.9, z: c.z + 0.9, r: 1.5 }]),
+ ...PROJECT_CABINS.flatMap((c) => { const p = cabinParts(c); return [{ ...p.house, r: 3.1 }, { ...p.stand, r: 1.4 }, { ...p.sign, r: 0.9 }]; }),
  ...LAB_TOTEMS.map((t) => ({ ...t, r: 0.8 })),
  { ...CV_KIOSK, r: 0.9 },
  { x: TREEHOUSE.x, z: TREEHOUSE.z - 1.6, r: 1.7 },
@@ -375,7 +400,6 @@ const FOOTPRINTS = [
  ...CONTACT.terminals.map((t) => ({ ...t, r: 0.8 })),
  { ...WIND_CHIME, r: 0.5 },
  // Rótulos tumbados en el suelo: la hierba no debe taparlos.
- ...PROJECT_CABINS.flatMap((c) => [-1.8, 0, 1.8].map((dx) => ({ x: c.x + 0.4 + dx, z: c.z + 3.1, r: 1.05 }))),
  ...LAB_TOTEMS.flatMap((t) => [-0.8, 0.8].map((dx) => ({ x: t.x + dx, z: t.z + 1.5, r: 0.8 }))),
  { x: CV_KIOSK.x, z: CV_KIOSK.z + 1.3, r: 0.9 },
  ...[-0.9, 0.9].map((dx) => ({ x: TREEHOUSE.x + 1 + dx, z: TREEHOUSE.z + 3.6, r: 1 })),
@@ -384,7 +408,6 @@ const FOOTPRINTS = [
  ...CONTACT.terminals.map((t) => ({ x: t.x, z: t.z + 1.3, r: 0.9 })),
  ...[-1.6, 0, 1.6].map((dx) => ({ x: (COURT.x0 + COURT.x1) / 2 + dx, z: COURT.z1 + 1.6, r: 1 })),
  ...[-1, 1].map((dx) => ({ x: (PITCH.x0 + PITCH.x1) / 2 + dx, z: PITCH.z1 + 1.5, r: 1 })),
- ...[-2, 0, 2].map((dx) => ({ x: -9.5 + dx, z: 1.9, r: 1.1 })),
 ];
 const built = (x, z) => FOOTPRINTS.some((f) => (f.x - x) ** 2 + (f.z - z) ** 2 < f.r * f.r);
 
@@ -394,18 +417,21 @@ const GRASS_AMOUNT = { meadow: 1, grass: 0.7, moss: 0.86, shade: 0.5, pathEdge: 
 export function grassAmount(x, z) {
  if (built(x, z)) return 0;
  const base = GRASS_AMOUNT[surface(x, z)] ?? 0;
+ // Junto a los caminos, césped corto (una franja segada); la hierba alta queda para las praderas.
+ const verge = 0.5 + 0.5 * smooth(1.6, 4.2, pathDistance(x, z));
  // Dentro de cada zona, manchas algo más altas y más bajas.
- return base * (0.8 + meadow(x, z) * 0.4);
+ return base * (0.8 + meadow(x, z) * 0.4) * verge;
 }
 // ¿Queda a la sombra de un árbol?
 export const inShade = (x, z) => shadeSpots.some((spot) => (spot.x - x) ** 2 + (spot.z - z) ** 2 < spot.r2);
 
 shadeSpots = trees.map((t) => ({ x: t.x, z: t.z, r2: (t.kind === "willow" ? 2.3 : 1.7) ** 2 * t.scale ** 2 }));
 
-const rocks = scatter(46, { margin: -0.4, spacing: 2.4, others: trees, accept: (x, z, y) => y > -0.2 }).map((r) => ({ ...r, scale: 0.4 + r.seed * 0.85 }));
+const rocks = scatter(40, { margin: -0.4, spacing: 2.4, others: trees, accept: (x, z, y) => y > -0.2 && pathDistance(x, z) > 2.9 }).map((r) => ({ ...r, scale: 0.4 + r.seed * 0.85 }));
 // Rocas al pie del acantilado, para que la pared no nazca del suelo a pelo.
 const cliffRocks = scatter(60, { margin: -100, spacing: 1.7, accept: (x, z) => { const e = plateauDistance(x, z); return e > 0.6 && e < 2.2 && distance(x, z, WATERFALL.x, WATERFALL.z) > 3 && toSegment(x, z, ...RAMP.from, ...RAMP.to).distance > 3; } }).map((r) => ({ ...r, scale: 0.6 + r.seed * 0.9 }));
-const bushes = scatter(120, { margin: -0.5, spacing: 1.5, others: [...trees, ...rocks], accept: (x, z, y) => dryLand(x, z, y) && !built(x, z) }).map((b) => ({ ...b, scale: 0.5 + b.seed * 0.5 }));
+// Arbustos: en macizos al borde de los bosquetes, nunca en el corredor de los caminos.
+const bushes = scatter(96, { margin: -0.5, spacing: 1.5, others: [...trees, ...rocks], accept: (x, z, y) => dryLand(x, z, y) && !built(x, z) && pathDistance(x, z) > 3.2 && forest(x, z) > 0.36 }).map((b) => ({ ...b, scale: 0.5 + b.seed * 0.5 }));
 const mushrooms = scatter(50, { margin: -0.6, spacing: 1.4, accept: (x, z, y) => dryLand(x, z, y) && ["shade", "moss"].includes(surface(x, z)) });
 // Hierba: se recorre la isla en una rejilla descolocada y en cada casilla se
 // decide si nace una mata y de qué tipo, según el suelo. Así hay praderas
@@ -536,7 +562,12 @@ const colliders = [
  ...cliffRocks.map((r) => ({ x: r.x, z: r.z, r: 0.75 * r.scale })),
  ...lanterns.map((l) => ({ x: l.x, z: l.z, r: 0.2 })),
  // Cabañas: tres círculos a lo ancho de cada una.
- ...PROJECT_CABINS.flatMap((c) => [-1.5, 0, 1.5].map((dx) => ({ x: c.x + dx, z: c.z - 1.2, r: 1.45 }))),
+ // Casas de la aldea (tres círculos a lo ancho), su expositor y su cartel.
+ ...PROJECT_CABINS.flatMap((c) => { const p = cabinParts(c); return [...[-1.4, 0, 1.4].map((dx) => ({ x: p.house.x + dx, z: p.house.z, r: 1.5 })), { ...p.stand, r: 0.55 }, { ...p.sign, r: 0.22 }]; }),
+ { ...WELL, r: 1.0 },
+ { x: PLAZA.x - 3.4, z: PLAZA.z + 4.3, r: 0.65 },
+ { x: PLAZA.x + 3.4, z: PLAZA.z + 4.3, r: 0.65 },
+ { x: PLAZA.x, z: PLAZA.z - 7.2, r: 0.5 },
  ...LAB_TOTEMS.map((t) => ({ ...t, r: 0.7 })),
  { ...CV_KIOSK, r: 0.85 },
  { x: TREEHOUSE.x, z: TREEHOUSE.z - 1.6, r: 1.5 },
@@ -581,7 +612,7 @@ const PROPS = [
 ];
 
 // El mundo, con la interfaz que usan el jugador, Woody, la nave y los objetos.
-const FOOTING = { rock: "stone", bed: "stone", stone: "stone", path: "path", pathEdge: "path", sand: "sand", wetsand: "sand", bank: "sand" };
+const FOOTING = { plaza: "stone", rock: "stone", bed: "stone", stone: "stone", path: "path", pathEdge: "path", sand: "sand", wetsand: "sand", bank: "sand" };
 // Qué se pisa en (x, z), para el sonido de los pasos.
 function footing(x, z) {
  if (bridgeHeight(x, z) !== null) return "wood";

@@ -16,6 +16,7 @@ const PALETTE = {
  path: ["#e3ca98", "#dcc08b"],
  pathEdge: ["#c5a676", "#b99868"],
  stone: ["#a9a6b3", "#9b98a6"],
+ plaza: ["#cdbfa6", "#c2b49a", "#d6c9b1"],
  bed: ["#4f9f9c", "#3f8f90", "#2f7f86"],
 };
 // La roca va por estratos: el tono depende de la altura.

@@ -6,7 +6,6 @@ import { aboutText } from "../../content/about";
 import { CONTACT_LINKS } from "../../content/contact";
 import { CV, cvCard } from "../../content/cv";
 import { LAB_PROJECTS } from "../../content/lab";
-import { PROJECTS } from "../../content/projects";
 import { Label } from "../../experience/Label";
 import { useInteractable } from "../../experience/interact";
 import { emit } from "../../experience/state";
@@ -14,6 +13,7 @@ import { createTextPanelTexture } from "../../experience/textures";
 import { registerGlow } from "../../experience/theme";
 import { addWarmSource } from "../../experience/lightSources";
 import { Observatory } from "./buildings/Observatory";
+import { ProjectVillage } from "./zones/ProjectVillage";
 import { COLORS, CONTACT, CV_KIOSK, LAB_TOTEMS, PITCH, PLATEAU, PROJECT_CABINS, TREEHOUSE, WIND_CHIME, height } from "./layout";
 
 const WOOD = "#c58a55";
@@ -72,68 +72,6 @@ function Picture({ url, width, height: tall }) {
  );
 }
 
-// Una cabaña por proyecto, con el tejado de su color, y su cartel al lado.
-function ProjectCabin({ project, x, z }) {
- const open = () =>
-  emit("open", {
-   kind: "project",
-   eyebrow: `Proyecto · ${project.year}`,
-   title: project.name,
-   paragraphs: [project.tagline, project.description],
-   tags: project.tags,
-   image: project.images[0],
-   link: project.link,
-   linkLabel: "Ver proyecto",
-  });
- const click = useInteractable({ position: { x: x + 0.4, z: z + 2.6 }, radius: 3.4, hint: `Ver «${project.name}»`, anywhere: true, action: open });
-
- return (
-  <group position={[x, 0, z]} {...click}>
-   {/* Cabaña. */}
-   <group position={[-0.9, 0, -1.2]}>
-    <mesh position-y={0.12} receiveShadow>
-     <boxGeometry args={[3.5, 0.24, 3]} />
-     <Flat color={STONE} />
-    </mesh>
-    <mesh position-y={1.25} castShadow receiveShadow>
-     <boxGeometry args={[3, 2.1, 2.5]} />
-     <Flat color={WOOD} />
-    </mesh>
-    <Roof width={3} depth={2.5} rise={1.35} color={project.color} y={2.3} />
-    <mesh position={[0.95, 3.2, -0.4]} castShadow>
-     <boxGeometry args={[0.42, 1, 0.42]} />
-     <Flat color={STONE} />
-    </mesh>
-    <mesh position={[-0.6, 0.95, 1.27]}>
-     <boxGeometry args={[0.8, 1.5, 0.08]} />
-     <Flat color={WOOD_DARK} />
-    </mesh>
-    <Window position={[0.75, 1.45, 1.27]} />
-   </group>
-
-   {/* Cartel con la captura del proyecto, inclinado hacia la cámara. */}
-   <group position={[1.9, 0, 0.9]}>
-    {[-1.05, 1.05].map((dx) => (
-     <mesh key={dx} position={[dx, 0.6, -0.05]} castShadow>
-      <boxGeometry args={[0.16, 1.2, 0.16]} />
-      <Flat color={WOOD_DARK} />
-     </mesh>
-    ))}
-    <group position-y={1.75} rotation-x={-0.24}>
-     <mesh castShadow>
-      <boxGeometry args={[2.7, 1.75, 0.14]} />
-      <Flat color={WOOD_DARK} />
-     </mesh>
-     <Suspense fallback={null}>
-      <Picture url={project.images[0]} width={2.46} height={1.5} />
-     </Suspense>
-    </group>
-   </group>
-   <Label text={project.name.toUpperCase()} color={project.color} width={5.4} position={[0.4, 0.17, 3.1]} plate flat />
-  </group>
- );
-}
-
 const TOTEM_TINTS = ["#19b6c9", "#ff7ae6", "#ffcf4a"];
 const TOTEM_SHAPES = [
  <icosahedronGeometry key="a" args={[0.5, 1]} />,
@@ -171,7 +109,20 @@ function LabTotem({ experiment, index, x, z }) {
     {TOTEM_SHAPES[index]}
     <meshLambertMaterial color={tint} emissive={tint} emissiveIntensity={0.45} flatShading />
    </mesh>
-   <Label text={experiment.title.toUpperCase()} color={tint} width={3} position={[0, 0.17, 1.5]} plate flat />
+   {/* Placa inclinada al pie, como la de un jardín botánico. */}
+   <group position={[0, 0, 1.05]}>
+    <mesh position-y={0.28} castShadow>
+     <boxGeometry args={[0.1, 0.56, 0.1]} />
+     <Flat color={WOOD_DARK} />
+    </mesh>
+    <group position-y={0.62} rotation-x={-0.95}>
+     <mesh>
+      <boxGeometry args={[2.3, 0.6, 0.06]} />
+      <Flat color={WOOD_DARK} />
+     </mesh>
+     <Label text={experiment.title.toUpperCase()} color={tint} width={2.2} position={[0, 0, 0.04]} plate />
+    </group>
+   </group>
   </group>
  );
 }
@@ -458,10 +409,7 @@ function Pitch() {
 export function Zones() {
  return (
   <>
-   {PROJECTS.map((project, i) => (
-    <ProjectCabin key={project.id} project={project} {...PROJECT_CABINS[i]} />
-   ))}
-   <Label text="PROYECTOS" color={COLORS.proyectos} width={6} position={[-9.5, 0.17, 1.9]} flat />
+   <ProjectVillage />
    {LAB_PROJECTS.slice(0, 3).map((experiment, i) => (
     <LabTotem key={experiment.id} experiment={experiment} index={i} {...LAB_TOTEMS[i]} />
    ))}

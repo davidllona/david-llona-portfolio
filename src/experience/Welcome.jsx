@@ -7,8 +7,9 @@ import { ASTRONAUT_PALETTE, ASTRONAUT_SCALE, WOODY_PALETTE, WOODY_SCALE } from "
 import { Glow } from "../worlds/living/buildings/Glow";
 import { createPlantModels } from "../worlds/living/flora/plantModels";
 import { HERO_LANTERNS, hero } from "../worlds/living/flora/treeModels";
-import { blade, blob, limb, merge, piece, randomFrom, tube } from "../worlds/living/kit/geometry";
-import { ROCK, WOOD } from "../worlds/living/kit/palette";
+import { blade, blob, merge, piece, randomFrom } from "../worlds/living/kit/geometry";
+import { ROCK } from "../worlds/living/kit/palette";
+import { createLamp } from "../worlds/living/props/lampModel";
 import { WIND, withWind } from "./environment/wind";
 import { Instances } from "./Instances";
 import { lambert } from "./materials";
@@ -26,8 +27,6 @@ const TREE = [-2.3, 0, -1.3];
 const LAMP = [2.75, 0, -0.5];
 const ASTRONAUT = [0.15, 0, 1.75];
 const DOG = [1.55, 0, 2.15];
-
-const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 
 // El islote: claro de hierba, tierra, roca que se estrecha hacia abajo, piedras
 // en el borde y raíces que cuelgan.
@@ -60,18 +59,6 @@ function createIslet() {
   piece(blob(0), { bottom: strata[0], top: strata[1], jitter: 0.2, vary: 0.1, seed: 32, position: [3.5, 0.12, 2.0], scale: [0.4, 0.28, 0.36] }),
  );
  return merge(pieces);
-}
-
-// Farola: poste de madera que se curva, brazo y farol colgante.
-function createLamp() {
- return merge([
-  piece(tube([[0, 0, 0], [0.05, 1.6, 0], [0.0, 2.9, 0], [-0.25, 3.35, 0], [-0.7, 3.45, 0]], (t) => 0.1 - t * 0.045, { sides: 6, segments: 8 }), { bottom: WOOD.dark, top: WOOD.mid, vary: 0.08 }),
-  piece(new THREE.CylinderGeometry(0.2, 0.26, 0.22, 7), { color: ROCK.mid, jitter: 0.02, position: [0, 0.11, 0] }),
-  piece(limb(0.012, 0.012, 0.3, 4), { color: "#3b3836", position: [-0.62, 3.1, 0] }),
-  piece(new THREE.ConeGeometry(0.24, 0.2, 4), { color: WOOD.dark, position: [-0.62, 3.1, 0], rotation: [0, Math.PI / 4, 0] }),
-  piece(box(0.3, 0.04, 0.3), { color: WOOD.dark, position: [-0.62, 2.62, 0] }),
-  ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z]) => piece(box(0.03, 0.4, 0.03), { color: WOOD.dark, position: [-0.62 + x * 0.13, 2.82, z * 0.13] })),
- ]);
 }
 
 // Copia de un personaje riggeado, con su material facetado y un clip en bucle.

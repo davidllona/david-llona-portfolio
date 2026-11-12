@@ -3,7 +3,7 @@
 Actualizado: 12 de noviembre de 2026 · rama `estacion-espacial` (solo commits locales, sin push).
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git).
-Trabajo en curso: **pulido de The Living World** (solo el Planeta 1), con técnicas adaptadas de `folio-2025-main/` (ver `docs/CREDITOS.md`).
+Trabajo en curso: **rediseño artístico de The Living World** (solo el Planeta 1): primero se valida un estándar en la bienvenida y la aldea de proyectos; después se extiende al resto. Modelos propios (kit de código; Blender si hace falta), nada de packs de terceros. Punto de retorno anterior: etiqueta `antes-rediseno-artistico`.
 
 ## Cómo arrancarlo y probarlo
 
@@ -19,7 +19,7 @@ Atajos de desarrollo: `?world=cosmic` abre el planeta antiguo; `?webgl=0` simula
 
 Controles: WASD o flechas, Espacio saltar, Shift correr, E usar, G menú de Woody, N día/noche, M sonido, Esc pausa. Con el ratón se hace clic en los objetos.
 
-Capturas de comparación (fuera de git): `capturas/0-antes/` (antes del pulido) y `capturas/1-webgpu/` (ahora), mismas 12 vistas de día y de noche; `capturas/movimiento/` tiene las secuencias de viento, ráfaga y rastro.
+Capturas de comparación (fuera de git), mismas 12 vistas de día y de noche: `capturas/0-antes/` (antes del pulido), `capturas/1-webgpu/` (tras la migración) y `capturas/4-rediseno/` (ahora). Además: `capturas/2-bienvenida/` (portada en escritorio y móvil, y el descenso), `capturas/3-aldea/` y `capturas/movimiento/`.
 
 ## Arquitectura gráfica
 
@@ -42,9 +42,13 @@ Capturas de comparación (fuera de git): `capturas/0-antes/` (antes del pulido) 
 | Siete especies de árbol + árbol viejo; flores por especies, helechos, juncos, setas, rocas con musgo; suelo con doce tipos de superficie | capturas |
 | Observatorio nuevo (torre, galería, cúpula giratoria, telescopio, anexo, atrezo) | `living` (interacción día/noche) |
 | Hueco de visión: la copa que tapa al astronauta se deshace a su alrededor | capturas |
+| **Bienvenida**: islote nocturno con el astronauta, Woody, árbol protagonista y farola; título e indicación trazada a mano; descenso de cámara al planeta con amanecer | capturas (escritorio, móvil horizontal y vertical); todas las pruebas entran por ella |
+| **Aldea de proyectos**: plaza empedrada con pozo, cuatro casas distintas (taller, estudio, mirador con torreón, almacén), expositor con la captura real y cartel colgado por proyecto, jardín del laboratorio con placas | `living` (las cuatro fichas con su enlace real) |
+| Vegetación por máscaras: bosquetes y claros, corredores despejados junto a los caminos, césped corto en los bordes | capturas aéreas |
+| Farolas nuevas (poste curvo, farol colgante) en toda la isla; interfaz superior más discreta | capturas |
 | Cascada con canal de roca mojada y almohadas de espuma | capturas |
 
-Rendimiento medido en este Mac a 2880 × 1620 sobre WebGPU: 224–263 fps según la zona (antes de la migración, 187–224). Con el césped nuevo y sin el hueco de visión de los árboles eran 272–362: ese tramado cuesta en torno a una cuarta parte y es lo primero a optimizar si hiciera falta.
+Rendimiento medido en este Mac a 2880 × 1620 sobre WebGPU: 192–221 fps tras el rediseño (224–263 justo antes;  antes de la migración, 187–224). Con el césped nuevo y sin el hueco de visión de los árboles eran 272–362: ese tramado cuesta en torno a una cuarta parte y es lo primero a optimizar si hiciera falta.
 
 ## Parcial
 
@@ -88,11 +92,13 @@ Rendimiento medido en este Mac a 2880 × 1620 sobre WebGPU: 224–263 fps según
 
 ## Siguiente paso exacto
 
-Seguir el pulido de The Living World, en este orden:
+David tiene que validar el estándar (bienvenida + aldea). Si lo da por bueno, extenderlo zona por zona con el mismo método (`buildings/cottageModels.js` como referencia de oficio, `kit/geometry.js`, máscaras en `layout.js`):
 
-1. **Cascadas** (`src/worlds/living/water/Waterfall.jsx`): bajar el blanco de las láminas y la bruma vistas de cerca; añadir la caída del río al mar.
-2. **Árboles** (`flora/treeModels.js`): troncos curvados por spline, normales de volumen en las copas, cuatro protagonistas.
-3. **Luz**: modelo de sombra teñida (color de sombra por hora) en los materiales de nodos; revisar si ACES lava la imagen.
-4. **Construcciones y ambiente**: cabañas, puente, farolas; hojas, humo, libélulas, ranas; la gran ráfaga coordinada.
+1. **Contacto**: la caseta y los tres terminales siguen siendo cajas; rótulos tumbados en el suelo.
+2. **Sobre mí**: casa del árbol sobre el árbol protagonista (`hero` en `flora/treeModels.js`), sin cartel-pizarra.
+3. **Deportes**: pista y campo con vallas, banquillo y focos; rótulos fuera del suelo.
+4. **CV** y **plataforma del cohete**: atril y pad siguen de bloque.
+5. Rótulos tumbados que quedan (`Label … flat`): Sobre mí, Observatorio, Contacto, CV, Baloncesto, Fútbol.
+6. Pendiente técnico aparcado: caída del río al mar, luz con sombras teñidas, vida ambiental nueva.
 
-Después, lo aparcado del encargo original: fase 6 (baloncesto), 7 (fútbol), 8 (interiores), 9 (cohete y órbita), planetas 2 y 3.
+Después, lo aparcado del encargo original: fases 6–9 y planetas 2 y 3.

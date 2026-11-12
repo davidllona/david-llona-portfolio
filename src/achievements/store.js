@@ -70,4 +70,5 @@ export function resetAll() {
  state = empty();
  save();
  emit("achievement-progress", {});
+ emit("achievements-reset");
 }

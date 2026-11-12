@@ -1764,3 +1764,65 @@
   animation: none;
  }
 }
+
+/* ── Interfaz discreta ──────────────────────────────────── */
+
+/* La barra superior acompaña sin competir con la escena: más pequeña y
+   translúcida; recupera presencia al pasar el ratón o al enfocarla. */
+.quick {
+ padding: 3px;
+ border-color: rgba(255, 255, 255, 0.12);
+ background: rgba(9, 11, 16, 0.38);
+ opacity: 0.82;
+ transition: opacity 0.2s ease, background 0.2s ease;
+}
+
+.quick:hover,
+.quick:focus-within {
+ background: rgba(9, 11, 16, 0.66);
+ opacity: 1;
+}
+
+.quick button {
+ height: 32px;
+ padding: 0 12px;
+ font-size: 13px;
+}
+
+.theme-toggle,
+.sound-toggle {
+ width: 40px;
+ height: 40px;
+ background: rgba(9, 11, 16, 0.38);
+ border-color: rgba(255, 255, 255, 0.12);
+}
+
+.sound-toggle {
+ left: calc(env(safe-area-inset-left) + 62px);
+}
+
+.woody-menu {
+ left: calc(env(safe-area-inset-left) + 110px);
+}
+
+.woody-menu__button {
+ height: 40px;
+ background: rgba(9, 11, 16, 0.38);
+ border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* La chuleta de controles se retira sola a los pocos segundos. */
+.hud__hint {
+ animation: hint-retire 14s ease forwards;
+}
+
+@keyframes hint-retire {
+ 0%,
+ 82% {
+  opacity: 1;
+ }
+ 100% {
+  opacity: 0;
+  visibility: hidden;
+ }
+}

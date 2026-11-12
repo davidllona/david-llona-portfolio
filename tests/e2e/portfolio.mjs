@@ -85,6 +85,7 @@ await t.done();
 t = await open({ mobile: true });
 ({ page } = t);
 await page.tap(".overlay__enter");
+await page.waitForFunction(() => window.__world.rig.intro === 0, { timeout: 15000 });
 await wait(600);
 const overlap = await t.evaluate(() => {
  const boxes = [".quick", ".woody-menu__button", ".theme-toggle", ".sound-toggle", ".touch__pause"].map((s) => document.querySelector(s)?.getBoundingClientRect()).filter(Boolean);
