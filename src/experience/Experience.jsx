@@ -11,12 +11,15 @@ import { Lights } from "./Lights";
 import { Player } from "./Player";
 import { Props } from "./Props";
 import { Ship } from "./Ship";
+import { Sky } from "./Sky";
+import { current } from "./theme";
+import { WarmLights } from "./WarmLights";
 
 // Dos niveles de calidad. El planeta es el mismo; en móvil se recorta lo que
 // cuesta por píxel (resolución, sombras y suavizado de bordes).
 const QUALITY = {
- high: { pixelRatio: 1.5, shadowMapSize: 2048, smoothEdges: true, stars: 5000 },
- low: { pixelRatio: 1.25, shadowMapSize: 1024, smoothEdges: false, stars: 2000 },
+ high: { pixelRatio: 1.5, shadowMapSize: 2048, smoothEdges: true, stars: 5000, warmLights: 6 },
+ low: { pixelRatio: 1.25, shadowMapSize: 1024, smoothEdges: false, stars: 2000, warmLights: 3 },
 };
 
 // Solo en desarrollo: parámetros en la URL para aislar qué cuesta rendimiento,
@@ -38,7 +41,19 @@ function Ready({ onReady }) {
  return null;
 }
 
+// La niebla y el resplandor cambian con la hora: de noche, más bruma y las
+// luces brillan más.
+function Atmosphere({ bloom }) {
+ const scene = useThree((state) => state.scene);
+ useFrame(() => {
+  scene.fog.density = current.fogDensity;
+  if (bloom.current) bloom.current.intensity = current.bloom;
+ });
+ return null;
+}
+
 export function Experience({ active, lowPower, onReady }) {
+ const bloom = useRef(null);
  const preset = lowPower ? QUALITY.low : QUALITY.high;
  const quality = { ...preset, pixelRatio: flag("dpr", preset.pixelRatio) };
  const [pixelRatio, setPixelRatio] = useState(quality.pixelRatio);
@@ -61,6 +76,9 @@ export function Experience({ active, lowPower, onReady }) {
    {!debug?.has("dpr") && <PerformanceMonitor onDecline={() => setPixelRatio(1)} />}
 
    <Lights shadowMapSize={quality.shadowMapSize} />
+   <WarmLights count={quality.warmLights} />
+   <Sky />
+   <Atmosphere bloom={bloom} />
    <Stars radius={320} depth={120} count={quality.stars} factor={10} saturation={0.6} fade speed={0.6} />
 
    {/* Lo propio del planeta se descarga aparte; lo común (personajes, nave,
@@ -80,7 +98,8 @@ export function Experience({ active, lowPower, onReady }) {
    {/* Búfer de 16 bits por canal, para que los degradados suaves no se rompan en escalones. */}
    {flag("fx", 1) > 0 && (
     <EffectComposer multisampling={0} frameBufferType={HalfFloatType} disableNormalPass>
-     <Bloom mipmapBlur levels={5} radius={0.7} intensity={0.55} luminanceThreshold={1.05} luminanceSmoothing={0.25} />
+     {/* Solo brilla lo que emite luz (por encima del blanco): farolas, ventanas, cristales. */}
+     <Bloom ref={bloom} mipmapBlur levels={6} radius={0.75} intensity={0.5} luminanceThreshold={1.02} luminanceSmoothing={0.3} />
      <Vignette offset={0.3} darkness={0.42} />
      <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
      {quality.smoothEdges && flag("aa", 1) > 0 ? <SMAA /> : <></>}

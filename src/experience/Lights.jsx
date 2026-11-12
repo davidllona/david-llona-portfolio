@@ -1,11 +1,8 @@
 import { useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { player, rig, woody } from "./state";
-import { current, uniforms, updateTheme } from "./theme";
+import { current, sunDirection, uniforms, updateTheme } from "./theme";
 
-// Dirección desde la que llega el sol (o la luna): desde el suroeste y arriba,
-// para que las sombras caigan hacia el fondo de la pantalla.
-const SUN_DIRECTION = [-0.42, 0.78, 0.46];
 const SHADOW_REACH = 38; // m alrededor del jugador con sombras
 
 // Dos luces para toda la escena: una ambiente (cielo/suelo) y el sol con
@@ -27,7 +24,6 @@ export function Lights({ shadowMapSize }) {
   sun.current.intensity = current.sunPower;
   scene.background.copy(current.background);
   scene.fog.color.copy(current.fog);
-  scene.fog.density = current.fogDensity;
 
   // La cámara de sombras se centra en lo que sigue la cámara, a saltos del
   // tamaño de un píxel del mapa para que las sombras no tiemblen al andar.
@@ -35,7 +31,8 @@ export function Lights({ shadowMapSize }) {
   const texel = (SHADOW_REACH * 2) / shadowMapSize;
   const x = Math.round(focus.x / texel) * texel;
   const z = Math.round(focus.z / texel) * texel;
-  sun.current.position.set(x + SUN_DIRECTION[0] * 90, SUN_DIRECTION[1] * 90, z + SUN_DIRECTION[2] * 90);
+  sun.current.position.set(x + sunDirection.x * 90, sunDirection.y * 90, z + sunDirection.z * 90);
+  sun.current.shadow.intensity = current.shadow;
   sun.current.target.position.set(x, 0, z);
   sun.current.target.updateMatrixWorld();
  });

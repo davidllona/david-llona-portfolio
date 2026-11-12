@@ -12,10 +12,15 @@ export const THEMES = {
   sun: "#ffe6c7",
   sunPower: 2.4,
   fog: "#f4b98a",
+  fogDensity: 0.0075,
   background: "#f4b98a",
+  skyTop: "#7fb6e8",
+  skyHorizon: "#f4b98a",
   waterShallow: "#5fe6d2",
   waterDeep: "#1c9bb8",
   glow: 0,
+  bloom: 0.5,
+  shadow: 1,
  },
  night: {
   hemiSky: "#6672ff",
@@ -24,16 +29,21 @@ export const THEMES = {
   sun: "#8f9bff",
   sunPower: 0.9,
   fog: "#1c1672",
+  fogDensity: 0.0075,
   background: "#141056",
+  skyTop: "#05041a",
+  skyHorizon: "#141056",
   waterShallow: "#5a72ff",
   waterDeep: "#1a2090",
   glow: 1,
+  bloom: 0.8,
+  shadow: 0.8,
  },
 };
 const SPACE = new THREE.Color("#05041a");
 
-const COLOR_KEYS = ["hemiSky", "hemiGround", "sun", "fog", "background", "waterShallow", "waterDeep"];
-const NUMBER_KEYS = ["hemiPower", "sunPower", "glow"];
+const COLOR_KEYS = ["hemiSky", "hemiGround", "sun", "fog", "background", "skyTop", "skyHorizon", "waterShallow", "waterDeep"];
+const NUMBER_KEYS = ["hemiPower", "sunPower", "glow", "fogDensity", "bloom", "shadow"];
 const parse = (themes) =>
  Object.fromEntries(
   Object.entries(themes).map(([name, values]) => [
@@ -48,8 +58,14 @@ let parsed = parse(THEMES);
 export const current = Object.fromEntries([
  ...COLOR_KEYS.map((key) => [key, parsed.day[key].clone()]),
  ...NUMBER_KEYS.map((key) => [key, parsed.day[key]]),
- ["fogDensity", 0.0075],
 ]);
+
+// De dónde viene la luz principal: el sol de día (suroeste, alto) y la luna de
+// noche (desde el fondo, a contraluz: recorta siluetas y deja las caras que
+// miran a la cámara para las luces cálidas).
+const SUN_DAY = new THREE.Vector3(-0.42, 0.78, 0.46).normalize();
+const SUN_NIGHT = new THREE.Vector3(0.38, 0.7, -0.6).normalize();
+export const sunDirection = SUN_DAY.clone();
 
 // Uniformes compartidos por los sombreadores propios (agua, vaivén de plantas).
 export const uniforms = {
@@ -60,13 +76,19 @@ export const uniforms = {
  uActors: { value: new THREE.Vector4(0, 0, 0, 0) },
  uWaterShallow: { value: current.waterShallow },
  uWaterDeep: { value: current.waterDeep },
+ uSkyTop: { value: current.skyTop },
+ uSkyHorizon: { value: current.skyHorizon },
+ uSunDirection: { value: sunDirection },
+ uSunColor: { value: current.sun },
+ uNight: { value: 0 }, // 0 de día, 1 de noche
  uGlow: { value: 0 },
  uSpace: { value: 0 }, // 0 en tierra, 1 en órbita
 };
 
 // Cambia la paleta de día y de noche (al llegar a otro planeta).
 export function setPalette(themes) {
- parsed = parse(themes ?? THEMES);
+ // Lo que el planeta no defina se toma de la paleta por defecto.
+ parsed = parse({ day: { ...THEMES.day, ...themes?.day }, night: { ...THEMES.night, ...themes?.night } });
 }
 
 // Lanza una ráfaga de viento desde (x, z). Las plantas la notan al pasar el frente.
@@ -117,7 +139,11 @@ export function updateTheme(delta, elapsed) {
  // Al subir con la nave, el cielo se va volviendo espacio.
  current.background.lerp(SPACE, rig.space);
  current.fog.lerp(SPACE, rig.space);
- current.fogDensity = 0.0075 * (1 - rig.space * 0.8);
+ current.skyTop.lerp(SPACE, rig.space);
+ current.skyHorizon.lerp(SPACE, rig.space * 0.85);
+ current.fogDensity *= 1 - rig.space * 0.8;
+ sunDirection.copy(SUN_DAY).lerp(SUN_NIGHT, t).normalize();
+ uniforms.uNight.value = t;
 
  uniforms.uTime.value = elapsed;
  uniforms.uGlow.value = current.glow;

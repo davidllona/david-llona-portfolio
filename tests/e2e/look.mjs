@@ -1,9 +1,16 @@
 // Capturas de puntos concretos, para revisar el aspecto a ojo.
 //   node tests/e2e/look.mjs '[["nombre", x, z, noche?, distanciaCámara?]]' ['?world=cosmic']
+//   node tests/e2e/look.mjs tests/e2e/views.json            (las vistas fijas, de día y de noche)
+import fs from "node:fs";
 import { open, wait } from "./common.mjs";
 
-const views = JSON.parse(process.argv[2] ?? "[]");
-const t = await open({ query: process.argv[3] ?? "" });
+const source = process.argv[2] ?? "[]";
+const fromFile = source.endsWith(".json");
+let views = JSON.parse(fromFile ? fs.readFileSync(source, "utf8") : source);
+// Las vistas fijas se sacan dos veces: de día y de noche.
+if (fromFile) views = [...views.map(([name, x, z, , d]) => [`${name}-dia`, x, z, 0, d]), ...views.map(([name, x, z, , d]) => [`${name}-noche`, x, z, 1, d])];
+
+const t = await open({ query: fromFile ? "" : (process.argv[3] ?? "") });
 await t.enter();
 for (const [name, x, z, night, distance] of views) {
  await t.put(x, z, { settle: 100 });

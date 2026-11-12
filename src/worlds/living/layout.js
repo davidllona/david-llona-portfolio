@@ -77,6 +77,8 @@ export const STREAM = [
  [8.2, -17.9],
 ];
 export const WATERFALL = { x: 8.2, z: -17.3, top: PLATEAU.height, width: 2.6 };
+const STREAM_DEPTH = 0.36; // lo que se hunde el cauce del arroyo en la meseta
+export const STREAM_LEVEL = PLATEAU.height - 0.17; // altura de su agua
 
 // Puente sobre el río, en el camino a Contacto. El tablero se pisa: su altura
 // sustituye a la del cauce.
@@ -109,12 +111,21 @@ export function groundHeight(x, z) {
  const rampHeight = height + (Math.max(height, PLATEAU.height * ramp.t) - height) * onRamp;
  height = Math.max(height + (PLATEAU.height - height) * onPlateau, rampHeight);
 
+ // Cauce del arroyo y poza del manantial, tallados en la meseta.
+ if (onPlateau > 0.5) {
+  const channel = 1 - smooth(0.4, 1.3, toPolyline(x, z, STREAM));
+  const spring = 1 - smooth(0.9, 2.1, distance(x, z, STREAM[0][0], STREAM[0][1]));
+  height -= STREAM_DEPTH * Math.max(channel, spring) * onPlateau;
+ }
+
  // Estanque y cauce del río, solo en tierra baja.
  if (edge > 0.3) {
   const pond = 1 - smooth(POND.r - 2.4, POND.r, distance(x, z, POND.x, POND.z));
   const river = 1 - smooth(0.9, 2.5, toPolyline(x, z, RIVER));
   const carve = Math.max(pond * 1.15, river);
   if (carve > 0) height = Math.min(height, height * (1 - carve) + (WATER_LEVEL - 0.55) * carve);
+  // El estanque gana fondo hacia el centro: da volumen al agua.
+  height -= 1.0 * (1 - smooth(0.6, POND.r - 1.6, distance(x, z, POND.x, POND.z)));
  }
 
  // Explanadas: la pista y el campo de fútbol se asientan sobre suelo llano.
@@ -479,28 +490,40 @@ export const living = {
  // Colores de día y de noche de este planeta (ver experience/theme.js).
  themes: {
   day: {
-   hemiSky: "#fffbe6",
-   hemiGround: "#86b46a",
-   hemiPower: 1.25,
-   sun: "#fff0cf",
-   sunPower: 2.5,
-   fog: "#cfe9d6",
-   background: "#cfe9d6",
-   waterShallow: "#6fe3d4",
-   waterDeep: "#1f9fc2",
+   hemiSky: "#fff4d6",
+   hemiGround: "#6f9f58",
+   hemiPower: 1.0,
+   sun: "#ffe7bd",
+   sunPower: 2.9,
+   fog: "#c6e6dc",
+   fogDensity: 0.0062,
+   background: "#c6e6dc",
+   skyTop: "#5fa8e6",
+   skyHorizon: "#d9efe2",
+   waterShallow: "#63dccb",
+   waterDeep: "#1b8fb8",
    glow: 0,
+   bloom: 0.45,
+   shadow: 1,
   },
+  // Noche azul y profunda: la luna recorta las siluetas desde el fondo y la
+  // luz cálida la ponen las farolas y las ventanas.
   night: {
-   hemiSky: "#5f78ff",
-   hemiGround: "#22407a",
-   hemiPower: 1.75,
-   sun: "#8fa6ff",
-   sunPower: 0.85,
-   fog: "#12305e",
-   background: "#0c2149",
-   waterShallow: "#3f8fe0",
-   waterDeep: "#12306e",
+   hemiSky: "#4a66d8",
+   hemiGround: "#152a52",
+   hemiPower: 1.2,
+   sun: "#a9c2ff",
+   sunPower: 1.55,
+   fog: "#0f2350",
+   fogDensity: 0.0125,
+   background: "#0f2350",
+   skyTop: "#050b24",
+   skyHorizon: "#1b3a7a",
+   waterShallow: "#2a74bd",
+   waterDeep: "#0a1d58",
    glow: 1,
+   bloom: 0.95,
+   shadow: 0.7,
   },
  },
 };

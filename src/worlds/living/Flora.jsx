@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { Instances } from "../../experience/Instances";
 import { createGlowTexture } from "../../experience/textures";
 import { addSway, registerGlow } from "../../experience/theme";
+import { addWarmSource } from "../../experience/lightSources";
 import { ANCIENT_TREES, POND, SCATTER, WATER_LEVEL, groundHeight } from "./layout";
 
 // Toda la vegetación del planeta. Cada tipo de pieza (tronco, copa, brizna…)
@@ -236,7 +237,11 @@ function Lanterns() {
   [glow],
  );
  useEffect(() => {
-  const stop = [registerGlow(material.head, 0.35, 3), registerGlow(material.pool, 0, 0.55, "opacity")];
+  const stop = [
+   registerGlow(material.head, 0.35, 3),
+   registerGlow(material.pool, 0, 0.3, "opacity"),
+   ...SCATTER.lanterns.map((l) => addWarmSource({ x: l.x, y: l.y + 2.3, z: l.z })),
+  ];
   return () => {
    stop.forEach((off) => off());
    glow.dispose();

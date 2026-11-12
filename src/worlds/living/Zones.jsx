@@ -12,6 +12,7 @@ import { useInteractable } from "../../experience/interact";
 import { emit } from "../../experience/state";
 import { createTextPanelTexture } from "../../experience/textures";
 import { registerGlow, setTheme, theme } from "../../experience/theme";
+import { addWarmSource } from "../../experience/lightSources";
 import { COLORS, CONTACT, CV_KIOSK, LAB_TOTEMS, OBSERVATORY, PITCH, PLATEAU, PROJECT_CABINS, TREEHOUSE, WIND_CHIME, height } from "./layout";
 
 const WOOD = "#c58a55";
@@ -23,10 +24,20 @@ const Flat = ({ color }) => <meshLambertMaterial color={color} flatShading />;
 
 // Ventana que se enciende de noche.
 function Window({ position, size = [0.5, 0.5] }) {
+ const mesh = useRef(null);
  const material = useMemo(() => new THREE.MeshLambertMaterial({ color: "#ffe2a6", emissive: "#ffb84d" }), []);
- useEffect(() => registerGlow(material, 0.15, 2.6), [material]);
+ useEffect(() => {
+  const stopGlow = registerGlow(material, 0.15, 2.6);
+  // La ventana ilumina lo que tiene delante (hacia el sur, donde se abre).
+  const at = mesh.current.getWorldPosition(new THREE.Vector3());
+  const stopLight = addWarmSource({ x: at.x, y: at.y + 0.2, z: at.z + 0.9, power: 0.55, reach: 8, flicker: 0.02 });
+  return () => {
+   stopGlow();
+   stopLight();
+  };
+ }, [material]);
  return (
-  <mesh position={position} material={material}>
+  <mesh ref={mesh} position={position} material={material}>
    <boxGeometry args={[size[0], size[1], 0.06]} />
   </mesh>
  );
