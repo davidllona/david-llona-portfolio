@@ -1,0 +1,71 @@
+:root {
+ --color-bg: #0a0a0a;
+ --color-surface: #111111;
+ --color-text: #ededed;
+ --color-text-muted: #a1a1aa;
+ --color-primary: #ff6b2c;
+ --color-primary-soft: #ff8b57;
+ --color-border: #2a2a2e;
+
+ --font-sans: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+*,
+*::before,
+*::after {
+ box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+ height: 100%;
+}
+
+body {
+ margin: 0;
+ /* Fija la página: sin scroll, sin rebote y sin zoom por gestos en móvil. */
+ position: fixed;
+ inset: 0;
+ overflow: hidden;
+ overscroll-behavior: none;
+ touch-action: none;
+ -webkit-text-size-adjust: 100%;
+ background: var(--color-bg);
+ color: var(--color-text);
+ font-family: var(--font-sans);
+ line-height: 1.5;
+ -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+p,
+ul {
+ margin: 0;
+}
+
+ul {
+ padding: 0;
+ list-style: none;
+}
+
+a {
+ color: var(--color-primary-soft);
+}
+
+a:focus-visible,
+button:focus-visible {
+ outline: 2px solid var(--color-primary);
+ outline-offset: 3px;
+}
+
+kbd {
+ font-family: inherit;
+}
+
+/* El lienzo 3D ocupa toda la ventana, por debajo de la interfaz. */
+.experience {
+ position: fixed !important;
+ inset: 0;
+}

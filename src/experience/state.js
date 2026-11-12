@@ -1,0 +1,58 @@
+import * as THREE from "three";
+import { SPAWN } from "./world";
+
+// Estado que cambia en cada fotograma. Vive fuera de React a propósito: lo
+// escriben el teclado, los controles táctiles y la escena, y lo lee el bucle de
+// render, sin provocar renders de componentes.
+
+export const input = {
+ keys: { forward: false, back: false, left: false, right: false, run: false },
+ stick: { x: 0, y: 0 }, // joystick táctil, cada eje de -1 a 1 (y positivo = hacia abajo)
+ jumpQueued: false,
+ actionQueued: false, // se pulsó E o el botón "Usar" desde el último fotograma
+};
+
+export const player = {
+ position: new THREE.Vector3(SPAWN.x, 0, SPAWN.z), // pies
+ velocity: new THREE.Vector3(),
+ facing: Math.PI, // hacia dónde mira, en radianes; 0 = norte, π = hacia la cámara
+ hidden: false, // dentro de la nave
+ frozen: false, // no responde a los controles
+};
+
+// Cámara: a quién sigue y desde cuánto de lejos. `focus` nulo = al jugador.
+export const rig = { focus: null, distance: 1, shake: 0, space: 0 };
+
+// Avisos puntuales de la escena a la interfaz: "hint", "toast", "open",
+// "score", "flash"…
+export const events = new EventTarget();
+export const emit = (type, detail) => events.dispatchEvent(new CustomEvent(type, { detail }));
+
+export const game = { score: 0 };
+
+// ── Cosas con las que se puede interactuar ──────────────────────────────────
+// Cada una dice dónde está, a qué distancia se activa, qué texto mostrar y qué
+// hacer. La más cercana al jugador se usa con E (o el botón táctil); también se
+// puede hacer clic directamente sobre el objeto.
+export const interactables = new Set();
+export let hint = null; // texto de la acción disponible ahora mismo
+export function setHint(text) {
+ if (text === hint) return;
+ hint = text;
+ emit("hint");
+}
+
+export function queueAction() {
+ input.actionQueued = true;
+}
+
+export function releaseMovement() {
+ const { keys, stick } = input;
+ keys.forward = keys.back = keys.left = keys.right = keys.run = false;
+ stick.x = stick.y = 0;
+ input.jumpQueued = false;
+ input.actionQueued = false;
+}
+
+// Ayuda para depurar desde la consola del navegador; no se incluye en producción.
+if (import.meta.env.DEV) window.__world = { input, player, rig, game, interactables };

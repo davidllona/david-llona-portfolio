@@ -34,3 +34,11 @@ public/modelos/**/*.mtl
 *.sw?
 .vercel
 .env*.local
+# Material de referencia y originales: se quedan en local, no van al repositorio.
+Porfolio_3D_David_Llona/
+Ultimate Modular Sci-Fi*/
+Ultimate Modular Sci-Fi*.zip
+/astronauta.glb
+/woody.glb
+skills-lock.json
+.claude/

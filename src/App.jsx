@@ -1,44 +1,85 @@
-import { useEffect, useState } from 'react'
-import { Hero } from './components/Hero'
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
+import { Experience } from "./experience/Experience";
+import { useDesktopControls } from "./experience/useDesktopControls";
+import { ErrorBoundary, Fallback } from "./ui/Fallback";
+import { Hud } from "./ui/Hud";
+import { Loader } from "./ui/Loader";
+import { Modal } from "./ui/Modal";
+import { StartOverlay } from "./ui/StartOverlay";
+import { Flash } from "./ui/Flash";
+import { ThemeToggle } from "./ui/ThemeToggle";
+import { TouchControls } from "./ui/TouchControls";
+import { hasWebGL } from "./ui/webgl";
 
-import { Projects } from './components/Projects'
-import { InteractiveLab } from './components/InteractiveLab'
-import { About } from './components/About'
-import { Contact } from './components/Contact'
-import { LoadingDoor } from './components/LoadingDoor'
-import { LazyMount } from './components/LazyMount'
-import { preloadCriticalAssets } from './3d/assetPreloader'
-import { SpeedInsights } from "@vercel/speed-insights/react"
-   import { Analytics } from "@vercel/analytics/react";
-
+// El dedo es el puntero principal: móviles y tabletas.
+const prefersTouch = () => window.matchMedia("(pointer: coarse)").matches;
 
 function App() {
+ const [webgl] = useState(hasWebGL);
+ // Móviles y tabletas usan el nivel de calidad ligero.
+ const [lowPower] = useState(prefersTouch);
+ // Cómo se controla: se supone por el dispositivo y se confirma al entrar,
+ // según se haya tocado con el dedo o hecho clic con el ratón.
+ const [touch, setTouch] = useState(prefersTouch);
+ const [active, setActive] = useState(false);
+ // La estación tarda un momento en descargar sus piezas.
+ const [ready, setReady] = useState(false);
+ const lastPointerType = useRef("mouse");
+ const onReady = useCallback(() => setReady(true), []);
 
-  const [mainReady, setMainReady] = useState(false)
+ useDesktopControls();
 
-  useEffect(() => {
-    preloadCriticalAssets()
-  }, [])
+ // Esc pausa y vuelve a la pantalla de inicio.
+ useEffect(() => {
+  // (Si hay una ventana abierta, Esc solo la cierra.)
+  const onKey = (event) => event.key === "Escape" && !document.querySelector(".modal") && setActive(false);
+  window.addEventListener("keydown", onKey);
+  return () => window.removeEventListener("keydown", onKey);
+ }, []);
 
+ const enter = () => {
+  if (!ready) return;
+  // Se confirma cómo se controla según se haya entrado con el dedo o con el ratón.
+  setTouch(lastPointerType.current === "touch");
+  setActive(true);
+ };
+
+ if (!webgl) {
   return (
-    <div className="min-h-screen bg-bg text-text">
-      <LoadingDoor onComplete={() => setMainReady(true)} />
-      {mainReady && (
-        <main>
-          {}
-          <Hero />
+   <>
+    <Fallback />
+    <SpeedInsights />
+    <Analytics />
+   </>
+  );
+ }
 
-          {}
-          <LazyMount><Projects /></LazyMount>
-          <LazyMount><InteractiveLab /></LazyMount>
-          <LazyMount><About /></LazyMount>
-          <LazyMount><Contact /></LazyMount>
-        </main>
-      )}
-      <SpeedInsights />
-      <Analytics />
-    </div>
-  )
+ return (
+  <>
+   <ErrorBoundary>
+    <Experience active={active} lowPower={lowPower} onReady={onReady} />
+    <Flash />
+    <StartOverlay
+     visible={!active}
+     ready={ready}
+     touch={touch}
+     onPointerDown={(event) => {
+      lastPointerType.current = event.pointerType;
+     }}
+     onEnter={enter}
+    />
+    {active && <Hud touch={touch} />}
+    {active && touch && <TouchControls onPause={() => setActive(false)} />}
+    {active && <ThemeToggle />}
+    {active && <Modal />}
+    <Loader ready={ready} />
+   </ErrorBoundary>
+   <SpeedInsights />
+   <Analytics />
+  </>
+ );
 }
 
-export default App
+export default App;

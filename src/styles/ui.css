@@ -1,0 +1,862 @@
+/* ── Pantalla de carga ──────────────────────────────────── */
+
+.loader {
+ position: fixed;
+ inset: 0;
+ z-index: 30;
+ display: grid;
+ grid-template-rows: auto 1fr auto;
+ padding: clamp(20px, 4vw, 44px);
+ background:
+  radial-gradient(120% 90% at 50% 110%, rgba(255, 107, 44, 0.16), transparent 60%),
+  #07080c;
+ transition:
+  opacity 0.6s ease,
+  transform 0.6s ease;
+}
+
+.loader--leaving {
+ opacity: 0;
+ transform: scale(1.04);
+ pointer-events: none;
+}
+
+.loader__brand {
+ font-size: clamp(1.1rem, 2vw, 1.5rem);
+ font-weight: 800;
+ font-stretch: 75%;
+ font-variation-settings: "wdth" 75;
+ letter-spacing: 0.01em;
+ text-transform: uppercase;
+}
+
+.loader__brand span {
+ color: var(--color-primary);
+}
+
+.loader__center {
+ align-self: center;
+ width: min(100%, 720px);
+ margin: 0 auto;
+}
+
+.loader__number {
+ display: flex;
+ align-items: flex-start;
+ font-size: clamp(7rem, 30vw, 19rem);
+ font-weight: 800;
+ font-stretch: 75%;
+ font-variation-settings: "wdth" 75;
+ line-height: 0.82;
+ letter-spacing: -0.02em;
+ font-variant-numeric: tabular-nums;
+}
+
+.loader__number small {
+ margin: 0.16em 0 0 0.08em;
+ font-size: 0.22em;
+ color: var(--color-primary);
+}
+
+.loader__track {
+ height: 3px;
+ margin-top: clamp(16px, 3vw, 30px);
+ background: rgba(255, 255, 255, 0.1);
+ overflow: hidden;
+}
+
+.loader__bar {
+ height: 100%;
+ background: var(--color-primary);
+ transform: scaleX(0);
+ transform-origin: left;
+}
+
+.loader__step {
+ margin-top: 14px;
+ font-size: 12px;
+ font-weight: 600;
+ letter-spacing: 0.24em;
+ text-transform: uppercase;
+ color: var(--color-text-muted);
+}
+
+.loader__step i {
+ font-style: normal;
+ animation: loader-blink 1.1s steps(2) infinite;
+}
+
+.loader__foot {
+ font-size: 11px;
+ letter-spacing: 0.3em;
+ text-transform: uppercase;
+ color: rgba(161, 161, 170, 0.6);
+}
+
+@keyframes loader-blink {
+ 50% {
+  opacity: 0;
+ }
+}
+
+/* ── Pantalla de inicio / pausa ─────────────────────────── */
+
+.overlay {
+ position: fixed;
+ inset: 0;
+ z-index: 10;
+ display: grid;
+ align-items: center;
+ padding: clamp(20px, 5vw, 72px);
+ background:
+  linear-gradient(100deg, rgba(6, 7, 12, 0.94) 0%, rgba(6, 7, 12, 0.78) 45%, rgba(6, 7, 12, 0.42) 100%);
+ backdrop-filter: blur(7px);
+ cursor: pointer;
+ transition:
+  opacity 0.35s ease,
+  visibility 0.35s;
+}
+
+.overlay--hidden {
+ opacity: 0;
+ visibility: hidden;
+ pointer-events: none;
+}
+
+.overlay__panel {
+ width: min(100%, 980px);
+}
+
+.overlay__eyebrow {
+ font-size: 12px;
+ font-weight: 600;
+ letter-spacing: 0.32em;
+ text-transform: uppercase;
+ color: var(--color-primary);
+}
+
+/* El titular es donde la tipografía enseña su carácter: la versión estrecha y
+   más pesada de Bricolage Grotesque, en mayúsculas y muy apretada. */
+.overlay__title {
+ margin-top: 0.12em;
+ font-size: clamp(3.6rem, 15vw, 12.5rem);
+ font-weight: 800;
+ font-stretch: 75%;
+ font-variation-settings: "wdth" 75;
+ line-height: 0.8;
+ letter-spacing: -0.012em;
+ text-transform: uppercase;
+}
+
+.overlay__title span {
+ color: var(--color-primary);
+}
+
+.overlay__lead {
+ margin-top: clamp(14px, 2.4vw, 28px);
+ max-width: 34ch;
+ font-size: clamp(1rem, 1.5vw, 1.3rem);
+ line-height: 1.35;
+ color: var(--color-text-muted);
+}
+
+.overlay__enter {
+ margin-top: clamp(18px, 2.6vw, 34px);
+ display: inline-flex;
+ align-items: center;
+ gap: 14px;
+ padding: 15px 26px 15px 28px;
+ border: 0;
+ border-radius: 999px;
+ background: var(--color-primary);
+ color: #130a05;
+ font: inherit;
+ font-size: 1.05rem;
+ font-weight: 700;
+ letter-spacing: 0.01em;
+ cursor: pointer;
+ box-shadow: 0 10px 40px rgba(255, 107, 44, 0.32);
+ transition:
+  transform 0.2s ease,
+  box-shadow 0.2s ease;
+}
+
+.overlay__enter span {
+ font-size: 1.2em;
+ line-height: 1;
+ transition: transform 0.2s ease;
+}
+
+.overlay__enter:disabled {
+ background: rgba(255, 255, 255, 0.08);
+ color: var(--color-text-muted);
+ box-shadow: none;
+ cursor: progress;
+}
+
+.overlay__enter:not(:disabled):hover {
+ transform: translateY(-2px);
+ box-shadow: 0 14px 48px rgba(255, 107, 44, 0.46);
+}
+
+.overlay__enter:not(:disabled):hover span {
+ transform: translateX(4px);
+}
+
+/* Controles: cuatro piezas en fila, cada una con su dibujo. */
+.controls {
+ margin-top: clamp(26px, 4vw, 52px);
+ display: grid;
+ grid-template-columns: repeat(4, minmax(0, 1fr));
+ gap: 12px;
+ max-width: 640px;
+}
+
+.control {
+ display: grid;
+ grid-template-rows: 84px auto;
+ justify-items: center;
+ gap: 10px;
+ padding: 14px 10px 13px;
+ border: 1px solid rgba(255, 255, 255, 0.09);
+ border-radius: 16px;
+ background: rgba(255, 255, 255, 0.035);
+}
+
+.control__art {
+ display: grid;
+ place-items: center;
+}
+
+.control__label {
+ font-size: 11px;
+ font-weight: 600;
+ letter-spacing: 0.2em;
+ text-transform: uppercase;
+ color: var(--color-text-muted);
+}
+
+.control__icon {
+ height: 56px;
+ fill: none;
+ stroke: rgba(255, 255, 255, 0.72);
+ stroke-width: 2.2;
+ stroke-linecap: round;
+ stroke-linejoin: round;
+}
+
+.control__icon-fill {
+ fill: var(--color-primary);
+ stroke: none;
+}
+
+/* Tecla con relieve. */
+.key {
+ display: grid;
+ place-items: center;
+ min-width: 34px;
+ height: 34px;
+ padding: 0 9px;
+ border: 1px solid rgba(255, 255, 255, 0.14);
+ border-radius: 8px;
+ background: linear-gradient(#2b2e38, #1a1c23);
+ box-shadow:
+  0 3px 0 #0a0b0f,
+  inset 0 1px 0 rgba(255, 255, 255, 0.1);
+ color: var(--color-text);
+ font-size: 13px;
+ font-weight: 600;
+}
+
+.key--wide {
+ min-width: 92px;
+}
+
+.keys-cluster {
+ display: grid;
+ justify-items: center;
+ gap: 7px;
+}
+
+.keys-cluster__row {
+ display: flex;
+ gap: 5px;
+}
+
+.overlay__note {
+ margin-top: 14px;
+ font-size: 13px;
+ color: rgba(161, 161, 170, 0.75);
+}
+
+.overlay__links {
+ margin-top: 24px;
+ display: flex;
+ flex-wrap: wrap;
+ justify-content: center;
+ gap: 20px;
+}
+
+/* Pantallas estrechas: los controles pasan a dos columnas. */
+@media (max-width: 560px) {
+ .controls {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+ }
+}
+
+/* Móvil apaisado: poca altura. El titular y los controles se ponen lado a lado. */
+@media (max-height: 520px) {
+ .overlay__panel {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+   "eyebrow controls"
+   "title controls"
+   "lead note"
+   "enter note";
+  column-gap: 28px;
+  align-items: center;
+ }
+
+ .overlay__eyebrow {
+  grid-area: eyebrow;
+ }
+
+ .overlay__title {
+  grid-area: title;
+  font-size: clamp(3rem, 22vh, 6rem);
+ }
+
+ .overlay__lead {
+  grid-area: lead;
+  margin-top: 10px;
+  font-size: 0.95rem;
+ }
+
+ .overlay__enter {
+  grid-area: enter;
+  justify-self: start;
+  margin-top: 12px;
+  padding: 11px 20px 11px 22px;
+ }
+
+ .controls {
+  grid-area: controls;
+  margin-top: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+ }
+
+ .control {
+  grid-template-rows: 46px auto;
+  gap: 6px;
+  padding: 8px 8px 7px;
+ }
+
+ .control__icon {
+  height: 38px;
+ }
+
+ .key {
+  min-width: 24px;
+  height: 24px;
+  font-size: 11px;
+ }
+
+ .key--wide {
+  min-width: 70px;
+ }
+
+ .keys-cluster {
+  gap: 4px;
+ }
+
+ .overlay__note {
+  grid-area: note;
+  margin-top: 8px;
+  font-size: 12px;
+ }
+}
+
+/* ── Controles táctiles ─────────────────────────────────── */
+
+.touch {
+ position: fixed;
+ inset: 0;
+ z-index: 6;
+ /* La capa no captura toques: solo el joystick y los botones. Lo demás llega a la escena. */
+ pointer-events: none;
+ touch-action: none;
+ user-select: none;
+ -webkit-user-select: none;
+ -webkit-touch-callout: none;
+ -webkit-tap-highlight-color: transparent;
+}
+
+.touch__zone {
+ position: absolute;
+ left: 0;
+ bottom: 0;
+ width: 46%;
+ height: 62%;
+ pointer-events: auto;
+ touch-action: none;
+}
+
+.touch__stick {
+ position: absolute;
+ left: calc(env(safe-area-inset-left) + 96px);
+ top: calc(100% - env(safe-area-inset-bottom) - 96px);
+ width: 112px;
+ height: 112px;
+ margin: -56px 0 0 -56px;
+ border: 1.5px solid rgba(255, 255, 255, 0.28);
+ border-radius: 50%;
+ background: rgba(10, 12, 20, 0.28);
+ opacity: 0.55;
+ pointer-events: none;
+ transition: opacity 0.15s ease;
+}
+
+.touch__stick--active {
+ opacity: 1;
+}
+
+.touch__knob {
+ position: absolute;
+ inset: 30px;
+ border-radius: 50%;
+ background: rgba(255, 255, 255, 0.82);
+ box-shadow: 0 0 18px rgba(255, 107, 44, 0.45);
+}
+
+.touch__button {
+ position: absolute;
+ pointer-events: auto;
+ display: grid;
+ place-items: center;
+ border: 1.5px solid rgba(255, 255, 255, 0.3);
+ border-radius: 50%;
+ background: rgba(10, 12, 20, 0.4);
+ color: var(--color-text);
+ font: inherit;
+ font-size: 13px;
+ font-weight: 500;
+ letter-spacing: 0.04em;
+ touch-action: none;
+}
+
+.touch__button:active {
+ background: rgba(255, 107, 44, 0.4);
+ border-color: var(--color-primary);
+}
+
+.touch__jump {
+ right: calc(env(safe-area-inset-right) + 28px);
+ bottom: calc(env(safe-area-inset-bottom) + 40px);
+ width: 84px;
+ height: 84px;
+}
+
+.touch__action {
+ right: calc(env(safe-area-inset-right) + 124px);
+ bottom: calc(env(safe-area-inset-bottom) + 28px);
+ width: 76px;
+ height: 76px;
+ border-color: var(--color-primary);
+ background: rgba(255, 107, 44, 0.3);
+ font-weight: 700;
+}
+
+.touch__pause {
+ top: calc(env(safe-area-inset-top) + 14px);
+ right: calc(env(safe-area-inset-right) + 14px);
+ width: 44px;
+ height: 44px;
+ font-size: 12px;
+ font-weight: 600;
+ letter-spacing: 0.12em;
+}
+
+/* ── Botón de día / noche ───────────────────────────────── */
+
+.theme-toggle {
+ position: fixed;
+ top: calc(env(safe-area-inset-top) + 14px);
+ left: calc(env(safe-area-inset-left) + 14px);
+ z-index: 7;
+ display: grid;
+ place-items: center;
+ width: 46px;
+ height: 46px;
+ border: 1px solid rgba(255, 255, 255, 0.2);
+ border-radius: 50%;
+ background: rgba(9, 11, 16, 0.6);
+ backdrop-filter: blur(8px);
+ color: #ffd27a;
+ cursor: pointer;
+ transition:
+  transform 0.2s ease,
+  background 0.2s ease;
+}
+
+.theme-toggle:hover {
+ transform: scale(1.08) rotate(12deg);
+ background: rgba(9, 11, 16, 0.8);
+}
+
+.theme-toggle[aria-pressed="true"] {
+ color: #aeb8ff;
+}
+
+.theme-toggle svg {
+ width: 22px;
+ height: 22px;
+ fill: none;
+ stroke: currentColor;
+ stroke-width: 1.8;
+ stroke-linecap: round;
+ stroke-linejoin: round;
+}
+
+/* ── Ventana de detalle ─────────────────────────────────── */
+
+.modal {
+ position: fixed;
+ inset: 0;
+ z-index: 20;
+ display: grid;
+ place-items: center;
+ padding: 20px;
+ background: rgba(6, 5, 14, 0.7);
+ backdrop-filter: blur(6px);
+ animation: modal-in 0.2s ease-out;
+}
+
+.modal__card {
+ position: relative;
+ width: min(100%, 560px);
+ max-height: min(88vh, 720px);
+ overflow-y: auto;
+ padding: clamp(22px, 4vw, 36px);
+ border: 1px solid rgba(255, 255, 255, 0.12);
+ border-radius: 22px;
+ background: #14101f;
+ box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+ touch-action: pan-y;
+}
+
+.modal__close {
+ position: absolute;
+ top: 14px;
+ right: 14px;
+ width: 38px;
+ height: 38px;
+ border: 0;
+ border-radius: 50%;
+ background: rgba(255, 255, 255, 0.1);
+ color: var(--color-text);
+ font-size: 22px;
+ line-height: 1;
+ cursor: pointer;
+}
+
+.modal__image {
+ display: block;
+ width: 100%;
+ margin-bottom: 20px;
+ border-radius: 14px;
+}
+
+.modal__eyebrow {
+ font-size: 12px;
+ font-weight: 600;
+ letter-spacing: 0.28em;
+ text-transform: uppercase;
+ color: var(--color-primary);
+}
+
+.modal__title {
+ margin: 8px 0 14px;
+ font-size: clamp(2rem, 6vw, 3.2rem);
+ font-weight: 800;
+ font-stretch: 75%;
+ font-variation-settings: "wdth" 75;
+ line-height: 0.95;
+ text-transform: uppercase;
+}
+
+.modal__tags {
+ display: flex;
+ flex-wrap: wrap;
+ gap: 8px;
+ margin-top: 18px;
+}
+
+.modal__tags li {
+ padding: 4px 12px;
+ border: 1px solid rgba(255, 255, 255, 0.16);
+ border-radius: 999px;
+ font-size: 12px;
+ font-weight: 600;
+ letter-spacing: 0.06em;
+ color: #cfcfd8;
+}
+
+.modal__link {
+ display: inline-flex;
+ gap: 10px;
+ margin-top: 22px;
+ padding: 12px 22px;
+ border-radius: 999px;
+ background: var(--color-primary);
+ color: #130a05;
+ font-weight: 700;
+ text-decoration: none;
+}
+
+.modal__text {
+ margin-top: 12px;
+ font-size: 1.05rem;
+ line-height: 1.5;
+ color: #cfcfd8;
+}
+
+@keyframes modal-in {
+ from {
+  opacity: 0;
+ }
+}
+
+/* ── Destello de explosión ─────────────────────────── */
+
+.flash {
+ position: fixed;
+ inset: 0;
+ z-index: 8;
+ background: radial-gradient(circle at center, rgba(255, 244, 214, 0.4), rgba(255, 160, 80, 0.12));
+ opacity: 0;
+ pointer-events: none;
+}
+
+.flash--on {
+ animation: teleport-flash 0.45s ease-out;
+}
+
+@keyframes teleport-flash {
+ 0% {
+  opacity: 0.95;
+ }
+ 100% {
+  opacity: 0;
+ }
+}
+
+@media (prefers-reduced-motion: reduce) {
+ .flash--on {
+  animation-duration: 0.2s;
+ }
+}
+
+/* ── HUD con el ratón capturado ─────────────────────────── */
+
+.hud {
+ position: fixed;
+ inset: 0;
+ z-index: 5;
+ pointer-events: none;
+}
+
+.hud__crosshair {
+ position: absolute;
+ top: 50%;
+ left: 50%;
+ width: 6px;
+ height: 6px;
+ border-radius: 50%;
+ background: rgba(255, 255, 255, 0.9);
+ box-shadow: 0 0 0 1.5px rgba(10, 12, 18, 0.7);
+ transform: translate(-50%, -50%);
+}
+
+.hud kbd {
+ display: inline-block;
+ margin: 0 3px 0 0;
+ padding: 2px 7px;
+ border: 1px solid rgba(255, 255, 255, 0.16);
+ border-radius: 6px;
+ background: rgba(255, 255, 255, 0.07);
+ color: var(--color-text);
+ font-size: 11px;
+ font-weight: 600;
+}
+
+/* Avisos centrados en la parte baja de la pantalla. */
+.hud__teleport,
+.hud__prompt {
+ position: absolute;
+ left: 50%;
+ bottom: clamp(84px, 16vh, 150px);
+ transform: translateX(-50%);
+ padding: 12px 20px;
+ border: 1px solid rgba(255, 255, 255, 0.12);
+ border-radius: 14px;
+ background: rgba(9, 11, 16, 0.82);
+ backdrop-filter: blur(8px);
+ font-size: 15px;
+ font-weight: 500;
+ white-space: nowrap;
+ animation: hud-pop 0.18s ease-out;
+}
+
+.hud__teleport strong {
+ color: var(--color-primary);
+ font-weight: 800;
+ letter-spacing: 0.04em;
+}
+
+/* Barra que se llena durante la carga del teletransporte. */
+.hud__teleport span,
+.hud__power {
+ display: block;
+ height: 3px;
+ margin-top: 10px;
+ border-radius: 2px;
+ background: rgba(255, 255, 255, 0.14);
+ overflow: hidden;
+}
+
+.hud__teleport span::after {
+ content: "";
+ display: block;
+ height: 100%;
+ background: var(--color-primary);
+ transform-origin: left;
+ animation: hud-fill var(--duration) linear forwards;
+}
+
+.hud__power span {
+ display: block;
+ height: 100%;
+ background: linear-gradient(90deg, #ffd27a, var(--color-primary));
+ transform: scaleX(0);
+ transform-origin: left;
+}
+
+.hud__toast {
+ position: absolute;
+ left: 50%;
+ top: 16%;
+ padding: 9px 18px;
+ border-radius: 999px;
+ background: rgba(9, 11, 16, 0.82);
+ font-size: 15px;
+ font-weight: 600;
+ white-space: nowrap;
+ animation: hud-score 1.8s ease-out forwards;
+}
+
+.hud__score {
+ position: absolute;
+ left: 50%;
+ top: 22%;
+ font-size: clamp(1.8rem, 5vw, 3.2rem);
+ font-weight: 800;
+ font-stretch: 75%;
+ font-variation-settings: "wdth" 75;
+ text-transform: uppercase;
+ text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+ white-space: nowrap;
+ animation: hud-score 1.6s ease-out forwards;
+}
+
+.hud__score strong {
+ color: var(--color-primary);
+}
+
+@keyframes hud-pop {
+ from {
+  opacity: 0;
+  transform: translate(-50%, 8px);
+ }
+}
+
+@keyframes hud-fill {
+ from {
+  transform: scaleX(0);
+ }
+}
+
+@keyframes hud-score {
+ 0% {
+  opacity: 0;
+  transform: translate(-50%, 12px) scale(0.8);
+ }
+ 15% {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1.06);
+ }
+ 70% {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+ }
+ 100% {
+  opacity: 0;
+  transform: translate(-50%, -14px) scale(1);
+ }
+}
+
+.hud__hint {
+ position: absolute;
+ left: 16px;
+ bottom: 14px;
+ padding: 6px 10px;
+ border-radius: 10px;
+ /* La estación es clara: el texto necesita su propio fondo para leerse. */
+ background: rgba(10, 12, 18, 0.62);
+ font-size: 12px;
+ color: #d6d9e0;
+}
+
+/* ── Versión sin 3D ─────────────────────────────────────── */
+
+.fallback {
+ height: 100%;
+ overflow-y: auto;
+ touch-action: pan-y;
+ max-width: 640px;
+ margin: 0 auto;
+ padding: 64px 24px;
+}
+
+.fallback h2 {
+ margin: 40px 0 14px;
+ font-size: 14px;
+ letter-spacing: 0.2em;
+ text-transform: uppercase;
+ color: var(--color-primary);
+}
+
+.fallback__projects {
+ display: grid;
+ gap: 18px;
+}
+
+.fallback__projects p {
+ color: var(--color-text-muted);
+ font-size: 14px;
+}
+
+.fallback .overlay__links {
+ justify-content: flex-start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+ .overlay,
+ .overlay__enter,
+ .overlay__enter span,
+ .touch__stick {
+  transition: none;
+ }
+}
