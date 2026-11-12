@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { SPAWN } from "./world";
 
 // Estado que cambia en cada fotograma. Vive fuera de React a propósito: lo
 // escriben el teclado, los controles táctiles y la escena, y lo lee el bucle de
@@ -13,11 +12,24 @@ export const input = {
 };
 
 export const player = {
- position: new THREE.Vector3(SPAWN.x, 0, SPAWN.z), // pies
+ position: new THREE.Vector3(), // pies; la coloca el mundo activo
  velocity: new THREE.Vector3(),
  facing: Math.PI, // hacia dónde mira, en radianes; 0 = norte, π = hacia la cámara
+ grounded: true,
  hidden: false, // dentro de la nave
  frozen: false, // no responde a los controles
+ gesture: false, // está haciendo un gesto (acariciar, celebrar…) y no se mueve
+ act: null, // (clip, opciones) → promesa; lo instala el modelo del astronauta
+ sockets: null, // huesos donde enganchar objetos a sus manos
+};
+
+// Woody. Su cerebro (WoodyBrain.js) escribe aquí; la interfaz y otros sistemas leen.
+export const woody = {
+ position: new THREE.Vector3(),
+ facing: Math.PI,
+ mode: "follow", // follow | guide | pet
+ guideTo: null, // destino de la ruta en curso
+ tips: true, // consejos activados
 };
 
 // Cámara: a quién sigue y desde cuánto de lejos. `focus` nulo = al jugador.
@@ -55,4 +67,4 @@ export function releaseMovement() {
 }
 
 // Ayuda para depurar desde la consola del navegador; no se incluye en producción.
-if (import.meta.env.DEV) window.__world = { input, player, rig, game, interactables };
+if (import.meta.env.DEV) window.__world = { input, player, woody, rig, game, interactables };

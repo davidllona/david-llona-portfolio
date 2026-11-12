@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { RoundedBox } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
+import { Astronaut } from "../characters/Astronaut";
+import { world } from "../worlds";
+import { moveAgent } from "../worlds/collision";
 import { input, player, rig } from "./state";
-import { WATER_LEVEL, movePlayer, terrainHeight } from "./world";
 
-const WALK_SPEED = 4.8; // m/s
-const RUN_SPEED = 8;
+const WALK_SPEED = 3.6; // m/s
+const RUN_SPEED = 6.2;
 const WATER_DRAG = 0.55; // en el agua se anda más despacio
 const STICK_RUN_THRESHOLD = 0.92; // joystick empujado a fondo = correr
 const GROUND_RESPONSE = 12; // rapidez con la que se alcanza la velocidad deseada
@@ -20,136 +21,18 @@ const TURN_RESPONSE = 13;
 // siga otra cosa (la nave), que se aleje o que mire más desde arriba.
 const CAMERA = { height: 16.5, back: 14.5, lookAhead: 1.5, response: 4.5, fov: 40 };
 
-const SUIT = "#fbf3e4";
-const ORANGE = "#ff6b2c";
-const NAVY = "#241a4d";
-
-// El astronauta: cabezón, con visera grande, mochila y botas de color. Brazos
-// y piernas cuelgan de un pivote para poder balancearlos al andar.
-function Astronaut({ parts }) {
- const flat = (color) => <meshLambertMaterial color={color} flatShading />;
- const part = (name) => (node) => (parts.current[name] = node);
- return (
-  <group ref={part("body")} scale={1.3}>
-   {/* Piernas y botas. */}
-   {[-1, 1].map((side) => (
-    <group key={side} ref={part(`leg${side}`)} position={[side * 0.15, 0.46, 0]}>
-     <mesh position-y={-0.2} castShadow>
-      <boxGeometry args={[0.2, 0.36, 0.22]} />
-      {flat(SUIT)}
-     </mesh>
-     <mesh position={[0, -0.39, -0.04]} castShadow>
-      <boxGeometry args={[0.23, 0.14, 0.34]} />
-      {flat(ORANGE)}
-     </mesh>
-    </group>
-   ))}
-
-   <group ref={part("torso")}>
-    {/* Torso, cinturón y panel del pecho. */}
-    <RoundedBox args={[0.6, 0.52, 0.42]} radius={0.12} smoothness={2} position-y={0.74} castShadow>
-     {flat(SUIT)}
-    </RoundedBox>
-    <mesh position-y={0.5}>
-     <boxGeometry args={[0.62, 0.08, 0.44]} />
-     {flat(ORANGE)}
-    </mesh>
-    <mesh position={[0, 0.78, -0.215]}>
-     <boxGeometry args={[0.28, 0.17, 0.03]} />
-     {flat(NAVY)}
-    </mesh>
-    {[
-     [-0.08, "#5ff2ff"],
-     [0, "#ffcf4a"],
-     [0.08, "#ff5d8f"],
-    ].map(([x, color]) => (
-     <mesh key={x} position={[x, 0.78, -0.235]}>
-      <boxGeometry args={[0.045, 0.045, 0.02]} />
-      <meshBasicMaterial color={color} toneMapped={false} />
-     </mesh>
-    ))}
-
-    {/* Mochila con dos depósitos y antena. */}
-    <RoundedBox args={[0.46, 0.5, 0.24]} radius={0.08} smoothness={2} position={[0, 0.78, 0.31]} castShadow>
-     {flat("#b9bfd6")}
-    </RoundedBox>
-    {[-1, 1].map((side) => (
-     <mesh key={side} position={[side * 0.12, 0.8, 0.45]}>
-      <cylinderGeometry args={[0.07, 0.07, 0.4, 8]} />
-      {flat(ORANGE)}
-     </mesh>
-    ))}
-    <mesh position={[0.17, 1.2, 0.33]}>
-     <cylinderGeometry args={[0.012, 0.012, 0.42, 5]} />
-     {flat(NAVY)}
-    </mesh>
-    <mesh position={[0.17, 1.43, 0.33]}>
-     <sphereGeometry args={[0.05, 8, 6]} />
-     <meshBasicMaterial color="#ff5d8f" toneMapped={false} />
-    </mesh>
-
-    {/* Brazos y guantes. */}
-    {[-1, 1].map((side) => (
-     <group key={side} ref={part(`arm${side}`)} position={[side * 0.37, 0.93, 0]}>
-      <mesh position-y={-0.17} castShadow>
-       <capsuleGeometry args={[0.085, 0.2, 3, 8]} />
-       {flat(SUIT)}
-      </mesh>
-      <mesh position-y={-0.37}>
-       <sphereGeometry args={[0.1, 8, 6]} />
-       {flat(ORANGE)}
-      </mesh>
-     </group>
-    ))}
-
-    {/* Collar. */}
-    <mesh position-y={1.02}>
-     <cylinderGeometry args={[0.25, 0.27, 0.09, 12]} />
-     {flat(ORANGE)}
-    </mesh>
-    {/* Cabeza, algo echada hacia atrás para que la visera se vea desde arriba:
-        casco, visera grande con un reflejo, franja de color y auriculares. */}
-    <group position-y={1.34} rotation-x={0.34}>
-     <mesh scale={[1.08, 1, 1.06]} castShadow>
-      <icosahedronGeometry args={[0.38, 2]} />
-      {flat(SUIT)}
-     </mesh>
-     <mesh position={[0, 0.02, -0.2]} scale={[1.04, 0.84, 0.8]}>
-      <icosahedronGeometry args={[0.31, 2]} />
-      <meshLambertMaterial color={NAVY} emissive="#4a3fb0" emissiveIntensity={0.7} flatShading />
-     </mesh>
-     <mesh position={[0.1, 0.12, -0.44]} rotation={[0.5, 0, -0.5]}>
-      <boxGeometry args={[0.15, 0.045, 0.02]} />
-      <meshBasicMaterial color="#ffffff" toneMapped={false} />
-     </mesh>
-     <mesh position={[0, 0.3, 0.1]} rotation-x={-0.35}>
-      <boxGeometry args={[0.14, 0.12, 0.5]} />
-      {flat(ORANGE)}
-     </mesh>
-     {[-1, 1].map((side) => (
-      <mesh key={side} position={[side * 0.4, -0.02, 0.02]} rotation-z={Math.PI / 2}>
-       <cylinderGeometry args={[0.11, 0.11, 0.08, 10]} />
-       {flat(ORANGE)}
-      </mesh>
-     ))}
-    </group>
-   </group>
-  </group>
- );
-}
-
 const PUFFS = 10;
 
+// El controlador del jugador: lee la entrada, mueve al astronauta por el
+// mundo activo (colisiones, relieve, agua, salto) y lleva la cámara. El aspecto
+// y la animación del personaje están en characters/Astronaut.jsx.
 export function Player({ active }) {
  const camera = useThree((state) => state.camera);
  const aspect = useThree((state) => state.size.width / state.size.height);
  const group = useRef(null);
  const shadow = useRef(null);
- const parts = useRef({});
  const puffs = useRef([]);
  const body = useRef({
-  grounded: true,
-  stride: 0,
   puffTimer: 0,
   nextPuff: 0,
   focus: new THREE.Vector3(player.position.x, 0, player.position.z),
@@ -177,52 +60,53 @@ export function Player({ active }) {
   puff.visible = true;
  };
 
- useFrame(({ clock }, rawDelta) => {
+ useFrame((_, rawDelta) => {
   const dt = Math.min(rawDelta, MAX_STEP);
   const state = body.current;
   const { position, velocity } = player;
   const { keys, stick } = input;
-  const controllable = active && !player.frozen;
+  const controllable = active && !player.frozen && !player.gesture;
+  const waterLevel = world.waterLevel;
 
   // Movimiento relativo a la pantalla: arriba es el norte (-Z), derecha el este (+X).
   const side = controllable ? Number(keys.right) - Number(keys.left) + stick.x : 0;
   const ahead = controllable ? Number(keys.forward) - Number(keys.back) - stick.y : 0;
   const length = Math.hypot(side, ahead);
-  const inWater = position.y < WATER_LEVEL - 0.08;
+  const inWater = position.y < waterLevel - 0.08;
   const running = keys.run || Math.hypot(stick.x, stick.y) > STICK_RUN_THRESHOLD;
   const speed = Math.min(length, 1) * (running ? RUN_SPEED : WALK_SPEED) * (inWater ? WATER_DRAG : 1);
   const wishX = length > 0 ? (side / length) * speed : 0;
   const wishZ = length > 0 ? (-ahead / length) * speed : 0;
 
   // Aceleración y frenado suaves, independientes de los fps.
-  const blend = 1 - Math.exp(-(state.grounded ? GROUND_RESPONSE : AIR_RESPONSE) * dt);
+  const blend = 1 - Math.exp(-(player.grounded ? GROUND_RESPONSE : AIR_RESPONSE) * dt);
   velocity.x += (wishX - velocity.x) * blend;
   velocity.z += (wishZ - velocity.z) * blend;
 
   if (input.jumpQueued) {
    input.jumpQueued = false;
-   if (controllable && state.grounded) {
+   if (controllable && player.grounded) {
     velocity.y = JUMP_SPEED;
-    state.grounded = false;
+    player.grounded = false;
    }
   }
 
   if (!player.frozen) {
-   const moved = movePlayer(position, velocity.x * dt, velocity.z * dt);
+   const moved = moveAgent(world, position, velocity.x * dt, velocity.z * dt);
    if (!(moved & 1)) velocity.x = 0;
    if (!(moved & 2)) velocity.z = 0;
 
-   // Gravedad y suelo (que baja en la orilla y en el lago).
-   const ground = terrainHeight(position.x, position.z);
+   // Gravedad y suelo (que sube y baja con el relieve).
+   const ground = world.height(position.x, position.z);
    velocity.y -= GRAVITY * dt;
    position.y += velocity.y * dt;
-   if (position.y <= ground || (state.grounded && velocity.y <= 0 && position.y - ground < 0.3)) {
-    if (!state.grounded && velocity.y < -4) spawnPuff(position.x, Math.max(ground, WATER_LEVEL) + 0.05, position.z, inWater);
+   if (position.y <= ground || (player.grounded && velocity.y <= 0 && position.y - ground < 0.35)) {
+    if (!player.grounded && velocity.y < -4) spawnPuff(position.x, Math.max(ground, waterLevel) + 0.05, position.z, inWater);
     position.y = ground;
     velocity.y = 0;
-    state.grounded = true;
+    player.grounded = true;
    } else {
-    state.grounded = false;
+    player.grounded = false;
    }
   }
 
@@ -233,29 +117,12 @@ export function Player({ active }) {
   turn = Math.atan2(Math.sin(turn), Math.cos(turn));
   group.current.rotation.y += turn * Math.min(1, dt * TURN_RESPONSE);
   group.current.position.copy(position);
-  group.current.visible = !player.hidden;
-
-  // Andar: piernas y brazos alternos, el cuerpo se inclina y da pequeños botes.
-  const walking = state.grounded ? Math.min(groundSpeed / WALK_SPEED, 1.5) : 0;
-  state.stride += groundSpeed * dt * 2.3;
-  const swing = reducedMotion ? 0 : Math.sin(state.stride) * Math.min(walking, 1.2);
-  const { body: figure, torso } = parts.current;
-  parts.current["leg-1"].rotation.x = swing * 0.75;
-  parts.current.leg1.rotation.x = -swing * 0.75;
-  parts.current["arm-1"].rotation.x = -swing * 0.8;
-  parts.current.arm1.rotation.x = swing * 0.8;
-  // En el aire, brazos arriba.
-  const airborne = state.grounded ? 0 : 1;
-  parts.current["arm-1"].rotation.z = -airborne * 1.1;
-  parts.current.arm1.rotation.z = airborne * 1.1;
-  torso.position.y = reducedMotion ? 0 : Math.abs(Math.cos(state.stride)) * 0.05 * walking + Math.sin(clock.elapsedTime * 2.2) * 0.012;
-  figure.rotation.x = -Math.min(walking, 1.4) * 0.13;
 
   // Polvo al correr; ondas en el agua.
   state.puffTimer -= dt;
-  if (state.grounded && !player.hidden && state.puffTimer <= 0 && groundSpeed > (inWater ? 0.8 : WALK_SPEED + 0.6)) {
+  if (player.grounded && !player.hidden && state.puffTimer <= 0 && groundSpeed > (inWater ? 0.8 : WALK_SPEED + 0.6)) {
    state.puffTimer = inWater ? 0.28 : 0.14;
-   spawnPuff(position.x, inWater ? WATER_LEVEL + 0.02 : position.y + 0.08, position.z, inWater);
+   spawnPuff(position.x, inWater ? waterLevel + 0.02 : position.y + 0.08, position.z, inWater);
   }
   for (const puff of puffs.current) {
    if (!puff?.visible) continue;
@@ -273,16 +140,16 @@ export function Player({ active }) {
   }
 
   // Sombra de contacto bajo los pies cuando salta.
-  const ground = terrainHeight(position.x, position.z);
+  const ground = world.height(position.x, position.z);
   shadow.current.visible = !player.hidden && position.y - ground > 0.05;
-  shadow.current.position.set(position.x, Math.max(ground, WATER_LEVEL) + 0.03, position.z);
+  shadow.current.position.set(position.x, Math.max(ground, waterLevel) + 0.03, position.z);
 
   // Cámara.
   const target = rig.focus ?? position;
   const follow = state.started ? 1 - Math.exp(-CAMERA.response * dt) : 1;
   state.started = true;
   state.focus.x += (target.x - state.focus.x) * follow;
-  state.focus.y += ((rig.focus ? target.y : target.y * 0.5) - state.focus.y) * follow;
+  state.focus.y += (target.y - state.focus.y) * follow * (rig.focus ? 1 : 0.5);
   state.focus.z += (target.z - (rig.focus ? 0 : CAMERA.lookAhead) - state.focus.z) * follow;
   state.distance += (rig.distance * portrait - state.distance) * follow * 0.6;
   state.tilt += ((rig.focus ? rig.tilt ?? 0 : 0) - state.tilt) * follow * 0.6;
@@ -302,7 +169,7 @@ export function Player({ active }) {
  return (
   <>
    <group ref={group}>
-    <Astronaut parts={parts} />
+    <Astronaut />
    </group>
    <mesh ref={shadow} rotation-x={-Math.PI / 2} visible={false}>
     <circleGeometry args={[0.4, 20]} />

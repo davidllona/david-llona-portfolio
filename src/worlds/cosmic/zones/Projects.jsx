@@ -1,10 +1,10 @@
 import { Suspense } from "react";
 import { useTexture } from "@react-three/drei";
-import { PROJECTS } from "../../content/projects";
-import { Label } from "../Label";
-import { useInteractable } from "../interact";
-import { emit } from "../state";
-import { COLORS, PROJECT_BOARDS } from "../world";
+import { PROJECTS } from "../../../content/projects";
+import { Label } from "../../../experience/Label";
+import { useInteractable } from "../../../experience/interact";
+import { emit } from "../../../experience/state";
+import { COLORS, PROJECT_BOARDS } from "../layout";
 
 const BOARD = { width: 5.6, height: 3.3, y: 3.05, tilt: -0.2 };
 

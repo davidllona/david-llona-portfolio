@@ -5,7 +5,9 @@ import { Label } from "./Label";
 import { useInteractable } from "./interact";
 import { emit, player, rig } from "./state";
 import { registerGlow } from "./theme";
-import { COLORS, SHIP, shipCollider } from "./world";
+import { world } from "../worlds";
+
+const PAD_COLOR = "#ffb238";
 
 const ALTITUDE = 34; // m a los que se queda en órbita
 const ASCENT = 5.5; // s de subida
@@ -84,19 +86,20 @@ function Rocket({ flame }) {
 // La nave y su viaje: subes, despega, se queda en órbita viendo el planeta
 // entero, y vuelve a aterrizar cuando quieras.
 export function Ship() {
+ const SHIP = world.ship;
  const ship = useRef(null);
  const flame = useRef(null);
  const smoke = useRef([]);
  const flight = useRef({ phase: "idle", time: 0, nextSmoke: 0, smokeTimer: 0 });
  const focus = useMemo(() => new THREE.Vector3(), []);
- const ringMaterial = useMemo(() => new THREE.MeshLambertMaterial({ color: COLORS.nave, emissive: COLORS.nave }), []);
+ const ringMaterial = useMemo(() => new THREE.MeshLambertMaterial({ color: PAD_COLOR, emissive: PAD_COLOR }), []);
  useEffect(() => registerGlow(ringMaterial, 0.5, 2.4), [ringMaterial]);
 
  const launch = () => {
   flight.current = { ...flight.current, phase: "ascending", time: 0 };
   player.hidden = player.frozen = true;
   player.velocity.set(0, 0, 0);
-  shipCollider.active = false;
+  world.shipCollider.active = false;
   rig.shake = 0.5;
   emit("toast", { text: "¡Despegue!" });
  };
@@ -117,7 +120,7 @@ export function Ship() {
  useEffect(
   () => () => {
    player.hidden = player.frozen = false;
-   shipCollider.active = true;
+   world.shipCollider.active = true;
    Object.assign(rig, { focus: null, distance: 1, tilt: 0, space: 0 });
   },
   [],
@@ -146,7 +149,7 @@ export function Ship() {
     player.position.set(SHIP.x, 0, SHIP.z + SHIP.padRadius + 0.9);
     player.facing = Math.PI;
     player.hidden = player.frozen = false;
-    shipCollider.active = true;
+    world.shipCollider.active = true;
     Object.assign(rig, { focus: null, distance: 1, tilt: 0, space: 0 });
    }
   } else if (state.phase === "orbit") {
@@ -217,7 +220,7 @@ export function Ship() {
     <mesh position-y={0.21} rotation-x={-Math.PI / 2} material={ringMaterial}>
      <ringGeometry args={[SHIP.padRadius - 0.75, SHIP.padRadius - 0.45, 40]} />
     </mesh>
-    <Label text="NAVE" color={COLORS.nave} width={2.4} position={[0, 0.17, SHIP.padRadius + 1.6]} plate flat />
+    <Label text="NAVE" color={PAD_COLOR} width={2.4} position={[0, 0.17, SHIP.padRadius + 1.6]} plate flat />
    </group>
 
    <group ref={ship} position={[SHIP.x, 0, SHIP.z]} {...click}>

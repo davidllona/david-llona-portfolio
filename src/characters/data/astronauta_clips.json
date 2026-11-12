@@ -1,0 +1,634 @@
+{
+ "asset": "Astronauta",
+ "units": "metros",
+ "fps": 30,
+ "height_m": 1.25,
+ "axes": {
+  "blender": "frente -Y, arriba +Z, izquierda del personaje +X",
+  "gltf_threejs": "frente +Z, arriba +Y, izquierda +X"
+ },
+ "origin": "suelo, centrado entre los pies (hueso Root)",
+ "clips": [
+  {
+   "name": "Astro_Idle_Breathe",
+   "frames": 90,
+   "duration_s": 3.0,
+   "loop": true,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_Idle_LookAround",
+   "frames": 150,
+   "duration_s": 5.0,
+   "loop": true,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_Walk",
+   "frames": 20,
+   "duration_s": 0.667,
+   "loop": true,
+   "speed_m_s": 0.55,
+   "note": ""
+  },
+  {
+   "name": "Astro_Run",
+   "frames": 12,
+   "duration_s": 0.4,
+   "loop": true,
+   "speed_m_s": 2.08,
+   "note": ""
+  },
+  {
+   "name": "Astro_WalkStart",
+   "frames": 10,
+   "duration_s": 0.333,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_WalkStop",
+   "frames": 10,
+   "duration_s": 0.333,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_TurnLeft",
+   "frames": 20,
+   "duration_s": 0.667,
+   "loop": true,
+   "speed_m_s": null,
+   "note": "≈ 100°/s"
+  },
+  {
+   "name": "Astro_TurnRight",
+   "frames": 20,
+   "duration_s": 0.667,
+   "loop": true,
+   "speed_m_s": null,
+   "note": "≈ 100°/s"
+  },
+  {
+   "name": "Astro_ShortStep",
+   "frames": 12,
+   "duration_s": 0.4,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "medio paso de ajuste"
+  },
+  {
+   "name": "Astro_JumpStart",
+   "frames": 12,
+   "duration_s": 0.4,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "despegue en el frame 7; termina en pose de vuelo (el motor sube el root)"
+  },
+  {
+   "name": "Astro_JumpLoop",
+   "frames": 20,
+   "duration_s": 0.667,
+   "loop": true,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_FallLoop",
+   "frames": 16,
+   "duration_s": 0.533,
+   "loop": true,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_Land",
+   "frames": 14,
+   "duration_s": 0.467,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "contacto en el frame 0"
+  },
+  {
+   "name": "Astro_HardLand",
+   "frames": 30,
+   "duration_s": 1.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "contacto en el frame 0; apoya la mano derecha"
+  },
+  {
+   "name": "Astro_Crouch",
+   "frames": 12,
+   "duration_s": 0.4,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_CrouchIdle",
+   "frames": 60,
+   "duration_s": 2.0,
+   "loop": true,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_StandUp",
+   "frames": 12,
+   "duration_s": 0.4,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_GreetWave",
+   "frames": 50,
+   "duration_s": 1.667,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_Point",
+   "frames": 40,
+   "duration_s": 1.333,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "señala al frente con el brazo derecho"
+  },
+  {
+   "name": "Astro_Shrug",
+   "frames": 36,
+   "duration_s": 1.2,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_YesNod",
+   "frames": 30,
+   "duration_s": 1.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_NoHeadshake",
+   "frames": 36,
+   "duration_s": 1.2,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_LookUp",
+   "frames": 30,
+   "duration_s": 1.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_LookDown",
+   "frames": 30,
+   "duration_s": 1.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_CelebrateSmall",
+   "frames": 36,
+   "duration_s": 1.2,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "puño al aire"
+  },
+  {
+   "name": "Astro_CelebrateBig",
+   "frames": 60,
+   "duration_s": 2.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "tres saltos con los brazos arriba"
+  },
+  {
+   "name": "Astro_Surprised",
+   "frames": 24,
+   "duration_s": 0.8,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_Curious",
+   "frames": 45,
+   "duration_s": 1.5,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "mano al visor, cabeza ladeada"
+  },
+  {
+   "name": "Astro_ScaredMild",
+   "frames": 45,
+   "duration_s": 1.5,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_PetWoody",
+   "frames": 60,
+   "duration_s": 2.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "mano derecha a ≈0,55 m de altura, 0,30 m al frente"
+  },
+  {
+   "name": "Astro_CallWoody",
+   "frames": 40,
+   "duration_s": 1.333,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "gesto de 'ven'"
+  },
+  {
+   "name": "Astro_Sit",
+   "frames": 24,
+   "duration_s": 0.8,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "sentado en el suelo"
+  },
+  {
+   "name": "Astro_SitIdle",
+   "frames": 90,
+   "duration_s": 3.0,
+   "loop": true,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_StandFromSit",
+   "frames": 24,
+   "duration_s": 0.8,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_Basket_PickUp",
+   "frames": 36,
+   "duration_s": 1.2,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "enganchar el balón al socket en el frame 15"
+  },
+  {
+   "name": "Astro_Basket_HoldIdle",
+   "frames": 60,
+   "duration_s": 2.0,
+   "loop": true,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_Basket_Aim",
+   "frames": 16,
+   "duration_s": 0.533,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "termina sosteniendo la pose de apuntar"
+  },
+  {
+   "name": "Astro_Basket_Charge",
+   "frames": 14,
+   "duration_s": 0.467,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "termina cargado; se puede mantener"
+  },
+  {
+   "name": "Astro_Basket_Throw",
+   "frames": 12,
+   "duration_s": 0.4,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "soltar el balón en el frame 8"
+  },
+  {
+   "name": "Astro_Basket_FollowThrough",
+   "frames": 20,
+   "duration_s": 0.667,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_Basket_Celebrate",
+   "frames": 48,
+   "duration_s": 1.6,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_Basket_MissReaction",
+   "frames": 48,
+   "duration_s": 1.6,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "manos al casco"
+  },
+  {
+   "name": "Astro_Football_Prepare",
+   "frames": 20,
+   "duration_s": 0.667,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "pie derecho atrás"
+  },
+  {
+   "name": "Astro_Football_Aim",
+   "frames": 60,
+   "duration_s": 2.0,
+   "loop": true,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_Football_KickRight",
+   "frames": 20,
+   "duration_s": 0.667,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "impacto en el frame 9"
+  },
+  {
+   "name": "Astro_Football_KickLeft",
+   "frames": 20,
+   "duration_s": 0.667,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "impacto en el frame 9"
+  },
+  {
+   "name": "Astro_Football_FollowThrough",
+   "frames": 16,
+   "duration_s": 0.533,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_Football_GoalCelebrate",
+   "frames": 60,
+   "duration_s": 2.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_Football_MissReact",
+   "frames": 48,
+   "duration_s": 1.6,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "hombros caídos"
+  },
+  {
+   "name": "Astro_PushButton",
+   "frames": 30,
+   "duration_s": 1.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "pulsación en el frame 13"
+  },
+  {
+   "name": "Astro_PullLever",
+   "frames": 40,
+   "duration_s": 1.333,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "palanca abajo en el frame 24"
+  },
+  {
+   "name": "Astro_OpenDoor",
+   "frames": 40,
+   "duration_s": 1.333,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "puerta abierta en el frame 24"
+  },
+  {
+   "name": "Astro_PickObject",
+   "frames": 36,
+   "duration_s": 1.2,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "agarre en el frame 15; termina con el objeto en la mano"
+  },
+  {
+   "name": "Astro_PlaceObject",
+   "frames": 36,
+   "duration_s": 1.2,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "soltar en el frame 15"
+  },
+  {
+   "name": "Astro_PickBook",
+   "frames": 36,
+   "duration_s": 1.2,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "agarre en el frame 15"
+  },
+  {
+   "name": "Astro_PullBook",
+   "frames": 30,
+   "duration_s": 1.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "libro fuera en el frame 18"
+  },
+  {
+   "name": "Astro_InspectObject",
+   "frames": 60,
+   "duration_s": 2.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_LiftDumbbell",
+   "frames": 40,
+   "duration_s": 1.333,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "agarre en el frame 12; termina con la mancuerna arriba (curl)"
+  },
+  {
+   "name": "Astro_PutDumbbellDown",
+   "frames": 36,
+   "duration_s": 1.2,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "soltar en el frame 19"
+  },
+  {
+   "name": "Astro_SofaSitDown",
+   "frames": 24,
+   "duration_s": 0.8,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "asiento a ≈0,21 m; el motor coloca el root delante del sofá"
+  },
+  {
+   "name": "Astro_SofaIdle",
+   "frames": 90,
+   "duration_s": 3.0,
+   "loop": true,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_SofaStandUp",
+   "frames": 24,
+   "duration_s": 0.8,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Astro_VinylPlace",
+   "frames": 40,
+   "duration_s": 1.333,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "disco apoyado en el frame 16"
+  },
+  {
+   "name": "Astro_VinylNeedleLower",
+   "frames": 30,
+   "duration_s": 1.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "aguja abajo en el frame 13"
+  },
+  {
+   "name": "Astro_PuzzleInteract",
+   "frames": 60,
+   "duration_s": 2.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "manipula con las dos manos"
+  },
+  {
+   "name": "Astro_RocketBoard",
+   "frames": 30,
+   "duration_s": 1.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "in-place: el motor mueve el root a la cabina en los frames 12–24"
+  },
+  {
+   "name": "Astro_RocketSeated",
+   "frames": 90,
+   "duration_s": 3.0,
+   "loop": true,
+   "speed_m_s": null,
+   "note": "manos en los mandos"
+  },
+  {
+   "name": "Astro_RocketExit",
+   "frames": 30,
+   "duration_s": 1.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "in-place: el motor baja el root"
+  },
+  {
+   "name": "Astro_RocketTakeoffReact",
+   "frames": 45,
+   "duration_s": 1.5,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "sentado: empuje hacia atrás y vibración"
+  },
+  {
+   "name": "Astro_RocketLandReact",
+   "frames": 30,
+   "duration_s": 1.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "sentado: sacudida hacia delante"
+  }
+ ],
+ "aliases": {
+  "Astro_RocketApproach": "Astro_Walk"
+ },
+ "sockets": {
+  "Head_LookSocket": {
+   "parent": "Head",
+   "position_blender": [
+    0.0,
+    -0.22,
+    1.04
+   ]
+  },
+  "LeftHand_PropSocket": {
+   "parent": "Hand_L",
+   "position_blender": [
+    0.312,
+    0.0,
+    0.439
+   ]
+  },
+  "RightHand_PropSocket": {
+   "parent": "Hand_R",
+   "position_blender": [
+    -0.312,
+    0.0,
+    0.439
+   ]
+  }
+ },
+ "deform_bones": [
+  "Root",
+  "Hips",
+  "Spine",
+  "Chest",
+  "Neck",
+  "Head",
+  "Head_LookSocket",
+  "Backpack",
+  "Clavicle_L",
+  "UpperArm_L",
+  "Forearm_L",
+  "Hand_L",
+  "Fingers_L",
+  "Thumb_L",
+  "LeftHand_PropSocket",
+  "Clavicle_R",
+  "UpperArm_R",
+  "Forearm_R",
+  "Hand_R",
+  "Fingers_R",
+  "Thumb_R",
+  "RightHand_PropSocket",
+  "Thigh_L",
+  "Shin_L",
+  "Foot_L",
+  "Toe_L",
+  "Thigh_R",
+  "Shin_R",
+  "Foot_R",
+  "Toe_R"
+ ]
+}

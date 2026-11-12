@@ -11,6 +11,7 @@ import { StartOverlay } from "./ui/StartOverlay";
 import { Flash } from "./ui/Flash";
 import { ThemeToggle } from "./ui/ThemeToggle";
 import { TouchControls } from "./ui/TouchControls";
+import { WoodyMenu } from "./ui/WoodyMenu";
 import { hasWebGL } from "./ui/webgl";
 
 // El dedo es el puntero principal: móviles y tabletas.
@@ -73,6 +74,7 @@ function App() {
     {active && <Hud touch={touch} />}
     {active && touch && <TouchControls onPause={() => setActive(false)} />}
     {active && <ThemeToggle />}
+    {active && <WoodyMenu />}
     {active && <Modal />}
     <Loader ready={ready} />
    </ErrorBoundary>

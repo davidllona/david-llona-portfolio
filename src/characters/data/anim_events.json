@@ -1,0 +1,180 @@
+{
+ "fps": 30,
+ "events": [
+  {
+   "clip": "Astro_Walk",
+   "frame": 0,
+   "time_s": 0.0,
+   "normalized": 0.0,
+   "event": "footstep_left"
+  },
+  {
+   "clip": "Astro_Walk",
+   "frame": 10,
+   "time_s": 0.333,
+   "normalized": 0.5,
+   "event": "footstep_right"
+  },
+  {
+   "clip": "Astro_Run",
+   "frame": 0,
+   "time_s": 0.0,
+   "normalized": 0.0,
+   "event": "footstep_left"
+  },
+  {
+   "clip": "Astro_Run",
+   "frame": 6,
+   "time_s": 0.2,
+   "normalized": 0.5,
+   "event": "footstep_right"
+  },
+  {
+   "clip": "Astro_JumpStart",
+   "frame": 7,
+   "time_s": 0.233,
+   "normalized": 0.583,
+   "event": "jump_takeoff"
+  },
+  {
+   "clip": "Astro_Land",
+   "frame": 0,
+   "time_s": 0.0,
+   "normalized": 0.0,
+   "event": "land"
+  },
+  {
+   "clip": "Astro_HardLand",
+   "frame": 0,
+   "time_s": 0.0,
+   "normalized": 0.0,
+   "event": "land_hard"
+  },
+  {
+   "clip": "Astro_Basket_PickUp",
+   "frame": 15,
+   "time_s": 0.5,
+   "normalized": 0.417,
+   "event": "basket_attach"
+  },
+  {
+   "clip": "Astro_Basket_Throw",
+   "frame": 8,
+   "time_s": 0.267,
+   "normalized": 0.667,
+   "event": "basket_release"
+  },
+  {
+   "clip": "Astro_Football_KickRight",
+   "frame": 9,
+   "time_s": 0.3,
+   "normalized": 0.45,
+   "event": "kick_impact"
+  },
+  {
+   "clip": "Astro_Football_KickLeft",
+   "frame": 9,
+   "time_s": 0.3,
+   "normalized": 0.45,
+   "event": "kick_impact"
+  },
+  {
+   "clip": "Astro_PushButton",
+   "frame": 13,
+   "time_s": 0.433,
+   "normalized": 0.433,
+   "event": "button_press"
+  },
+  {
+   "clip": "Astro_PullLever",
+   "frame": 24,
+   "time_s": 0.8,
+   "normalized": 0.6,
+   "event": "lever_down"
+  },
+  {
+   "clip": "Astro_OpenDoor",
+   "frame": 24,
+   "time_s": 0.8,
+   "normalized": 0.6,
+   "event": "door_open"
+  },
+  {
+   "clip": "Astro_PickObject",
+   "frame": 15,
+   "time_s": 0.5,
+   "normalized": 0.417,
+   "event": "prop_attach"
+  },
+  {
+   "clip": "Astro_PlaceObject",
+   "frame": 15,
+   "time_s": 0.5,
+   "normalized": 0.417,
+   "event": "prop_release"
+  },
+  {
+   "clip": "Astro_PickBook",
+   "frame": 15,
+   "time_s": 0.5,
+   "normalized": 0.417,
+   "event": "prop_attach"
+  },
+  {
+   "clip": "Astro_PullBook",
+   "frame": 18,
+   "time_s": 0.6,
+   "normalized": 0.6,
+   "event": "book_out"
+  },
+  {
+   "clip": "Astro_LiftDumbbell",
+   "frame": 12,
+   "time_s": 0.4,
+   "normalized": 0.3,
+   "event": "prop_attach"
+  },
+  {
+   "clip": "Astro_PutDumbbellDown",
+   "frame": 19,
+   "time_s": 0.633,
+   "normalized": 0.528,
+   "event": "prop_release"
+  },
+  {
+   "clip": "Astro_VinylPlace",
+   "frame": 16,
+   "time_s": 0.533,
+   "normalized": 0.4,
+   "event": "vinyl_placed"
+  },
+  {
+   "clip": "Astro_VinylNeedleLower",
+   "frame": 13,
+   "time_s": 0.433,
+   "normalized": 0.433,
+   "event": "needle_down"
+  },
+  {
+   "clip": "Astro_RocketBoard",
+   "frame": 24,
+   "time_s": 0.8,
+   "normalized": 0.8,
+   "event": "rocket_boarded"
+  },
+  {
+   "clip": "Astro_SofaSitDown",
+   "frame": 20,
+   "time_s": 0.667,
+   "normalized": 0.833,
+   "event": "seated"
+  },
+  {
+   "clip": "Astro_GreetWave",
+   "frame": 12,
+   "time_s": 0.4,
+   "normalized": 0.24,
+   "event": "wave_start"
+  }
+ ]
+}

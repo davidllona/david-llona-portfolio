@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { CONTACT, LAB, SHIP } from "./world";
+import { CONTACT, LAB, SHIP } from "./layout";
 
 // Cables tendidos por el suelo: de la nave a los pedestales del laboratorio y
 // de la antena a los terminales. Puro adorno; no se choca con ellos.

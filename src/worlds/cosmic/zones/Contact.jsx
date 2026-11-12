@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { CONTACT_LINKS } from "../../content/contact";
-import { Label } from "../Label";
-import { useInteractable } from "../interact";
-import { registerGlow } from "../theme";
-import { COLORS, CONTACT } from "../world";
+import { CONTACT_LINKS } from "../../../content/contact";
+import { Label } from "../../../experience/Label";
+import { useInteractable } from "../../../experience/interact";
+import { registerGlow } from "../../../experience/theme";
+import { COLORS, CONTACT } from "../layout";
 
 function openLink(href) {
  if (href.startsWith("mailto:")) window.location.href = href;

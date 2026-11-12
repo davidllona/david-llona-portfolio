@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
-import { Label } from "../Label";
-import { registerGlow } from "../theme";
-import { COLORS, PLAZA } from "../world";
+import { Label } from "../../../experience/Label";
+import { registerGlow } from "../../../experience/theme";
+import { COLORS, PLAZA } from "../layout";
 
 // La plaza de llegada: una plataforma redonda con el nombre y las direcciones.
 export function Plaza() {

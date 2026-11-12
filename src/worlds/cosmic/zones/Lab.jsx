@@ -1,11 +1,11 @@
 import { useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { LAB_PROJECTS } from "../../content/lab";
-import { Label } from "../Label";
-import { useInteractable } from "../interact";
-import { emit } from "../state";
-import { COLORS, LAB } from "../world";
+import { LAB_PROJECTS } from "../../../content/lab";
+import { Label } from "../../../experience/Label";
+import { useInteractable } from "../../../experience/interact";
+import { emit } from "../../../experience/state";
+import { COLORS, LAB } from "../layout";
 
 const TINTS = ["#19c3c9", "#ff7ae6", "#ffcf4a"];
 // Una figura distinta flotando sobre cada pedestal.

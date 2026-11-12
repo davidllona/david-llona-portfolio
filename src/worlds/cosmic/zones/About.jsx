@@ -2,12 +2,12 @@ import { Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { aboutText } from "../../content/about";
-import { Label } from "../Label";
-import { clickable, useInteractable } from "../interact";
-import { emit, events, game, player } from "../state";
-import { createBackboardTexture, createBasketballTexture, createTextPanelTexture } from "../textures";
-import { ABOUT, COLORS, PLAYER_RADIUS, WATER_LEVEL, terrainHeight } from "../world";
+import { aboutText } from "../../../content/about";
+import { Label } from "../../../experience/Label";
+import { clickable, useInteractable } from "../../../experience/interact";
+import { emit, events, game, player } from "../../../experience/state";
+import { createBackboardTexture, createBasketballTexture, createTextPanelTexture } from "../../../experience/textures";
+import { ABOUT, COLORS, PLAYER_RADIUS, WATER_LEVEL, terrainHeight } from "../layout";
 
 // Zona "Sobre mí": media pista de baloncesto con un balón que se coge y se
 // tira, Woody en holograma y un cartel con el texto.

@@ -4,19 +4,13 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Bloom, EffectComposer, SMAA, ToneMapping, Vignette } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 import { HalfFloatType } from "three";
-import { Cables } from "./Cables";
+import { Woody } from "../characters/Woody";
+import { SCENES, world } from "../worlds";
 import { Interactions } from "./Interactions";
 import { Lights } from "./Lights";
-import { Nature } from "./Nature";
 import { Player } from "./Player";
 import { Props } from "./Props";
 import { Ship } from "./Ship";
-import { Terrain } from "./Terrain";
-import { About } from "./zones/About";
-import { Contact } from "./zones/Contact";
-import { Lab } from "./zones/Lab";
-import { Plaza } from "./zones/Plaza";
-import { Projects } from "./zones/Projects";
 
 // Dos niveles de calidad. El planeta es el mismo; en móvil se recorta lo que
 // cuesta por píxel (resolución, sombras y suavizado de bordes).
@@ -48,6 +42,7 @@ export function Experience({ active, lowPower, onReady }) {
  const preset = lowPower ? QUALITY.low : QUALITY.high;
  const quality = { ...preset, pixelRatio: flag("dpr", preset.pixelRatio) };
  const [pixelRatio, setPixelRatio] = useState(quality.pixelRatio);
+ const Scene = SCENES[world.id];
 
  return (
   <Canvas
@@ -68,20 +63,18 @@ export function Experience({ active, lowPower, onReady }) {
    <Lights shadowMapSize={quality.shadowMapSize} />
    <Stars radius={320} depth={120} count={quality.stars} factor={10} saturation={0.6} fade speed={0.6} />
 
+   {/* Lo propio del planeta se descarga aparte; lo común (personajes, nave,
+       objetos) es igual en todos. La clave reinicia todo al cambiar de mundo. */}
    <Suspense fallback={null}>
-    <Terrain />
-    <Nature />
-    <Cables />
-    <Plaza />
-    <Projects />
-    <Lab />
-    <About />
-    <Contact />
-    <Props />
-    <Ship />
+    <group key={world.id}>
+     <Scene />
+     <Props />
+     <Ship />
+     <Player active={active} />
+     <Woody active={active} />
+    </group>
     <Ready onReady={onReady} />
    </Suspense>
-   <Player active={active} />
    <Interactions active={active} />
 
    {/* Búfer de 16 bits por canal, para que los degradados suaves no se rompan en escalones. */}

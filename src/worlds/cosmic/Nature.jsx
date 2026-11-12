@@ -1,9 +1,9 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
-import { Instances } from "./Instances";
-import { createGlowTexture } from "./textures";
-import { addSway, registerGlow } from "./theme";
-import { SCATTER } from "./world";
+import { Instances } from "../../experience/Instances";
+import { createGlowTexture } from "../../experience/textures";
+import { addSway, registerGlow } from "../../experience/theme";
+import { SCATTER } from "./layout";
 
 const FOLIAGE = ["#ff5d8f", "#ff8552", "#c65bd9", "#ffcf4a", "#3fd0b8", "#ff6fb5"];
 const BUSHES = ["#7fd66b", "#3fc7a0", "#d6c94a", "#ff9a5b"];

@@ -3,7 +3,8 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { useInteractable } from "./interact";
 import { emit, player, rig } from "./state";
-import { MAX_WADE, PLAYER_RADIUS, WATER_LEVEL, pushOut, terrainHeight } from "./world";
+import { world } from "../worlds";
+import { PLAYER_RADIUS, pushOut } from "../worlds/collision";
 
 // Objetos sueltos: cajas que se empujan y barriles que explotan. Su física es
 // muy simple: cada uno es un círculo visto desde arriba que se desliza por el
@@ -14,23 +15,8 @@ const BLAST_RADIUS = 7.5;
 const CHAIN_RADIUS = 4; // un barril hace estallar a otro que esté así de cerca
 const RESPAWN_TIME = 4.5;
 
-const START = [
- { type: "crate", x: 5.6, z: 10 },
- { type: "crate", x: 7, z: 10.6 },
- { type: "crate", x: 6.2, z: 11.7 },
- { type: "crate", x: 13.5, z: 4.6 },
- { type: "crate", x: 14.9, z: 5.2 },
- { type: "barrel", x: -9.5, z: -5.5 },
- { type: "barrel", x: -10.8, z: -4.6 },
- { type: "crate", x: -9.2, z: -3.9 },
- { type: "barrel", x: 18.4, z: -19 },
- { type: "barrel", x: 17.2, z: -17.6 },
- { type: "crate", x: 8.5, z: -11 },
- { type: "crate", x: -7.5, z: 14.5 },
-];
-
 function createBodies() {
- return START.map((item, id) => ({
+ return world.props.map((item, id) => ({
   ...item,
   id,
   home: { x: item.x, z: item.z },
@@ -195,7 +181,7 @@ export function Props() {
   if (barrel.gone > 0) return;
   barrel.gone = RESPAWN_TIME;
   const blast = blasts.find((b) => b.life <= 0) ?? blasts[0];
-  Object.assign(blast, { life: 1, fresh: true, x: barrel.x, y: terrainHeight(barrel.x, barrel.z), z: barrel.z });
+  Object.assign(blast, { life: 1, fresh: true, x: barrel.x, y: world.height(barrel.x, barrel.z), z: barrel.z });
   rig.shake = Math.min(1.1, rig.shake + 0.8);
   emit("flash");
 
@@ -249,7 +235,7 @@ export function Props() {
    body.appear = Math.min(1, body.appear + dt * 3);
 
    // El jugador lo empuja al chocar con él.
-   if (!player.hidden && feet.y - terrainHeight(feet.x, feet.z) < 0.9) {
+   if (!player.hidden && feet.y - world.height(feet.x, feet.z) < 0.9) {
     const dx = body.x - feet.x;
     const dz = body.z - feet.z;
     const d = Math.hypot(dx, dz);
@@ -279,11 +265,11 @@ export function Props() {
    body.vz *= drag;
    body.spin *= drag;
    body.turn += body.spin * dt;
-   if (pushOut(body, body.r)) {
+   if (pushOut(world, body, body.r)) {
     body.vx *= 0.55;
     body.vz *= 0.55;
    }
-   if (terrainHeight(body.x, body.z) < MAX_WADE - 0.25) {
+   if (world.blocked(body.x, body.z, 0, { prop: true })) {
     body.x = fromX;
     body.z = fromZ;
     body.vx *= -0.4;
@@ -324,8 +310,8 @@ export function Props() {
    if (!node || body.gone > 0) continue;
    node.visible = true;
    // En el agua, flotan.
-   const ground = terrainHeight(body.x, body.z);
-   node.position.set(body.x, Math.max(ground, WATER_LEVEL - 0.3), body.z);
+   const ground = world.height(body.x, body.z);
+   node.position.set(body.x, Math.max(ground, world.waterLevel - 0.3), body.z);
    node.rotation.y = body.turn;
    node.scale.setScalar(body.appear);
   }

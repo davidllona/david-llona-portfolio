@@ -1,0 +1,431 @@
+{
+ "asset": "Woody",
+ "units": "metros",
+ "fps": 30,
+ "axes": {
+  "blender": "frente -Y, arriba +Z, izquierda del perro +X",
+  "gltf_threejs": "frente +Z, arriba +Y, izquierda del perro +X"
+ },
+ "origin": "suelo, bajo el torso (hueso root)",
+ "height_m": 0.815,
+ "clips": [
+  {
+   "name": "Woody_Idle_Breathe",
+   "frames": 90,
+   "duration_s": 3.0,
+   "loop": true,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_Idle_LookAround",
+   "frames": 150,
+   "duration_s": 5.0,
+   "loop": true,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_Walk",
+   "frames": 24,
+   "duration_s": 0.8,
+   "loop": true,
+   "speed_m_s": 0.56,
+   "note": ""
+  },
+  {
+   "name": "Woody_Trot",
+   "frames": 16,
+   "duration_s": 0.533,
+   "loop": true,
+   "speed_m_s": 1.42,
+   "note": ""
+  },
+  {
+   "name": "Woody_Run",
+   "frames": 12,
+   "duration_s": 0.4,
+   "loop": true,
+   "speed_m_s": 3.5,
+   "note": ""
+  },
+  {
+   "name": "Woody_TurnLeft",
+   "frames": 24,
+   "duration_s": 0.8,
+   "loop": true,
+   "speed_m_s": null,
+   "note": "giro in-place ≈ 65°/s"
+  },
+  {
+   "name": "Woody_TurnRight",
+   "frames": 24,
+   "duration_s": 0.8,
+   "loop": true,
+   "speed_m_s": null,
+   "note": "giro in-place ≈ 65°/s"
+  },
+  {
+   "name": "Woody_StartWalk",
+   "frames": 12,
+   "duration_s": 0.4,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_StopWalk",
+   "frames": 12,
+   "duration_s": 0.4,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_JumpUp",
+   "frames": 18,
+   "duration_s": 0.6,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "termina en el aire (+0.30 m)"
+  },
+  {
+   "name": "Woody_JumpLoop",
+   "frames": 20,
+   "duration_s": 0.667,
+   "loop": true,
+   "speed_m_s": null,
+   "note": "pose de vuelo"
+  },
+  {
+   "name": "Woody_Land",
+   "frames": 16,
+   "duration_s": 0.533,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "empieza en el aire"
+  },
+  {
+   "name": "Woody_SitDown",
+   "frames": 24,
+   "duration_s": 0.8,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_SitIdle",
+   "frames": 90,
+   "duration_s": 3.0,
+   "loop": true,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_StandUp",
+   "frames": 20,
+   "duration_s": 0.667,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_LieDown",
+   "frames": 36,
+   "duration_s": 1.2,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_Sleep",
+   "frames": 120,
+   "duration_s": 4.0,
+   "loop": true,
+   "speed_m_s": null,
+   "note": "sin párpados: los ojos quedan abiertos"
+  },
+  {
+   "name": "Woody_WakeUp",
+   "frames": 48,
+   "duration_s": 1.6,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "de dormido a de pie"
+  },
+  {
+   "name": "Woody_SniffGround",
+   "frames": 60,
+   "duration_s": 2.0,
+   "loop": true,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_SniffObject",
+   "frames": 60,
+   "duration_s": 2.0,
+   "loop": true,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_HeadTiltLeft",
+   "frames": 36,
+   "duration_s": 1.2,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_HeadTiltRight",
+   "frames": 36,
+   "duration_s": 1.2,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_TailWag_Happy",
+   "frames": 12,
+   "duration_s": 0.4,
+   "loop": true,
+   "speed_m_s": null,
+   "note": "gesto: filtrable a huesos de cola"
+  },
+  {
+   "name": "Woody_TailWag_Slow",
+   "frames": 40,
+   "duration_s": 1.333,
+   "loop": true,
+   "speed_m_s": null,
+   "note": "gesto: filtrable a huesos de cola"
+  },
+  {
+   "name": "Woody_BarkSoft",
+   "frames": 20,
+   "duration_s": 0.667,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "sin mandíbula: el ladrido es solo gesto corporal"
+  },
+  {
+   "name": "Woody_PawGive",
+   "frames": 60,
+   "duration_s": 2.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_Greet",
+   "frames": 45,
+   "duration_s": 1.5,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "reverencia de juego"
+  },
+  {
+   "name": "Woody_Stretch",
+   "frames": 75,
+   "duration_s": 2.5,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_ReactSurprised",
+   "frames": 24,
+   "duration_s": 0.8,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_ReactCurious",
+   "frames": 45,
+   "duration_s": 1.5,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_ReactScaredMild",
+   "frames": 45,
+   "duration_s": 1.5,
+   "loop": false,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_CelebrateBasket",
+   "frames": 48,
+   "duration_s": 1.6,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "dos saltitos con las manos arriba"
+  },
+  {
+   "name": "Woody_CelebrateGoal",
+   "frames": 60,
+   "duration_s": 2.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "tres botes con contoneo"
+  },
+  {
+   "name": "Woody_PickupBall",
+   "frames": 36,
+   "duration_s": 1.2,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "la pelota se engancha a SOCKET_mouth en el frame 14–20"
+  },
+  {
+   "name": "Woody_CarryBall",
+   "frames": 16,
+   "duration_s": 0.533,
+   "loop": true,
+   "speed_m_s": 1.42,
+   "note": ""
+  },
+  {
+   "name": "Woody_DropBall",
+   "frames": 30,
+   "duration_s": 1.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "soltar del socket en el frame 13–17"
+  },
+  {
+   "name": "Woody_FetchStart",
+   "frames": 20,
+   "duration_s": 0.667,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "encadenar con Woody_Run"
+  },
+  {
+   "name": "Woody_PetReact",
+   "frames": 60,
+   "duration_s": 2.0,
+   "loop": true,
+   "speed_m_s": null,
+   "note": ""
+  },
+  {
+   "name": "Woody_AlertSecret",
+   "frames": 90,
+   "duration_s": 3.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "olfatea, mira y se queda en muestra (termina sosteniendo la pose)"
+  },
+  {
+   "name": "Woody_GuideWait",
+   "frames": 120,
+   "duration_s": 4.0,
+   "loop": true,
+   "speed_m_s": null,
+   "note": "mira atrás por su hombro izquierdo esperando al jugador"
+  },
+  {
+   "name": "Woody_SofaJumpUp",
+   "frames": 26,
+   "duration_s": 0.867,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "in-place: el motor mueve root a su destino en los frames 11–19"
+  },
+  {
+   "name": "Woody_SofaJumpDown",
+   "frames": 26,
+   "duration_s": 0.867,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "in-place: el motor mueve root a su destino en los frames 11–19"
+  },
+  {
+   "name": "Woody_SofaSettle",
+   "frames": 60,
+   "duration_s": 2.0,
+   "loop": false,
+   "speed_m_s": null,
+   "note": "se acomoda y acaba en la pose de Woody_Sleep"
+  }
+ ],
+ "aliases": {
+  "Woody_ApproachCouch": "Woody_Walk",
+  "Woody_SofaSleep": "Woody_Sleep",
+  "Woody_RocketBoard": "Woody_SofaJumpUp",
+  "Woody_RocketSit": "Woody_SitIdle",
+  "Woody_RocketExit": "Woody_SofaJumpDown"
+ },
+ "pending": [
+  "Woody_Scratch"
+ ],
+ "sockets": {
+  "SOCKET_mouth": {
+   "parent": "head",
+   "position_blender": [
+    0.0,
+    -0.555,
+    0.672
+   ]
+  },
+  "SOCKET_head_top": {
+   "parent": "head",
+   "position_blender": [
+    0.0,
+    -0.35,
+    0.82
+   ]
+  },
+  "SOCKET_back": {
+   "parent": "chest",
+   "position_blender": [
+    0.0,
+    -0.05,
+    0.66
+   ]
+  }
+ },
+ "deform_bones": [
+  "root",
+  "hips",
+  "spine",
+  "chest",
+  "neck",
+  "head",
+  "ear1.L",
+  "ear2.L",
+  "ear1.R",
+  "ear2.R",
+  "SOCKET_mouth",
+  "SOCKET_head_top",
+  "scapula.L",
+  "upperarm.L",
+  "forearm.L",
+  "pastern.L",
+  "frontpaw.L",
+  "scapula.R",
+  "upperarm.R",
+  "forearm.R",
+  "pastern.R",
+  "frontpaw.R",
+  "SOCKET_back",
+  "tail1",
+  "tail2",
+  "tail3",
+  "tail4",
+  "tail5",
+  "thigh.L",
+  "shin.L",
+  "hock.L",
+  "hindpaw.L",
+  "thigh.R",
+  "shin.R",
+  "hock.R",
+  "hindpaw.R"
+ ]
+}

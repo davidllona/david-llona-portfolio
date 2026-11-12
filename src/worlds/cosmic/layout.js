@@ -184,54 +184,57 @@ export const colliders = [
  shipCollider,
 ];
 
-// Saca un círculo (el jugador o un objeto) de dentro de los obstáculos fijos.
-// Devuelve true si tocó alguno.
-export function pushOut(position, radius) {
- let touched = false;
- for (const c of colliders) {
-  if (c.active === false) continue;
-  const dx = position.x - c.x;
-  const dz = position.z - c.z;
-  const reach = c.r + radius;
-  const d2 = dx * dx + dz * dz;
-  if (d2 >= reach * reach || d2 < 1e-8) continue;
-  const d = Math.sqrt(d2);
-  position.x = c.x + (dx / d) * reach;
-  position.z = c.z + (dz / d) * reach;
-  touched = true;
- }
- return touched;
-}
+// Cajas y barriles repartidos por el planeta.
+const PROPS = [
+ { type: "crate", x: 5.6, z: 10 },
+ { type: "crate", x: 7, z: 10.6 },
+ { type: "crate", x: 6.2, z: 11.7 },
+ { type: "crate", x: 13.5, z: 4.6 },
+ { type: "crate", x: 14.9, z: 5.2 },
+ { type: "barrel", x: -9.5, z: -5.5 },
+ { type: "barrel", x: -10.8, z: -4.6 },
+ { type: "crate", x: -9.2, z: -3.9 },
+ { type: "barrel", x: 18.4, z: -19 },
+ { type: "barrel", x: 17.2, z: -17.6 },
+ { type: "crate", x: 8.5, z: -11 },
+ { type: "crate", x: -7.5, z: 14.5 },
+];
 
-const canStand = (x, z) => terrainHeight(x, z) > MAX_WADE;
-
-// Mueve al jugador (dx, dz): resbala por los obstáculos y no se adentra en
-// agua profunda. Devuelve una máscara: bit 1 si avanzó en X, bit 2 si en Z.
-export function movePlayer(position, dx, dz) {
- const fromX = position.x;
- const fromZ = position.z;
- let moved = 0;
- if (canStand(fromX + dx, fromZ + dz)) {
-  position.x += dx;
-  position.z += dz;
-  moved = 3;
- } else {
-  if (canStand(fromX + dx, fromZ)) {
-   position.x += dx;
-   moved |= 1;
-  }
-  if (canStand(position.x, fromZ + dz)) {
-   position.z += dz;
-   moved |= 2;
-  }
- }
- pushOut(position, PLAYER_RADIUS);
- pushOut(position, PLAYER_RADIUS); // segunda pasada: rincones entre dos obstáculos
- // Si un obstáculo lo ha empujado al agua profunda, no se mueve.
- if (!canStand(position.x, position.z)) {
-  position.x = fromX;
-  position.z = fromZ;
-  return 0;
- }
- return moved;
-}
+// El mundo, con la interfaz que usan el jugador, Woody, la nave y los objetos.
+export const cosmic = {
+ id: "cosmic",
+ name: "The Cosmic Lab",
+ spawn: SPAWN,
+ waterLevel: WATER_LEVEL,
+ height: terrainHeight,
+ // ¿Está vedado este punto? Aquí solo lo está el agua profunda (Woody se moja menos).
+ blocked: (x, z, _fromY, agent) => terrainHeight(x, z) <= (agent?.dog ? -0.3 : MAX_WADE),
+ colliders,
+ ship: SHIP,
+ shipCollider,
+ props: PROPS,
+ // Red de caminos por la que Woody guía, y los sitios a los que sabe llevar.
+ guide: {
+  nodes: {
+   plaza: [0, 5],
+   proyectos: [0, -22],
+   lab: [22, -1],
+   "sobre-mi": [0, 22],
+   contacto: [-23, 7.5],
+   nave: [24.5, -19.5],
+  },
+  links: [
+   ["plaza", "proyectos"],
+   ["plaza", "lab"],
+   ["plaza", "sobre-mi"],
+   ["plaza", "contacto"],
+   ["lab", "nave"],
+  ],
+  places: [
+   { id: "proyectos", ask: "Muéstrame proyectos", arrive: "Aquí están los proyectos" },
+   { id: "nave", ask: "Llévame al cohete", arrive: "El cohete" },
+   { id: "contacto", ask: "¿Dónde está Contacto?", arrive: "Contacto" },
+   { id: "sobre-mi", ask: "Llévame a Sobre mí", arrive: "Sobre mí" },
+  ],
+ },
+};

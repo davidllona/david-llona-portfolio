@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
-import { Instances } from "./Instances";
-import { uniforms } from "./theme";
-import { LAKE, SCATTER, WATER_LEVEL, terrainHeight } from "./world";
+import { Instances } from "../../experience/Instances";
+import { uniforms } from "../../experience/theme";
+import { LAKE, SCATTER, WATER_LEVEL, terrainHeight } from "./layout";
 
 // Ruido de valores 2D, suave y determinista: manchas de color del terreno.
 function noise(x, z) {
