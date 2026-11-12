@@ -105,7 +105,7 @@ await wait(300);
 // Persistencia: al recargar siguen ahí y no se vuelven a anunciar.
 await t.evaluate(() => sessionStorage.setItem("e2e-conservar", "1"));
 await page.reload({ waitUntil: "load" });
-await page.waitForFunction(() => !document.querySelector(".loader"), { timeout: 40000 });
+await page.waitForFunction(() => !document.querySelector("#loader") && !document.querySelector(".overlay__enter")?.disabled, { timeout: 40000 });
 await wait(400);
 await t.enter();
 await t.hold("KeyS", 900);

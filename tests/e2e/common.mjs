@@ -67,7 +67,9 @@ export async function open({ mobile = false, viewport, query = "", uncapped = fa
  });
  await page.goto(BASE + query, { waitUntil: "load", timeout: 60000 });
  const startedAt = Date.now();
- await page.waitForFunction(() => !document.querySelector(".loader"), { timeout: 90000 });
+ await page.waitForFunction(() => !document.querySelector("#loader"), { timeout: 90000 });
+ // La bienvenida ya se ve; se espera además a que el planeta esté listo para entrar (si lo hay).
+ await page.waitForFunction(() => { const enter = document.querySelector(".overlay__enter"); return !enter || !enter.disabled; }, { timeout: 90000 });
  if (process.env.E2E_DEBUG) console.log(`carga: ${((Date.now() - startedAt) / 1000).toFixed(1)} s · backend: ${await page.evaluate(() => window.__world?.backend)}`);
  await wait(400);
 

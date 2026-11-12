@@ -68,25 +68,11 @@ const Scribble = () => (
 // Pantalla de inicio y de pausa. Un toque o un clic en cualquier punto entra.
 // `onPointerDown` permite saber si se entró con el dedo o con el ratón.
 //  · intro: es la bienvenida (el islote se ve detrás, sin velo); si no, es la pausa.
-export function StartOverlay({ visible, intro, ready, touch, onPointerDown, onEnter, onDirect }) {
+export function StartOverlay({ visible, intro, ready, touch, onPointerDown, onEnter }) {
  const controls = touch ? TOUCH_CONTROLS : MOUSE_CONTROLS;
  const note = touch
   ? "Pulgar izquierdo para moverte; toca los objetos para usarlos. Mejor en horizontal."
   : "También valen las flechas. E usa lo que tengas cerca, N cambia entre día y noche y Esc pausa.";
- const direct = (
-  <button
-   type="button"
-   className="overlay__direct"
-   tabIndex={visible ? 0 : -1}
-   onClick={(event) => {
-    event.stopPropagation();
-    onDirect();
-   }}
-  >
-   Ver el portfolio sin jugar
-  </button>
- );
-
  if (intro) {
   return (
    <div className={`overlay overlay--intro${visible ? "" : " overlay--hidden"}`} aria-hidden={!visible} onPointerDown={onPointerDown} onClick={onEnter}>
@@ -111,7 +97,6 @@ export function StartOverlay({ visible, intro, ready, touch, onPointerDown, onEn
        <li key={control.action}>{control.action}</li>
       ))}
      </ul>
-     {direct}
     </footer>
    </div>
   );
@@ -130,7 +115,6 @@ export function StartOverlay({ visible, intro, ready, touch, onPointerDown, onEn
      {touch ? "Toca para seguir" : "Haz clic para seguir"}
      <span aria-hidden="true">→</span>
     </button>
-    {direct}
 
     <ul className="controls">
      {controls.map((control) => (

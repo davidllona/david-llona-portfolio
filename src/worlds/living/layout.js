@@ -92,40 +92,77 @@ function bridgeHeight(x, z) {
  return null;
 }
 
+// Cajas que acotan dónde influye cada accidente del terreno: fuera de ellas
+// no hace falta ni calcularlo. `groundHeight` se llama cientos de miles de
+// veces al construir el mundo, así que cada cuenta que se evita se nota.
+const boundsOf = (points, margin) => ({
+ x0: Math.min(...points.map((p) => p[0])) - margin,
+ x1: Math.max(...points.map((p) => p[0])) + margin,
+ z0: Math.min(...points.map((p) => p[1])) - margin,
+ z1: Math.max(...points.map((p) => p[1])) + margin,
+});
+const within = (x, z, box) => x > box.x0 && x < box.x1 && z > box.z0 && z < box.z1;
+const SEA_FLOOR = -3.2;
+let bounds = null; // se rellena la primera vez (las constantes de abajo aún no existen aquí)
+function terrainBounds() {
+ return (bounds ??= {
+  hills: HILLS.map((hill) => ({ ...hill, reach2: (hill.radius * 2.1) ** 2 })),
+  // Meseta (con su borde suavizado) y rampa.
+  plateau: { x0: PLATEAU.x - PLATEAU.halfX - 2, x1: PLATEAU.x + PLATEAU.halfX + 2, z0: PLATEAU.z - PLATEAU.halfZ - 2, z1: PLATEAU.z + PLATEAU.halfZ + 2 },
+  ramp: boundsOf([RAMP.from, RAMP.to], RAMP.width),
+  river: boundsOf(RIVER, 3),
+  pond: (POND.r + 0.5) ** 2,
+ });
+}
+
 // Altura del terreno sin contar el puente (la usa el agua, que pasa por debajo).
 export function groundHeight(x, z) {
- const shore = shoreRadius(Math.atan2(z, x));
  const fromCentre = Math.hypot(x, z);
+ // Mar adentro el fondo es llano.
+ if (fromCentre > 60) return SEA_FLOOR;
+ const box = terrainBounds();
+ const shore = shoreRadius(Math.atan2(z, x));
  // Llano que cae hacia el mar en la orilla.
- let height = -3.2 * smooth(shore - 5, shore + 6, fromCentre);
- for (const hill of HILLS) {
-  const d = distance(x, z, hill.x, hill.z) / hill.radius;
-  height += hill.height * Math.exp(-d * d * 2.2);
+ let height = SEA_FLOOR * smooth(shore - 5, shore + 6, fromCentre);
+ for (const hill of box.hills) {
+  const d2 = (x - hill.x) ** 2 + (z - hill.z) ** 2;
+  if (d2 < hill.reach2) height += hill.height * Math.exp((-d2 / (hill.radius * hill.radius)) * 2.2);
  }
 
  // Meseta con acantilado y su rampa.
- const edge = plateauDistance(x, z);
- const onPlateau = 1 - smooth(-1.5, 0.3, edge);
- const ramp = toSegment(x, z, ...RAMP.from, ...RAMP.to);
- const onRamp = 1 - smooth(RAMP.width / 2 - 0.5, RAMP.width / 2, ramp.distance);
- const rampHeight = height + (Math.max(height, PLATEAU.height * ramp.t) - height) * onRamp;
- height = Math.max(height + (PLATEAU.height - height) * onPlateau, rampHeight);
+ let lowland = true;
+ const nearPlateau = within(x, z, box.plateau);
+ if (nearPlateau || within(x, z, box.ramp)) {
+  const edge = plateauDistance(x, z);
+  const onPlateau = 1 - smooth(-1.5, 0.3, edge);
+  const ramp = toSegment(x, z, ...RAMP.from, ...RAMP.to);
+  const onRamp = 1 - smooth(RAMP.width / 2 - 0.5, RAMP.width / 2, ramp.distance);
+  const rampHeight = height + (Math.max(height, PLATEAU.height * ramp.t) - height) * onRamp;
+  height = Math.max(height + (PLATEAU.height - height) * onPlateau, rampHeight);
+  lowland = edge > 0.3;
 
- // Cauce del arroyo y poza del manantial, tallados en la meseta.
- if (onPlateau > 0.5) {
-  const channel = 1 - smooth(0.4, 1.3, toPolyline(x, z, STREAM));
-  const spring = 1 - smooth(0.9, 2.1, distance(x, z, STREAM[0][0], STREAM[0][1]));
-  height -= STREAM_DEPTH * Math.max(channel, spring) * onPlateau;
+  // Cauce del arroyo y poza del manantial, tallados en la meseta.
+  if (onPlateau > 0.5) {
+   const channel = 1 - smooth(0.4, 1.3, toPolyline(x, z, STREAM));
+   const spring = 1 - smooth(0.9, 2.1, distance(x, z, STREAM[0][0], STREAM[0][1]));
+   height -= STREAM_DEPTH * Math.max(channel, spring) * onPlateau;
+  }
  }
 
  // Estanque y cauce del río, solo en tierra baja.
- if (edge > 0.3) {
-  const pond = 1 - smooth(POND.r - 2.4, POND.r, distance(x, z, POND.x, POND.z));
-  const river = 1 - smooth(0.9, 2.5, toPolyline(x, z, RIVER));
-  const carve = Math.max(pond * 1.15, river);
-  if (carve > 0) height = Math.min(height, height * (1 - carve) + (WATER_LEVEL - 0.55) * carve);
-  // El estanque gana fondo hacia el centro: da volumen al agua.
-  height -= 1.0 * (1 - smooth(0.6, POND.r - 1.6, distance(x, z, POND.x, POND.z)));
+ if (lowland) {
+  const toPond2 = (x - POND.x) ** 2 + (z - POND.z) ** 2;
+  const nearPond = toPond2 < box.pond;
+  const nearRiver = within(x, z, box.river);
+  if (nearPond || nearRiver) {
+   const toPond = Math.sqrt(toPond2);
+   const pond = nearPond ? 1 - smooth(POND.r - 2.4, POND.r, toPond) : 0;
+   const river = nearRiver ? 1 - smooth(0.9, 2.5, toPolyline(x, z, RIVER)) : 0;
+   const carve = Math.max(pond * 1.15, river);
+   if (carve > 0) height = Math.min(height, height * (1 - carve) + (WATER_LEVEL - 0.55) * carve);
+   // El estanque gana fondo hacia el centro: da volumen al agua.
+   if (nearPond) height -= 1.0 * (1 - smooth(0.6, POND.r - 1.6, toPond));
+  }
  }
 
  // Explanadas: la pista y el campo de fútbol se asientan sobre suelo llano.
@@ -261,9 +298,13 @@ export function surface(x, z) {
  if (h < WATER_LEVEL + 0.13) return seaside ? "wetsand" : "bank";
  if (beach) return "sand";
  if (h < -0.03) return seaside ? "sand" : "bank";
- const e = 0.4;
- const slope = Math.hypot(groundHeight(x + e, z) - groundHeight(x - e, z), groundHeight(x, z + e) - groundHeight(x, z - e)) / (2 * e);
- if (slope > 0.95) return "rock";
+ // Roca: donde el terreno se empina. Solo puede pasar en el borde de la meseta,
+ // así que la pendiente (cuatro alturas más) no se calcula en ningún otro sitio.
+ if (within(x, z, terrainBounds().plateau) && Math.abs(plateauDistance(x, z) + 0.6) < 2.4) {
+  const e = 0.4;
+  const slope = Math.hypot(groundHeight(x + e, z) - groundHeight(x - e, z), groundHeight(x, z + e) - groundHeight(x, z - e)) / (2 * e);
+  if (slope > 0.95) return "rock";
+ }
  if (distance(x, z, PAD.x, PAD.z) < PAD.padRadius + 0.6) return "stone";
  if (distance(x, z, PLAZA.x, PLAZA.z) < PLAZA.r + rough * 0.5) return "plaza";
  // Bajo la pista y el campo no crece hierba.
@@ -414,9 +455,10 @@ const built = (x, z) => FOOTPRINTS.some((f) => (f.x - x) ** 2 + (f.z - z) ** 2 <
 // Cuánta hierba crece en un punto, de 0 (nada) a 1 (pradera alta). De aquí
 // sale la máscara que lee el césped: densidad y altura a la vez.
 const GRASS_AMOUNT = { meadow: 1, grass: 0.7, moss: 0.86, shade: 0.5, pathEdge: 0.22 };
-export function grassAmount(x, z) {
- if (built(x, z)) return 0;
- const base = GRASS_AMOUNT[surface(x, z)] ?? 0;
+// `kind`: tipo de suelo, si quien llama ya lo ha calculado.
+export function grassAmount(x, z, kind = surface(x, z)) {
+ const base = GRASS_AMOUNT[kind] ?? 0;
+ if (base === 0 || built(x, z)) return 0;
  // Junto a los caminos, césped corto (una franja segada); la hierba alta queda para las praderas.
  const verge = 0.5 + 0.5 * smooth(1.6, 4.2, pathDistance(x, z));
  // Dentro de cada zona, manchas algo más altas y más bajas.
@@ -433,23 +475,19 @@ const cliffRocks = scatter(60, { margin: -100, spacing: 1.7, accept: (x, z) => {
 // Arbustos: en macizos al borde de los bosquetes, nunca en el corredor de los caminos.
 const bushes = scatter(96, { margin: -0.5, spacing: 1.5, others: [...trees, ...rocks], accept: (x, z, y) => dryLand(x, z, y) && !built(x, z) && pathDistance(x, z) > 3.2 && forest(x, z) > 0.36 }).map((b) => ({ ...b, scale: 0.5 + b.seed * 0.5 }));
 const mushrooms = scatter(50, { margin: -0.6, spacing: 1.4, accept: (x, z, y) => dryLand(x, z, y) && ["shade", "moss"].includes(surface(x, z)) });
-// Hierba: se recorre la isla en una rejilla descolocada y en cada casilla se
-// decide si nace una mata y de qué tipo, según el suelo. Así hay praderas
-// altas, césped corto, claros y bordes de camino ralos, en vez de un reparto parejo.
-const TUFT_DENSITY = { grass: 0.4, meadow: 0.92, shade: 0.34, moss: 0.62, pathEdge: 0.2 };
-const tufts = { short: [], tall: [], seed: [] };
+// Espigas: acentos altos en las praderas (el césped en sí lo pinta
+// flora/Grass.jsx en la GPU). Se recorre la isla en una rejilla descolocada.
+const tufts = { seed: [] };
 {
- const step = 0.62;
- for (let gx = -48; gx < 48; gx += step) {
-  for (let gz = -48; gz < 48; gz += step) {
+ const step = 1.25;
+ for (let gx = -46; gx < 46; gx += step) {
+  for (let gz = -46; gz < 46; gz += step) {
    const x = gx + (random() - 0.5) * step;
    const z = gz + (random() - 0.5) * step;
-   const roll = random(), pickKind = random(), seed = random(), turn = random() * Math.PI * 2;
-   if (Math.hypot(x, z) > shoreRadius(Math.atan2(z, x))) continue;
-   const kind = surface(x, z);
-   if (!(roll < (TUFT_DENSITY[kind] ?? 0)) || built(x, z)) continue;
-   const type = kind === "meadow" ? (pickKind < 0.3 ? "seed" : "tall") : kind === "moss" ? (pickKind < 0.75 ? "tall" : "short") : kind === "pathEdge" ? "short" : pickKind < 0.24 ? "tall" : "short";
-   tufts[type].push({ x, y: groundHeight(x, z), z, seed, turn });
+   const roll = random(), seed = random(), turn = random() * Math.PI * 2;
+   if (roll > 0.55 || meadow(x, z) < 0.56 || Math.hypot(x, z) > shoreRadius(Math.atan2(z, x))) continue;
+   if (surface(x, z) !== "meadow" || built(x, z)) continue;
+   tufts.seed.push({ x, y: groundHeight(x, z), z, seed, turn });
   }
  }
 }

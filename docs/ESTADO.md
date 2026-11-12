@@ -46,6 +46,7 @@ Capturas de comparación (fuera de git), mismas 12 vistas de día y de noche: `c
 | **Aldea de proyectos**: plaza empedrada con pozo, cuatro casas distintas (taller, estudio, mirador con torreón, almacén), expositor con la captura real y cartel colgado por proyecto, jardín del laboratorio con placas | `living` (las cuatro fichas con su enlace real) |
 | Vegetación por máscaras: bosquetes y claros, corredores despejados junto a los caminos, césped corto en los bordes | capturas aéreas |
 | Farolas nuevas (poste curvo, farol colgante) en toda la isla; interfaz superior más discreta | capturas |
+| **Carga**: pantalla del astronauta sentado en el HTML (se pinta a los 16 ms), porcentaje por etapas reales, bienvenida primero y planeta por partes; terreno 30 veces más rápido de calcular. Sin botón «sin jugar» | `docs/RENDIMIENTO.md`, `tests/perf/load.mjs` |
 | Cascada con canal de roca mojada y almohadas de espuma | capturas |
 
 Rendimiento medido en este Mac a 2880 × 1620 sobre WebGPU: 192–221 fps tras el rediseño (224–263 justo antes;  antes de la migración, 187–224). Con el césped nuevo y sin el hueco de visión de los árboles eran 272–362: ese tramado cuesta en torno a una cuarta parte y es lo primero a optimizar si hiciera falta.

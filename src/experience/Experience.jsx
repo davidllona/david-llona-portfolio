@@ -6,6 +6,7 @@ import { fxaa } from "three/addons/tsl/display/FXAANode.js";
 import { pass, renderOutput, screenUV, smoothstep } from "three/tsl";
 import { RenderPipeline, WebGPURenderer } from "three/webgpu";
 import { Woody } from "../characters/Woody";
+import { stage, whenLoaderLeaves } from "../ui/loaderControl";
 import { SCENES, world } from "../worlds";
 import { Interactions } from "./Interactions";
 import { Lights } from "./Lights";
@@ -42,25 +43,29 @@ function createRenderer(canvas, onReady) {
  // hasta que termina no se dibuja nada.
  renderer.init().then(() => {
   if (import.meta.env.DEV) window.__world.backend = renderer.backend.isWebGPUBackend ? "webgpu" : "webgl2"; // para las pruebas automáticas
+  stage("gpu");
   onReady();
  });
  return renderer;
 }
 
-// Avisa cuando la escena ya se ha compilado y dibujado unas cuantas veces: la
-// pantalla de carga espera a eso, para no retirarse sobre un fotograma a medio montar.
-function Ready({ onReady }) {
+// Espera a que lo que hay montado en la escena esté compilado y dibujado unas
+// cuantas veces, y entonces avisa. Se usa dos veces: primero para la
+// bienvenida (y ahí se retira la pantalla de carga) y luego para el planeta
+// (y ahí se puede entrar). Así nada aparece a medio hacer.
+function Ready({ onCompiling, onReady }) {
  const frames = useRef(0);
  const compiled = useRef(false);
  const { gl, scene, camera } = useThree();
  useFrame(() => {
   if (frames.current === 1 && !compiled.current) {
    compiled.current = "pending";
+   onCompiling?.();
    gl.compileAsync(scene, camera).then(() => (compiled.current = true));
   }
-  if (frames.current > 8) return;
+  if (frames.current > 5) return;
   if (frames.current < 2 || compiled.current === true) frames.current += 1;
-  if (frames.current > 8) onReady?.();
+  if (frames.current > 5) onReady?.();
  });
  return null;
 }
@@ -105,6 +110,9 @@ export function Experience({ active, lowPower, onReady }) {
  const [pixelRatio, setPixelRatio] = useState(quality.pixelRatio);
  // El bucle de dibujado no arranca hasta que la GPU está lista.
  const [gpuReady, setGpuReady] = useState(false);
+ // Niveles de carga: 0 = solo la bienvenida; 1 = también el planeta.
+ const [tier, setTier] = useState(0);
+ const [built, setBuilt] = useState(false);
  const Scene = SCENES[world.id];
 
  return (
@@ -127,19 +135,36 @@ export function Experience({ active, lowPower, onReady }) {
    <WarmLights count={quality.warmLights} />
    <Sky stars={quality.stars} />
 
-   {/* Lo propio del planeta se descarga aparte; lo común (personajes, nave,
-       objetos) es igual en todos. La clave reinicia todo al cambiar de mundo. */}
+   {/* Primer nivel: la bienvenida. Es lo único que hace falta para retirar la pantalla de carga. */}
    <Suspense fallback={null}>
-    <group key={world.id}>
-     <Scene quality={lowPower ? "low" : "high"} />
-     <Props />
-     <Ship />
-     <Player active={active} />
-     <Woody active={active} />
-    </group>
-    <Welcome />
-    <Ready onReady={onReady} />
+    <Welcome onMounted={() => stage("models")} />
+    <Ready
+     onCompiling={() => stage("scene")}
+     onReady={() => {
+      stage("shaders");
+      // El planeta empieza a montarse cuando la pantalla de carga ya se ha
+      // fundido: así su construcción no entrecorta esa transición.
+      whenLoaderLeaves(() => window.setTimeout(() => setTier(1), 380));
+     }}
+    />
    </Suspense>
+
+   {/* Segundo nivel: el planeta, que se monta por partes mientras se ve la
+       bienvenida. Lo propio de cada mundo se descarga aparte; lo común
+       (personajes, nave, objetos) es igual en todos. La clave reinicia todo al
+       cambiar de mundo. */}
+   {tier > 0 && (
+    <Suspense fallback={null}>
+     <group key={world.id}>
+      <Scene quality={lowPower ? "low" : "high"} onBuilt={() => setBuilt(true)} />
+      <Props />
+      <Ship />
+      <Player active={active} />
+      <Woody active={active} />
+     </group>
+     {built && <Ready onReady={onReady} />}
+    </Suspense>
+   )}
    <Interactions active={active} />
    <Pipeline quality={quality} effects={flag("fx", 1) > 0} />
   </Canvas>

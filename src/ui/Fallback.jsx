@@ -1,8 +1,11 @@
-import { Component } from "react";
+import { Component, useEffect } from "react";
+import { dismissLoader } from "./loaderControl";
 import { Portfolio } from "./Portfolio";
 
 // Versión sin 3D: se muestra si el navegador no tiene WebGL o si la escena falla.
 export function Fallback() {
+ // No hay escena que esperar: la pantalla de carga se retira ya.
+ useEffect(dismissLoader, []);
  return (
   <main className="fallback">
    <p className="overlay__eyebrow">Portfolio</p>

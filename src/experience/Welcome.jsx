@@ -132,8 +132,10 @@ function Fireflies({ count = 16 }) {
  );
 }
 
-function Islet() {
+function Islet({ onMounted }) {
  const light = useRef(null);
+ // Si esto se monta, los modelos de los personajes ya se han descargado.
+ useEffect(() => onMounted?.(), [onMounted]);
  const moon = useRef(null);
  const glow = useMemo(() => createGlowTexture(), []);
  const models = useMemo(() => ({ islet: createIslet(), tree: hero(0.37), lamp: createLamp(), plants: createPlantModels() }), []);
@@ -258,10 +260,19 @@ function Islet() {
 }
 
 // Monta el islote mientras dura la bienvenida y conduce el descenso.
-export function Welcome() {
+export function Welcome({ onMounted }) {
  const [mounted, setMounted] = useState(rig.intro > 0);
+ const point = useMemo(() => new THREE.Vector3(), []);
  const reduced = useMemo(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches, []);
- useFrame((_, delta) => {
+ useFrame(({ camera, size }, delta) => {
+  // Mientras no existe el jugador (el planeta aún se está montando), la cámara
+  // de la bienvenida se coloca desde aquí; después la lleva Player.jsx.
+  if (rig.intro === 1) {
+   const pose = size.width < size.height ? WELCOME.tall : WELCOME.wide;
+   const [ox, oy, oz] = WELCOME.origin;
+   camera.position.set(ox + pose.camera[0], oy + pose.camera[1], oz + pose.camera[2]);
+   camera.lookAt(point.set(ox + pose.look[0], oy + pose.look[1], oz + pose.look[2]));
+  }
   if (rig.intro === rig.introTarget) return;
   // Con «reducir movimiento» no hay viaje: se llega enseguida.
   const step = Math.min(delta, 0.05) / (reduced ? 0.35 : DESCENT);
@@ -271,5 +282,5 @@ export function Welcome() {
    emit("arrived"); // la interfaz de juego aparece al llegar
   }
  });
- return mounted ? <Islet /> : null;
+ return mounted ? <Islet onMounted={onMounted} /> : null;
 }

@@ -9,7 +9,7 @@ import { emit, events, rig } from "./experience/state";
 import { AchievementToast, AchievementsPanel } from "./ui/Achievements";
 import { ErrorBoundary, Fallback } from "./ui/Fallback";
 import { Hud } from "./ui/Hud";
-import { Loader } from "./ui/Loader";
+import { stage } from "./ui/loaderControl";
 import { Modal } from "./ui/Modal";
 import { QuickMenu } from "./ui/QuickMenu";
 import { Sheet } from "./ui/Sheet";
@@ -51,6 +51,8 @@ function App() {
  const playing = active && arrived;
  const lastPointerType = useRef("mouse");
  const onReady = useCallback(() => setReady(true), []);
+ // El código ya está aquí y en marcha: primera etapa real de la carga.
+ useEffect(() => stage("code"), []);
 
  useDesktopControls();
 
@@ -96,7 +98,6 @@ function App() {
       lastPointerType.current = event.pointerType;
      }}
      onEnter={enter}
-     onDirect={() => setSheet("proyectos")}
     />
     {playing && <Hud touch={touch} />}
     {playing && touch && <TouchControls onPause={() => setActive(false)} />}
@@ -124,7 +125,6 @@ function App() {
       }
      />
     )}
-    <Loader ready={ready} />
    </ErrorBoundary>
    <SpeedInsights />
    <Analytics />

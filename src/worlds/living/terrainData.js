@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { groundColor } from "./groundColor";
-import { grassAmount, groundHeight, inShade } from "./layout";
+import { grassAmount, groundHeight, inShade, surface } from "./layout";
 
 // Datos del terreno horneados en texturas, para que los sombreadores sepan qué
 // hay en cada punto sin geometría de por medio (técnica de folio-2025, MIT;
@@ -24,11 +24,14 @@ function bake() {
    const x = ((column + 0.5) / SIZE - 0.5) * SPAN;
    const z = ((row + 0.5) / SIZE - 0.5) * SPAN;
    const i = (row * SIZE + column) * 4;
-   data[i] = half(grassAmount(x, z));
-   data[i + 1] = half(inShade(x, z) ? 1 : 0);
+   // El tipo de suelo y la altura se calculan una vez y se reparten.
+   const kind = surface(x, z);
+   const height = groundHeight(x, z);
+   data[i] = half(grassAmount(x, z, kind));
+   data[i + 1] = half(kind === "shade" || inShade(x, z) ? 1 : 0);
    data[i + 2] = 0;
-   data[i + 3] = half(groundHeight(x, z));
-   groundColor(tone, x, z).convertLinearToSRGB();
+   data[i + 3] = half(height);
+   groundColor(tone, x, z, { kind, height }).convertLinearToSRGB();
    color.set([tone.r * 255, tone.g * 255, tone.b * 255, 255], i);
   }
  }

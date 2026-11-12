@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Cables } from "./Cables";
 import { Nature } from "./Nature";
 import { Terrain } from "./Terrain";
@@ -9,7 +10,9 @@ import { Projects } from "./zones/Projects";
 
 // Todo lo propio de este planeta. El jugador, Woody, la nave y los objetos
 // sueltos son comunes y los monta Experience.jsx.
-export default function CosmicScene() {
+export default function CosmicScene({ onBuilt }) {
+ // Se monta de una vez: avisa enseguida de que está construido.
+ useEffect(() => onBuilt?.(), [onBuilt]);
  return (
   <>
    <Terrain />

@@ -16,21 +16,8 @@ const visibleTop = (t, id) =>
 let t = await open();
 let { page } = t;
 
-// Modo directo: desde la pantalla de inicio, sin entrar al planeta.
-await page.click(".overlay__direct");
-await wait(400);
-check((await count(t, ".sheet .project")) === PROJECTS.length, `modo directo: ${await count(t, ".sheet .project")} proyectos sin entrar al juego`);
-const links = await t.evaluate(() => [...document.querySelectorAll(".sheet .project .modal__link")].map((a) => a.href));
-check(PROJECTS.every((project) => links.includes(project.link)), "cada proyecto lleva su enlace real");
-const contact = await t.evaluate(() => [...document.querySelectorAll(".portfolio__contact a")].map((a) => a.getAttribute("href")));
-check(CONTACT_LINKS.every((link) => contact.includes(link.href)), `contacto: ${contact.length} enlaces reales`);
-check((await count(t, "#cv a")) === 0 && /todavía no/.test(await t.text("#cv .portfolio__pending")), "CV sin PDF: aviso de pendiente y ningún botón de descarga");
-check((await count(t, ".portfolio__guide")) === 0, "fuera del juego no se ofrece «ir con Woody»");
-check(!/Dosia/.test(await t.text(".sheet")), "Dosia no aparece mientras no haya datos");
-await t.shot("portfolio-directo");
-await page.keyboard.press("Escape");
-await wait(300);
-check((await count(t, ".sheet")) === 0 && (await count(t, ".overlay:not(.overlay--hidden)")) === 1, "Esc cierra la hoja y vuelve a la pantalla de inicio");
+// La bienvenida no ofrece un modo «sin jugar»: el portfolio se explora.
+check((await count(t, ".overlay__direct")) === 0 && !/sin jugar/i.test(await t.text(".overlay")), "la bienvenida no tiene botón «sin jugar»");
 
 // Menú rápido dentro del juego.
 await t.enter();
@@ -39,6 +26,14 @@ check(labels.join("|").startsWith("Proyectos|Sobre mí|CV|Contacto|Logros"), `me
 await t.shot("portfolio-menu");
 await t.evaluate(() => [...document.querySelectorAll(".quick button")].find((b) => b.textContent === "Contacto").click());
 await wait(400);
+// Contenido real del portfolio legible.
+check((await count(t, ".sheet .project")) === PROJECTS.length, `la hoja muestra ${await count(t, ".sheet .project")} proyectos`);
+const links = await t.evaluate(() => [...document.querySelectorAll(".sheet .project .modal__link")].map((a) => a.href));
+check(PROJECTS.every((project) => links.includes(project.link)), "cada proyecto lleva su enlace real");
+const contact = await t.evaluate(() => [...document.querySelectorAll(".portfolio__contact a")].map((a) => a.getAttribute("href")));
+check(CONTACT_LINKS.every((link) => contact.includes(link.href)), `contacto: ${contact.length} enlaces reales`);
+check((await count(t, "#cv a")) === 0 && /todavía no/.test(await t.text("#cv .portfolio__pending")), "CV sin PDF: aviso de pendiente y ningún botón de descarga");
+check(!/Dosia/.test(await t.text(".sheet")), "Dosia no aparece mientras no haya datos");
 // Es la última sección: no llega arriba del todo, pero debe quedar entera a la vista.
 const contactVisible = await t.evaluate(() => {
  const box = document.querySelector(".sheet__scroll").getBoundingClientRect();
@@ -101,10 +96,13 @@ await t.done();
 
 t = await open({ mobile: true, viewport: { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true } });
 ({ page } = t);
-await page.tap(".overlay__direct");
+await page.tap(".overlay__enter");
+await page.waitForFunction(() => window.__world.rig.intro === 0, { timeout: 15000 });
+await wait(600);
+await page.tap(".quick button");
 await wait(400);
 const fitsTall = await t.evaluate(() => [...document.querySelectorAll(".sheet .project, .sheet__bar")].every((el) => el.getBoundingClientRect().right <= innerWidth + 1));
-check(fitsTall && (await count(t, ".sheet .project")) === PROJECTS.length, "móvil vertical: modo directo legible y sin desbordes");
+check(fitsTall && (await count(t, ".sheet .project")) === PROJECTS.length, "móvil vertical: la hoja es legible y no desborda");
 await t.shot("portfolio-movil-vertical");
 await t.done();
 

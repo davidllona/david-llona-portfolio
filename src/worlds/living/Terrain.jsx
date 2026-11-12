@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { Instances } from "../../experience/Instances";
 import { groundColor } from "./groundColor";
-import { BRIDGES, PATHS, groundHeight, noise2 } from "./layout";
+import { BRIDGES, PATHS, groundHeight, noise2, surface } from "./layout";
 import { Water } from "./water/Water";
 import { Waterfall } from "./water/Waterfall";
 
@@ -10,35 +10,46 @@ const GROUND_RADIUS = 64;
 
 // El suelo: una malla facetada, coloreada según lo que hay en cada punto.
 function createGround() {
- const base = new THREE.PlaneGeometry(132, 132, 150, 150).rotateX(-Math.PI / 2);
- const square = base.toNonIndexed();
- base.dispose();
- // Se recorta en redondo: fuera solo hay mar, y desde la nave debe verse una isla.
- const kept = [];
- const corners = square.attributes.position.array;
- for (let i = 0; i < corners.length; i += 9) {
-  const x = (corners[i] + corners[i + 3] + corners[i + 6]) / 3;
-  const z = (corners[i + 2] + corners[i + 5] + corners[i + 8]) / 3;
-  if (Math.hypot(x, z) < GROUND_RADIUS) kept.push(...corners.subarray(i, i + 9));
+ const SEGMENTS = 150, SIZE = 132;
+ const side = SEGMENTS + 1;
+ // Altura y tipo de suelo de cada vértice de la rejilla, una sola vez.
+ const xs = new Float32Array(side), heights = new Float32Array(side * side), kinds = new Array(side * side);
+ for (let i = 0; i < side; i++) xs[i] = (i / SEGMENTS - 0.5) * SIZE;
+ for (let row = 0; row < side; row++) {
+  for (let column = 0; column < side; column++) {
+   if (Math.hypot(xs[column], xs[row]) > GROUND_RADIUS + 1.5) continue; // fuera solo hay mar
+   const i = row * side + column;
+   heights[i] = groundHeight(xs[column], xs[row]);
+   kinds[i] = surface(xs[column], xs[row]);
+  }
  }
- square.dispose();
- const geometry = new THREE.BufferGeometry();
- geometry.setAttribute("position", new THREE.Float32BufferAttribute(kept, 3));
- const position = geometry.attributes.position;
- for (let i = 0; i < position.count; i++) position.setY(i, groundHeight(position.getX(i), position.getZ(i)));
-
- const colors = new Float32Array(position.count * 3);
+ // Dos triángulos por casilla, sin compartir vértices (para el facetado y el
+ // color por cara). Se recorta en redondo: desde la nave debe verse una isla.
+ const positions = [], colors = [];
  const tone = new THREE.Color();
- for (let i = 0; i < position.count; i += 3) {
-  const x = (position.getX(i) + position.getX(i + 1) + position.getX(i + 2)) / 3;
-  const z = (position.getZ(i) + position.getZ(i + 1) + position.getZ(i + 2)) / 3;
+ const triangle = (a, b, c) => {
+  const cx = (xs[a[0]] + xs[b[0]] + xs[c[0]]) / 3, cz = (xs[a[1]] + xs[b[1]] + xs[c[1]]) / 3;
+  if (Math.hypot(cx, cz) >= GROUND_RADIUS) return;
   // El tono (mancha grande, y algún triángulo suelto distinto) es uno por
-  // cara; el tipo de suelo se mira en cada esquina: así el borde entre hierba,
+  // cara; el tipo de suelo es el de cada esquina: así el borde entre hierba,
   // camino y arena se funde dentro del triángulo en vez de hacer dientes.
-  const odd = noise2(x * 2.1, z * 2.1) > 0.84;
-  for (let k = 0; k < 3; k++) groundColor(tone, position.getX(i + k), position.getZ(i + k), { at: [x, z], odd }).toArray(colors, (i + k) * 3);
+  const odd = noise2(cx * 2.1, cz * 2.1) > 0.84;
+  for (const [column, row] of [a, b, c]) {
+   const i = row * side + column;
+   positions.push(xs[column], heights[i], xs[row]);
+   groundColor(tone, xs[column], xs[row], { at: [cx, cz], odd, kind: kinds[i], height: heights[i] });
+   colors.push(tone.r, tone.g, tone.b);
+  }
+ };
+ for (let row = 0; row < SEGMENTS; row++) {
+  for (let column = 0; column < SEGMENTS; column++) {
+   triangle([column, row], [column, row + 1], [column + 1, row]);
+   triangle([column, row + 1], [column + 1, row + 1], [column + 1, row]);
+  }
  }
- geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+ const geometry = new THREE.BufferGeometry();
+ geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+ geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
  geometry.computeVertexNormals();
  return geometry;
 }

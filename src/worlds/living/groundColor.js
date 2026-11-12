@@ -28,10 +28,10 @@ const strata = STRATA.map((c) => new THREE.Color(c));
 // Escribe en `target` el color del suelo en (x, z).
 //  · at: punto del que se toma la mancha de tono (por defecto, el mismo).
 //  · odd: usa el tono siguiente (para salpicar caras sueltas distintas).
-export function groundColor(target, x, z, { at = [x, z], odd = false } = {}) {
- const kind = surface(x, z);
+//  · kind, height: tipo de suelo y altura, si quien llama ya los tiene.
+export function groundColor(target, x, z, { at = [x, z], odd = false, kind = surface(x, z), height } = {}) {
  if (kind === "rock") {
-  const band = Math.floor(groundHeight(x, z) * 1.5 + noise2(at[0] * 0.5, at[1] * 0.5) * 1.6);
+  const band = Math.floor((height ?? groundHeight(x, z)) * 1.5 + noise2(at[0] * 0.5, at[1] * 0.5) * 1.6);
   return target.copy(strata[((band % strata.length) + strata.length) % strata.length]);
  }
  const tones = palette[kind];
@@ -39,5 +39,5 @@ export function groundColor(target, x, z, { at = [x, z], odd = false } = {}) {
  let tone = Math.min(tones.length - 1, Math.floor(patch * tones.length));
  if (odd) tone = (tone + 1) % tones.length;
  // Bajo la hierba el suelo es más oscuro: da fondo y hace destacar las puntas.
- return target.copy(tones[tone]).multiplyScalar(1 - grassAmount(x, z) * 0.2);
+ return target.copy(tones[tone]).multiplyScalar(1 - grassAmount(x, z, kind) * 0.2);
 }
