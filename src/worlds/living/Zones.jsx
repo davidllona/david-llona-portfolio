@@ -11,9 +11,10 @@ import { Label } from "../../experience/Label";
 import { useInteractable } from "../../experience/interact";
 import { emit } from "../../experience/state";
 import { createTextPanelTexture } from "../../experience/textures";
-import { registerGlow, setTheme, theme } from "../../experience/theme";
+import { registerGlow } from "../../experience/theme";
 import { addWarmSource } from "../../experience/lightSources";
-import { COLORS, CONTACT, CV_KIOSK, LAB_TOTEMS, OBSERVATORY, PITCH, PLATEAU, PROJECT_CABINS, TREEHOUSE, WIND_CHIME, height } from "./layout";
+import { Observatory } from "./buildings/Observatory";
+import { COLORS, CONTACT, CV_KIOSK, LAB_TOTEMS, PITCH, PLATEAU, PROJECT_CABINS, TREEHOUSE, WIND_CHIME, height } from "./layout";
 
 const WOOD = "#c58a55";
 const WOOD_DARK = "#7d5233";
@@ -275,54 +276,6 @@ function Treehouse() {
     </group>
    </group>
    <Label text="SOBRE MÍ" color={COLORS["sobre-mi"]} width={3.6} position={[1, 0.17, 3.6]} plate flat />
-  </group>
- );
-}
-
-// Observatorio: mirar por el telescopio cambia entre el día y la noche.
-function Observatory() {
- const { x, z } = OBSERVATORY;
- const click = useInteractable({
-  position: { x, z: z + 1.8 },
-  radius: 3,
-  hint: () => (theme.name === "night" ? "Telescopio: volver al día" : "Telescopio: ver las estrellas"),
-  anywhere: true,
-  action: () => {
-   setTheme(theme.name === "night" ? "day" : "night");
-   emit("theme");
-  },
- });
- return (
-  <group position={[x, PLATEAU.height, z]} {...click}>
-   <mesh position={[0, 1.1, -1.4]} castShadow receiveShadow>
-    <cylinderGeometry args={[2.3, 2.5, 2.2, 10]} />
-    <Flat color={CREAM} />
-   </mesh>
-   <mesh position={[0, 2.2, -1.4]} castShadow>
-    <sphereGeometry args={[2.3, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2]} />
-    <Flat color="#c9c4d6" />
-   </mesh>
-   <mesh position={[0, 2.26, -1.4]}>
-    <cylinderGeometry args={[2.36, 2.36, 0.2, 10]} />
-    <Flat color={COLORS.lab} />
-   </mesh>
-   {/* Telescopio asomando por la cúpula. */}
-   <group position={[0.5, 3.7, -0.6]} rotation={[-0.75, 0.3, 0]}>
-    <mesh castShadow>
-     <cylinderGeometry args={[0.34, 0.42, 2.4, 8]} />
-     <Flat color="#b9824f" />
-    </mesh>
-    <mesh position-y={1.25}>
-     <cylinderGeometry args={[0.44, 0.44, 0.2, 8]} />
-     <Flat color={WOOD_DARK} />
-    </mesh>
-   </group>
-   <mesh position={[0, 0.9, 0.93]}>
-    <boxGeometry args={[0.8, 1.5, 0.1]} />
-    <Flat color={WOOD_DARK} />
-   </mesh>
-   <Window position={[1.5, 1.4, 0.42]} size={[0.5, 0.5]} />
-   <Label text="OBSERVATORIO" color={COLORS.lab} width={4} position={[0, 0.17, 2.6]} plate flat />
   </group>
  );
 }

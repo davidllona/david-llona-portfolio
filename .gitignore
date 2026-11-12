@@ -45,3 +45,6 @@ skills-lock.json
 
 # Capturas de revisión visual (antes/después)
 capturas/
+
+# Referencia técnica (código de Bruno Simon, MIT): no forma parte del proyecto
+folio-2025-main/

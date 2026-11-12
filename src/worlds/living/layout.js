@@ -207,21 +207,63 @@ function pathDistance(x, z) {
  return best;
 }
 
-// Qué hay en cada punto del suelo; lo usa Terrain.jsx para colorearlo.
+// Ruido de valores 2D, suave y determinista (0–1): manchas de pradera, bordes
+// irregulares, tonos del suelo.
+export function noise2(x, z) {
+ const hash = (ix, iz) => {
+  const v = Math.sin(ix * 127.1 + iz * 311.7) * 43758.5453;
+  return v - Math.floor(v);
+ };
+ const x0 = Math.floor(x), z0 = Math.floor(z);
+ const tx = x - x0, tz = z - z0;
+ const sx = tx * tx * (3 - 2 * tx), sz = tz * tz * (3 - 2 * tz);
+ const top = hash(x0, z0) * (1 - sx) + hash(x0 + 1, z0) * sx;
+ const bottom = hash(x0, z0 + 1) * (1 - sx) + hash(x0 + 1, z0 + 1) * sx;
+ return top * (1 - sz) + bottom * sz;
+}
+// Dónde la hierba crece alta y espesa (1) y dónde es césped corto (0).
+export const meadow = (x, z) => noise2(x * 0.085 + 3.1, z * 0.085 - 1.7) * 0.7 + noise2(x * 0.27, z * 0.27 + 9) * 0.3;
+
+// Pies de árbol: debajo, el suelo queda en sombra. Se rellena al repartir los árboles.
+let shadeSpots = [];
+
+// Qué hay en cada punto del suelo. Lo usan el color del terreno, el reparto de
+// plantas y el sonido de los pasos.
+//   bed · wetsand · sand · bank (orilla de río y estanque) · rock · stone ·
+//   path · pathEdge · moss · shade · meadow · grass
 export function surface(x, z) {
  const h = groundHeight(x, z);
  if (h < WATER_LEVEL - 0.05) return "bed";
- // Playa: una franja junto al mar, y las orillas del río y del estanque.
- if (h < -0.04 || Math.hypot(x, z) > shoreRadius(Math.atan2(z, x)) - 5.5) return "sand";
+ const fromCentre = Math.hypot(x, z);
+ const shore = shoreRadius(Math.atan2(z, x));
+ const rough = noise2(x * 0.33, z * 0.33) - 0.5; // rompe los bordes rectos
+ const beach = fromCentre > shore - 5.5 + rough * 2.2;
+ const seaside = fromCentre > shore - 10;
+ // Franja mojada pegada al agua; más arriba, arena seca (mar) u orilla (río, estanque).
+ if (h < WATER_LEVEL + 0.13) return seaside ? "wetsand" : "bank";
+ if (beach) return "sand";
+ if (h < -0.03) return seaside ? "sand" : "bank";
  const e = 0.4;
  const slope = Math.hypot(groundHeight(x + e, z) - groundHeight(x - e, z), groundHeight(x, z + e) - groundHeight(x, z - e)) / (2 * e);
  if (slope > 0.95) return "rock";
  if (distance(x, z, PAD.x, PAD.z) < PAD.padRadius + 0.6) return "stone";
  // Bajo la pista y el campo no crece hierba.
  if ([COURT, PITCH].some((rect) => x > rect.x0 - 0.5 && x < rect.x1 + 0.5 && z > rect.z0 - 0.5 && z < rect.z1 + 0.5)) return "path";
- if (pathDistance(x, z) < 1.25) return "path";
- return "grass";
+ // Caminos de ancho irregular, con un borde de tierra más oscura.
+ const toPath = pathDistance(x, z);
+ const width = 1.2 + rough * 0.5;
+ if (toPath < width - 0.32) return "path";
+ if (toPath < width) return "pathEdge";
+ // Orillas del arroyo de la meseta.
+ if (h > 3 && h < PLATEAU.height - 0.07) return "bank";
+ // Zonas húmedas: junto al estanque y el río, y al pie del acantilado.
+ const damp = Math.min(distance(x, z, POND.x, POND.z) - POND.r, toPolyline(x, z, RIVER) - 2.2, h < 1.2 ? plateauDistance(x, z) + 0.6 : 9);
+ if (damp < 2.4 + rough * 2.5) return "moss";
+ if (shadeSpots.some((spot) => (spot.x - x) ** 2 + (spot.z - z) ** 2 < spot.r2)) return "shade";
+ return meadow(x, z) > 0.56 ? "meadow" : "grass";
 }
+const GRASSY = new Set(["grass", "meadow", "shade", "moss"]);
+export const isGrassy = (x, z) => GRASSY.has(surface(x, z));
 
 // ── Generador aleatorio con semilla: el planeta sale igual en cada visita ────
 function createRandom(seed) {
@@ -279,7 +321,7 @@ const flat = (x, z) => {
  const e = 0.6;
  return Math.hypot(groundHeight(x + e, z) - groundHeight(x - e, z), groundHeight(x, z + e) - groundHeight(x, z - e)) / (2 * e) < 0.45;
 };
-const dryLand = (x, z, y) => y > -0.02 && flat(x, z) && surface(x, z) !== "sand";
+const dryLand = (x, z, y) => y > -0.02 && flat(x, z) && !["sand", "wetsand", "bank", "bed"].includes(surface(x, z));
 
 // La cámara mira desde el sur y desde arriba: un árbol justo al sur de algo lo
 // tapa. Estos son los sitios desde los que se mira cada cosa.
@@ -302,31 +344,139 @@ const treeSite = (x, z, y) =>
 
 // Árboles: de copa redonda, pinos (más en el norte y en la meseta) y cerezos.
 const allTrees = scatter(118, { margin: 0.6, spacing: 3.1, accept: treeSite });
+// Arboledas de cerezos (centro y radio).
+const CHERRY_GROVES = [
+ { x: -22, z: 10.5, r: 7 },
+ { x: 15, z: 15, r: 7.5 },
+ { x: -9, z: -13, r: 5 },
+];
 const trees = allTrees.map((tree) => {
  const roll = tree.seed;
- const north = tree.z < -8 || tree.y > 3;
- const kind = roll < (north ? 0.5 : 0.14) ? "pine" : roll > 0.86 ? "cherry" : "round";
- return { ...tree, kind, scale: 0.82 + ((roll * 7919) % 1) * 0.55 };
+ const { x, z, y } = tree;
+ const toWater = Math.min(toPolyline(x, z, RIVER), Math.abs(distance(x, z, POND.x, POND.z) - POND.r));
+ const north = z < -8 || y > 3;
+ let kind;
+ if (toWater < 5.5 && y < 1 && roll < 0.62) kind = "willow"; // sauces junto al río y el estanque
+ else if (CHERRY_GROVES.some((grove) => distance(x, z, grove.x, grove.z) < grove.r) && roll < 0.8) kind = "cherry";
+ else if (north) kind = roll < 0.46 ? "pine" : roll < 0.66 ? "birch" : roll < 0.78 ? "poplar" : "oak";
+ else kind = roll < 0.09 ? "pine" : roll < 0.2 ? "birch" : roll < 0.3 ? "maple" : roll < 0.42 ? "poplar" : roll < 0.48 ? "cherry" : "oak";
+ return { ...tree, kind, scale: 0.84 + ((roll * 7919) % 1) * 0.5 };
 });
+// Huellas de los edificios y carteles: dentro no crece nada.
+const FOOTPRINTS = [
+ ...PROJECT_CABINS.flatMap((c) => [{ x: c.x - 0.9, z: c.z - 1.2, r: 2.5 }, { x: c.x + 1.9, z: c.z + 0.9, r: 1.5 }]),
+ ...LAB_TOTEMS.map((t) => ({ ...t, r: 0.8 })),
+ { ...CV_KIOSK, r: 0.9 },
+ { x: TREEHOUSE.x, z: TREEHOUSE.z - 1.6, r: 1.7 },
+ { x: TREEHOUSE.x + 2.6, z: TREEHOUSE.z + 1.2, r: 1.6 },
+ { x: OBSERVATORY.x, z: OBSERVATORY.z - 1.2, r: 4.6 },
+ { x: CONTACT.x, z: CONTACT.z - 2.6, r: 2.6 },
+ { ...CONTACT.antenna, r: 1.5 },
+ ...CONTACT.terminals.map((t) => ({ ...t, r: 0.8 })),
+ { ...WIND_CHIME, r: 0.5 },
+];
+const built = (x, z) => FOOTPRINTS.some((f) => (f.x - x) ** 2 + (f.z - z) ** 2 < f.r * f.r);
+
+shadeSpots = trees.map((t) => ({ x: t.x, z: t.z, r2: (t.kind === "willow" ? 2.3 : 1.7) ** 2 * t.scale ** 2 }));
+
 const rocks = scatter(46, { margin: -0.4, spacing: 2.4, others: trees, accept: (x, z, y) => y > -0.2 }).map((r) => ({ ...r, scale: 0.4 + r.seed * 0.85 }));
 // Rocas al pie del acantilado, para que la pared no nazca del suelo a pelo.
 const cliffRocks = scatter(60, { margin: -100, spacing: 1.7, accept: (x, z) => { const e = plateauDistance(x, z); return e > 0.6 && e < 2.2 && distance(x, z, WATERFALL.x, WATERFALL.z) > 3 && toSegment(x, z, ...RAMP.from, ...RAMP.to).distance > 3; } }).map((r) => ({ ...r, scale: 0.6 + r.seed * 0.9 }));
-const bushes = scatter(130, { margin: -0.5, spacing: 1.5, others: [...trees, ...rocks], accept: dryLand }).map((b) => ({ ...b, scale: 0.45 + b.seed * 0.5 }));
-const ferns = scatter(150, { margin: -0.9, spacing: 1.1, others: trees, accept: dryLand });
-const mushrooms = scatter(46, { margin: -0.6, spacing: 1.4, accept: dryLand });
-// Flores y hierba: matas alrededor de puntos repartidos; llegan hasta el borde de los caminos.
-const cluster = (centres, perCentre, spread) =>
- centres.flatMap((centre) =>
-  Array.from({ length: perCentre }, () => {
-   const angle = random() * Math.PI * 2;
-   const radius = Math.sqrt(random()) * spread;
-   const x = centre.x + Math.cos(angle) * radius;
-   const z = centre.z + Math.sin(angle) * radius;
-   return { x, y: groundHeight(x, z), z, seed: random(), turn: random() * Math.PI, tint: centre.seed };
-  }),
- ).filter((p) => surface(p.x, p.z) === "grass");
-const flowers = cluster(scatter(70, { margin: -1.4, accept: dryLand }), 9, 1.3);
-const grass = cluster(scatter(520, { margin: -1.5, accept: dryLand }), 14, 1.6);
+const bushes = scatter(120, { margin: -0.5, spacing: 1.5, others: [...trees, ...rocks], accept: (x, z, y) => dryLand(x, z, y) && !built(x, z) }).map((b) => ({ ...b, scale: 0.5 + b.seed * 0.5 }));
+const mushrooms = scatter(50, { margin: -0.6, spacing: 1.4, accept: (x, z, y) => dryLand(x, z, y) && ["shade", "moss"].includes(surface(x, z)) });
+// Hierba: se recorre la isla en una rejilla descolocada y en cada casilla se
+// decide si nace una mata y de qué tipo, según el suelo. Así hay praderas
+// altas, césped corto, claros y bordes de camino ralos, en vez de un reparto parejo.
+const TUFT_DENSITY = { grass: 0.4, meadow: 0.92, shade: 0.34, moss: 0.62, pathEdge: 0.2 };
+const tufts = { short: [], tall: [], seed: [] };
+{
+ const step = 0.62;
+ for (let gx = -48; gx < 48; gx += step) {
+  for (let gz = -48; gz < 48; gz += step) {
+   const x = gx + (random() - 0.5) * step;
+   const z = gz + (random() - 0.5) * step;
+   const roll = random(), pickKind = random(), seed = random(), turn = random() * Math.PI * 2;
+   if (Math.hypot(x, z) > shoreRadius(Math.atan2(z, x))) continue;
+   const kind = surface(x, z);
+   if (!(roll < (TUFT_DENSITY[kind] ?? 0)) || built(x, z)) continue;
+   const type = kind === "meadow" ? (pickKind < 0.3 ? "seed" : "tall") : kind === "moss" ? (pickKind < 0.75 ? "tall" : "short") : kind === "pathEdge" ? "short" : pickKind < 0.24 ? "tall" : "short";
+   tufts[type].push({ x, y: groundHeight(x, z), z, seed, turn });
+  }
+ }
+}
+
+// Flores: manchas de una sola especie; y un goteo a lo largo de los caminos.
+const FLOWER_KINDS = ["daisy", "daisyPink", "tulipRed", "tulipYellow", "lavender", "bluebell"];
+const flowersByKind = Object.fromEntries(FLOWER_KINDS.map((kind) => [kind, []]));
+const patch = (centre, count, spread) =>
+ Array.from({ length: count }, () => {
+  const angle = random() * Math.PI * 2;
+  const radius = Math.sqrt(random()) * spread;
+  const x = centre.x + Math.cos(angle) * radius;
+  const z = centre.z + Math.sin(angle) * radius;
+  return { x, y: groundHeight(x, z), z, seed: random(), turn: random() * Math.PI * 2 };
+ }).filter((p) => isGrassy(p.x, p.z) && !built(p.x, p.z));
+for (const centre of scatter(64, { margin: -1.2, spacing: 3.4, accept: dryLand })) {
+ const kind = FLOWER_KINDS[Math.floor(centre.seed * FLOWER_KINDS.length)];
+ flowersByKind[kind].push(...patch(centre, 6 + Math.floor(centre.seed * 37) % 7, 1.5));
+}
+for (const path of PATHS) {
+ for (let i = 0; i < path.length - 1; i++) {
+  const [ax, az] = path[i];
+  const [bx, bz] = path[i + 1];
+  const length = distance(ax, az, bx, bz);
+  for (let d = 1.5; d < length; d += 2.6 + random() * 2.4) {
+   const side = random() < 0.5 ? -1 : 1;
+   const offset = (1.55 + random() * 0.7) * side;
+   const centre = { x: ax + ((bx - ax) * d) / length - ((bz - az) / length) * offset, z: az + ((bz - az) * d) / length + ((bx - ax) / length) * offset };
+   flowersByKind[random() < 0.6 ? "daisy" : "daisyPink"].push(...patch(centre, 3, 0.5));
+  }
+ }
+}
+// Para lo que solo necesita «dónde hay flores» (mariposas).
+const flowers = Object.values(flowersByKind).flat();
+
+const clover = scatter(70, { margin: -1.4, spacing: 2.2, accept: (x, z, y) => dryLand(x, z, y) && !built(x, z) });
+// Helechos: a la sombra de los árboles y en lo húmedo.
+const ferns = scatter(170, { margin: -0.9, spacing: 1.0, accept: (x, z, y) => dryLand(x, z, y) && ["shade", "moss"].includes(surface(x, z)) && !built(x, z) });
+// Juncos y espadañas en las orillas del estanque y del río.
+const reeds = [];
+for (let angle = 0; angle < Math.PI * 2; angle += 0.17) {
+ const radius = POND.r - 0.25 + random() * 0.6;
+ const x = POND.x + Math.cos(angle) * radius, z = POND.z + Math.sin(angle) * radius;
+ // Se deja despejado el frente (sur), que es desde donde se mira, y la cascada.
+ const keep = random() < 0.6 && !(Math.sin(angle) > 0.35 && Math.abs(Math.cos(angle)) < 0.8) && distance(x, z, WATERFALL.x, WATERFALL.z) > 2.6;
+ if (keep) reeds.push({ x, y: groundHeight(x, z), z, seed: random(), turn: random() * 6 });
+}
+for (let i = 0; i < RIVER.length - 1; i++) {
+ const [ax, az] = RIVER[i];
+ const [bx, bz] = RIVER[i + 1];
+ const length = distance(ax, az, bx, bz);
+ for (let d = 1; d < length; d += 1.3) {
+  for (const side of [-1, 1]) {
+   const offset = (1.75 + random() * 0.6) * side;
+   const x = ax + ((bx - ax) * d) / length - ((bz - az) / length) * offset;
+   const z = az + ((bz - az) * d) / length + ((bx - ax) / length) * offset;
+   const y = groundHeight(x, z);
+   const nearBridge = BRIDGES.some((bridge) => toSegment(x, z, ...bridge.from, ...bridge.to).distance < 3.2);
+   if (random() < 0.42 && !nearBridge && y > WATER_LEVEL - 0.3 && y < WATER_LEVEL + 0.3 && Math.hypot(x, z) < 41) reeds.push({ x, y, z, seed: random(), turn: random() * 6 });
+  }
+ }
+}
+// Rocas en el bajío del mar y alguna en el río: rompen el agua y hacen espuma.
+const shoreRocks = [];
+for (let i = 0; i < 300 && shoreRocks.length < 30; i++) {
+ const angle = random() * Math.PI * 2;
+ const radius = shoreRadius(angle) - 3.4 + random() * 4;
+ const x = Math.cos(angle) * radius, z = Math.sin(angle) * radius;
+ const y = groundHeight(x, z);
+ const seed = random();
+ if (y < -0.3 && y > -1.5 && !shoreRocks.some((r) => distance(r.x, r.z, x, z) < 3.5)) shoreRocks.push({ x, y, z, seed, turn: random() * 6, scale: 0.5 + seed * 0.95 });
+}
+[[17.6, -6.6], [21.8, -1.6], [25.3, 5.6], [30.2, 10.2]].forEach(([x, z], i) => shoreRocks.push({ x, y: groundHeight(x, z), z, seed: 0.3 + i * 0.17, turn: i * 1.7, scale: 0.72 + (i % 2) * 0.2 }));
+// Guijarros en arena, orillas y bordes de camino.
+const pebbles = scatter(260, { margin: -100, spacing: 0.5, accept: (x, z) => ["sand", "wetsand", "bank", "pathEdge"].includes(surface(x, z)) }).map((p) => ({ ...p, scale: 0.07 + p.seed * 0.12 }));
+
 // Nenúfares en el estanque y juncos en sus orillas.
 const lilies = Array.from({ length: 9 }, () => {
  const angle = random() * Math.PI * 2;
@@ -349,13 +499,13 @@ for (const path of PATHS) {
  }
 }
 
-export const SCATTER = { trees, rocks, cliffRocks, bushes, ferns, mushrooms, flowers, grass, lilies, lanterns };
+export const SCATTER = { trees, rocks, cliffRocks, shoreRocks, pebbles, bushes, ferns, mushrooms, flowers, flowersByKind, clover, tufts, reeds, lilies, lanterns };
 
 // ── Colisiones ──────────────────────────────────────────────────────────────
 const shipCollider = { x: PAD.x, z: PAD.z, r: 2.3, active: true };
 const colliders = [
- ...trees.map((t) => ({ x: t.x, z: t.z, r: (t.kind === "pine" ? 0.5 : 0.42) * t.scale })),
- ...ANCIENT_TREES.map((t) => ({ x: t.x, z: t.z, r: 1.5 * t.scale })),
+ ...trees.map((t) => ({ x: t.x, z: t.z, r: (t.kind === "willow" ? 0.55 : 0.42) * t.scale })),
+ ...ANCIENT_TREES.map((t) => ({ x: t.x, z: t.z, r: 1.35 * t.scale })),
  ...rocks.filter((r) => r.scale > 0.75).map((r) => ({ x: r.x, z: r.z, r: 0.8 * r.scale })),
  ...cliffRocks.map((r) => ({ x: r.x, z: r.z, r: 0.75 * r.scale })),
  ...lanterns.map((l) => ({ x: l.x, z: l.z, r: 0.2 })),
@@ -364,7 +514,11 @@ const colliders = [
  ...LAB_TOTEMS.map((t) => ({ ...t, r: 0.7 })),
  { ...CV_KIOSK, r: 0.85 },
  { x: TREEHOUSE.x, z: TREEHOUSE.z - 1.6, r: 1.5 },
- ...[-1.6, 0, 1.6].map((dx) => ({ x: OBSERVATORY.x + dx, z: OBSERVATORY.z - 1.4, r: 1.7 })),
+ // Observatorio: su plataforma circular, el anexo y el atrezo de los lados.
+ { x: OBSERVATORY.x, z: OBSERVATORY.z - 1.4, r: 3.05 },
+ { x: OBSERVATORY.x - 3.5, z: OBSERVATORY.z - 1.2, r: 1.2 },
+ { x: OBSERVATORY.x - 3.5, z: OBSERVATORY.z + 2.1, r: 0.55 },
+ { x: OBSERVATORY.x + 3.3, z: OBSERVATORY.z + 1.5, r: 0.7 },
  { x: CONTACT.x, z: CONTACT.z - 2.6, r: 2 },
  { ...CONTACT.antenna, r: 1.2 },
  ...CONTACT.terminals.map((t) => ({ ...t, r: 0.5 })),
@@ -401,12 +555,12 @@ const PROPS = [
 ];
 
 // El mundo, con la interfaz que usan el jugador, Woody, la nave y los objetos.
+const FOOTING = { rock: "stone", bed: "stone", stone: "stone", path: "path", pathEdge: "path", sand: "sand", wetsand: "sand", bank: "sand" };
 // Qué se pisa en (x, z), para el sonido de los pasos.
 function footing(x, z) {
  if (bridgeHeight(x, z) !== null) return "wood";
  if (inRect(x, z, COURT, 0) || distance(x, z, PAD.x, PAD.z) < PAD.padRadius) return "stone";
- const kind = surface(x, z);
- return kind === "rock" || kind === "bed" ? "stone" : kind;
+ return FOOTING[surface(x, z)] ?? "grass";
 }
 // Cuánto se oye el agua en (x, z), de 0 a 1: la cascada llega lejos; el río y el mar, menos.
 function waterNear(x, z) {

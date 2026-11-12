@@ -97,7 +97,7 @@ await use();
 check(Boolean(await title()), `Sobre mí abre su texto: «${await title()}»`);
 await close();
 // Observatorio: el telescopio cambia a noche y de vuelta.
-await t.put(OBSERVATORY.x, OBSERVATORY.z + 2.4, { withWoody: false, settle: 500 });
+await t.put(OBSERVATORY.x, OBSERVATORY.z + 3.0, { withWoody: false, settle: 500 });
 check(/Telescopio/.test(await prompt()), `observatorio: "${await prompt()}"`);
 await use();
 await wait(1800);

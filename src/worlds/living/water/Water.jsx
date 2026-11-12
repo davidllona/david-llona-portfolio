@@ -93,7 +93,7 @@ const SHADER = {
    float swell = fract(vDepth * 1.5 - uTime * 0.14);
    foam = max(foam, smoothstep(0.0, 0.05, swell) * (1.0 - smoothstep(0.05, 0.15, swell)) * (1.0 - smoothstep(0.25, 1.3, vDepth)) * broken * 0.8);
    // Alrededor de las rocas que asoman.
-   foam = max(foam, 1.0 - smoothstep(0.1, 0.42, vRock - ragged));
+   foam = max(foam, (1.0 - smoothstep(0.06, 0.3, vRock - ragged)) * step(-0.35, vRock));
 
    // Corriente del río: jirones de espuma estirados que bajan con el agua.
    if (current > 0.01) {

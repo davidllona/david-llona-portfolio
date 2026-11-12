@@ -153,8 +153,10 @@ export function updateTheme(delta, elapsed) {
 
 // Añade a un material un vaivén de viento, que además responde a las ráfagas.
 // `byHeight`: se mueve más cuanto más alto está el vértice y se aparta al paso
-// del jugador y de Woody (briznas de hierba, flores); si no, se mece la pieza entera.
+// del jugador y de Woody (briznas de hierba, flores); con "tall" hace lo mismo
+// sin apartarse (árboles: se cimbrean desde el pie); si no, se mece la pieza entera.
 export function addSway(material, strength, byHeight = false) {
+ const avoidsActors = byHeight === true;
  material.onBeforeCompile = (shader) => {
   shader.uniforms.uTime = uniforms.uTime;
   shader.uniforms.uGust = uniforms.uGust;
@@ -188,7 +190,7 @@ export function addSway(material, strength, byHeight = false) {
     vec2 sway = vec2(sin(uTime * 1.7 + swayPhase), cos(uTime * 1.3 + swayPhase * 1.3) * 0.7) * swayAmount * (1.0 + gust * 2.0);
     sway += (gustDistance > 0.01 ? fromGust / gustDistance : vec2(0.0)) * gust * swayAmount * 5.0;
     ${
-     byHeight
+     avoidsActors
       ? `// Se aparta de quien pasa cerca.
     vec2 away = swayOrigin.xz - uActors.xy;
     vec2 awayDog = swayOrigin.xz - uActors.zw;
