@@ -246,7 +246,59 @@ function barn(color) {
  return { pieces, windows: [{ position: [0, PLINTH + height + 0.5, front + 0.04], size: [0.56, 0.44] }], lantern: [-1.35, PLINTH + 1.25, front + 0.3], smoke: null };
 }
 
-const BUILDERS = [workshop, studio, turret, barn];
+// Estación de comunicaciones: casa baja con porche, ventana redonda y un
+// mástil de radio con su parábola en el tejado. `smoke` no hay; `mast` es la
+// punta del mástil (donde va la baliza).
+function station(color) {
+ const width = 3.4, depth = 2.6, height = 1.9, front = depth / 2 + 0.03;
+ const mast = [1.05, PLINTH + height + 0.75, -0.35];
+ const pieces = [
+  ...body({ width, depth, height, wall: PLASTER }),
+  ...timberFront({ width, height, z: front }),
+  ...gableRoof({ width, depth, rise: 1.2, y: PLINTH + height, color, wall: PLASTER }),
+  ...entrance({ x: -0.7, z: front }),
+  ...bracket(-1.5, PLINTH + 1.35, front),
+  piece(new THREE.CylinderGeometry(0.44, 0.44, 0.08, 10), { color: WOOD.dark, position: [0.85, PLINTH + 1.1, front], rotation: [Math.PI / 2, 0, 0] }),
+  // Mástil de celosía: tres patas que se juntan, con dos aros.
+  ...[0, 2.1, 4.2].map((angle) => piece(limb(0.035, 0.02, 2.5, 4), { color: "#5a5560", position: [mast[0] + Math.cos(angle) * 0.22, mast[1], mast[2] + Math.sin(angle) * 0.22], rotation: [Math.sin(angle) * -0.085, 0, Math.cos(angle) * 0.085] })),
+  ...[0.8, 1.6].map((y) => piece(new THREE.TorusGeometry(0.2 - y * 0.06, 0.02, 3, 6), { color: "#5a5560", position: [mast[0], mast[1] + y, mast[2]], rotation: [Math.PI / 2, 0, 0] })),
+  // Parábola pequeña, mirando al sur y arriba.
+  piece(new THREE.ConeGeometry(0.5, 0.24, 10, 1, true), { bottom: "#cfc8ba", top: CREAM, position: [mast[0] - 0.05, mast[1] + 1.25, mast[2] + 0.3], rotation: [-0.9, 0, 0] }),
+  piece(limb(0.015, 0.015, 0.4, 3), { color: "#5a5560", position: [mast[0] - 0.05, mast[1] + 1.25, mast[2] + 0.3], rotation: [0.65, 0, 0] }),
+  // Banco bajo la ventana.
+  piece(box(1.1, 0.07, 0.36), { bottom: WOOD.mid, top: WOOD.light, position: [0.85, 0.62, front + 0.34] }),
+  ...[-0.45, 0.45].map((x) => piece(box(0.08, 0.36, 0.3), { color: WOOD.dark, position: [0.85 + x, 0.4, front + 0.34] })),
+ ];
+ return { pieces, windows: [{ position: [0.85, PLINTH + 1.1, front + 0.06], round: 0.34 }], lantern: [-1.5, PLINTH + 1.3, front + 0.3], smoke: null, mast: [mast[0], mast[1] + 2.55, mast[2]] };
+}
+
+// Casita del árbol: pequeña, de tablas, con el hastial al frente y un balcón corrido.
+function nest(color) {
+ const width = 2.3, depth = 2.0, height = 1.55, front = depth / 2 + 0.03;
+ const roof = gableRoof({ width: depth, depth: width, rise: 1.25, y: height, color, wall: PLANKS, overhang: 0.3, side: 0.34 });
+ roof.forEach((part) => part.rotateY(Math.PI / 2));
+ const lift = (part) => part.translate(0, -PLINTH, 0); // sin zócalo: se apoya en la plataforma
+ const pieces = [
+  piece(box(width, height, depth), { bottom: PLANKS[0], top: PLANKS[1], vary: 0.1, position: [0, height / 2, 0] }),
+  ...timberFront({ width, height, z: front, braces: false }).map(lift),
+  ...roof,
+  piece(box(0.74, 1.3, 0.09), { color: WOOD.dark, position: [-0.5, 0.65, front] }),
+  piece(box(0.58, 1.14, 0.07), { bottom: "#8f5a36", top: "#b9824f", vary: 0.1, position: [-0.5, 0.6, front + 0.04] }),
+  piece(new THREE.CylinderGeometry(0.33, 0.33, 0.08, 8), { color: WOOD.dark, position: [0.55, 0.9, front], rotation: [Math.PI / 2, 0, 0] }),
+  piece(new THREE.CylinderGeometry(0.26, 0.26, 0.08, 8), { color: WOOD.dark, position: [0, height + 0.55, front], rotation: [Math.PI / 2, 0, 0] }),
+ ];
+ return {
+  pieces,
+  windows: [
+   { position: [0.55, 0.9, front + 0.06], round: 0.25 },
+   { position: [0, height + 0.55, front + 0.06], round: 0.19 },
+  ],
+  lantern: [-1.02, 1.25, front + 0.3],
+  smoke: null,
+ };
+}
+
+const BUILDERS = [workshop, studio, turret, barn, station, nest];
 
 // Casa número `index` (0–3) con el tejado del color dado.
 export function createCottage(index, color) {

@@ -3,7 +3,7 @@
 Actualizado: 12 de noviembre de 2026 · rama `estacion-espacial` (solo commits locales, sin push).
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git).
-Trabajo en curso: **rediseño artístico de The Living World** (solo el Planeta 1): primero se valida un estándar en la bienvenida y la aldea de proyectos; después se extiende al resto. Modelos propios (kit de código; Blender si hace falta), nada de packs de terceros. Punto de retorno anterior: etiqueta `antes-rediseno-artistico`.
+Trabajo en curso: **revisión definitiva de The Living World** (fases A–F del plan del 12-11-2026: carga, estándar artístico, zonas, observatorio y naturaleza, fútbol, validación). Etiqueta de retorno: `antes-revision-definitiva`. Antes: **rediseño artístico de The Living World** (solo el Planeta 1): primero se valida un estándar en la bienvenida y la aldea de proyectos; después se extiende al resto. Modelos propios (kit de código; Blender si hace falta), nada de packs de terceros. Punto de retorno anterior: etiqueta `antes-rediseno-artistico`.
 
 ## Cómo arrancarlo y probarlo
 
@@ -46,6 +46,9 @@ Capturas de comparación (fuera de git), mismas 12 vistas de día y de noche: `c
 | **Aldea de proyectos**: plaza empedrada con pozo, cuatro casas distintas (taller, estudio, mirador con torreón, almacén), expositor con la captura real y cartel colgado por proyecto, jardín del laboratorio con placas | `living` (las cuatro fichas con su enlace real) |
 | Vegetación por máscaras: bosquetes y claros, corredores despejados junto a los caminos, césped corto en los bordes | capturas aéreas |
 | Farolas nuevas (poste curvo, farol colgante) en toda la isla; interfaz superior más discreta | capturas |
+| **Contacto**: estación de comunicaciones (casa con mástil, antena de celosía que gira, plataforma) y tres aparatos distintos —terminal de LinkedIn, ordenador de GitHub, buzón de correo con bandera— que se encienden al acercarse; el correo se abre y se copia | `living` (los tres enlaces) |
+| **Sobre mí**: casa del árbol con plataforma, barandilla y escalera; la información se abre en panel legible con las áreas de trabajo, no en una pizarra 3D | `living` |
+| Carteles de madera con letra crema en la aldea, el laboratorio, Contacto y Sobre mí (fuera las placas negras) | capturas `capturas/6-zonas/` |
 | **Carga**: pantalla del astronauta sentado en el HTML (se pinta a los 16 ms), porcentaje por etapas reales, bienvenida primero y planeta por partes; terreno 30 veces más rápido de calcular. Sin botón «sin jugar» | `docs/RENDIMIENTO.md`, `tests/perf/load.mjs` |
 | Cascada con canal de roca mojada y almohadas de espuma | capturas |
 
@@ -93,13 +96,15 @@ Rendimiento medido en este Mac a 2880 × 1620 sobre WebGPU: 192–221 fps tras e
 
 ## Siguiente paso exacto
 
-David tiene que validar el estándar (bienvenida + aldea). Si lo da por bueno, extenderlo zona por zona con el mismo método (`buildings/cottageModels.js` como referencia de oficio, `kit/geometry.js`, máscaras en `layout.js`):
+Plan en curso (aprobado el 12-11-2026), fases A–F. Hecho: **A** (carga y pantalla del astronauta) y, de la **C**, Contacto y Sobre mí. Lo que sigue, en orden:
 
-1. **Contacto**: la caseta y los tres terminales siguen siendo cajas; rótulos tumbados en el suelo.
-2. **Sobre mí**: casa del árbol sobre el árbol protagonista (`hero` en `flora/treeModels.js`), sin cartel-pizarra.
-3. **Deportes**: pista y campo con vallas, banquillo y focos; rótulos fuera del suelo.
-4. **CV** y **plataforma del cohete**: atril y pad siguen de bloque.
-5. Rótulos tumbados que quedan (`Label … flat`): Sobre mí, Observatorio, Contacto, CV, Baloncesto, Fútbol.
-6. Pendiente técnico aparcado: caída del río al mar, luz con sombras teñidas, vida ambiental nueva.
+1. **Fase E — Fútbol real** (lo más reclamado y aún sin empezar): `src/game/ballPhysics.js` extraído de `worlds/living/Court.jsx`; `worlds/living/Football.jsx` con apuntado y carga, salida del balón en `kick_impact`, gol por cruce de línea, postes y larguero, red, barrera de maniquíes, tres modos, marcador, sonidos, Woody, logros y vitrina 2010. Hoy solo existe el campo y la portería como decorado (`Pitch` en `Zones.jsx`).
+2. **Fase B — Estándar con Blender**: canal `tools/blender/*.py` → `public/models/living/*.glb`; árbol de bienvenida con copas más finas, una cabaña de máxima calidad, farola definitiva. Aún no se ha usado Blender: todo sigue saliendo del kit de código.
+3. **Fase C, lo que falta**: proyectos como instalaciones distintas según el proyecto (hoy son cuatro casas distintas, pero todas «casa + expositor»); cámara que se acerca al abrir una ficha; rótulos tumbados que quedan (Observatorio, CV, Baloncesto, Fútbol); atril del CV y plataforma del cohete siguen de bloque.
+4. **Fase D**: observatorio (más segmentos, uniones, telescopio alineado, colisiones de escalones), árboles con masas menores, agua sin el dibujo de celdas tan evidente, cascada menos blanca, caminos sin tanta losa hexagonal.
+5. **Baloncesto**: comprobar contra el encargo (apuntado con carga, triples, barrera, celebraciones); hoy es coger y tirar con marcador.
+6. **Fase F**: las 12 capturas, tabla de rendimiento, pruebas nuevas, respaldo WebGL2.
 
-Después, lo aparcado del encargo original: fases 6–9 y planetas 2 y 3.
+De la fase A queda: trocear el bundle (1,85 MB), construir el planeta en un Web Worker y que el astronauta de la pantalla de carga sea el modelo 3D cuando ya esté descargado (hoy es una ilustración SVG animada; la pose sentada con el GLB no se usa aún).
+
+Después, lo aparcado del encargo original: interiores, cohete y órbita, planetas 2 y 3.

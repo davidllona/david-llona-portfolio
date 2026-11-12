@@ -81,7 +81,7 @@ const createSignPost = () =>
 function Project({ project, site, index, models }) {
  const { x, z, turn, side } = site;
  const cottage = useMemo(() => createCottage(index, project.color), [index, project.color]);
- const label = useMemo(() => createLabelTexture(project.name.toUpperCase(), project.color, { plate: true }), [project]);
+ const label = useMemo(() => createLabelTexture(project.name.toUpperCase(), "#f6ead6"), [project]);
  const sign = useRef(null);
  const lamp = useRef(null);
  useEffect(
@@ -201,7 +201,7 @@ const createBench = () =>
 
 // Tablón «PROYECTOS» al fondo de la plaza.
 function Board() {
- const texture = useMemo(() => createLabelTexture("PROYECTOS", COLORS.proyectos), []);
+ const texture = useMemo(() => createLabelTexture("PROYECTOS", "#f6ead6"), []);
  useEffect(() => () => texture.dispose(), [texture]);
  const geometry = useMemo(
   () =>
