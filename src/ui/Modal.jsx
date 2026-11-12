@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { events } from "../experience/state";
+import { events, releaseMovement, ui } from "../experience/state";
 
 // Ficha que se abre al pulsar un cartel o un objeto del planeta (evento "open").
 export function Modal() {
@@ -15,6 +15,17 @@ export function Modal() {
    window.removeEventListener("keydown", onKey);
   };
  }, []);
+
+ // Con la ficha abierta, el juego no recibe controles.
+ const isOpen = Boolean(content);
+ useEffect(() => {
+  if (!isOpen) return undefined;
+  releaseMovement();
+  ui.open += 1;
+  return () => {
+   ui.open -= 1;
+  };
+ }, [isOpen]);
 
  if (!content) return null;
 

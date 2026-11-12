@@ -42,6 +42,10 @@ export const emit = (type, detail) => events.dispatchEvent(new CustomEvent(type,
 
 export const game = { score: 0 };
 
+// Interfaz: cuántas ventanas (ficha, portfolio…) hay abiertas encima del juego.
+// Con alguna abierta, el astronauta no se mueve ni se usa nada.
+export const ui = { open: 0 };
+
 // ── Cosas con las que se puede interactuar ──────────────────────────────────
 // Cada una dice dónde está, a qué distancia se activa, qué texto mostrar y qué
 // hacer. La más cercana al jugador se usa con E (o el botón táctil); también se

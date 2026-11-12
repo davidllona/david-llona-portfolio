@@ -4,7 +4,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { Astronaut } from "../characters/Astronaut";
 import { world } from "../worlds";
 import { moveAgent } from "../worlds/collision";
-import { input, player, rig } from "./state";
+import { input, player, rig, ui } from "./state";
 
 const WALK_SPEED = 3.6; // m/s
 const RUN_SPEED = 6.2;
@@ -65,7 +65,7 @@ export function Player({ active }) {
   const state = body.current;
   const { position, velocity } = player;
   const { keys, stick } = input;
-  const controllable = active && !player.frozen && !player.gesture;
+  const controllable = active && !player.frozen && !player.gesture && !ui.open;
   const waterLevel = world.waterLevel;
 
   // Movimiento relativo a la pantalla: arriba es el norte (-Z), derecha el este (+X).

@@ -58,7 +58,7 @@ const TOUCH_CONTROLS = [
 
 // Pantalla de inicio y de pausa. Un toque o un clic en cualquier punto entra.
 // `onPointerDown` permite saber si se entró con el dedo o con el ratón.
-export function StartOverlay({ visible, ready, touch, onPointerDown, onEnter }) {
+export function StartOverlay({ visible, ready, touch, onPointerDown, onEnter, onDirect }) {
  const controls = touch ? TOUCH_CONTROLS : MOUSE_CONTROLS;
  const note = touch
   ? "Pulgar izquierdo para moverte; toca los objetos para usarlos. Mejor en horizontal."
@@ -81,6 +81,19 @@ export function StartOverlay({ visible, ready, touch, onPointerDown, onEnter }) 
     <button type="button" className="overlay__enter" tabIndex={visible ? 0 : -1} disabled={!ready}>
      {!ready ? "Cargando el planeta…" : touch ? "Toca para entrar" : "Haz clic para entrar"}
      {ready && <span aria-hidden="true">→</span>}
+    </button>
+
+    {/* Modo directo: el portfolio sin jugar. No entra al planeta. */}
+    <button
+     type="button"
+     className="overlay__direct"
+     tabIndex={visible ? 0 : -1}
+     onClick={(event) => {
+      event.stopPropagation();
+      onDirect();
+     }}
+    >
+     Ver el portfolio sin jugar
     </button>
 
     <ul className="controls">

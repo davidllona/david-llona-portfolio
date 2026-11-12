@@ -3,10 +3,13 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Experience } from "./experience/Experience";
 import { useDesktopControls } from "./experience/useDesktopControls";
+import { emit } from "./experience/state";
 import { ErrorBoundary, Fallback } from "./ui/Fallback";
 import { Hud } from "./ui/Hud";
 import { Loader } from "./ui/Loader";
 import { Modal } from "./ui/Modal";
+import { QuickMenu } from "./ui/QuickMenu";
+import { Sheet } from "./ui/Sheet";
 import { StartOverlay } from "./ui/StartOverlay";
 import { Flash } from "./ui/Flash";
 import { ThemeToggle } from "./ui/ThemeToggle";
@@ -27,6 +30,9 @@ function App() {
  const [active, setActive] = useState(false);
  // La estación tarda un momento en descargar sus piezas.
  const [ready, setReady] = useState(false);
+ // Portfolio legible abierto encima (menú rápido o modo directo): sección a mostrar.
+ const [sheet, setSheet] = useState(null);
+ const closeSheet = useCallback(() => setSheet(null), []);
  const lastPointerType = useRef("mouse");
  const onReady = useCallback(() => setReady(true), []);
 
@@ -35,7 +41,7 @@ function App() {
  // Esc pausa y vuelve a la pantalla de inicio.
  useEffect(() => {
   // (Si hay una ventana abierta, Esc solo la cierra.)
-  const onKey = (event) => event.key === "Escape" && !document.querySelector(".modal") && setActive(false);
+  const onKey = (event) => event.key === "Escape" && !document.querySelector(".modal, .sheet") && setActive(false);
   window.addEventListener("keydown", onKey);
   return () => window.removeEventListener("keydown", onKey);
  }, []);
@@ -70,12 +76,29 @@ function App() {
       lastPointerType.current = event.pointerType;
      }}
      onEnter={enter}
+     onDirect={() => setSheet("proyectos")}
     />
     {active && <Hud touch={touch} />}
     {active && touch && <TouchControls onPause={() => setActive(false)} />}
     {active && <ThemeToggle />}
     {active && <WoodyMenu />}
     {active && <Modal />}
+    {active && !sheet && <QuickMenu onOpen={setSheet} />}
+    {sheet && (
+     <Sheet
+      section={sheet}
+      onClose={closeSheet}
+      // Solo jugando tiene sentido que Woody te lleve.
+      onGuide={
+       active
+        ? (place) => {
+           emit("guide", { to: place });
+           setSheet(null);
+          }
+        : undefined
+      }
+     />
+    )}
     <Loader ready={ready} />
    </ErrorBoundary>
    <SpeedInsights />
