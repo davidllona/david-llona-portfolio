@@ -525,7 +525,7 @@
 .woody-menu {
  position: fixed;
  top: calc(env(safe-area-inset-top) + 14px);
- left: calc(env(safe-area-inset-left) + 70px);
+ left: calc(env(safe-area-inset-left) + 126px);
  z-index: 7;
 }
 
@@ -1343,4 +1343,233 @@
 /* Sin WebGL, el mismo portfolio ocupa la página. */
 .fallback {
  max-width: 980px;
+}
+
+/* ── Botón de sonido ────────────────────────────────────── */
+
+.sound-toggle {
+ position: fixed;
+ top: calc(env(safe-area-inset-top) + 14px);
+ left: calc(env(safe-area-inset-left) + 70px);
+ z-index: 7;
+ display: grid;
+ place-items: center;
+ width: 46px;
+ height: 46px;
+ border: 1px solid rgba(255, 255, 255, 0.2);
+ border-radius: 50%;
+ background: rgba(9, 11, 16, 0.6);
+ backdrop-filter: blur(8px);
+ color: var(--color-text);
+ cursor: pointer;
+}
+
+.sound-toggle svg {
+ width: 22px;
+ height: 22px;
+ fill: none;
+ stroke: currentColor;
+ stroke-width: 1.8;
+ stroke-linecap: round;
+ stroke-linejoin: round;
+}
+
+.sound-toggle[aria-pressed="false"] {
+ color: var(--color-text-muted);
+}
+
+/* ── Logros ─────────────────────────────────────────────── */
+
+.quick__trophy {
+ margin-left: 4px;
+ border-left: 1px solid rgba(255, 255, 255, 0.18) !important;
+ border-radius: 0 999px 999px 0 !important;
+}
+
+.quick__trophy span {
+ margin-left: 4px;
+ color: var(--color-primary-soft);
+ font-variant-numeric: tabular-nums;
+}
+
+.sheet__card--narrow {
+ width: min(100%, 760px);
+}
+
+.achievements {
+ display: grid;
+ grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+ gap: 12px;
+ padding-top: 24px;
+}
+
+.achievement {
+ display: grid;
+ grid-template-columns: auto 1fr;
+ gap: 14px;
+ align-items: center;
+ padding: 12px 14px;
+ border: 1px solid rgba(255, 255, 255, 0.1);
+ border-radius: 14px;
+}
+
+.achievement--unlocked {
+ border-color: rgba(255, 139, 87, 0.5);
+ background: rgba(255, 107, 44, 0.07);
+}
+
+.achievement__group {
+ font-size: 11px;
+ font-weight: 600;
+ letter-spacing: 0.16em;
+ text-transform: uppercase;
+ color: var(--color-text-muted);
+}
+
+.achievement__name {
+ margin: 1px 0 2px;
+ font-size: 1.25rem;
+ font-weight: 800;
+ font-stretch: 75%;
+ font-variation-settings: "wdth" 75;
+ line-height: 1.05;
+ text-transform: uppercase;
+}
+
+.achievement:not(.achievement--unlocked) .achievement__name {
+ color: #b9b6c6;
+}
+
+.achievement__text {
+ font-size: 13.5px;
+ color: #cfcfd8;
+}
+
+.achievement__state {
+ display: flex;
+ align-items: center;
+ gap: 8px;
+ margin-top: 6px;
+ font-size: 12px;
+ font-weight: 600;
+ color: var(--color-text-muted);
+}
+
+.achievement__state--done {
+ color: var(--color-primary-soft);
+}
+
+.achievement__state progress {
+ flex: 1;
+ max-width: 120px;
+ height: 6px;
+ accent-color: var(--color-primary);
+}
+
+.achievements__note,
+.achievements__reset {
+ margin-top: 18px;
+ font-size: 13px;
+ color: var(--color-text-muted);
+}
+
+.achievements__reset {
+ display: flex;
+ flex-wrap: wrap;
+ align-items: center;
+ gap: 10px;
+ margin-top: 8px;
+}
+
+.achievements__reset button {
+ padding: 7px 14px;
+ border: 1px solid rgba(255, 255, 255, 0.2);
+ border-radius: 999px;
+ background: none;
+ color: var(--color-text);
+ font: inherit;
+ font-size: 13px;
+ font-weight: 600;
+ cursor: pointer;
+}
+
+.achievements__reset button:disabled {
+ opacity: 0.4;
+ cursor: default;
+}
+
+.achievement-toast {
+ position: fixed;
+ top: calc(env(safe-area-inset-top) + 72px);
+ right: calc(env(safe-area-inset-right) + 14px);
+ z-index: 8;
+ display: flex;
+ align-items: center;
+ gap: 12px;
+ padding: 10px 18px 10px 12px;
+ border: 1px solid rgba(255, 139, 87, 0.5);
+ border-radius: 16px;
+ background: rgba(16, 12, 26, 0.92);
+ box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4);
+ pointer-events: none;
+ animation: achievement-in 4.2s ease both;
+}
+
+.achievement-toast p {
+ display: grid;
+}
+
+.achievement-toast span {
+ font-size: 11px;
+ font-weight: 600;
+ letter-spacing: 0.16em;
+ text-transform: uppercase;
+ color: var(--color-primary-soft);
+}
+
+.achievement-toast strong {
+ font-size: 1.3rem;
+ font-weight: 800;
+ font-stretch: 75%;
+ font-variation-settings: "wdth" 75;
+ line-height: 1.1;
+ text-transform: uppercase;
+}
+
+@keyframes achievement-in {
+ 0% {
+  opacity: 0;
+  transform: translateX(24px);
+ }
+ 8%,
+ 90% {
+  opacity: 1;
+  transform: none;
+ }
+ 100% {
+  opacity: 0;
+ }
+}
+
+@media (prefers-reduced-motion: reduce) {
+ .achievement-toast {
+  animation: achievement-fade 4.2s linear both;
+ }
+
+ @keyframes achievement-fade {
+  0%,
+  100% {
+   opacity: 0;
+  }
+  5%,
+  92% {
+   opacity: 1;
+  }
+ }
+}
+
+@media (max-width: 560px) {
+ .achievement-toast {
+  top: calc(env(safe-area-inset-top) + 122px);
+ }
 }

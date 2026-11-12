@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
+import { Tracker } from "./achievements/Tracker";
+import { Sounds } from "./audio/Sounds";
 import { Experience } from "./experience/Experience";
 import { useDesktopControls } from "./experience/useDesktopControls";
 import { emit } from "./experience/state";
+import { AchievementToast, AchievementsPanel } from "./ui/Achievements";
 import { ErrorBoundary, Fallback } from "./ui/Fallback";
 import { Hud } from "./ui/Hud";
 import { Loader } from "./ui/Loader";
 import { Modal } from "./ui/Modal";
 import { QuickMenu } from "./ui/QuickMenu";
 import { Sheet } from "./ui/Sheet";
+import { SoundToggle } from "./ui/SoundToggle";
 import { StartOverlay } from "./ui/StartOverlay";
 import { Flash } from "./ui/Flash";
 import { ThemeToggle } from "./ui/ThemeToggle";
@@ -33,6 +37,8 @@ function App() {
  // Portfolio legible abierto encima (menú rápido o modo directo): sección a mostrar.
  const [sheet, setSheet] = useState(null);
  const closeSheet = useCallback(() => setSheet(null), []);
+ const [achievements, setAchievements] = useState(false);
+ const closeAchievements = useCallback(() => setAchievements(false), []);
  const lastPointerType = useRef("mouse");
  const onReady = useCallback(() => setReady(true), []);
 
@@ -80,10 +86,15 @@ function App() {
     />
     {active && <Hud touch={touch} />}
     {active && touch && <TouchControls onPause={() => setActive(false)} />}
+    <Sounds active={active} />
     {active && <ThemeToggle />}
+    {active && <SoundToggle />}
     {active && <WoodyMenu />}
     {active && <Modal />}
-    {active && !sheet && <QuickMenu onOpen={setSheet} />}
+    {active && !sheet && !achievements && <QuickMenu onOpen={setSheet} onAchievements={() => setAchievements(true)} />}
+    {achievements && <AchievementsPanel onClose={closeAchievements} />}
+    <Tracker active={active} />
+    {active && <AchievementToast />}
     {sheet && (
      <Sheet
       section={sheet}

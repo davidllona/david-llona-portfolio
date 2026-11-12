@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { emit, events } from "../experience/state";
 import { setTheme, theme } from "../experience/theme";
 
 // Botón de día / noche. También se cambia con la tecla N.
@@ -8,6 +9,7 @@ export function ThemeToggle() {
  const toggle = () =>
   setNight((value) => {
    setTheme(value ? "day" : "night");
+   emit("theme");
    return !value;
   });
 
@@ -15,8 +17,14 @@ export function ThemeToggle() {
   const onKey = (event) => {
    if (event.code === "KeyN" && !event.repeat && !event.metaKey && !event.ctrlKey) toggle();
   };
+  // También puede cambiar desde el planeta (el telescopio).
+  const onTheme = () => setNight(theme.name === "night");
   window.addEventListener("keydown", onKey);
-  return () => window.removeEventListener("keydown", onKey);
+  events.addEventListener("theme", onTheme);
+  return () => {
+   window.removeEventListener("keydown", onKey);
+   events.removeEventListener("theme", onTheme);
+  };
  }, []);
 
  return (

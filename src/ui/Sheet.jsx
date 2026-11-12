@@ -1,43 +1,14 @@
 import { useEffect, useRef } from "react";
-import { releaseMovement, ui } from "../experience/state";
 import { SECTIONS } from "../content/sections";
 import { Portfolio } from "./Portfolio";
+import { useDialog } from "./useDialog";
 
 // Hoja que muestra el portfolio legible encima del planeta (o de la pantalla
 // de inicio). `section`: a cuál se desplaza al abrirse.
 export function Sheet({ section, onClose, onGuide }) {
+ const card = useRef(null);
  const scroller = useRef(null);
- const closeButton = useRef(null);
-
- // Mientras está abierta, el juego no recibe controles.
- useEffect(() => {
-  releaseMovement();
-  ui.open += 1;
-  const previous = document.activeElement;
-  closeButton.current?.focus();
-  const onKey = (event) => {
-   if (event.key === "Escape") onClose();
-   // El foco no sale de la hoja con el tabulador.
-   if (event.key === "Tab") {
-    const items = scroller.current.parentElement.querySelectorAll("a[href], button:not([disabled])");
-    const first = items[0];
-    const last = items[items.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-     event.preventDefault();
-     last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-     event.preventDefault();
-     first.focus();
-    }
-   }
-  };
-  window.addEventListener("keydown", onKey);
-  return () => {
-   ui.open -= 1;
-   window.removeEventListener("keydown", onKey);
-   previous?.focus?.();
-  };
- }, [onClose]);
+ useDialog(card, onClose);
 
  const go = (id, smooth = true) => {
   const target = scroller.current?.querySelector(`#${id}`);
@@ -50,7 +21,7 @@ export function Sheet({ section, onClose, onGuide }) {
 
  return (
   <div className="sheet" role="dialog" aria-modal="true" aria-label="Portfolio de David Llona" onClick={onClose}>
-   <div className="sheet__card" onClick={(event) => event.stopPropagation()}>
+   <div ref={card} className="sheet__card" onClick={(event) => event.stopPropagation()}>
     <header className="sheet__bar">
      <p className="sheet__name">
       David <span>Llona</span>
@@ -62,7 +33,7 @@ export function Sheet({ section, onClose, onGuide }) {
        </button>
       ))}
      </nav>
-     <button ref={closeButton} type="button" className="modal__close sheet__close" aria-label="Cerrar" onClick={onClose}>
+     <button type="button" className="modal__close sheet__close" aria-label="Cerrar" onClick={onClose}>
       ×
      </button>
     </header>

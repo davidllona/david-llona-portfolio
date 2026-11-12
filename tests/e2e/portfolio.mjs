@@ -35,7 +35,7 @@ check((await count(t, ".sheet")) === 0 && (await count(t, ".overlay:not(.overlay
 // Menú rápido dentro del juego.
 await t.enter();
 const labels = await t.evaluate(() => [...document.querySelectorAll(".quick button")].map((b) => b.textContent));
-check(labels.join("|") === "Proyectos|Sobre mí|CV|Contacto", `menú rápido: ${labels.join(" · ")}`);
+check(labels.join("|").startsWith("Proyectos|Sobre mí|CV|Contacto|Logros"), `menú rápido: ${labels.join(" · ")}`);
 await t.shot("portfolio-menu");
 await t.evaluate(() => [...document.querySelectorAll(".quick button")].find((b) => b.textContent === "Contacto").click());
 await wait(400);
@@ -87,7 +87,7 @@ t = await open({ mobile: true });
 await page.tap(".overlay__enter");
 await wait(600);
 const overlap = await t.evaluate(() => {
- const boxes = [".quick", ".woody-menu__button", ".theme-toggle", ".touch__pause"].map((s) => document.querySelector(s)?.getBoundingClientRect()).filter(Boolean);
+ const boxes = [".quick", ".woody-menu__button", ".theme-toggle", ".sound-toggle", ".touch__pause"].map((s) => document.querySelector(s)?.getBoundingClientRect()).filter(Boolean);
  return boxes.some((a, i) => boxes.some((b, j) => j > i && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom));
 });
 check(!overlap, "móvil horizontal: el menú rápido no pisa otros botones");

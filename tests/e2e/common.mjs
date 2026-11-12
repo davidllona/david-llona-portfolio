@@ -56,7 +56,8 @@ export async function open({ mobile = false, viewport, query = "", uncapped = fa
  // Cada prueba parte de cero: sin tema, ajustes ni logros guardados.
  await page.evaluateOnNewDocument(() => {
   try {
-   localStorage.clear();
+   // (Salvo que la prueba pida conservarlo, para comprobar que algo persiste.)
+   if (!sessionStorage.getItem("e2e-conservar")) localStorage.clear();
   } catch {
    // Sin almacenamiento no hay nada que limpiar.
   }

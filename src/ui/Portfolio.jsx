@@ -4,6 +4,7 @@ import { CV } from "../content/cv";
 import { DOSIA } from "../content/dosia";
 import { LAB_PROJECTS } from "../content/lab";
 import { PROJECTS } from "../content/projects";
+import { emit } from "../experience/state";
 import { SECTIONS } from "../content/sections";
 
 const external = { target: "_blank", rel: "noopener noreferrer" };
@@ -41,7 +42,7 @@ export function Portfolio({ onGuide }) {
           <li key={tag}>{tag}</li>
          ))}
         </ul>
-        <a className="modal__link" href={project.link} {...external}>
+        <a className="modal__link" href={project.link} {...external} onClick={() => emit("project-link", { id: project.id })}>
          Ver proyecto <span aria-hidden="true">→</span>
         </a>
        </div>

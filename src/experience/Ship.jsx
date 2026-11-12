@@ -102,9 +102,11 @@ export function Ship() {
   world.shipCollider.active = false;
   rig.shake = 0.5;
   emit("toast", { text: "¡Despegue!" });
+  emit("ship", { phase: "launch" });
  };
  const land = () => {
   flight.current = { ...flight.current, phase: "descending", time: 0 };
+  emit("ship", { phase: "land" });
  };
 
  const click = useInteractable({

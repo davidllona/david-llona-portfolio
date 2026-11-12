@@ -390,6 +390,21 @@ const PROPS = [
 ];
 
 // El mundo, con la interfaz que usan el jugador, Woody, la nave y los objetos.
+// Qué se pisa en (x, z), para el sonido de los pasos.
+function footing(x, z) {
+ if (bridgeHeight(x, z) !== null) return "wood";
+ if (inRect(x, z, COURT, 0) || distance(x, z, PAD.x, PAD.z) < PAD.padRadius) return "stone";
+ const kind = surface(x, z);
+ return kind === "rock" || kind === "bed" ? "stone" : kind;
+}
+// Cuánto se oye el agua en (x, z), de 0 a 1: la cascada llega lejos; el río y el mar, menos.
+function waterNear(x, z) {
+ const fall = 1 / (1 + (distance(x, z, WATERFALL.x, WATERFALL.z + 1.5) / 7) ** 2);
+ const river = 0.45 / (1 + (toPolyline(x, z, RIVER) / 4) ** 2);
+ const sea = 0.5 * smooth(-9, -1, Math.hypot(x, z) - shoreRadius(Math.atan2(z, x)));
+ return Math.min(1, Math.max(fall, river, sea));
+}
+
 export const living = {
  id: "living",
  name: "The Living World",
@@ -397,6 +412,17 @@ export const living = {
  waterLevel: WATER_LEVEL,
  height,
  blocked,
+ surface: footing,
+ waterNear,
+ // Zonas que cuentan para el logro «Explorador».
+ areas: [
+  { id: "proyectos", x: -24, z: -1, r: 9 },
+  { id: "contacto", x: CONTACT.x, z: CONTACT.z + 1, r: 6 },
+  { id: "sobre-mi", x: TREEHOUSE.x + 1.5, z: TREEHOUSE.z + 3, r: 5.5 },
+  { id: "observatorio", x: OBSERVATORY.x, z: OBSERVATORY.z + 2.5, r: 5 },
+  { id: "cascada", x: POND.x, z: POND.z + 1, r: 7 },
+  { id: "deportes", x: (COURT.x0 + COURT.x1) / 2, z: (COURT.z0 + COURT.z1) / 2, r: 7 },
+ ],
  colliders,
  ship: PAD,
  shipCollider,

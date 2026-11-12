@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "e2e": "node tests/e2e/living.mjs && node tests/e2e/characters.mjs && node tests/e2e/portfolio.mjs && node tests/e2e/progress.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

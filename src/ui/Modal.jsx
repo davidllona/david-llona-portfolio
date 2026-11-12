@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { events, releaseMovement, ui } from "../experience/state";
+import { emit, events, releaseMovement, ui } from "../experience/state";
 
 // Ficha que se abre al pulsar un cartel o un objeto del planeta (evento "open").
 export function Modal() {
@@ -24,6 +24,7 @@ export function Modal() {
   ui.open += 1;
   return () => {
    ui.open -= 1;
+   emit("close");
   };
  }, [isOpen]);
 

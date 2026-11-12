@@ -32,12 +32,20 @@ const PILLARS = [
  { x: hoop.x + 0.6, z: hoop.z, r: 0.14, h: 4.4 },
 ];
 
+// Rebota contra una superficie de normal (nx, ny, nz). Devuelve la velocidad
+// del impacto en m/s (0 si ya se estaba alejando).
 function bounce(velocity, nx, ny, nz, restitution) {
  const along = velocity.x * nx + velocity.y * ny + velocity.z * nz;
- if (along >= 0) return;
+ if (along >= 0) return 0;
  velocity.x -= (1 + restitution) * along * nx;
  velocity.y -= (1 + restitution) * along * ny;
  velocity.z -= (1 + restitution) * along * nz;
+ return -along;
+}
+
+// Avisa de un golpe para que suene, con su sitio y su fuerza (0–1).
+function hit(id, at, strength) {
+ if (strength > 0.06) emit("sound", { id, x: at.x, z: at.z, strength });
 }
 
 // Un paso de física: gravedad, suelo, tablero, aro y pilares. Devuelve true si
@@ -51,6 +59,7 @@ function stepBall(p, v, dt) {
  const floor = Math.max(terrainHeight(p.x, p.z), WATER_LEVEL) + BALL_RADIUS;
  if (p.y < floor) {
   p.y = floor;
+  if (v.y < -0.9) hit("ball-floor", p, -v.y / 7);
   v.y = v.y < -0.9 ? -v.y * 0.72 : 0;
   const grip = Math.exp(-1.3 * dt); // rodadura
   v.x *= grip;
@@ -65,7 +74,7 @@ function stepBall(p, v, dt) {
  let d = Math.hypot(ox, oy, oz);
  if (d < BALL_RADIUS && d > 1e-5) {
   p.set(cx + (ox / d) * BALL_RADIUS, cy + (oy / d) * BALL_RADIUS, cz + (oz / d) * BALL_RADIUS);
-  bounce(v, ox / d, oy / d, oz / d, 0.6);
+  hit("ball-board", p, bounce(v, ox / d, oy / d, oz / d, 0.6) / 6);
  }
 
  // Aro: punto más cercano de la circunferencia.
@@ -81,7 +90,7 @@ function stepBall(p, v, dt) {
  const reach = BALL_RADIUS + 0.02;
  if (d < reach && d > 1e-5) {
   p.set(qx + (ox / d) * reach, RIM.y + (oy / d) * reach, qz + (oz / d) * reach);
-  bounce(v, ox / d, oy / d, oz / d, 0.5);
+  hit("ball-rim", p, bounce(v, ox / d, oy / d, oz / d, 0.5) / 5);
  }
  // Canasta: el centro cruza el plano del aro hacia abajo, por dentro.
  if (previousY > RIM.y && p.y <= RIM.y && v.y < 0 && flat < RIM_RADIUS - 0.03) scored = true;
@@ -95,7 +104,7 @@ function stepBall(p, v, dt) {
   if (distance >= limit || distance < 1e-5) continue;
   p.x = pillar.x + (px / distance) * limit;
   p.z = pillar.z + (pz / distance) * limit;
-  bounce(v, px / distance, 0, pz / distance, 0.55);
+  hit("ball-post", p, bounce(v, px / distance, 0, pz / distance, 0.55) / 5);
  }
  return scored;
 }
@@ -130,6 +139,7 @@ function Ball() {
 
  const grab = () => {
   ball.current.mode = "held";
+  emit("sound", { id: "ball-grab" });
  };
 
  const shoot = () => {
@@ -156,6 +166,7 @@ function Ball() {
   b.mode = "free";
   b.untouchable = 0.5;
   b.idle = 0;
+  emit("sound", { id: "ball-throw" });
  };
 
  const grabClick = useInteractable({
