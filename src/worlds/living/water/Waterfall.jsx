@@ -2,58 +2,38 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { createGlowTexture } from "../../../experience/textures";
+import { mix, smoothstep, step, uv, vec2, vec3 } from "three/tsl";
+import { unlit } from "../../../experience/materials";
 import { current, uniforms } from "../../../experience/theme";
 import { PLATEAU, STREAM, STREAM_LEVEL, WATERFALL, WATER_LEVEL } from "../layout";
-import { CELLS } from "./glsl";
+import { cells } from "./nodes";
 
 // Agua que corre por una cinta: el arroyo de la meseta y las láminas de la
 // cascada. uv.x cruza la cinta y uv.y la recorre (0 arriba, 1 abajo).
-//  · `uFall`: 0 = arroyo tumbado, 1 = lámina que cae (más blanca, borde dentado).
-const FLOW_SHADER = {
- vertexShader: /* glsl */ `
-  varying vec2 vUv;
-  void main() {
-   vUv = uv;
-   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }`,
- fragmentShader: /* glsl */ `
-  uniform vec3 uWaterShallow;
-  uniform vec3 uWaterDeep;
-  uniform float uTime;
-  uniform float uNight;
-  uniform float uSpeed;
-  uniform float uLength;
-  uniform float uWidth;
-  uniform float uFall;
-  uniform float uWhite;
-  uniform float uSeed;
-  varying vec2 vUv;
-  ${CELLS}
-
-  void main() {
-   float across = vUv.x - 0.5;
-   float along = vUv.y * uLength;
-   // Celdas estiradas en el sentido de la corriente: hilos de agua que bajan.
-   vec2 threads = cells(vec2(vUv.x * uWidth * 1.5 + uSeed, along * mix(0.5, 0.28, uFall) - uTime * uSpeed), 0.0);
-   float lines = smoothstep(mix(0.09, 0.16, uFall), 0.0, threads.y);
-   float clumps = smoothstep(0.25, 0.6, threads.x);
-
-   // Borde: en la cascada se deshilacha; en el arroyo es espuma contra la orilla.
-   float ragged = cells(vec2(along * 1.3 - uTime * uSpeed * 2.0, uSeed), 0.0).x * 0.13 * uFall;
-   float edge = abs(across) + ragged;
-   if (edge > 0.5) discard;
-   float rim = smoothstep(0.34, 0.48, edge);
-
-   // Cuerpo de agua de color, en dos tonos, y por encima los hilos blancos.
-   vec3 base = mix(uWaterShallow, uWaterDeep, mix(0.42, 0.3, uFall) + 0.2 * clumps);
-   float white = clamp(lines * 0.8 + rim * mix(0.6, 0.3, uFall) + uWhite, 0.0, 1.0);
-   // La caída gana espuma en el último tramo y revienta al llegar.
-   white = clamp(white + uFall * smoothstep(0.78, 1.0, vUv.y) * 0.7, 0.0, 1.0);
-   vec3 foam = mix(vec3(1.0), vec3(0.62, 0.78, 1.0), uNight * 0.75);
-   vec3 color = mix(base, foam, white);
-   gl_FragColor = vec4(color, mix(0.9, 0.97, white));
-  }`,
-};
+//  · fall: 0 = arroyo tumbado, 1 = lámina que cae (más blanca, borde dentado).
+function flowMaterial({ speed, length, width, fall = 0, white = 0, seed = 0 }) {
+ const { uTime, uWaterShallow, uWaterDeep, uNight } = uniforms;
+ const across = uv().x.sub(0.5);
+ const along = uv().y.mul(length);
+ // Celdas estiradas en el sentido de la corriente: hilos de agua que bajan.
+ const threads = cells(vec2(uv().x.mul(width * 1.5).add(seed), along.mul(fall ? 0.28 : 0.5).sub(uTime.mul(speed))), 0);
+ const lines = smoothstep(fall ? 0.16 : 0.09, 0, threads.y);
+ const clumps = smoothstep(0.25, 0.6, threads.x);
+ // Borde: en la cascada se deshilacha; en el arroyo es espuma contra la orilla.
+ const ragged = cells(vec2(along.mul(1.3).sub(uTime.mul(speed * 2)), seed), 0).x.mul(0.13 * fall);
+ const edge = across.abs().add(ragged);
+ const rim = smoothstep(0.34, 0.48, edge);
+ // Cuerpo de agua de color, en dos tonos, y por encima los hilos blancos.
+ const base = mix(uWaterShallow, uWaterDeep, clumps.mul(0.2).add(fall ? 0.3 : 0.42));
+ let foam = lines.mul(0.8).add(rim.mul(fall ? 0.3 : 0.6)).add(white);
+ // La caída gana espuma en el último tramo y revienta al llegar.
+ if (fall) foam = foam.add(smoothstep(0.78, 1, uv().y).mul(0.7));
+ foam = foam.clamp(0, 1);
+ const material = unlit({ transparent: true, depthWrite: false, side: THREE.DoubleSide });
+ material.colorNode = mix(base, mix(vec3(1), vec3(0.62, 0.78, 1), uNight.mul(0.75)), foam);
+ material.opacityNode = mix(0.9, 0.97, foam).mul(step(edge, 0.5));
+ return material;
+}
 
 // Cinta que sigue una línea de puntos 3D; uv.y recorre su largo (0–1).
 // `columns`: divisiones a lo ancho; con `bulge` la cinta se abomba hacia fuera.
@@ -88,26 +68,6 @@ function ribbon(points, width, { columns = 1, bulge = 0 } = {}) {
  geometry.setIndex(indices);
  return { geometry, length: total };
 }
-
-const flowMaterial = ({ speed, length, width, fall = 0, white = 0, seed = 0 }) =>
- new THREE.ShaderMaterial({
-  ...FLOW_SHADER,
-  transparent: true,
-  depthWrite: false,
-  side: THREE.DoubleSide,
-  uniforms: {
-   uWaterShallow: uniforms.uWaterShallow,
-   uWaterDeep: uniforms.uWaterDeep,
-   uTime: uniforms.uTime,
-   uNight: uniforms.uNight,
-   uSpeed: { value: speed },
-   uLength: { value: length },
-   uWidth: { value: width },
-   uFall: { value: fall },
-   uWhite: { value: white },
-   uSeed: { value: seed },
-  },
- });
 
 // Láminas de la cascada, de atrás adelante: [desplazamiento lateral, ancho,
 // cuánto sobresale, velocidad, blancura extra].

@@ -1,128 +1,104 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
+import { attribute, cameraPosition, cross, dFdx, dFdy, dot, floor, fract, max, mix, positionGeometry, positionWorld, pow, sin, smoothstep, step, varying, vec2, vec3 } from "three/tsl";
+import { unlit } from "../../../experience/materials";
 import { uniforms } from "../../../experience/theme";
 import { POND, RIVER, SCATTER, WATERFALL, WATER_LEVEL, groundHeight } from "../layout";
-import { CELLS } from "./glsl";
+import { cells } from "./nodes";
 
 // El agua de la isla: mar, río y estanque en un único plano al nivel del agua.
 // Cada vértice lleva la profundidad del fondo bajo él (el agua aparece sola
 // donde el suelo queda por debajo), la corriente del río y lo cerca que tiene
-// una roca. Con eso el sombreador hace todo lo demás:
+// una roca. Con eso el material (nodos TSL) hace todo lo demás:
 //  · oleaje por vértice y caras facetadas que brillan al sol o a la luna;
 //  · tono por bandas de profundidad;
 //  · dibujo de celdas claras que deriva (y corre río abajo);
 //  · espuma irregular en orillas, alrededor de las rocas y donde cae la cascada.
-const SHADER = {
- vertexShader: /* glsl */ `
-  uniform float uTime;
-  attribute float depth;
-  attribute vec2 flow;
-  attribute float rock;
-  varying float vDepth;
-  varying float vRock;
-  varying vec2 vFlow;
-  varying vec2 vPos;
-  varying vec3 vWorld;
-  void main() {
-   vec3 p = position;
-   float fromCentre = length(p.xz);
-   // Mar de fondo en mar abierto; apenas un temblor en río y estanque. En el
-   // borde de la rejilla se anula para casar con el marco exterior, que es plano.
-   float open = smoothstep(40.0, 54.0, fromCentre);
-   float amplitude = mix(0.028, 0.15, open) * smoothstep(-0.2, 1.0, depth) * (1.0 - smoothstep(50.0, 57.0, max(abs(p.x), abs(p.z))));
-   p.y += amplitude * (sin(p.x * 0.34 + uTime * 0.9) + sin(p.z * 0.41 - uTime * 0.7 + p.x * 0.12) + 0.5 * sin((p.x + p.z) * 0.9 + uTime * 1.6));
-   vDepth = depth + p.y;
-   vRock = rock;
-   vFlow = flow;
-   vPos = p.xz;
-   vec4 world = modelMatrix * vec4(p, 1.0);
-   vWorld = world.xyz;
-   gl_Position = projectionMatrix * viewMatrix * world;
-  }`,
- fragmentShader: /* glsl */ `
-  uniform vec3 uWaterShallow;
-  uniform vec3 uWaterDeep;
-  uniform vec3 uSkyHorizon;
-  uniform vec3 uSunColor;
-  uniform vec3 uSunDirection;
-  uniform float uTime;
-  uniform float uSpace;
-  uniform float uNight;
-  uniform vec3 uFall; // x, z de la caída de la cascada y radio de sus ondas
-  varying float vDepth;
-  varying float vRock;
-  varying vec2 vFlow;
-  varying vec2 vPos;
-  varying vec3 vWorld;
-  ${CELLS}
+function createMaterial() {
+ const { uTime, uWaterShallow, uWaterDeep, uSkyHorizon, uSunColor, uSunDirection, uSpace, uNight } = uniforms;
+ const fall = vec2(WATERFALL.x, WATERFALL.z + 1.5);
+ const bed = attribute("depth", "float");
+ const flow = attribute("flow", "vec2");
+ const rock = attribute("rock", "float");
 
-  void main() {
-   if (vDepth < -0.03) discard;
-   float fromCentre = length(vPos);
-   float current = length(vFlow);
-   vec3 normal = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
-   if (normal.y < 0.0) normal = -normal;
-   vec3 toEye = normalize(cameraPosition - vWorld);
+ // ── Vértices: oleaje ──
+ // Mar de fondo en mar abierto; apenas un temblor en río y estanque. En el
+ // borde de la rejilla se anula para casar con el marco exterior, que es plano.
+ const p = positionGeometry;
+ const open = smoothstep(40, 54, p.xz.length());
+ const edge = smoothstep(50, 57, max(p.x.abs(), p.z.abs())).oneMinus();
+ const amplitude = mix(0.028, 0.15, open).mul(smoothstep(-0.2, 1, bed)).mul(edge);
+ const swell = sin(p.x.mul(0.34).add(uTime.mul(0.9)))
+  .add(sin(p.z.mul(0.41).sub(uTime.mul(0.7)).add(p.x.mul(0.12))))
+  .add(sin(p.x.add(p.z).mul(0.9).add(uTime.mul(1.6))).mul(0.5));
+ const lift = amplitude.mul(swell);
+ const depth = varying(bed.add(lift));
 
-   // Tono por bandas de profundidad, con el contorno algo ondulado.
-   float wavy = vDepth + 0.16 * sin(vPos.x * 0.7 + uTime * 0.3) * sin(vPos.y * 0.6 - uTime * 0.25);
-   float deep = clamp(wavy / 1.7, 0.0, 1.0);
-   float banded = (floor(deep * 4.0) + smoothstep(0.7, 1.0, fract(deep * 4.0))) / 4.0;
-   vec3 color = mix(uWaterShallow, uWaterDeep, banded);
+ // ── Fragmentos ──
+ const pos = positionWorld.xz;
+ const fromCentre = pos.length();
+ const current = flow.length();
+ // Normal de cada cara, a partir de la superficie ya movida: da el facetado.
+ const facet = cross(dFdx(positionWorld), dFdy(positionWorld)).normalize();
+ const normal = facet.mul(facet.y.sign());
+ const toEye = cameraPosition.sub(positionWorld).normalize();
 
-   // Dibujo de celdas: deriva despacio; en el río corre aguas abajo y se estira.
-   vec2 drift = current > 0.01 ? vFlow * uTime * 1.5 : vec2(uTime * 0.06, uTime * 0.035);
-   vec2 pattern = cells((vPos - drift) * 0.5, uTime * 0.45);
-   float lines = smoothstep(0.05, 0.0, pattern.y) * (1.0 - smoothstep(70.0, 110.0, fromCentre));
-   color += lines * (0.075 + 0.1 * current) * mix(vec3(1.0), uSunColor, 0.4) * (1.0 - 0.45 * uNight);
+ // Tono por bandas de profundidad, con el contorno algo ondulado.
+ const wavy = depth.add(sin(pos.x.mul(0.7).add(uTime.mul(0.3))).mul(sin(pos.y.mul(0.6).sub(uTime.mul(0.25)))).mul(0.16));
+ const deep = wavy.div(1.7).clamp(0, 1);
+ const banded = floor(deep.mul(4)).add(smoothstep(0.7, 1, fract(deep.mul(4)))).div(4);
+ let color = mix(uWaterShallow, uWaterDeep, banded);
 
-   // Luz: cada cara recibe distinto y algunas devuelven un destello.
-   color *= 0.84 + 0.26 * max(dot(normal, uSunDirection), 0.0);
-   float glint = pow(max(dot(normal, normalize(uSunDirection + toEye)), 0.0), 120.0);
-   color += uSunColor * step(0.3, glint) * (0.4 + 0.3 * uNight);
-   float grazing = pow(1.0 - max(dot(normal, toEye), 0.0), 3.0);
-   color = mix(color, uSkyHorizon, grazing * 0.4);
+ // Dibujo de celdas: deriva despacio; en el río corre aguas abajo.
+ const drift = mix(vec2(uTime.mul(0.06), uTime.mul(0.035)), flow.mul(uTime).mul(1.5), step(0.01, current));
+ const pattern = cells(pos.sub(drift).mul(0.5), uTime.mul(0.45));
+ const lines = smoothstep(0.05, 0, pattern.y).mul(smoothstep(110, 70, fromCentre));
+ color = color.add(mix(vec3(1), uSunColor, 0.4).mul(lines).mul(current.mul(0.1).add(0.075)).mul(uNight.mul(0.45).oneMinus()));
 
-   // Espuma. El ruido rompe el borde para que no sea una línea de regla.
-   vec2 foamNoise = cells(vPos * 1.7 + vec2(uTime * 0.1, -uTime * 0.07), uTime * 0.8);
-   float ragged = foamNoise.x * 0.09;
-   // Máscara suave que rompe las líneas de espuma en tramos.
-   float broken = smoothstep(-0.25, 0.1, sin(vPos.x * 2.1 + uTime * 0.3) * sin(vPos.y * 1.7 - uTime * 0.22));
-   float foam = 1.0 - smoothstep(0.0, 0.06, vDepth - ragged + 0.03);
-   // Segunda línea, a trozos, que se acerca a la orilla y se deshace.
-   float swell = fract(vDepth * 1.5 - uTime * 0.14);
-   foam = max(foam, smoothstep(0.0, 0.05, swell) * (1.0 - smoothstep(0.05, 0.15, swell)) * (1.0 - smoothstep(0.25, 1.3, vDepth)) * broken * 0.8);
-   // Alrededor de las rocas que asoman.
-   foam = max(foam, (1.0 - smoothstep(0.06, 0.3, vRock - ragged)) * step(-0.35, vRock));
+ // Luz: cada cara recibe distinto y algunas devuelven un destello.
+ color = color.mul(max(dot(normal, uSunDirection), 0).mul(0.26).add(0.84));
+ const glint = pow(max(dot(normal, uSunDirection.add(toEye).normalize()), 0), 120);
+ color = color.add(uSunColor.mul(step(0.3, glint)).mul(uNight.mul(0.3).add(0.4)));
+ const grazing = pow(max(dot(normal, toEye), 0).oneMinus(), 3);
+ color = mix(color, uSkyHorizon, grazing.mul(0.4));
 
-   // Corriente del río: jirones de espuma estirados que bajan con el agua.
-   if (current > 0.01) {
-    vec2 dir = vFlow / current;
-    vec2 along = vec2(dot(vPos, dir) * 0.22 - uTime * 0.6, dot(vPos, vec2(-dir.y, dir.x)) * 1.9);
-    vec2 streaks = cells(along, 0.0);
-    // Solo algunos hilos, y solo en el centro del cauce.
-    float patchy = step(0.55, cells(along * 0.35 + 3.7, 0.0).x);
-    foam = max(foam, smoothstep(0.05, 0.0, streaks.y) * patchy * current * 0.6);
-   }
+ // Espuma. El ruido rompe el borde para que no sea una línea de regla.
+ const foamNoise = cells(pos.mul(1.7).add(vec2(uTime.mul(0.1), uTime.mul(-0.07))), uTime.mul(0.8));
+ const ragged = foamNoise.x.mul(0.09);
+ // Máscara suave que rompe las líneas de espuma en tramos.
+ const broken = smoothstep(-0.25, 0.1, sin(pos.x.mul(2.1).add(uTime.mul(0.3))).mul(sin(pos.y.mul(1.7).sub(uTime.mul(0.22)))));
+ let foam = smoothstep(0, 0.06, depth.sub(ragged).add(0.03)).oneMinus();
+ // Bandas que siguen la profundidad y se acercan a la orilla (idea de folio-2025).
+ const band = fract(depth.mul(1.5).sub(uTime.mul(0.14)));
+ foam = max(foam, smoothstep(0, 0.05, band).mul(smoothstep(0.15, 0.05, band)).mul(smoothstep(1.3, 0.25, depth)).mul(broken).mul(0.8));
+ // Alrededor de las rocas que asoman.
+ foam = max(foam, smoothstep(0.3, 0.06, rock.sub(ragged)).mul(step(-0.35, rock)));
+ // Corriente del río: jirones de espuma estirados que bajan con el agua.
+ const dir = flow.div(current.max(0.0001));
+ const along = vec2(dot(pos, dir).mul(0.22).sub(uTime.mul(0.6)), dot(pos, vec2(dir.y.negate(), dir.x)).mul(1.9));
+ const streaks = cells(along, 0);
+ const patchy = step(0.55, cells(along.mul(0.35).add(3.7), 0).x);
+ foam = max(foam, smoothstep(0.05, 0, streaks.y).mul(patchy).mul(current).mul(0.6));
+ // Donde cae la cascada: agua batida y anillos que se abren.
+ const fromFall = pos.sub(fall).length();
+ const rings = sin(fromFall.mul(5).sub(uTime.mul(4.5))).mul(0.5).add(0.5);
+ foam = max(foam, smoothstep(1.5, 0.5, fromFall.add(foamNoise.x.mul(0.9))));
+ foam = max(foam, smoothstep(0.62, 0.9, rings).mul(smoothstep(POND.r, 1.2, fromFall)).mul(broken).mul(0.6));
+ foam = foam.clamp(0, 1);
+ color = mix(color, mix(vec3(1), vec3(0.62, 0.78, 1), uNight.mul(0.75)), foam.mul(0.94));
 
-   // Donde cae la cascada: agua batida y anillos que se abren.
-   float fromFall = distance(vPos, uFall.xy);
-   float churn = (1.0 - smoothstep(0.5, 1.5, fromFall + foamNoise.x * 0.9));
-   float rings = sin(fromFall * 5.0 - uTime * 4.5) * 0.5 + 0.5;
-   foam = max(foam, churn);
-   foam = max(foam, smoothstep(0.62, 0.9, rings) * (1.0 - smoothstep(1.2, uFall.z, fromFall)) * broken * 0.6);
+ let alpha = max(mix(0.7, 0.96, deep), foam);
+ // El mar se funde con el horizonte; desde la nave se recoge alrededor de la isla.
+ alpha = alpha.mul(smoothstep(170, 105, fromCentre)).mul(uSpace.mul(smoothstep(60, 94, fromCentre)).oneMinus());
+ // Donde el fondo asoma por encima del agua no se pinta nada.
+ alpha = alpha.mul(step(-0.03, depth));
 
-   foam = clamp(foam, 0.0, 1.0);
-   vec3 foamColor = mix(vec3(1.0), vec3(0.62, 0.78, 1.0), uNight * 0.75);
-   color = mix(color, foamColor, foam * 0.94);
-
-   float alpha = max(mix(0.7, 0.96, deep), foam);
-   // El mar se funde con el horizonte; desde la nave se recoge alrededor de la isla.
-   alpha *= 1.0 - smoothstep(105.0, 170.0, fromCentre);
-   alpha *= 1.0 - uSpace * smoothstep(60.0, 94.0, fromCentre);
-   gl_FragColor = vec4(color, alpha);
-  }`,
-};
+ const material = unlit({ transparent: true, depthWrite: false });
+ material.positionNode = positionGeometry.add(vec3(0, lift, 0));
+ material.colorNode = color;
+ material.opacityNode = alpha;
+ return material;
+}
 
 const GRID = 116; // metros de lado del plano detallado
 const CELLS_PER_SIDE = 232; // celdas de medio metro: orillas finas y oleaje facetado menudo
@@ -183,26 +159,7 @@ function createGeometries() {
 
 export function Water() {
  const geometries = useMemo(createGeometries, []);
- const material = useMemo(
-  () =>
-   new THREE.ShaderMaterial({
-    ...SHADER,
-    transparent: true,
-    depthWrite: false,
-    uniforms: {
-     uWaterShallow: uniforms.uWaterShallow,
-     uWaterDeep: uniforms.uWaterDeep,
-     uSkyHorizon: uniforms.uSkyHorizon,
-     uSunColor: uniforms.uSunColor,
-     uSunDirection: uniforms.uSunDirection,
-     uTime: uniforms.uTime,
-     uSpace: uniforms.uSpace,
-     uNight: uniforms.uNight,
-     uFall: { value: new THREE.Vector3(WATERFALL.x, WATERFALL.z + 1.5, POND.r) },
-    },
-   }),
-  [],
- );
+ const material = useMemo(createMaterial, []);
  useEffect(
   () => () => {
    geometries.forEach((geometry) => geometry.dispose());

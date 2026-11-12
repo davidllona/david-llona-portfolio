@@ -1,7 +1,9 @@
 import { useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
+import { updateTrail } from "./environment/trail";
+import { updateWind } from "./environment/wind";
 import { player, rig, woody } from "./state";
-import { current, sunDirection, uniforms, updateTheme } from "./theme";
+import { current, sunDirection, updateTheme } from "./theme";
 
 const SHADOW_REACH = 38; // m alrededor del jugador con sombras
 
@@ -13,10 +15,21 @@ export function Lights({ shadowMapSize }) {
  const hemisphere = useRef(null);
  const sun = useRef(null);
  const scene = useThree((state) => state.scene);
+ const woodyStep = useRef({ x: 0, z: 0 });
 
  useFrame(({ clock }, delta) => {
   updateTheme(Math.min(delta, 0.05), clock.elapsedTime);
-  uniforms.uActors.value.set(player.position.x, player.position.z, woody.position.x, woody.position.z);
+  const dt = Math.min(delta, 0.05);
+  updateWind(dt);
+  // Rastro que aparta la vegetación: el astronauta y Woody, con su velocidad.
+  const dog = woodyStep.current;
+  const dogVx = dt > 0 ? (woody.position.x - dog.x) / dt : 0, dogVz = dt > 0 ? (woody.position.z - dog.z) / dt : 0;
+  dog.x = woody.position.x;
+  dog.z = woody.position.z;
+  updateTrail(dt, [
+   ...(player.hidden ? [] : [{ x: player.position.x, z: player.position.z, vx: player.velocity.x, vz: player.velocity.z, strength: player.grounded ? 1 : 0 }]),
+   { x: woody.position.x, z: woody.position.z, vx: dogVx, vz: dogVz, strength: player.hidden ? 0 : 0.8 },
+  ]);
   hemisphere.current.color.copy(current.hemiSky);
   hemisphere.current.groundColor.copy(current.hemiGround);
   hemisphere.current.intensity = current.hemiPower;

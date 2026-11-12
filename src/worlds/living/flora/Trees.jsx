@@ -1,7 +1,8 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { Instances } from "../../../experience/Instances";
-import { addSway } from "../../../experience/theme";
+import { WIND, withWind } from "../../../experience/environment/wind";
+import { lambert } from "../../../experience/materials";
 import { ANCIENT_TREES, SCATTER, groundHeight } from "../layout";
 import { ancient, createTreeModels } from "./treeModels";
 
@@ -13,7 +14,8 @@ const TINTS = ["#ffffff", "#f1fbe9", "#fff6e2", "#e9f4f0", "#fbf2ee"];
 export function Trees() {
  const models = useMemo(createTreeModels, []);
  const old = useMemo(() => ancient(0.42), []);
- const material = useMemo(() => addSway(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide }), 0.02, "tall"), []);
+ // El tronco apenas cede; la copa, arriba, se mueve más.
+ const material = useMemo(() => withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.tree, power: 2, cap: 6 }), []);
  useEffect(
   () => () => {
    Object.values(models).flat().forEach((geometry) => geometry.dispose());

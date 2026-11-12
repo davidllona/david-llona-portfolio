@@ -3,7 +3,8 @@ export function hasWebGL() {
  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("webgl") === "0") return false;
  try {
   const canvas = document.createElement("canvas");
-  return Boolean(canvas.getContext("webgl2") || canvas.getContext("webgl"));
+  // El renderer es WebGPU y, si no lo hay, cae a WebGL2. Con WebGL 1 no funciona.
+  return Boolean(navigator.gpu || canvas.getContext("webgl2"));
  } catch {
   return false;
  }

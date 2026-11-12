@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
+import { attribute, cos, positionLocal, pow, sin, vec3 } from "three/tsl";
+import { unlit } from "../../experience/materials";
 import { emit, events, player } from "../../experience/state";
 import { startGust, uniforms } from "../../experience/theme";
 import { POND, SCATTER, WATER_LEVEL, height } from "./layout";
@@ -222,65 +224,48 @@ function Fish({ count = 7 }) {
 }
 
 // ── Luciérnagas ─────────────────────────────────────────────────────────────
-// Solo de noche. Puntos que flotan y parpadean, movidos en el sombreador.
+// Solo de noche. Motas de luz que flotan y parpadean; todo el movimiento se
+// calcula en la GPU a partir de una semilla por instancia.
 function Fireflies({ count = 170 }) {
+ const mesh = useRef(null);
  const geometry = useMemo(() => {
   const random = seeded(1234);
-  const positions = new Float32Array(count * 3);
   const seeds = new Float32Array(count);
+  for (let i = 0; i < count; i++) seeds[i] = random() * 100;
+  const result = new THREE.OctahedronGeometry(0.055, 0);
+  result.setAttribute("seed", new THREE.InstancedBufferAttribute(seeds, 1));
+  return result;
+ }, [count]);
+ const material = useMemo(() => {
+  const { uTime, uGlow } = uniforms;
+  const seed = attribute("seed", "float");
+  const result = unlit({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+  result.positionNode = positionLocal.add(vec3(sin(uTime.mul(0.5).add(seed)).mul(0.9), sin(uTime.mul(0.8).add(seed.mul(1.7))).mul(0.45), cos(uTime.mul(0.4).add(seed.mul(0.6))).mul(0.9)));
+  const blink = pow(sin(uTime.mul(2.2).add(seed.mul(3))).mul(0.5).add(0.5), 3).mul(0.65).add(0.35);
+  // Por encima del blanco: el resplandor del posproceso las hace brillar.
+  result.colorNode = vec3(2.6, 2.2, 0.7).mul(blink);
+  result.opacityNode = uGlow;
+  return result;
+ }, []);
+ useEffect(() => {
+  const random = seeded(77);
+  const helper = new THREE.Object3D();
   for (let i = 0; i < count; i++) {
    const angle = random() * Math.PI * 2;
    const radius = 6 + Math.sqrt(random()) * 34;
    const x = Math.cos(angle) * radius;
    const z = Math.sin(angle) * radius;
-   positions.set([x, Math.max(height(x, z), WATER_LEVEL) + 0.6 + random() * 2.2, z], i * 3);
-   seeds[i] = random() * 100;
+   helper.position.set(x, Math.max(height(x, z), WATER_LEVEL) + 0.6 + random() * 2.2, z);
+   helper.updateMatrix();
+   mesh.current.setMatrixAt(i, helper.matrix);
   }
-  const result = new THREE.BufferGeometry();
-  result.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  result.setAttribute("seed", new THREE.BufferAttribute(seeds, 1));
-  return result;
- }, [count]);
- const material = useMemo(
-  () =>
-   new THREE.ShaderMaterial({
-    uniforms: { uTime: uniforms.uTime, uGlow: uniforms.uGlow },
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    vertexShader: `
-     attribute float seed;
-     uniform float uTime;
-     varying float vBlink;
-     void main() {
-      vec3 p = position;
-      p.x += sin(uTime * 0.5 + seed) * 0.9;
-      p.y += sin(uTime * 0.8 + seed * 1.7) * 0.45;
-      p.z += cos(uTime * 0.4 + seed * 0.6) * 0.9;
-      vBlink = 0.35 + 0.65 * pow(0.5 + 0.5 * sin(uTime * 2.2 + seed * 3.0), 3.0);
-      vec4 view = modelViewMatrix * vec4(p, 1.0);
-      gl_Position = projectionMatrix * view;
-      gl_PointSize = 95.0 / -view.z;
-     }`,
-    fragmentShader: `
-     uniform float uGlow;
-     varying float vBlink;
-     void main() {
-      float d = length(gl_PointCoord - 0.5);
-      float glow = smoothstep(0.5, 0.0, d);
-      gl_FragColor = vec4(vec3(1.9, 1.7, 0.55) * glow, glow * vBlink * uGlow);
-     }`,
-   }),
-  [],
- );
- useEffect(
-  () => () => {
+  mesh.current.instanceMatrix.needsUpdate = true;
+  return () => {
    geometry.dispose();
    material.dispose();
-  },
-  [geometry, material],
- );
- return <points geometry={geometry} material={material} frustumCulled={false} />;
+  };
+ }, [count, geometry, material]);
+ return <instancedMesh ref={mesh} args={[geometry, material, count]} frustumCulled={false} />;
 }
 
 // ── Pétalos ─────────────────────────────────────────────────────────────────

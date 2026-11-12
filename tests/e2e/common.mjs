@@ -36,6 +36,9 @@ export async function open({ mobile = false, viewport, query = "", uncapped = fa
    "--enable-gpu",
    "--use-angle=metal",
    "--ignore-gpu-blocklist",
+   // WebGPU en Chrome sin ventana.
+   "--enable-unsafe-webgpu",
+   "--enable-features=WebGPU",
    ...(uncapped ? ["--disable-frame-rate-limit", "--disable-gpu-vsync"] : []),
   ],
  });
@@ -63,7 +66,9 @@ export async function open({ mobile = false, viewport, query = "", uncapped = fa
   }
  });
  await page.goto(BASE + query, { waitUntil: "load", timeout: 60000 });
- await page.waitForFunction(() => !document.querySelector(".loader"), { timeout: 40000 });
+ const startedAt = Date.now();
+ await page.waitForFunction(() => !document.querySelector(".loader"), { timeout: 90000 });
+ if (process.env.E2E_DEBUG) console.log(`carga: ${((Date.now() - startedAt) / 1000).toFixed(1)} s · backend: ${await page.evaluate(() => window.__world?.backend)}`);
  await wait(400);
 
  const evaluate = (fn, ...args) => page.evaluate(fn, ...args);

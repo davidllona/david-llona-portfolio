@@ -1,11 +1,11 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { Instances } from "../../../experience/Instances";
-import { addSway } from "../../../experience/theme";
+import { WIND, withWind } from "../../../experience/environment/wind";
+import { lambert } from "../../../experience/materials";
 import { POND, SCATTER, WATER_LEVEL, groundHeight, surface } from "../layout";
 import { createPlantModels } from "./plantModels";
 
-const lambert = (options = {}) => new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, ...options });
 // Matices por instancia: casi blancos, para que una pradera no sea un solo verde.
 const GRASS_TINTS = ["#ffffff", "#f2ffe6", "#fff8dc", "#e6f6ea", "#f6f0d2"];
 const ROCK_TINTS = ["#ffffff", "#f1ede6", "#e6e2dc", "#fbf6ea"];
@@ -19,11 +19,12 @@ export function Plants() {
  const models = useMemo(createPlantModels, []);
  const material = useMemo(
   () => ({
-   // Hierba, flores, helechos y juncos: se doblan más cuanto más arriba y se apartan de quien pasa.
-   blades: addSway(lambert({ side: THREE.DoubleSide }), 0.24, true),
-   flowers: addSway(lambert({ side: THREE.DoubleSide }), 0.2, true),
-   reeds: addSway(lambert({ side: THREE.DoubleSide }), 0.12, true),
-   bushes: addSway(lambert(), 0.03, "tall"),
+   // Cada especie cede al viento a su manera (ver WIND.flex) y se aparta al paso.
+   blades: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.grass, cap: 0.9, trail: 1 }),
+   flowers: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.flower, cap: 0.45, trail: 1 }),
+   ferns: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.fern, cap: 0.45, trail: 0.7 }),
+   reeds: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.reed, cap: 1.4, trail: 0.5 }),
+   bushes: withWind(lambert(), { flex: WIND.flex.bush, power: 1.5, cap: 1.1 }),
    still: lambert(),
   }),
   [],
@@ -84,7 +85,7 @@ export function Plants() {
    ))}
    {Object.entries(models.flowers).map(([kind, geometry]) => items.flowers[kind].length > 0 && <Instances key={kind} geometry={geometry} material={material.flowers} items={items.flowers[kind]} />)}
    <Instances geometry={models.clover} material={material.still} items={items.clover} receiveShadow />
-   {each(models.ferns, items.ferns, material.blades)}
+   {each(models.ferns, items.ferns, material.ferns)}
    {each(models.bushes, items.bushes, material.bushes, { castShadow: true, receiveShadow: true })}
    {each(models.reeds, items.reeds, material.reeds)}
    {each(models.mushrooms, items.mushrooms, material.still, { castShadow: true })}

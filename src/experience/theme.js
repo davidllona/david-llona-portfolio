@@ -1,4 +1,7 @@
 import * as THREE from "three";
+import { uniform } from "three/tsl";
+import { MeshLambertNodeMaterial } from "three/webgpu";
+import { startGust, withWind } from "./environment/wind";
 import { rig } from "./state";
 
 // Día y noche. No cambian los materiales: cambian las luces, la niebla, el
@@ -67,22 +70,20 @@ const SUN_DAY = new THREE.Vector3(-0.42, 0.78, 0.46).normalize();
 const SUN_NIGHT = new THREE.Vector3(0.38, 0.7, -0.6).normalize();
 export const sunDirection = SUN_DAY.clone();
 
-// Uniformes compartidos por los sombreadores propios (agua, vaivén de plantas).
+// Uniformes compartidos por los materiales de nodos (agua, cielo, hierba…).
+// Son nodos TSL: se usan tal cual dentro de un material y su `.value` se
+// actualiza aquí en cada fotograma. (El viento tiene los suyos en environment/wind.js.)
 export const uniforms = {
- uTime: { value: 0 },
- // Ráfaga de viento que se propaga desde un punto: x, z, instante de inicio, fuerza.
- uGust: { value: new THREE.Vector4(0, 0, -100, 0) },
- // Quién aparta la hierba al pasar: xz del jugador y xz de Woody.
- uActors: { value: new THREE.Vector4(0, 0, 0, 0) },
- uWaterShallow: { value: current.waterShallow },
- uWaterDeep: { value: current.waterDeep },
- uSkyTop: { value: current.skyTop },
- uSkyHorizon: { value: current.skyHorizon },
- uSunDirection: { value: sunDirection },
- uSunColor: { value: current.sun },
- uNight: { value: 0 }, // 0 de día, 1 de noche
- uGlow: { value: 0 },
- uSpace: { value: 0 }, // 0 en tierra, 1 en órbita
+ uTime: uniform(0),
+ uWaterShallow: uniform(current.waterShallow),
+ uWaterDeep: uniform(current.waterDeep),
+ uSkyTop: uniform(current.skyTop),
+ uSkyHorizon: uniform(current.skyHorizon),
+ uSunDirection: uniform(sunDirection),
+ uSunColor: uniform(current.sun),
+ uNight: uniform(0), // 0 de día, 1 de noche
+ uGlow: uniform(0),
+ uSpace: uniform(0), // 0 en tierra, 1 en órbita
 };
 
 // Cambia la paleta de día y de noche (al llegar a otro planeta).
@@ -91,10 +92,8 @@ export function setPalette(themes) {
  parsed = parse({ day: { ...THEMES.day, ...themes?.day }, night: { ...THEMES.night, ...themes?.night } });
 }
 
-// Lanza una ráfaga de viento desde (x, z). Las plantas la notan al pasar el frente.
-export function startGust(x, z, strength = 1) {
- uniforms.uGust.value.set(x, z, uniforms.uTime.value, strength);
-}
+// Las ráfagas viven en el sistema de viento; se reexporta por comodidad.
+export { startGust };
 
 const STORAGE_KEY = "planeta-tema";
 function stored() {
@@ -151,58 +150,12 @@ export function updateTheme(delta, elapsed) {
  for (const { material, day, night, property } of glowing) material[property] = day + (night - day) * t;
 }
 
-// Añade a un material un vaivén de viento, que además responde a las ráfagas.
-// `byHeight`: se mueve más cuanto más alto está el vértice y se aparta al paso
-// del jugador y de Woody (briznas de hierba, flores); con "tall" hace lo mismo
-// sin apartarse (árboles: se cimbrean desde el pie); si no, se mece la pieza entera.
+// Devuelve una versión de `material` (Lambert) que se mece con el viento global.
+// Se mantiene por compatibilidad con el planeta antiguo; el código nuevo usa
+// `withWind` de environment/wind.js directamente.
+//  · byHeight: true = se dobla más cuanto más alto y se aparta al paso; si no, se mece entero.
 export function addSway(material, strength, byHeight = false) {
- const avoidsActors = byHeight === true;
- material.onBeforeCompile = (shader) => {
-  shader.uniforms.uTime = uniforms.uTime;
-  shader.uniforms.uGust = uniforms.uGust;
-  shader.uniforms.uActors = uniforms.uActors;
-  shader.vertexShader = shader.vertexShader
-   .replace("#include <common>", "#include <common>\nuniform float uTime;\nuniform vec4 uGust;\nuniform vec4 uActors;")
-   .replace(
-    "#include <begin_vertex>",
-    `#include <begin_vertex>
-    #ifdef USE_INSTANCING
-     vec3 swayOrigin = instanceMatrix[3].xyz;
-     vec3 swayAxisX = instanceMatrix[0].xyz;
-     vec3 swayAxisZ = instanceMatrix[2].xyz;
-     float swayHeight = max(position.y, 0.0) * length(instanceMatrix[1].xyz);
-    #else
-     vec3 swayOrigin = vec3(0.0);
-     vec3 swayAxisX = vec3(1.0, 0.0, 0.0);
-     vec3 swayAxisZ = vec3(0.0, 0.0, 1.0);
-     float swayHeight = max(position.y, 0.0);
-    #endif
-    float swayPhase = swayOrigin.x * 0.31 + swayOrigin.z * 0.27;
-    // Metros que se mueve este vértice con viento flojo.
-    float swayAmount = ${byHeight ? "swayHeight * " : ""}${strength.toFixed(3)};
-
-    // Ráfaga: un frente circular que avanza a 16 m/s y dobla lo que encuentra.
-    vec2 fromGust = swayOrigin.xz - uGust.xy;
-    float gustDistance = length(fromGust);
-    float gustFront = (uTime - uGust.z) * 16.0;
-    float gust = uGust.w * smoothstep(9.0, 0.0, abs(gustDistance - gustFront)) * smoothstep(75.0, 30.0, gustFront);
-
-    vec2 sway = vec2(sin(uTime * 1.7 + swayPhase), cos(uTime * 1.3 + swayPhase * 1.3) * 0.7) * swayAmount * (1.0 + gust * 2.0);
-    sway += (gustDistance > 0.01 ? fromGust / gustDistance : vec2(0.0)) * gust * swayAmount * 5.0;
-    ${
-     avoidsActors
-      ? `// Se aparta de quien pasa cerca.
-    vec2 away = swayOrigin.xz - uActors.xy;
-    vec2 awayDog = swayOrigin.xz - uActors.zw;
-    float near = 1.0 - smoothstep(0.35, 1.25, length(away));
-    float nearDog = 1.0 - smoothstep(0.3, 1.0, length(awayDog));
-    sway += (normalize(away + 0.0001) * near + normalize(awayDog + 0.0001) * nearDog) * swayHeight * 0.75;`
-      : ""
-    }
-    // El desplazamiento está en metros del mundo: se pasa a los ejes de la pieza.
-    transformed.x += dot(vec3(sway.x, 0.0, sway.y), swayAxisX) / dot(swayAxisX, swayAxisX);
-    transformed.z += dot(vec3(sway.x, 0.0, sway.y), swayAxisZ) / dot(swayAxisZ, swayAxisZ);`,
-   );
- };
- return material;
+ const node = new MeshLambertNodeMaterial({ color: material.color, vertexColors: material.vertexColors, flatShading: material.flatShading, side: material.side });
+ material.dispose();
+ return withWind(node, byHeight ? { flex: strength * 3.5, power: 2, cap: 1.2, trail: byHeight === true ? 0.8 : 0 } : { flex: strength * 1.2, power: 1, cap: 4 });
 }

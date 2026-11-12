@@ -1,6 +1,8 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { Instances } from "../../experience/Instances";
+import { atan, float, fract, max, mix, positionWorld, sin, smoothstep, step, vec2, vec3 } from "three/tsl";
+import { unlit } from "../../experience/materials";
 import { uniforms } from "../../experience/theme";
 import { LAKE, SCATTER, WATER_LEVEL, terrainHeight } from "./layout";
 
@@ -77,72 +79,33 @@ function createGround() {
 
 // Agua estilizada: color según la distancia a la orilla, un borde de espuma y
 // líneas que se alejan de la costa. La forma de la isla se repite aquí.
-const WATER_SHADER = {
- vertexShader: /* glsl */ `
-  varying vec2 vPos;
-  void main() {
-   vPos = position.xz;
-   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }`,
- fragmentShader: /* glsl */ `
-  uniform vec3 uWaterShallow;
-  uniform vec3 uWaterDeep;
-  uniform float uTime;
-  uniform vec3 uLake; // x, z, radio
-  uniform float uSpace;
-  varying vec2 vPos;
-
-  float shoreRadius(float a) {
-   return 44.0 + 3.0 * sin(3.0 * a) + 2.0 * sin(5.0 * a + 1.0);
-  }
-
-  void main() {
-   float r = length(vPos);
-   float a = atan(vPos.y, vPos.x);
-   // Distancia a la orilla, positiva dentro del agua (mar o lago).
-   float sea = r - (shoreRadius(a) - 1.45);
-   float lake = (uLake.z - 1.25) - distance(vPos, uLake.xy);
-   float d = max(sea, lake);
-   if (d < -0.6) discard;
-
-   float depth = clamp(d / 10.0, 0.0, 1.0);
-   vec3 color = mix(uWaterShallow, uWaterDeep, depth);
-
-   // Líneas de espuma que se alejan de la orilla y se desvanecen.
-   float wave = fract(d * 0.36 - uTime * 0.13 + 0.06 * sin(a * 9.0));
-   float line = smoothstep(0.0, 0.05, wave) * (1.0 - smoothstep(0.05, 0.13, wave));
-   float foam = line * (1.0 - smoothstep(0.6, 6.0, d));
-   // Borde de espuma pegado a la orilla, que respira.
-   foam = max(foam, 1.0 - smoothstep(0.0, 0.24, d + 0.07 * sin(uTime * 1.6 + a * 24.0)));
-
-   color = mix(color, vec3(1.0), foam * 0.9);
-   float alpha = max(mix(0.6, 0.93, depth), foam);
-   // El mar se funde con el horizonte: desde lejos, el planeta parece redondo.
-   alpha *= 1.0 - smoothstep(105.0, 170.0, r);
-   // Desde la nave, el mar se recoge alrededor de la isla y deja ver el espacio.
-   alpha *= 1.0 - uSpace * smoothstep(58.0, 92.0, r);
-   gl_FragColor = vec4(color, alpha);
-  }`,
-};
+// Material del agua (nodos TSL): tono por distancia a la orilla, líneas de
+// espuma que se alejan y borde que respira.
+function createWaterMaterial() {
+ const { uTime, uWaterShallow, uWaterDeep, uSpace } = uniforms;
+ const pos = positionWorld.xz;
+ const r = pos.length();
+ const a = atan(pos.y, pos.x);
+ const shore = sin(a.mul(3)).mul(3).add(sin(a.mul(5).add(1)).mul(2)).add(44);
+ // Distancia a la orilla, positiva dentro del agua (mar o lago).
+ const d = max(r.sub(shore.sub(1.45)), float(LAKE.r - 1.25).sub(pos.sub(vec2(LAKE.x, LAKE.z)).length()));
+ const depth = d.div(10).clamp(0, 1);
+ const wave = fract(d.mul(0.36).sub(uTime.mul(0.13)).add(sin(a.mul(9)).mul(0.06)));
+ const line = smoothstep(0, 0.05, wave).mul(smoothstep(0.13, 0.05, wave));
+ let foam = line.mul(smoothstep(6, 0.6, d));
+ foam = max(foam, smoothstep(0.24, 0, d.add(sin(uTime.mul(1.6).add(a.mul(24))).mul(0.07))));
+ const material = unlit({ transparent: true, depthWrite: false });
+ material.colorNode = mix(mix(uWaterShallow, uWaterDeep, depth), vec3(1), foam.mul(0.9));
+ material.opacityNode = max(mix(0.6, 0.93, depth), foam)
+  .mul(smoothstep(170, 105, r))
+  .mul(uSpace.mul(smoothstep(58, 92, r)).oneMinus())
+  .mul(step(-0.6, d));
+ return material;
+}
 
 function Water() {
  const geometry = useMemo(() => new THREE.CircleGeometry(175, 96).rotateX(-Math.PI / 2), []);
- const material = useMemo(
-  () =>
-   new THREE.ShaderMaterial({
-    ...WATER_SHADER,
-    transparent: true,
-    depthWrite: false,
-    uniforms: {
-     uWaterShallow: uniforms.uWaterShallow,
-     uWaterDeep: uniforms.uWaterDeep,
-     uTime: uniforms.uTime,
-     uSpace: uniforms.uSpace,
-     uLake: { value: new THREE.Vector3(LAKE.x, LAKE.z, LAKE.r) },
-    },
-   }),
-  [],
- );
+ const material = useMemo(createWaterMaterial, []);
  useEffect(
   () => () => {
    geometry.dispose();
