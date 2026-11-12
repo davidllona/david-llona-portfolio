@@ -10,9 +10,9 @@ import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
 import puppeteer from "puppeteer-core";
+import { CHROME, GPU_ARGS } from "../chrome.mjs";
 
 export const BASE = process.env.E2E_URL ?? "http://localhost:5199/";
-const CHROME = process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 export const out = (process.env.E2E_SHOTS ?? path.join(os.tmpdir(), "portfolio-e2e")) + "/";
 fs.mkdirSync(out, { recursive: true });
 
@@ -35,12 +35,7 @@ export async function open({ mobile = false, viewport, query = "", uncapped = fa
   executablePath: CHROME,
   headless: "new",
   args: [
-   "--enable-gpu",
-   "--use-angle=metal",
-   "--ignore-gpu-blocklist",
-   // WebGPU en Chrome sin ventana.
-   "--enable-unsafe-webgpu",
-   "--enable-features=WebGPU",
+   ...GPU_ARGS,
    ...(uncapped ? ["--disable-frame-rate-limit", "--disable-gpu-vsync"] : []),
   ],
  });

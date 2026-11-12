@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { BY_ID } from "../../achievements/list";
 import { skipSpeech, updateSpeech } from "../speech";
-import { events, player, rig, ui3d, woody } from "../state";
+import { ZOOM, events, player, rig, ui3d, woody } from "../state";
 import { createCard, drawAchievement, drawPill, drawSpeech } from "./cards";
 
 // La interfaz del juego, dentro del mundo: la indicación de la tecla E sobre el
@@ -21,7 +21,11 @@ const ACHIEVEMENT_LIFE = 4.2;
 const TAN_HALF_FOV = Math.tan((40 * Math.PI) / 360);
 
 // Alto de cada tarjeta, como fracción del alto de la pantalla.
-const SIZE = { hint: 0.066, toast: 0.066, achievement: 0.1, speech: 0.4 };
+const SIZE = { hint: 0.046, toast: 0.066, achievement: 0.1, speech: 0.4 };
+// La indicación «E» es discreta: al alejar la cámara encoge un poco (menos que
+// el mundo, para que se siga leyendo) y al acercarla crece otro poco.
+const hintSize = () => SIZE.hint * Math.pow(Math.min(ZOOM.max, Math.max(ZOOM.min, rig.zoom)), -0.35);
+const ASTRONAUT = { tall: 2.17, half: 0.24 }; // alto en metros; medio ancho, como fracción de su alto en pantalla
 
 // Rebote de entrada (0 → 1, pasándose un poco) y salida rápida.
 const elastic = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 + Math.pow(2, -9 * t) * Math.sin((t * 10 - 0.75) * ((2 * Math.PI) / 3)));
@@ -123,7 +127,30 @@ export function WorldUi() {
 
   // Indicación de la tecla E, sobre su objeto.
   const h = ui3d.hint;
-  place(hint, camera, delta, h?.text ?? null, (card, text) => drawPill(card, text, { key: "E" }), h ? point.set(h.x, h.y, h.z) : null, SIZE.hint, aspect);
+  const hintFraction = hintSize();
+  const hintHigh = place(hint, camera, delta, h?.text ?? null, (card, text) => drawPill(card, text, { key: "E" }), h ? point.set(h.x, h.y, h.z) : null, hintFraction, aspect);
+  if (h && hintHigh > 0 && !player.hidden) {
+   // Va sobre su objeto, nunca sobre el astronauta: si en pantalla fuera a
+   // taparlo, se aparta hacia el lado del objeto (coordenadas de −1 a 1).
+   const centre = other.copy(hint.mesh.position).project(camera);
+   const cx = centre.x, cy = centre.y;
+   const anchorX = point.set(h.x, h.y, h.z).project(camera).x;
+   const halfW = (hint.card.box.w * hintFraction * hint.aspect) / aspect, halfH = hint.card.box.h * hintFraction;
+   const feet = point.set(player.position.x, player.position.y, player.position.z).project(camera);
+   const feetY = feet.y, bodyX = feet.x;
+   const headY = point.set(player.position.x, player.position.y + ASTRONAUT.tall, player.position.z).project(camera).y;
+   const bodyHalf = ((headY - feetY) * ASTRONAUT.half) / aspect;
+   const reach = halfW + bodyHalf + 0.012;
+   let shift = 0;
+   if (Math.abs(cx - bodyX) < reach && cy - halfH < headY + 0.02 && cy + halfH > feetY - 0.02) {
+    const side = anchorX >= bodyX ? 1 : -1;
+    shift = side * reach - (cx - bodyX);
+    const distance = camera.position.distanceTo(hint.mesh.position);
+    hint.mesh.position.x += shift * distance * TAN_HALF_FOV * aspect;
+   }
+   // Para las pruebas: dónde quedan la tarjeta y el astronauta, en pantalla.
+   if (import.meta.env.DEV) h.screen = { left: cx + shift - halfW, right: cx + shift + halfW, bottom: cy - halfH, top: cy + halfH, body: { left: bodyX - bodyHalf, right: bodyX + bodyHalf, bottom: feetY, top: headY } };
+  }
 
   // Mensajes: junto a lo que los provoca o, si no se dice dónde, sobre lo que sigue la cámara.
   for (const toast of ui3d.toasts) toast.age += delta;
@@ -138,14 +165,15 @@ export function WorldUi() {
    place(slot, camera, delta, toast?.text ?? null, drawPill, toast ? point : null, SIZE.toast, aspect);
   });
 
-  // Logro conseguido, sobre el astronauta; si llegan varios, de uno en uno.
+  // Logro conseguido, sobre el astronauta (en vuelo, por encima del morro de la
+  // nave, sin taparla); si llegan varios, de uno en uno.
   if (ui3d.achievement) {
    ui3d.achievement.age += delta;
    if (ui3d.achievement.age > ACHIEVEMENT_LIFE) ui3d.achievement = null;
   }
   if (!ui3d.achievement && achievement.k === 0 && pending.current.length) ui3d.achievement = { name: BY_ID[pending.current.shift()]?.name ?? "", age: 0 };
   const medal = ui3d.achievement;
-  place(achievement, camera, delta, medal?.name || null, drawAchievement, medal ? point.set(follow.x, follow.y + 3.9, follow.z) : null, SIZE.achievement, aspect);
+  place(achievement, camera, delta, medal?.name || null, drawAchievement, medal ? point.set(follow.x, follow.y + (rig.focus ? 7.6 : 3.9), follow.z) : null, SIZE.achievement, aspect);
 
   // Bocadillo de Woody: sobre él, y apartado si fuera a tapar al astronauta.
   updateSpeech(delta);

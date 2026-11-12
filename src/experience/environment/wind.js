@@ -28,6 +28,17 @@ export const windStrength = uniform(WIND.strength);
 export const windTime = uniform(0); // reloj integrado: cambia de ritmo sin dar saltos
 // Ráfaga: xz de origen, metros que ha avanzado el frente y fuerza.
 export const windGust = uniform(new THREE.Vector4(0, 0, 1e4, 0));
+// Empuje de un motor (el cohete al despegar): desde (x, z) hacia fuera, pleno
+// hasta `inner` metros y decayendo hasta `radius`. Lo escribe Ship.jsx en cada
+// fotograma; `strength` ya viene temblando. Agita la vegetación sin deformarla:
+// es el mismo campo suave que el viento, así que una planta entera se inclina
+// a la vez.
+export const windBlast = uniform(new THREE.Vector4(0, 0, 1, 0)); // x, z, alcance, fuerza
+export const windBlastInner = uniform(0);
+export function setBlast(x, z, inner, radius, strength) {
+ windBlast.value.set(x, z, Math.max(radius, inner + 0.1), strength);
+ windBlastInner.value = inner;
+}
 
 const gust = { active: false, travelled: 0 };
 
@@ -87,7 +98,15 @@ export const windOffset = Fn(([position]) => {
  const distance = length(fromOrigin);
  const front = smoothstep(WIND.gustLength, 0, distance.sub(windGust.z).abs()).mul(windGust.w).mul(smoothstep(110, 40, windGust.z));
  const outward = fromOrigin.div(distance.max(0.001));
- return field.add(outward.mul(front).mul(1.6)).add(windDirection.mul(front).mul(sway).mul(2));
+ // Empuje del cohete: hacia fuera, con el temblor irregular del propio viento.
+ const fromEngine = position.sub(windBlast.xy);
+ const reach = length(fromEngine);
+ const thrust = smoothstep(windBlast.z, windBlastInner, reach).mul(windBlast.w);
+ const away = fromEngine.div(reach.max(0.001));
+ return field
+  .add(outward.mul(front).mul(1.6))
+  .add(windDirection.mul(front).mul(sway).mul(2))
+  .add(away.mul(thrust).mul(sway.mul(0.7).add(1)));
 });
 
 // Añade a un material de nodos el movimiento del viento.
@@ -103,9 +122,13 @@ export function withWind(material, { flex = 0.5, power = 2, cap = 1, trail = 0 }
  const weight = height.div(cap).min(1).pow(power).mul(cap);
  let offset = windOffset(ground).mul(flex).mul(weight);
  if (trail) offset = offset.add(trailPush(ground).xy.mul(trail).mul(height.min(cap)));
+ // Nada se estira: por fuerte que sople (una ráfaga a bocajarro, el empuje del
+ // cohete), un punto de la planta no se aparta más que su propia altura.
+ const reach = height.min(cap).mul(0.9);
+ offset = offset.mul(reach.div(length(offset).max(reach).max(0.0001)));
  material.positionNode = positionLocal.add(vec3(offset.x, 0, offset.y));
  return material;
 }
 
 // Para depurar en la consola del navegador.
-export const windDebug = { WIND, windStrength, windTime, windGust, gust };
+export const windDebug = { WIND, windStrength, windTime, windGust, windBlast, gust };

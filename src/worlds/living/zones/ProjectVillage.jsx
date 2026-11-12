@@ -117,7 +117,7 @@ function Project({ project, site, index, models }) {
  });
 
  return (
-  <group position={[x, 0, z - 1.6]} rotation-y={turn} {...click}>
+  <group name={`casa de «${project.name}»`} userData={{ rests: 0 }} position={[x, 0, z - 1.6]} rotation-y={turn} {...click}>
    {/* Casa. */}
    <mesh geometry={cottage.geometry} material={models.material} castShadow receiveShadow />
    {cottage.windows.map((window, i) => (
@@ -200,7 +200,7 @@ function Board() {
   [geometry, material],
  );
  return (
-  <group position={[PLAZA.x, 0, PLAZA.z - 7.2]}>
+  <group name="tablón de proyectos" userData={{ rests: 0 }} position={[PLAZA.x, 0, PLAZA.z - 7.2]}>
    <mesh geometry={geometry} material={material} castShadow />
    <mesh position={[0, 2.85, 0.09]} rotation-x={-0.42}>
     <planeGeometry args={[2.75, 0.7]} />
@@ -244,14 +244,14 @@ export function ProjectVillage() {
 
  return (
   <>
-   <Instances geometry={stone} material={models.material} items={cobbles} colored receiveShadow />
-   <mesh geometry={models.well} material={models.material} position={[WELL.x, 0, WELL.z]} castShadow receiveShadow />
+   <Instances name="adoquín de plaza" rests={0} geometry={stone} material={models.material} items={cobbles} colored receiveShadow />
+   <mesh name="pozo" userData={{ rests: 0 }} geometry={models.well} material={models.material} position={[WELL.x, 0, WELL.z]} castShadow receiveShadow />
    {BENCHES.map((bench) => (
-    <mesh key={bench.x} geometry={models.bench} material={models.material} position={[bench.x, 0, bench.z]} rotation-y={bench.turn} castShadow />
+    <mesh key={bench.x} name="banco" userData={{ rests: 0 }} geometry={models.bench} material={models.material} position={[bench.x, 0, bench.z]} rotation-y={bench.turn} castShadow />
    ))}
    {lamps.map(([lx, lz, turn], i) => (
     <group key={i} position={[lx, 0, lz]} rotation-y={turn}>
-     <mesh geometry={models.lamp} material={models.material} castShadow />
+     <mesh name="farola de la plaza" userData={{ rests: 0 }} geometry={models.lamp} material={models.material} castShadow />
      <Glow power={0.9} reach={10} forward={0.7} drop={0.9} night={3} position={LAMP_GLASS}>
       <boxGeometry args={[0.2, 0.34, 0.2]} />
      </Glow>

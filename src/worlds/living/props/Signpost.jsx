@@ -47,7 +47,7 @@ export function Signposts() {
  );
  return SIGNPOSTS.map((sign) => (
   <group key={sign.text}>
-   <mesh geometry={post} material={material} position={[sign.x, height(sign.x, sign.z), sign.z]} rotation-y={sign.turn} castShadow />
+   <mesh name={`poste de ${sign.text}`} userData={{ rests: 0 }} geometry={post} material={material} position={[sign.x, height(sign.x, sign.z), sign.z]} rotation-y={sign.turn} castShadow />
    <Sign {...sign} />
   </group>
  ));

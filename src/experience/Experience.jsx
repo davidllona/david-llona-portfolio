@@ -201,6 +201,7 @@ function Pipeline({ quality, effects }) {
  useEffect(() => {
   live.scenePass = pipeline.scenePass;
   live.depth = null;
+  if (import.meta.env.DEV) window.__world.scene = scene; // para las pruebas automáticas
   // Anota a qué profundidad se dibuja la escena (ver `live`).
   scene.onBeforeRender = (renderer, _scene, _camera, target) => {
    if (target === pipeline.scenePass.renderTarget && typeof renderer._callDepth === "number") live.depth = renderer._callDepth;

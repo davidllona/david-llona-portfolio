@@ -549,7 +549,6 @@ for (const path of PATHS) {
  }
 }
 // Para lo que solo necesita «dónde hay flores» (mariposas).
-const flowers = Object.values(flowersByKind).flat();
 
 const clover = scatter(70, { margin: -1.4, spacing: 2.2, accept: (x, z, y) => dryLand(x, z, y) && !built(x, z) });
 // Helechos: a la sombra de los árboles y en lo húmedo.
@@ -617,15 +616,89 @@ for (const path of PATHS) {
 // Las rocas del agua asoman siempre: se apoyan, como mucho, un poco bajo la superficie.
 for (const rock of shoreRocks) rock.y = Math.max(rock.y, WATER_LEVEL - 0.28 * rock.scale);
 
-export const SCATTER = { trees, rocks, cliffRocks, shoreRocks, pebbles, bushes, ferns, mushrooms, flowers, flowersByKind, clover, tufts, reeds, lilies, lanterns };
+// ── Asentado en el terreno ──────────────────────────────────────────────────
+// Cada cosa repartida se coloca según el suelo que tiene bajo su apoyo, no solo
+// bajo su centro: se apoya en el punto más bajo (así ningún lado flota) y, si el
+// terreno ahí es demasiado quebrado para ella (más de `relief` de desnivel),
+// se desliza cuesta abajo hasta `slide` metros buscando sitio, o se descarta.
+// `centre`: para lo que va medio enterrado (una roca que asoma): se queda a la
+// altura del suelo de su centro, y lo que no puede es quedar colgando: `relief`
+// es entonces cuánto puede caer el terreno por su lado más bajo.
+// Lo comprueba tests/e2e/terrain.mjs sobre la escena ya montada.
+// El suelo bajo un apoyo de radio `reach`: punto más bajo, más alto y centro.
+function support(x, z, reach) {
+ let low = Infinity, high = -Infinity;
+ for (const [dx, dz] of [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1], [-1, 0], [1, 0], [0, -1], [0, 1]]) {
+  const h = groundHeight(x + dx * reach, z + dz * reach);
+  low = Math.min(low, h);
+  high = Math.max(high, h);
+ }
+ return { low, high, middle: groundHeight(x, z) };
+}
+export function settle(x, z, reach, { relief = 0.3, embed = 0.02, slide = 0, centre = false } = {}) {
+ let px = x, pz = z;
+ for (let moved = 0; moved <= slide + 1e-6; moved += 0.25) {
+  const { low, high, middle } = support(px, pz, reach);
+  if (centre ? middle - low <= relief : high - low <= relief) return { x: px, z: pz, y: (centre ? middle : low) - embed };
+  const e = 0.3;
+  const gx = groundHeight(px + e, pz) - groundHeight(px - e, pz), gz = groundHeight(px, pz + e) - groundHeight(px, pz - e);
+  const steep = Math.hypot(gx, gz) || 1;
+  px -= (gx / steep) * 0.25;
+  pz -= (gz / steep) * 0.25;
+ }
+ return null;
+}
+// Asienta una lista entera. `reach(item)`: radio de apoyo; `relief(item)`: desnivel que tolera.
+// `keep`: lo que no encuentra sitio se queda donde estaba en vez de descartarse.
+// `sink`: lo que no encuentra sitio llano se planta igualmente en el punto más
+// bajo de su apoyo (así no flota por ningún lado) siempre que con eso su centro
+// no quede enterrado más de `sink` metros; solo se descarta lo que cae en un
+// terreno de verdad quebrado (un talud, el cauce).
+const seat = (list, reach, relief, { keep = false, sink = 0, ...options } = {}) =>
+ list.flatMap((item) => {
+  const spot = settle(item.x, item.z, reach(item), { relief: relief(item), ...options });
+  if (spot) return [{ ...item, ...spot }];
+  if (keep) return [item];
+  const { low, middle } = support(item.x, item.z, reach(item));
+  return sink && middle - low <= sink ? [{ ...item, y: low - (options.embed ?? 0.02) }] : [];
+ });
+// Una planta tolera poco desnivel: la mitad de lo que mide, como mucho.
+const plantFoot = (size, relief = size * 0.5) => [() => size, () => relief];
+
+const seated = {
+ // Rocas: pueden deslizarse un poco para no quedar colgadas ni enterradas.
+ // (Las rocas asoman del suelo: van enterradas hasta la mitad a propósito. El
+ // desnivel que toleran es lo que pueden hundirse de más por un lado.)
+ // (El apoyo que se mira es el del centro de la roca, no toda su anchura; lo
+ // que puede caer el suelo a su lado es lo que la roca baja bajo su centro:
+ // algo más de la mitad de su tamaño, y más las altas del pie del acantilado.)
+ rocks: seat(rocks, (r) => Math.min(0.5 * r.scale, 0.45), (r) => 0.5 * r.scale, { slide: 2, centre: true, embed: 0 }),
+ cliffRocks: seat(cliffRocks, (r) => Math.min(0.6 * r.scale, 0.45), (r) => 0.9 * r.scale, { slide: 3, centre: true, embed: 0 }),
+ shoreRocks: seat(shoreRocks, (r) => Math.min(0.5 * r.scale, 0.45), (r) => 0.68 * r.scale, { centre: true, embed: 0, keep: true }), // en la orilla y en el río no se mueven: asoman del agua donde están
+ pebbles: seat(pebbles, (p) => p.scale * 0.8, () => 0.09, { embed: 0, sink: 0.04 }),
+ bushes: seat(bushes, (b) => 0.4 * b.scale, () => 0.2, { sink: 0.2 }),
+ ferns: seat(ferns, ...plantFoot(0.42), { sink: 0.18 }),
+ mushrooms: seat(mushrooms, ...plantFoot(0.16), { sink: 0.06 }),
+ clover: seat(clover, ...plantFoot(0.55, 0.08), { sink: 0.05 }),
+ reeds: seat(reeds, ...plantFoot(0.22, 0.35), { sink: 0.25 }), // nacen en el talud de la orilla, con el pie en el agua
+ tufts: { seed: seat(tufts.seed, ...plantFoot(0.2), { sink: 0.1 }) },
+ flowersByKind: Object.fromEntries(Object.entries(flowersByKind).map(([kind, list]) => [kind, seat(list, ...plantFoot(0.18), { sink: 0.1 })])),
+};
+// Las rocas que tienen el pie en el agua asoman siempre: asentadas en el fondo
+// quedarían sumergidas (y su espuma, sola en mitad del mar). Se apoyan, como
+// mucho, un poco bajo la superficie; lo que les falta hasta el fondo queda bajo
+// el agua y no se ve. Lo vigila también tests/e2e/terrain.mjs.
+const peek = (list) => list.map((rock) => (groundHeight(rock.x, rock.z) < WATER_LEVEL ? { ...rock, y: Math.max(rock.y, WATER_LEVEL - 0.28 * rock.scale) } : rock));
+for (const key of ["rocks", "cliffRocks", "shoreRocks"]) seated[key] = peek(seated[key]);
+export const SCATTER = { trees, ...seated, flowers: Object.values(seated.flowersByKind).flat(), lilies, lanterns };
 
 // ── Colisiones ──────────────────────────────────────────────────────────────
 const shipCollider = { x: PAD.x, z: PAD.z, r: 2.3, active: true };
 const colliders = [
  ...trees.map((t) => ({ x: t.x, z: t.z, r: (t.kind === "willow" ? 0.55 : 0.42) * t.scale })),
  ...ANCIENT_TREES.map((t) => ({ x: t.x, z: t.z, r: 1.35 * t.scale })),
- ...rocks.filter((r) => r.scale > 0.75).map((r) => ({ x: r.x, z: r.z, r: 0.8 * r.scale })),
- ...cliffRocks.map((r) => ({ x: r.x, z: r.z, r: 0.75 * r.scale })),
+ ...seated.rocks.filter((r) => r.scale > 0.75).map((r) => ({ x: r.x, z: r.z, r: 0.8 * r.scale })),
+ ...seated.cliffRocks.map((r) => ({ x: r.x, z: r.z, r: 0.75 * r.scale })),
  ...lanterns.map((l) => ({ x: l.x, z: l.z, r: 0.2 })),
  // Cabañas: tres círculos a lo ancho de cada una.
  // Casas de la aldea (tres círculos a lo ancho), su expositor y su cartel.
@@ -704,6 +777,7 @@ export const living = {
  spawn: SPAWN,
  waterLevel: WATER_LEVEL,
  height,
+ ground: groundHeight, // el terreno, sin contar el puente (lo que pisan los personajes es `height`)
  blocked,
  surface: footing,
  waterNear,

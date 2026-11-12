@@ -184,7 +184,7 @@ function Device({ link, x, z, models }) {
  });
 
  return (
-  <group position={[x, 0, z]} {...click}>
+  <group name={`aparato de ${link.label}`} userData={{ rests: 0 }} position={[x, 0, z]} {...click}>
    <group ref={lift}>
     <mesh geometry={device.geometry} material={models.material} castShadow />
     <mesh ref={screen} position={device.screen.position} rotation={device.screen.rotation}>
@@ -277,9 +277,9 @@ export function Contact() {
 
  return (
   <>
-   <mesh geometry={deck} material={models.material} position={[x, 0, z + 0.4]} receiveShadow />
+   <mesh name="tarima de contacto" userData={{ rests: 0 }} geometry={deck} material={models.material} position={[x, 0, z + 0.4]} receiveShadow />
    {/* La estación. */}
-   <group position={[x, 0.1, z - 2.6]}>
+   <group name="estación de contacto" userData={{ rests: 0 }} position={[x, 0.1, z - 2.6]}>
     <mesh geometry={station.geometry} material={models.material} castShadow receiveShadow />
     {station.windows.map((window, i) => (
      <Glow key={i} position={window.position} night={2.1}>
@@ -296,7 +296,7 @@ export function Contact() {
     </group>
    </group>
    {/* Antena grande. */}
-   <group position={[CONTACT.antenna.x, 0, CONTACT.antenna.z]}>
+   <group name="antena" userData={{ rests: 0 }} position={[CONTACT.antenna.x, 0, CONTACT.antenna.z]}>
     <mesh geometry={models.tower} material={models.material} castShadow />
     <group ref={dish} position-y={5.15}>
      <mesh geometry={models.dish} material={models.material} castShadow />
@@ -306,13 +306,13 @@ export function Contact() {
     <Device key={link.label} link={link} {...CONTACT.terminals[i]} models={models} />
    ))}
    {/* Farola y cartel de la zona. */}
-   <group position={[x - 4.3, 0, z + 2.6]} rotation-y={Math.PI}>
+   <group name="farola de contacto" userData={{ rests: 0 }} position={[x - 4.3, 0, z + 2.6]} rotation-y={Math.PI}>
     <mesh geometry={models.lamp} material={models.material} castShadow />
     <Glow power={0.9} reach={10} forward={0.7} drop={0.9} night={2.6} position={LAMP_GLASS}>
      <boxGeometry args={[0.2, 0.34, 0.2]} />
     </Glow>
    </group>
-   <group position={[x + 3.9, 0, z + 3.3]} scale={[-1, 1, 1]}>
+   <group name="cartel de contacto" userData={{ rests: 0 }} position={[x + 3.9, 0, z + 3.3]} scale={[-1, 1, 1]}>
     <mesh geometry={models.sign} material={models.material} castShadow />
     <group position={[1.2, 2.14, 0.1]} rotation-x={-0.5} scale={[-1, 1, 1]}>
      <mesh castShadow>

@@ -4,7 +4,12 @@ import * as THREE from "three";
 // Muchas copias de una misma pieza en una sola llamada de dibujo.
 // `items`: [{ position, rotation?, scale?, color? }]. Las propiedades de malla
 // (castShadow, receiveShadow…) se pasan tal cual.
-export function Instances({ geometry, material, items, colored = false, ...props }) {
+//  · `rests`: estas copias van apoyadas en el suelo (0), sobre algo que levanta
+//    esos metros, o en el agua ("water"). Con `name`, la comprobación de
+//    tests/e2e/terrain.mjs vigila que ninguna flote ni quede hundida.
+//  · `sinks`: fracción de su altura que va enterrada a propósito (una roca
+//    que asoma: 0,5).
+export function Instances({ geometry, material, items, colored = false, rests, sinks, ...props }) {
  const mesh = useRef(null);
  const helper = useMemo(() => new THREE.Object3D(), []);
 
@@ -26,5 +31,6 @@ export function Instances({ geometry, material, items, colored = false, ...props
   mesh.current.computeBoundingSphere();
  }, [items, helper, colored]);
 
- return <instancedMesh ref={mesh} args={[geometry, material, items.length]} {...props} />;
+ const userData = useMemo(() => (rests === undefined ? {} : { rests, sinks }), [rests, sinks]);
+ return <instancedMesh ref={mesh} args={[geometry, material, items.length]} userData={userData} {...props} />;
 }

@@ -4,7 +4,7 @@ import { Instances } from "../../../experience/Instances";
 import { WIND, withWind } from "../../../experience/environment/wind";
 import { withSeeThrough } from "../../../experience/environment/seeThrough";
 import { lambert } from "../../../experience/materials";
-import { POND, SCATTER, WATER_LEVEL, groundHeight, surface } from "../layout";
+import { POND, SCATTER, WATER_LEVEL, settle, surface } from "../layout";
 import { createPlantModels } from "./plantModels";
 
 // Matices por instancia: casi blancos, para que una pradera no sea un solo verde.
@@ -56,8 +56,11 @@ export function Plants() {
     const angle = (i / 13) * Math.PI * 2 + 0.2;
     const radius = POND.r + 0.25 + (i % 3) * 0.3;
     const x = POND.x + Math.cos(angle) * radius, z = POND.z + Math.sin(angle) * radius;
-    return { x, y: groundHeight(x, z), z, seed: (i * 0.37) % 1, turn: i * 2, size: 0.42 + (i % 4) * 0.15 };
-   }).filter((_, i) => i !== 3 && i !== 4),
+    const size = 0.42 + (i % 4) * 0.15;
+    const spot = settle(x, z, 0.5 * size, { relief: 0.4 * size, slide: 0.75, centre: true, embed: 0 });
+    // (La que cae dentro del agua asoma, como las rocas de la orilla.)
+    return spot && { ...spot, y: Math.max(spot.y, WATER_LEVEL - 0.28 * size), seed: (i * 0.37) % 1, turn: i * 2, size };
+   }).filter((stone, i) => stone && i !== 3 && i !== 4),
   ].map((r) => {
    const kind = surface(r.x, r.z);
    return { ...r, mossy: ["moss", "shade", "bank"].includes(kind) && r.seed > 0.25 };
@@ -78,22 +81,24 @@ export function Plants() {
   };
  }, [models]);
 
- const each = (geometries, lists, mat, props) => geometries.map((geometry, i) => lists[i].length > 0 && <Instances key={i} geometry={geometry} material={mat} items={lists[i]} {...props} />);
+ // `name` y `rests`: para la comprobación de objetos mal apoyados (tests/e2e/terrain.mjs).
+ const each = (name, geometries, lists, mat, props) => geometries.map((geometry, i) => lists[i].length > 0 && <Instances key={i} name={name} rests={0} geometry={geometry} material={mat} items={lists[i]} {...props} />);
 
  return (
   <>
    {/* Del césped se encarga Grass.jsx; aquí quedan solo las espigas, como acento en las praderas. */}
-   <Instances geometry={models.tufts.seed} material={material.blades} items={items.tufts.seed} colored receiveShadow />
-   {Object.entries(models.flowers).map(([kind, geometry]) => items.flowers[kind].length > 0 && <Instances key={kind} geometry={geometry} material={material.flowers} items={items.flowers[kind]} />)}
-   <Instances geometry={models.clover} material={material.still} items={items.clover} receiveShadow />
-   {each(models.ferns, items.ferns, material.ferns)}
-   {each(models.bushes, items.bushes, material.bushes, { castShadow: true, receiveShadow: true })}
-   {each(models.reeds, items.reeds, material.reeds)}
-   {each(models.mushrooms, items.mushrooms, material.still, { castShadow: true })}
-   {each(models.rocks, items.rocks, material.rocks, { colored: true, castShadow: true, receiveShadow: true })}
-   {each(models.mossy, items.mossy, material.rocks, { colored: true, castShadow: true, receiveShadow: true })}
-   <Instances geometry={models.pebble} material={material.still} items={items.pebbles} colored />
-   {each(models.lilies, items.lilies, material.still)}
+   <Instances name="espiga" rests={0} geometry={models.tufts.seed} material={material.blades} items={items.tufts.seed} colored receiveShadow />
+   {Object.entries(models.flowers).map(([kind, geometry]) => items.flowers[kind].length > 0 && <Instances key={kind} name="flor" rests={0} geometry={geometry} material={material.flowers} items={items.flowers[kind]} />)}
+   <Instances name="trébol" rests={0} geometry={models.clover} material={material.still} items={items.clover} receiveShadow />
+   {each("helecho", models.ferns, items.ferns, material.ferns)}
+   {each("arbusto", models.bushes, items.bushes, material.bushes, { castShadow: true, receiveShadow: true })}
+   {each("junco", models.reeds, items.reeds, material.reeds, { rests: "water" })}
+   {each("seta", models.mushrooms, items.mushrooms, material.still, { castShadow: true })}
+   {/* Las rocas asoman del suelo: la mitad va enterrada a propósito (`sinks`). */}
+   {each("roca", models.rocks, items.rocks, material.rocks, { colored: true, castShadow: true, receiveShadow: true, sinks: 0.5 })}
+   {each("roca con musgo", models.mossy, items.mossy, material.rocks, { colored: true, castShadow: true, receiveShadow: true, sinks: 0.5 })}
+   <Instances name="guijarro" rests={0} geometry={models.pebble} material={material.still} items={items.pebbles} colored />
+   {each("nenúfar", models.lilies, items.lilies, material.still, { rests: "water" })}
   </>
  );
 }

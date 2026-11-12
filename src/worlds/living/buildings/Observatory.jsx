@@ -229,7 +229,7 @@ export function Observatory() {
  });
 
  return (
-  <group position={[x, PLATEAU.height, z]} {...click}>
+  <group name="observatorio" userData={{ rests: 0, foot: 3 }} position={[x, PLATEAU.height, z]} {...click}>
    <mesh geometry={body} material={material} castShadow receiveShadow />
    <group ref={dome} position={[0, DOME_Y, CENTRE_Z]}>
     <mesh geometry={domeGeometry} material={material} castShadow />

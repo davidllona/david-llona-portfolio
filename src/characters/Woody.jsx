@@ -109,7 +109,7 @@ export function Woody({ active }) {
  const click = useInteractable({
   position: () => woody.position,
   radius: 2.1,
-  height: 1.75,
+  height: 1.3, // justo encima de Woody
   priority: -1, // cualquier otra cosa cercana tiene preferencia
   hint: "Acariciar a Woody",
   // Mientras habla, la E pasa su bocadillo en vez de acariciarlo.

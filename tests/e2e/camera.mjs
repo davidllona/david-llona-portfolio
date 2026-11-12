@@ -1,7 +1,7 @@
 // Cámara, zoom, indicación «E», postes y oclusión.
 //   node tests/e2e/camera.mjs
 import { open, check, wait } from "./common.mjs";
-import { CV_KIOSK, PROJECT_CABINS, SCATTER, SIGNPOSTS, cabinParts, living } from "../../src/worlds/living/layout.js";
+import { CV_KIOSK, PAD, PROJECT_CABINS, SCATTER, SIGNPOSTS, cabinParts, living } from "../../src/worlds/living/layout.js";
 
 const ASTRONAUT_HEIGHT = 2.17; // m, casco incluido
 
@@ -61,6 +61,36 @@ await t.evaluate(() => (window.__world.rig.focus = null));
 await wait(2500);
 check(/CV/.test((await t.hint()) ?? ""), "y vuelve al verse de nuevo");
 
+// ── Tarjeta de la «E»: discreta, sobre su objeto y sin tapar al astronauta ───
+// Con Woody al lado y a tres distancias de cámara: el tamaño en pantalla apenas
+// cambia, queda sobre Woody y no pisa al astronauta.
+await t.put(0, 9.5, { settle: 1500 });
+{
+ const sizes = [];
+ for (const zoom of [0.72, 1, 1.9]) {
+  await t.evaluate((zoom) => (window.__world.rig.zoom = zoom), zoom);
+  await wait(1900);
+  const hint = await t.evaluate(() => window.__world.ui3d.hint && { ...window.__world.ui3d.hint });
+  const w = await t.woody();
+  const [wx, wy] = await t.screen(w.x, w.y + 0.5, w.z);
+  const box = hint?.screen;
+  const ok = Boolean(box) && /Woody/.test(hint.text);
+  const px = ok ? { left: (box.left * 0.5 + 0.5) * 1440, right: (box.right * 0.5 + 0.5) * 1440, top: (0.5 - box.top * 0.5) * 900, bottom: (0.5 - box.bottom * 0.5) * 900 } : null;
+  const high = ok ? px.bottom - px.top : 0, wide = ok ? px.right - px.left : 0;
+  sizes.push(high);
+  const body = ok ? box.body : null;
+  const clear = ok && (box.left >= body.right || box.right <= body.left || box.bottom >= body.top || box.top <= body.bottom);
+  const above = ok && px.bottom <= wy + 4 && wx > px.left - 40 && wx < px.right + 40;
+  check(ok && high >= 18 && high <= 34 && wide <= 250, `zoom ${zoom}: la tarjeta de Woody mide ${wide.toFixed(0)} × ${high.toFixed(0)} px (discreta: 18–34 de alto)`);
+  check(clear, `zoom ${zoom}: no tapa al astronauta`);
+  check(above, `zoom ${zoom}: queda sobre Woody`);
+  await t.shot(`tarjeta-woody-zoom-${zoom}`);
+ }
+ check(Math.max(...sizes) / Math.min(...sizes) < 1.5, `su tamaño es estable al acercar y alejar (de ${Math.min(...sizes).toFixed(0)} a ${Math.max(...sizes).toFixed(0)} px)`);
+ await t.evaluate(() => (window.__world.rig.zoom = 1));
+ await wait(1500);
+}
+
 // ── Postes indicadores: están, y no se atraviesan ────────────────────────────
 check(SIGNPOSTS.length === 5 && SIGNPOSTS.every((s) => living.colliders.some((c) => Math.hypot(c.x - s.x, c.z - s.z) < 0.05)), "los cinco postes tienen colisión");
 for (const sign of SIGNPOSTS.slice(0, 2)) {
@@ -87,6 +117,45 @@ const house = PROJECT_CABINS[0];
 for (const [name, x, z] of [["arbol", tree.x, tree.z - 1.5], ["roca", rock.x, rock.z - 1.6], ["casa", house.x + 0.4, house.z - 4.4]]) {
  await t.put(x, z, { withWoody: false, settle: 1800 });
  await t.shot(`oclusion-${name}`);
+}
+// El cohete: todo su material cede alrededor del astronauta, y este se ve a través.
+{
+ await t.put(PAD.x, PAD.z - 3.4, { withWoody: false, settle: 1800 });
+ const solid = await t.evaluate(() => {
+  let total = 0, through = 0;
+  window.__world.scene.getObjectByName("cohete").traverse((mesh) => {
+   if (!mesh.isMesh || mesh.material.transparent) return; // (la llama y la zona de clic no tapan)
+   total += 1;
+   if (mesh.material.opacityNode) through += 1;
+  });
+  return { total, through };
+ });
+ check(solid.total >= 10 && solid.through === solid.total, `las ${solid.total} piezas del cohete se vuelven translúcidas ante el astronauta`);
+ // El astronauta cambia lo que se ve en su sitio: con él y sin él no sale la misma imagen.
+ const p = await t.pos();
+ const [sx, sy] = await t.screen(p.x, p.y + 1.1, p.z);
+ const patch = () =>
+  t.evaluate(
+   async (sx, sy) => {
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const source = document.querySelector("canvas");
+    const k = source.width / innerWidth;
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 48;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(source, (sx - 26) * k, (sy - 44) * k, 52 * k, 88 * k, 0, 0, 48, 48);
+    return [...ctx.getImageData(0, 0, 48, 48).data];
+   },
+   sx,
+   sy,
+  );
+ const withBody = await patch();
+ await t.shot("oclusion-cohete");
+ await t.evaluate(() => (window.__world.scene.getObjectByName("astronauta").visible = false));
+ const without = await patch();
+ await t.evaluate(() => (window.__world.scene.getObjectByName("astronauta").visible = true));
+ const change = withBody.reduce((sum, value, i) => sum + Math.abs(value - without[i]), 0) / withBody.length;
+ check(change > 6, `detrás del cohete el astronauta se sigue viendo (cambio de imagen ${change.toFixed(1)} sobre 255)`);
 }
 console.log(`árbol en (${tree.x.toFixed(1)}, ${tree.z.toFixed(1)}), roca en (${rock.x.toFixed(1)}, ${rock.z.toFixed(1)})`);
 

@@ -79,7 +79,7 @@ function createGeometry(side) {
  return geometry;
 }
 
-function createMaterial(centre, size) {
+function createMaterial(centre, size, rise) {
  const { data, color } = terrainTextures();
  const blade = attribute("blade", "vec4");
  const side = blade.x, along = blade.y, own = blade.z, clump = blade.w;
@@ -95,9 +95,11 @@ function createMaterial(centre, size) {
  const present = step(own.mul(0.6).add(0.08), amount);
  // Altura: la mata, la brizna, una ondulación amplia del terreno y la máscara.
  const rolling = texture(noiseTexture, root.mul(0.031)).r.add(0.5);
- const far = size.div(PATCH); // de lejos (vista aérea) las briznas engordan para seguir cubriendo
- const height = float(0.54).mul(mix(0.62, 1.2, clump)).mul(mix(0.72, 1.18, fract(own.mul(5.3)))).mul(rolling).mul(amount.mul(0.85).add(0.32)).mul(present).mul(far.mul(0.35).add(0.65));
- const width = float(0.082).mul(mix(0.7, 1.35, fract(own.mul(7.7)))).mul(present).mul(far);
+ // `rise` (0…1) recoge las briznas hacia el suelo cuando la cámara se aleja
+ // (al despegar): encogen sin moverse de su sitio. El parche no cambia nunca de
+ // tamaño: si lo hiciera, cada brizna saltaría a otro punto y el césped se rompería.
+ const height = float(0.54).mul(mix(0.62, 1.2, clump)).mul(mix(0.72, 1.18, fract(own.mul(5.3)))).mul(rolling).mul(amount.mul(0.85).add(0.32)).mul(present).mul(rise);
+ const width = float(0.082).mul(mix(0.7, 1.35, fract(own.mul(7.7)))).mul(present).mul(rise.mul(0.5).add(0.5));
 
  // Mira a la cámara (girando solo sobre la vertical), con un desvío propio
  // para que no parezcan cartones alineados.
@@ -114,7 +116,11 @@ function createMaterial(centre, size) {
  const wind = windOffset(root).mul(WIND.flex.grass);
  const push = trailPush(root);
  const curve = along.mul(along);
- const bend = lean.add(wind.mul(1.7)).add(push.xy.mul(2.1)).mul(curve).mul(height);
+ const free = lean.add(wind.mul(1.7)).add(push.xy.mul(2.1)).mul(curve).mul(height);
+ // Por fuerte que sople (el empuje del cohete), la brizna se tumba pero no se
+ // estira ni se aplasta del todo: no avanza más que su propia altura.
+ const limit = along.mul(height).mul(0.85);
+ const bend = free.mul(limit.div(free.length().max(limit).max(0.0001)));
  // Al tumbarse no se estira: lo que avanza en horizontal lo pierde en altura.
  const tall = along.mul(height).mul(push.z.mul(0.78).oneMinus());
  const drop = bend.length().mul(0.42).mul(along);
@@ -138,8 +144,9 @@ function createMaterial(centre, size) {
 export function Grass({ quality = "high" }) {
  const centre = useMemo(() => uniform(new THREE.Vector2()), []);
  const size = useMemo(() => uniform(PATCH), []);
+ const rise = useMemo(() => uniform(1), []);
  const geometry = useMemo(() => createGeometry(SIDE[quality] ?? SIDE.high), [quality]);
- const material = useMemo(() => createMaterial(centre, size), [centre, size]);
+ const material = useMemo(() => createMaterial(centre, size, rise), [centre, size, rise]);
  const mesh = useRef(null);
  useEffect(
   () => () => {
@@ -152,11 +159,13 @@ export function Grass({ quality = "high" }) {
  useFrame(() => {
   // Centro de lo que ve la cámara: algo por delante (al norte) de lo que sigue.
   const focus = rig.focus ?? player.position;
-  const zoom = Math.min(3.4, Math.max(1, rig.distance));
-  size.value = PATCH * zoom;
-  centre.value.set(focus.x, focus.z - 4 * zoom);
-  // Desde el espacio no se distingue: se ahorra.
-  mesh.current.visible = Math.max(rig.space, rig.intro) < 0.6;
+  centre.value.set(focus.x, focus.z - 4);
+  // Al alejarse la cámara (despegue, vista aérea) las briznas se recogen poco
+  // a poco, antes de que se vea el borde del parche; desde el espacio no se
+  // distinguen y la malla se deja de dibujar.
+  const away = Math.max(0, Math.min(1, (rig.distance - 1.5) / 1.4));
+  rise.value = 1 - away * away * (3 - 2 * away);
+  mesh.current.visible = rise.value > 0.01 && Math.max(rig.space, rig.intro) < 0.6;
  });
 
  return <mesh ref={mesh} geometry={geometry} material={material} frustumCulled={false} receiveShadow />;

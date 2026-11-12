@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { Instances } from "../../experience/Instances";
 import { groundColor } from "./groundColor";
 import { randomFrom } from "./kit/geometry";
-import { BRIDGES, PAD, PATHS, PLAZA, groundHeight, noise2, surface } from "./layout";
+import { BRIDGES, PAD, PATHS, PLAZA, groundHeight, noise2, settle, surface } from "./layout";
 import { cobble, createCobble } from "./props/cobbles";
 import { Water } from "./water/Water";
 import { Waterfall } from "./water/Waterfall";
@@ -96,7 +96,7 @@ function Bridges() {
   }
   return list;
  }, []);
- return <Instances geometry={plank} material={wood} items={items} colored castShadow receiveShadow />;
+ return <Instances geometry={plank} material={wood} items={items} colored castShadow receiveShadow />; // (sigue el arco del puente, no el terreno)
 }
 
 // Adoquines pequeños e irregulares a lo largo de los caminos, agrupados en
@@ -135,16 +135,18 @@ function PathCobbles() {
       const across = side + (random() - 0.5) * 1.25;
       const x = ax + (bx - ax) * (d / length) + nx * across + (random() - 0.5) * 0.2;
       const z = az + (bz - az) * (d / length) + nz * across + (random() - 0.5) * 0.2;
-      const y = groundHeight(x, z);
-      if (y < -0.03 || Math.hypot(x - PAD.x, z - PAD.z) < PAD.padRadius + 0.5 || Math.hypot(x - PLAZA.x, z - PLAZA.z) < PLAZA.r + 0.3) continue;
-      list.push(cobble(random, x, y + 0.015, z, 0.13 + random() * 0.13));
+      const size = 0.13 + random() * 0.13;
+      // Asentado en el suelo; donde el terreno se quiebra (el cauce del arroyo, un talud) no hay adoquín.
+      const spot = settle(x, z, size, { relief: 0.07, embed: -0.015 });
+      if (!spot || spot.y < -0.03 || Math.hypot(x - PAD.x, z - PAD.z) < PAD.padRadius + 0.5 || Math.hypot(x - PLAZA.x, z - PLAZA.z) < PLAZA.r + 0.3) continue;
+      list.push(cobble(random, x, spot.y, z, size));
      }
     }
    }
   }
   return list;
  }, []);
- return <Instances geometry={geometry} material={material} items={items} colored receiveShadow />;
+ return <Instances name="adoquín de camino" rests={0} geometry={geometry} material={material} items={items} colored receiveShadow />;
 }
 
 export function Terrain() {

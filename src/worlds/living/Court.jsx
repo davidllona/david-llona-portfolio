@@ -341,7 +341,7 @@ function Hoop() {
  const dark = <meshLambertMaterial color="#5a3b28" flatShading />;
  const poleX = hoop.x + 0.6;
  return (
-  <group>
+  <group name="canasta" userData={{ rests: 0 }}>
    <mesh position={[poleX, 2.15, hoop.z]} castShadow>
     <boxGeometry args={[0.2, 4.3, 0.2]} />
     {dark}
@@ -391,7 +391,7 @@ function CourtFloor() {
  const keyLength = court.x1 - 0.3 - freeThrowX;
  const line = <meshBasicMaterial color="#fff6e8" />;
  return (
-  <group>
+  <group name="pista de baloncesto" userData={{ rests: 0 }}>
    <mesh position={[cx, 0.03, cz]} receiveShadow>
     <boxGeometry args={[width, 0.06, depth]} />
     <meshLambertMaterial color="#4c9a8c" flatShading />
@@ -442,7 +442,7 @@ function CourtFloor() {
 
 function BallStand() {
  return (
-  <group position={[ballStand.x, 0, ballStand.z]}>
+  <group name="soporte del balón" userData={{ rests: 0 }} position={[ballStand.x, 0, ballStand.z]}>
    <mesh position-y={STAND_TOP / 2} castShadow>
     <cylinderGeometry args={[0.08, 0.2, STAND_TOP - 0.06, 8]} />
     <meshLambertMaterial color="#5a3b28" flatShading />

@@ -50,9 +50,9 @@ export function Trees() {
  return (
   <>
    {groups.map(([geometry, items], i) => (
-    <Instances key={i} geometry={geometry} material={material} items={items} colored castShadow receiveShadow />
+    <Instances key={i} name="árbol" rests={0} geometry={geometry} material={material} items={items} colored castShadow receiveShadow />
    ))}
-   <Instances geometry={old} material={material} items={elders} colored castShadow receiveShadow />
+   <Instances name="árbol viejo" rests={0} geometry={old} material={material} items={elders} colored castShadow receiveShadow />
   </>
  );
 }

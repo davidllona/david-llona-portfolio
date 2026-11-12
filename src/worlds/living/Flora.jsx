@@ -55,7 +55,7 @@ function Lanterns() {
  }, [lamps]);
  return (
   <>
-   <Instances geometry={geometry.lamp} material={material.lamp} items={items.posts} castShadow />
+   <Instances name="farola" rests={0} geometry={geometry.lamp} material={material.lamp} items={items.posts} castShadow />
    <Instances geometry={geometry.glass} material={material.glass} items={items.glasses} />
    <Instances geometry={geometry.pool} material={material.pool} items={items.pools} />
   </>

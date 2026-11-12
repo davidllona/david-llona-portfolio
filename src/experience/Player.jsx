@@ -194,7 +194,7 @@ export function Player({ active }) {
 
  return (
   <>
-   <group ref={group}>
+   <group ref={group} name="astronauta">
     <Astronaut />
    </group>
    <mesh ref={shadow} rotation-x={-Math.PI / 2} visible={false}>

@@ -111,7 +111,7 @@ export function AboutMe() {
  });
 
  return (
-  <group position={[x, PLATEAU.height, z]} {...click}>
+  <group name="casa del árbol" userData={{ rests: 0, foot: 2.4 }} position={[x, PLATEAU.height, z]} {...click}>
    {/* El árbol, por detrás; la casa queda delante de su copa, a la vista. */}
    <mesh geometry={models.treeGeometry} material={models.tree} position={[0.3, 0, -3.3]} rotation-y={2.6} scale={1.3} castShadow receiveShadow />
    <group position={[0, 0, -0.9]}>

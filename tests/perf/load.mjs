@@ -3,13 +3,14 @@
 // principal y en qué funciones se va la CPU.
 //   node tests/perf/load.mjs [url] [ralentización de CPU, p. ej. 4]
 import puppeteer from "puppeteer-core";
+import { CHROME, GPU_ARGS } from "../chrome.mjs";
 
 const url = process.argv[2] ?? "http://localhost:5198/";
 const throttle = Number(process.argv[3] ?? 1);
 const browser = await puppeteer.launch({
- executablePath: process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+ executablePath: CHROME,
  headless: "new",
- args: ["--enable-gpu", "--use-angle=metal", "--ignore-gpu-blocklist", "--enable-unsafe-webgpu", "--enable-features=WebGPU"],
+ args: GPU_ARGS,
 });
 const page = await browser.newPage();
 await page.setViewport({ width: 1440, height: 900 });

@@ -1,0 +1,19 @@
+# Finales de línea: siempre LF en el repositorio y en disco (Mac y Windows).
+* text=auto eol=lf
+*.glb binary
+*.gltf text eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ktx2 binary
+*.mp3 binary
+*.ogg binary
+*.wav binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.ico binary
+*.mp4 binary
