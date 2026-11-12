@@ -517,8 +517,8 @@ const colliders = [
  // Observatorio: su plataforma circular, el anexo y el atrezo de los lados.
  { x: OBSERVATORY.x, z: OBSERVATORY.z - 1.4, r: 3.05 },
  { x: OBSERVATORY.x - 3.5, z: OBSERVATORY.z - 1.2, r: 1.2 },
- { x: OBSERVATORY.x - 3.5, z: OBSERVATORY.z + 2.1, r: 0.55 },
- { x: OBSERVATORY.x + 3.3, z: OBSERVATORY.z + 1.5, r: 0.7 },
+ { x: OBSERVATORY.x - 4.4, z: OBSERVATORY.z + 1.0, r: 0.55 },
+ { x: OBSERVATORY.x + 3.75, z: OBSERVATORY.z + 0.7, r: 0.7 },
  { x: CONTACT.x, z: CONTACT.z - 2.6, r: 2 },
  { ...CONTACT.antenna, r: 1.2 },
  ...CONTACT.terminals.map((t) => ({ ...t, r: 0.5 })),

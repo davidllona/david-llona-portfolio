@@ -4,7 +4,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 
 export default [
- { ignores: ["dist", ".vercel"] },
+ { ignores: ["dist", ".vercel", 'folio-2025-main', 'capturas', 'Porfolio_3D_David_Llona'] },
  {
   ...js.configs.recommended,
   files: ["**/*.{js,jsx}"],

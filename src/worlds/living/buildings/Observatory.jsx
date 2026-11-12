@@ -65,7 +65,7 @@ function createBody() {
  for (let i = 0; i < 5; i++) pieces.push(piece(tube(0.11, 0.7, 6), { bottom: WOOD.mid, top: WOOD.pale, vary: 0.12, seed: i, position: [shed[0] - 0.5 + (i % 3) * 0.24 + (i > 2 ? 0.12 : 0), 0.32 + (i > 2 ? 0.2 : 0), shed[1] + 1.0], rotation: [0, 0, Math.PI / 2] }));
 
  // Banco, a la derecha.
- const bench = [3.3, 1.5];
+ const bench = [3.75, 0.7];
  pieces.push(
   piece(box(1.3, 0.08, 0.42), { bottom: WOOD.mid, top: WOOD.light, vary: 0.1, position: [bench[0], 0.46, bench[1]], rotation: [0, -0.5, 0] }),
   piece(box(1.3, 0.4, 0.07), { color: WOOD.mid, vary: 0.1, position: [bench[0] + 0.09, 0.72, bench[1] - 0.16], rotation: [0.15, -0.5, 0] }),
@@ -92,9 +92,9 @@ function createBody() {
  pieces.push(piece(tube(0.4, 0.5, 8), { bottom: STONE.dark, top: STONE.light, jitter: 0.03, position: [3.7, 0.25, -0.6] }), piece(new THREE.ConeGeometry(0.06, 0.4, 3), { color: BRASS[1], position: [3.7, 0.62, -0.6], rotation: [0.5, 0, 0] }));
  // Pedestal de la esfera armilar y poste del cartel.
  pieces.push(
-  piece(new THREE.CylinderGeometry(0.2, 0.34, 0.9, 6), { bottom: STONE.dark, top: STONE.light, jitter: 0.03, position: [-3.5, 0.45, 2.1] }),
-  piece(limb(0.06, 0.05, 1.5, 5), { color: WOOD.dark, position: [2.2, 0, 2.85] }),
-  piece(box(1.0, 0.7, 0.07), { color: WOOD.dark, position: [2.2, 1.55, 2.86] }),
+  piece(new THREE.CylinderGeometry(0.2, 0.34, 0.9, 6), { bottom: STONE.dark, top: STONE.light, jitter: 0.03, position: [-4.4, 0.45, 1.0] }),
+  piece(limb(0.06, 0.05, 1.5, 5), { color: WOOD.dark, position: [2.45, 0, 1.75] }),
+  piece(box(1.0, 0.7, 0.07), { color: WOOD.dark, position: [2.45, 1.55, 1.76] }),
  );
  return merge(pieces);
 }
@@ -254,8 +254,8 @@ export function Observatory() {
    <Glow light={false} position={[-3.5 + 0.3, 1.2, CENTRE_Z + 0.2 + 0.83]}>
     <planeGeometry args={[0.3, 0.3]} />
    </Glow>
-   <Armillary position={[-3.5, 1.42, 2.1]} />
-   <mesh position={[2.2, 1.55, 2.9]}>
+   <Armillary position={[-4.4, 1.42, 1.0]} />
+   <mesh position={[2.45, 1.55, 1.8]}>
     <planeGeometry args={[0.88, 0.6]} />
     <meshBasicMaterial map={chart} toneMapped={false} />
    </mesh>
