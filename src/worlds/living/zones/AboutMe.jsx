@@ -97,6 +97,7 @@ export function AboutMe() {
   action: () =>
    emit("open", {
     kind: "about",
+    at: { x, y: 2.6, z: z + 0.6, distance: 0.8 },
     eyebrow: aboutText.eyebrow,
     title: aboutText.headline.join(" "),
     paragraphs: aboutText.paragraphs,

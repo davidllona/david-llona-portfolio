@@ -161,13 +161,13 @@ function Device({ link, x, z, models }) {
   if (isMail) {
    // El correo se abre y, además, se copia: no todo el mundo tiene cliente configurado.
    navigator.clipboard?.writeText(EMAIL).then(
-    () => emit("toast", { text: `Correo copiado: ${EMAIL}` }),
-    () => emit("toast", { text: EMAIL }),
+    () => emit("toast", { text: `Correo copiado: ${EMAIL}`, at: { x, y: 2.9, z } }),
+    () => emit("toast", { text: EMAIL, at: { x, y: 2.9, z } }),
    );
    window.location.href = link.href;
   } else {
    window.open(link.href, "_blank", "noopener,noreferrer");
-   emit("toast", { text: `Abriendo ${link.label}` });
+   emit("toast", { text: `Abriendo ${link.label}`, at: { x, y: 2.9, z } });
   }
   emit("sound", { id: "ui-open" });
  };

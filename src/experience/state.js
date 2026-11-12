@@ -57,6 +57,16 @@ export const emit = (type, detail) => events.dispatchEvent(new CustomEvent(type,
 
 export const game = { score: 0 };
 
+// Lo que la escena muestra como tarjetas 3D (ver experience/ui3d/WorldUi.jsx):
+// la indicación de la tecla E, los mensajes, el logro recién conseguido y el
+// bocadillo de Woody. No hay versión HTML de nada de esto.
+export const ui3d = {
+ hint: null, // { text, x, y, z }: la acción disponible, sobre su objeto
+ toasts: [], // [{ id, text, at, age }]
+ achievement: null, // { name, age }
+ speech: null, // { text, age, life }: lo que dice Woody ahora
+};
+
 // Interfaz: cuántas ventanas (ficha, portfolio…) hay abiertas encima del juego.
 // Con alguna abierta, el astronauta no se mueve ni se usa nada.
 export const ui = { open: 0 };
@@ -66,11 +76,17 @@ export const ui = { open: 0 };
 // hacer. La más cercana al jugador se usa con E (o el botón táctil); también se
 // puede hacer clic directamente sobre el objeto.
 export const interactables = new Set();
-export let hint = null; // texto de la acción disponible ahora mismo
-export function setHint(text) {
- if (text === hint) return;
- hint = text;
- emit("hint");
+// La acción disponible ahora mismo y dónde flota su indicación (o null).
+export function setHint(text, at) {
+ if (!text) {
+  ui3d.hint = null;
+  return;
+ }
+ if (!ui3d.hint) ui3d.hint = { text, x: 0, y: 0, z: 0 };
+ ui3d.hint.text = text;
+ ui3d.hint.x = at.x;
+ ui3d.hint.y = at.y;
+ ui3d.hint.z = at.z;
 }
 
 export function queueAction() {
@@ -86,4 +102,4 @@ export function releaseMovement() {
 }
 
 // Ayuda para depurar desde la consola del navegador; no se incluye en producción.
-if (import.meta.env.DEV) window.__world = { input, player, woody, rig, game, interactables };
+if (import.meta.env.DEV) window.__world = { input, player, woody, rig, game, interactables, ui3d };

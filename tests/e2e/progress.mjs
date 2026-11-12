@@ -19,7 +19,7 @@ check((await counter()) === "0/21" && !(await has("primeros-pasos")), "se empiez
 // Primeros pasos + pasos que suenan según el suelo.
 await t.hold("KeyS", 1200);
 check(await has("primeros-pasos"), "andar desbloquea «Primeros pasos»");
-check(/Primeros pasos/.test((await t.text(".achievement-toast")) ?? ""), `sale el aviso: "${await t.text(".achievement-toast strong")}"`);
+check(/Primeros pasos/.test((await t.achievement()) ?? "") && !(await page.$(".achievement-toast")), `sale el aviso, como tarjeta 3D: "${await t.achievement()}"`);
 let played = await sounds();
 check(played["step-path"] > 0 && played.achievement === 1, `suenan los pasos (camino: ${played["step-path"]}) y el logro`);
 await t.put(-24, 12, { settle: 300 });
@@ -51,7 +51,7 @@ await wait(300);
 // Mejor amigo: tres caricias.
 for (let i = 0; i < 3; i++) {
  await t.put(-6, 8, { settle: 700 });
- const hint = await t.text(".hud__prompt");
+ const hint = await t.hint();
  await page.keyboard.press("KeyE");
  await wait(3800);
  if (process.env.E2E_DEBUG) console.log("caricia", i, hint, JSON.stringify((await saved()).counts));
@@ -109,7 +109,7 @@ await page.waitForFunction(() => !document.querySelector("#loader") && !document
 await wait(400);
 await t.enter();
 await t.hold("KeyS", 900);
-check((await counter()) === "6/21" && !(await page.$(".achievement-toast")), "tras recargar: 6/21 guardados y ningún aviso repetido");
+check((await counter()) === "6/21" && !(await t.achievement()), "tras recargar: 6/21 guardados y ningún aviso repetido");
 
 // Silenciar con M, y reiniciar el progreso.
 await page.keyboard.press("KeyM");

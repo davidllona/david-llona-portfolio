@@ -24,7 +24,9 @@ export const distanceTo = (entry) => {
 // Registra algo con lo que se puede interactuar:
 //  · position: { x, z } o función que lo devuelve (si se mueve);
 //  · radius: a qué distancia se activa con E;
-//  · hint: texto que se muestra (o función);
+//  · hint: texto que se muestra (o función), en una tarjeta 3D sobre el objeto;
+//  · height: a qué altura sobre el suelo flota esa tarjeta (por defecto 2,3 m);
+//    sign: { x, y, z } si debe flotar en otro punto que el de uso;
 //  · action: qué hacer;
 //  · enabled: función opcional; priority: gana la más alta si hay varias cerca;
 //  · anywhere: el clic funciona desde cualquier distancia.
@@ -44,6 +46,9 @@ export function useInteractable(definition) {
   const current = entry.current;
   if (current.enabled && !current.enabled()) return;
   if (current.anywhere || distanceTo(current) <= current.radius * 1.6) current.action();
-  else emit("toast", { text: "Acércate para usarlo" });
+  else {
+   const at = read(current.position);
+   emit("toast", { text: "Acércate para usarlo", at: { x: at.x, y: (at.y ?? 0) + (current.height ?? 2.3), z: at.z } });
+  }
  });
 }

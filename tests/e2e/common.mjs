@@ -28,7 +28,9 @@ const MOBILE_UA =
 
 // Abre la página, espera a que termine la carga y devuelve utilidades.
 // `uncapped`: sin límite de 60 fps, para medir rendimiento real.
-export async function open({ mobile = false, viewport, query = "", uncapped = false } = {}) {
+// `tips`: con los consejos de Woody activados (bienvenida y frases de zona).
+// Por defecto van apagados: las demás pruebas no esperan a que termine de hablar.
+export async function open({ mobile = false, viewport, query = "", uncapped = false, tips = false } = {}) {
  const browser = await puppeteer.launch({
   executablePath: CHROME,
   headless: "new",
@@ -57,14 +59,17 @@ export async function open({ mobile = false, viewport, query = "", uncapped = fa
  });
  page.on("pageerror", (error) => logs.push("[pageerror] " + error.message.slice(0, 300)));
  // Cada prueba parte de cero: sin tema, ajustes ni logros guardados.
- await page.evaluateOnNewDocument(() => {
+ await page.evaluateOnNewDocument((tips) => {
   try {
    // (Salvo que la prueba pida conservarlo, para comprobar que algo persiste.)
-   if (!sessionStorage.getItem("e2e-conservar")) localStorage.clear();
+   if (!sessionStorage.getItem("e2e-conservar")) {
+    localStorage.clear();
+    localStorage.setItem("woody-consejos", tips ? "on" : "off");
+   }
   } catch {
    // Sin almacenamiento no hay nada que limpiar.
   }
- });
+ }, tips);
  await page.goto(BASE + query, { waitUntil: "load", timeout: 60000 });
  const startedAt = Date.now();
  await page.waitForFunction(() => !document.querySelector("#loader"), { timeout: 90000 });
@@ -82,6 +87,12 @@ export async function open({ mobile = false, viewport, query = "", uncapped = fa
   evaluate,
   shot: (name) => page.screenshot({ path: `${out}${name}.jpg`, type: "jpeg", quality: 82 }),
   text: (selector) => evaluate((selector) => document.querySelector(selector)?.textContent ?? null, selector),
+  // La interfaz del juego es 3D (tarjetas dentro del mundo): se lee de su estado.
+  hint: () => evaluate(() => window.__world.ui3d.hint?.text ?? null),
+  hintAt: () => evaluate(() => { const h = window.__world.ui3d.hint; return h ? [h.x, h.y, h.z] : null; }),
+  toasts: () => evaluate(() => window.__world.ui3d.toasts.map((toast) => toast.text)),
+  achievement: () => evaluate(() => window.__world.ui3d.achievement?.name ?? null),
+  speech: () => evaluate(() => window.__world.ui3d.speech?.text ?? null),
   center: (selector) =>
    evaluate((selector) => {
     const rect = document.querySelector(selector)?.getBoundingClientRect();
@@ -124,6 +135,32 @@ export async function open({ mobile = false, viewport, query = "", uncapped = fa
     withWoody,
    );
    await wait(settle);
+  },
+  // Sigue a Woody mientras guía: en cada paso se pulsa hacia donde está.
+  // `each(i)`: se llama en cada paso (para sacar capturas). Devuelve si llegó.
+  followWoody: async ({ run = false, steps = 220, each } = {}) => {
+   const held = new Set();
+   let arrived = false;
+   if (run) await page.keyboard.down("ShiftLeft");
+   for (let i = 0; i < steps && !arrived; i++) {
+    const { wx, wz, px, pz, mode } = await evaluate(() => {
+     const w = window.__world;
+     return { wx: w.woody.position.x, wz: w.woody.position.z, px: w.player.position.x, pz: w.player.position.z, mode: w.woodyBrain.mode };
+    });
+    const want = new Set();
+    if (wz < pz - 0.8) want.add("KeyW");
+    else if (wz > pz + 0.8) want.add("KeyS");
+    if (wx < px - 0.8) want.add("KeyA");
+    else if (wx > px + 0.8) want.add("KeyD");
+    for (const key of held) if (!want.has(key)) (await page.keyboard.up(key), held.delete(key));
+    for (const key of want) if (!held.has(key)) (await page.keyboard.down(key), held.add(key));
+    await wait(200);
+    await each?.(i);
+    arrived = mode === "follow";
+   }
+   for (const key of held) await page.keyboard.up(key);
+   if (run) await page.keyboard.up("ShiftLeft");
+   return arrived;
   },
   hold: async (code, ms) => {
    await page.keyboard.down(code);

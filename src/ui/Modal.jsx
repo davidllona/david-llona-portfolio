@@ -1,12 +1,21 @@
 import { useEffect, useState } from "react";
-import { emit, events, releaseMovement, ui } from "../experience/state";
+import { emit, events, releaseMovement, rig, ui } from "../experience/state";
 
-// Ficha que se abre al pulsar un cartel o un objeto del planeta (evento "open").
+const APPROACH = 750; // ms que tarda la cámara en acercarse antes de abrir la ficha
+
+// Ficha que se abre al usar un edificio o un objeto del planeta (evento
+// "open"). Si el evento dice dónde está (`at`), la cámara se acerca primero a
+// ese sitio y la ficha se abre al llegar; al cerrarla, la cámara vuelve al
+// astronauta y se sigue jugando.
 export function Modal() {
  const [content, setContent] = useState(null);
+ const [arrived, setArrived] = useState(false);
 
  useEffect(() => {
-  const onOpen = (event) => setContent(event.detail);
+  const onOpen = (event) => {
+   setArrived(false);
+   setContent(event.detail);
+  };
   const onKey = (event) => event.key === "Escape" && setContent(null);
   events.addEventListener("open", onOpen);
   window.addEventListener("keydown", onKey);
@@ -16,7 +25,7 @@ export function Modal() {
   };
  }, []);
 
- // Con la ficha abierta, el juego no recibe controles.
+ // Con la ficha abierta (o la cámara de camino), el juego no recibe controles.
  const isOpen = Boolean(content);
  useEffect(() => {
   if (!isOpen) return undefined;
@@ -28,7 +37,26 @@ export function Modal() {
   };
  }, [isOpen]);
 
- if (!content) return null;
+ // Acercamiento de la cámara al edificio.
+ useEffect(() => {
+  if (!content) return undefined;
+  const at = content.at;
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!at || rig.focus) {
+   setArrived(true);
+   return undefined;
+  }
+  rig.focus = { x: at.x, y: at.y ?? 0, z: at.z };
+  rig.distance = at.distance ?? 0.62;
+  const timer = window.setTimeout(() => setArrived(true), reduced ? 0 : APPROACH);
+  return () => {
+   window.clearTimeout(timer);
+   rig.focus = null;
+   rig.distance = 1;
+  };
+ }, [content]);
+
+ if (!content || !arrived) return null;
 
  return (
   <div className="modal" role="dialog" aria-modal="true" aria-label={content.title} onClick={() => setContent(null)}>
@@ -52,8 +80,8 @@ export function Modal() {
      </ul>
     )}
     {content.link && (
-     <a className="modal__link" href={content.link} target="_blank" rel="noopener noreferrer">
-      {content.linkLabel ?? "Abrir"} <span aria-hidden="true">→</span>
+     <a className="modal__link" href={content.link} {...(content.download ? { download: "" } : { target: "_blank", rel: "noopener noreferrer" })}>
+      {content.linkLabel ?? "Abrir"} <span aria-hidden="true">{content.download ? "↓" : "→"}</span>
      </a>
     )}
    </article>

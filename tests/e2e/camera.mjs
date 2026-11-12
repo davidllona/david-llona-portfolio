@@ -44,19 +44,22 @@ await wait(1800);
 
 // ── Indicación «E»: una, y solo de lo que se ve ──────────────────────────────
 await t.put(CV_KIOSK.x, CV_KIOSK.z + 1.4, { withWoody: false, settle: 1400 });
-check((await t.evaluate(() => document.querySelectorAll(".hud__prompt").length)) === 1, "junto al atril hay una sola indicación");
-check(/CV/.test((await t.text(".hud__prompt")) ?? ""), "y es la del CV");
-check((await t.evaluate(() => getComputedStyle(document.querySelector(".hud__prompt")).backgroundColor)).startsWith("rgba(250, 243, 229"), "con estilo claro");
+check(/CV/.test((await t.hint()) ?? ""), "junto al atril hay una sola indicación, la del CV");
+{
+ const [hx, , hz] = await t.hintAt();
+ check(Math.hypot(hx - CV_KIOSK.x, hz - CV_KIOSK.z) < 1.5, "y flota junto al atril, dentro del mundo");
+}
+check((await t.evaluate(() => document.querySelectorAll(".hud, .hud__prompt, .hud__toast, .hud__hint").length)) === 0, "no queda ningún aviso HTML encima del juego");
 // La cámara mira a otra parte: el atril deja de verse y la indicación se retira.
 await t.evaluate(() => {
  const w = window.__world;
  w.rig.focus = { x: w.player.position.x + 45, y: 0, z: w.player.position.z };
 });
 await wait(2500);
-check((await t.text(".hud__prompt")) === null, "si el objeto no está a la vista, no se ofrece");
+check((await t.hint()) === null, "si el objeto no está a la vista, no se ofrece");
 await t.evaluate(() => (window.__world.rig.focus = null));
 await wait(2500);
-check(/CV/.test((await t.text(".hud__prompt")) ?? ""), "y vuelve al verse de nuevo");
+check(/CV/.test((await t.hint()) ?? ""), "y vuelve al verse de nuevo");
 
 // ── Postes indicadores: están, y no se atraviesan ────────────────────────────
 check(SIGNPOSTS.length === 5 && SIGNPOSTS.every((s) => living.colliders.some((c) => Math.hypot(c.x - s.x, c.z - s.z) < 0.05)), "los cinco postes tienen colisión");

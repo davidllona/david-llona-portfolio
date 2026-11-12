@@ -144,7 +144,7 @@ function Ball() {
  const shoot = () => {
   const b = ball.current;
   if (b.mode !== "held") {
-   emit("toast", { text: "Coge antes el balón" });
+   emit("toast", { text: "Coge antes el balón", at: { x: ballStand.x, y: 2.6, z: ballStand.z } });
    return;
   }
   const feet = player.position;
@@ -215,6 +215,7 @@ function Ball() {
      b.scoreLock = 1;
      game.score += 1;
      emit("score", { score: game.score });
+     emit("toast", { text: `¡Canasta! ${game.score}`, at: { x: hoop.x - 0.4, y: BASKET.hoop.rimHeight + 2.3, z: hoop.z } });
     }
    }
 

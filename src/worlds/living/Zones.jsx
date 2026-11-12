@@ -89,7 +89,7 @@ function LabTotem({ experiment, index, x, z }) {
   radius: 2.6,
   hint: `Ver «${experiment.title}»`,
   anywhere: true,
-  action: () => emit("open", { kind: "lab", eyebrow: experiment.type, title: experiment.title, paragraphs: [experiment.description], link: experiment.url, linkLabel: "Abrir experimento" }),
+  action: () => emit("open", { kind: "lab", at: { x, y: 1.6, z, distance: 0.55 }, eyebrow: experiment.type, title: experiment.title, paragraphs: [experiment.description], link: experiment.url, linkLabel: "Abrir experimento" }),
  });
  useFrame(({ clock }) => {
   const time = clock.elapsedTime;
@@ -131,7 +131,7 @@ function LabTotem({ experiment, index, x, z }) {
 // Atril con el currículum, junto al cohete.
 function CvKiosk() {
  const { x, z } = CV_KIOSK;
- const click = useInteractable({ position: { x, z: z + 1 }, radius: 2.4, hint: "Ver el CV", anywhere: true, action: () => emit("open", cvCard()) });
+ const click = useInteractable({ position: { x, z: z + 1 }, radius: 2.4, hint: "Ver el CV", anywhere: true, action: () => emit("open", { ...cvCard(), at: { x, y: 1.1, z, distance: 0.5 } }) });
  return (
   <group position={[x, 0, z]} {...click}>
    <mesh position-y={0.55} castShadow>

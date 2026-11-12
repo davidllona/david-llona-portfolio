@@ -363,7 +363,7 @@ function Wind() {
    const { x = 0, z = 0, strength = 1, quiet = false } = event.detail ?? {};
    startGust(x, z, strength);
    if (import.meta.env.DEV) window.__world.gusts = (window.__world.gusts ?? 0) + 1; // para las pruebas automáticas
-   if (!quiet) emit("toast", { text: "El bosque despierta" });
+   if (!quiet) emit("toast", { text: "El bosque despierta", at: { x, y: height(x, z) + 4, z } });
   };
   events.addEventListener("gust", onGust);
   return () => events.removeEventListener("gust", onGust);

@@ -30,11 +30,11 @@ check(living.height(living.spawn.x, living.spawn.z) > living.waterLevel, "el pun
 const t = await open();
 const { page } = t;
 await t.enter();
-const prompt = async () => (await t.text(".hud__prompt")) ?? "";
+const prompt = async () => (await t.hint()) ?? "";
 const title = () => t.text(".modal__title");
 const use = async () => {
  await page.keyboard.press("KeyE");
- await wait(500);
+ await wait(1300); // la cámara se acerca al edificio antes de abrir la ficha
 };
 const close = async () => {
  await page.keyboard.press("Escape");
@@ -116,7 +116,7 @@ for (const [i, name] of ["LinkedIn", "GitHub", "Email"].entries()) {
 await t.put(WIND_CHIME.x, WIND_CHIME.z + 1.3, { withWoody: false, settle: 500 });
 const before = await t.evaluate(() => window.__world.gusts ?? 0);
 await use();
-const toast = await t.text(".hud__toast");
+const toast = (await t.toasts()).join(" · ");
 const after = await t.evaluate(() => window.__world.gusts ?? 0);
 check(after === before + 1 && /bosque despierta/i.test(toast ?? ""), `el carillón lanza la ráfaga (aviso: "${toast}")`);
 await wait(1500);

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "../achievements/Badge";
-import { ACHIEVEMENTS, BY_ID } from "../achievements/list";
+import { ACHIEVEMENTS } from "../achievements/list";
 import { isUnlocked, progressOf, resetAll, unlockedCount } from "../achievements/store";
 import { events } from "../experience/state";
 import { useDialog } from "./useDialog";
@@ -102,34 +102,6 @@ export function AchievementsPanel({ onClose }) {
      )}
     </div>
    </div>
-  </div>
- );
-}
-
-// Aviso discreto al conseguir un logro. Si llegan varios, salen de uno en uno.
-export function AchievementToast() {
- const [queue, setQueue] = useState([]);
- useEffect(() => {
-  const onUnlock = (event) => setQueue((list) => [...list, event.detail.id]);
-  events.addEventListener("achievement", onUnlock);
-  return () => events.removeEventListener("achievement", onUnlock);
- }, []);
- const current = queue[0];
- useEffect(() => {
-  if (!current) return undefined;
-  const timer = window.setTimeout(() => setQueue((list) => list.slice(1)), 4200);
-  return () => window.clearTimeout(timer);
- }, [current]);
-
- if (!current) return null;
- const achievement = BY_ID[current];
- return (
-  <div key={current} className="achievement-toast" role="status">
-   <Badge achievement={achievement} size={52} />
-   <p>
-    <span>Logro conseguido</span>
-    <strong>{achievement.name}</strong>
-   </p>
   </div>
  );
 }

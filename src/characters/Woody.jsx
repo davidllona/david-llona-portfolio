@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef } from "react";
+import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
+import { GUIDE, WELCOME, ZONE_LINES } from "../content/woody";
 import { useInteractable } from "../experience/interact";
-import { emit, events, player, woody } from "../experience/state";
+import { hasSaid, isSpeaking, say } from "../experience/speech";
+import { emit, events, player, rig, woody } from "../experience/state";
 import { world } from "../worlds";
 import clipData from "./data/woody_clips.json";
 import { createBrain, startGuide, startPet, stopGuide, updateBrain } from "./WoodyBrain";
@@ -12,23 +15,37 @@ import { useRiggedModel } from "./useRiggedModel";
 const URL = "/models/characters/woody.glb";
 // El modelo mide 0,82 m hasta la cabeza; en el juego, algo más de 1 m.
 const SCALE = WOODY_SCALE;
+// A qué velocidad avanza cada paso tal como está animado. El clip se reproduce
+// a (velocidad real / esta): así las patas no patinan.
 const CLIP_SPEED = { walk: 0.56 * SCALE, trot: 1.42 * SCALE, run: 3.5 * SCALE };
+const GAIT_CLIP = { walk: "Woody_Walk", trot: "Woody_Trot", run: "Woody_Run" };
+// Límites entre pasos (m/s), con holgura para no ir cambiando en la frontera.
+// El paso de andar del astronauta (3,6 m/s) cae en el trote: «Walk» solo avanza
+// 0,7 m/s y a esa velocidad patinaría. Cuando él corre, Woody corre.
+const TROT_FROM = 1.25, RUN_FROM = 4.5, HOLD = 0.35;
 
+// Lo que hace de pie y quieto antes de sentarse: algo corto de perro.
+const IDLE_GESTURES = ["Woody_SniffGround", "Woody_HeadTiltLeft", "Woody_HeadTiltRight", "Woody_TailWag_Slow", "Woody_SniffObject"];
 
-// Lo que hace de pie y quieto cada pocos segundos.
-const IDLE_GESTURES = ["Woody_Idle_LookAround", "Woody_HeadTiltLeft", "Woody_HeadTiltRight", "Woody_SniffGround", "Woody_TailWag_Slow"];
+const UP = new THREE.Vector3(0, 1, 0);
+const point = new THREE.Vector3();
+const parentTurn = new THREE.Quaternion();
+const turnBy = new THREE.Quaternion();
 
-// Woody: te sigue, descansa cuando te paras, te guía si se lo pides y se deja
-// acariciar. Su comportamiento está en WoodyBrain.js; aquí se elige el clip.
+// Woody: te sigue a tu paso, descansa cuando te paras, te habla, te guía si se
+// lo pides y se deja acariciar. Su comportamiento está en WoodyBrain.js; aquí
+// se elige el clip, se le pega al terreno y se decide qué dice.
 export function Woody({ active }) {
  const group = useRef(null);
  const brain = useMemo(createBrain, []);
- const idle = useRef({ timer: 0, next: 6 });
+ const idle = useRef({ timer: 0, next: 1 });
+ const state = useRef({ gait: "walk", attend: 0, zoneTimer: 0 });
  const { scene, controller } = useRiggedModel(URL, {
   palette: WOODY_PALETTE,
   aliases: clipData.aliases,
   onEvent: (name) => emit("anim", { who: "woody", name }),
  });
+ const bones = useMemo(() => ({ neck: scene.getObjectByName("neck"), head: scene.getObjectByName("head") }), [scene]);
 
  // Colocarlo junto al jugador al entrar en un mundo.
  useEffect(() => {
@@ -40,17 +57,28 @@ export function Woody({ active }) {
   place();
   controller.play("Woody_Idle_Breathe", { fade: 0 });
   events.addEventListener("world", place);
-  if (import.meta.env.DEV) Object.assign(window.__world, { woodyBrain: brain, woodyClip: () => controller.name }); // para las pruebas automáticas
+  if (import.meta.env.DEV) Object.assign(window.__world, { woodyBrain: brain, woodyClip: () => controller.name, woodyRate: () => controller.current?.action.timeScale ?? 0 }); // para las pruebas automáticas
   return () => events.removeEventListener("world", place);
  }, [brain, controller]);
 
- // Peticiones desde el menú de Woody.
+ // Al aterrizar por primera vez, da la bienvenida y explica cómo va esto.
+ useEffect(() => {
+  const onArrived = () => {
+   if (say(WELCOME, { once: "bienvenida", tip: true })) controller.play("Woody_Greet", { loop: false, fade: 0.2, hold: false });
+  };
+  events.addEventListener("arrived", onArrived);
+  return () => events.removeEventListener("arrived", onArrived);
+ }, [controller]);
+
+ // Peticiones de guía: desde su menú o desde el menú superior.
  useEffect(() => {
   const onGuide = (event) => {
    const to = event.detail?.to;
    if (!to) {
+    const wasGuiding = brain.mode === "guide";
     stopGuide(brain);
     woody.guideTo = null;
+    if (wasGuiding) say(GUIDE.stop, { now: true });
     emit("woody");
     return;
    }
@@ -58,7 +86,7 @@ export function Woody({ active }) {
     woody.guideTo = to;
     brain.posture = "stand";
     controller.play("Woody_BarkSoft", { loop: false, fade: 0.1 });
-    emit("toast", { text: "Woody: ¡sígueme!" });
+    say(GUIDE.start, { now: true });
     emit("woody");
    }
   };
@@ -81,18 +109,27 @@ export function Woody({ active }) {
  const click = useInteractable({
   position: () => woody.position,
   radius: 2.1,
+  height: 1.75,
   priority: -1, // cualquier otra cosa cercana tiene preferencia
   hint: "Acariciar a Woody",
-  enabled: () => !player.hidden && brain.mode !== "pet" && !player.gesture,
+  // Mientras habla, la E pasa su bocadillo en vez de acariciarlo.
+  enabled: () => !player.hidden && brain.mode !== "pet" && !player.gesture && !isSpeaking(),
   action: pet,
  });
 
- useFrame((_, rawDelta) => {
+ useFrame(({ camera }, rawDelta) => {
   const delta = Math.min(rawDelta, 0.05);
+  const memo = state.current;
+  const speaking = isSpeaking();
   // Los gestos de espera (olfatear, ladear la cabeza…) se cortan si hay que moverse.
   const idling = IDLE_GESTURES.includes(controller.name);
   const busy = controller.busy && !idling;
-  const out = updateBrain(brain, active ? delta : 0, { world, player, woody, busy });
+  // ¿Se ve en pantalla ese punto del suelo? (Para no reaparecer a la vista.)
+  const visible = (x, z) => {
+   point.set(x, world.height(x, z) + 0.5, z).project(camera);
+   return point.z < 1 && Math.abs(point.x) < 1.08 && Math.abs(point.y) < 1.08;
+  };
+  const out = updateBrain(brain, active ? delta : 0, { world, player, woody, busy, attend: speaking, visible });
   group.current.visible = !brain.hidden;
 
   if (out.petReady) {
@@ -104,8 +141,18 @@ export function Woody({ active }) {
   if (out.arrived) {
    woody.guideTo = null;
    controller.play("Woody_AlertSecret", { loop: false, fade: 0.2, hold: false });
-   emit("toast", { text: `Woody: ${out.arrived.arrive}` });
+   say(GUIDE.arrive[out.arrived.id] ?? "Ya estamos.", { now: true });
    emit("woody");
+  }
+  if (out.waited) say(GUIDE.waiting); // si aún está diciendo otra cosa, lo dice después
+
+  // Una frase la primera vez que se entra en cada zona.
+  memo.zoneTimer -= delta;
+  if (memo.zoneTimer <= 0 && active && rig.intro === 0 && !player.hidden && !speaking && brain.mode !== "guide") {
+   memo.zoneTimer = 0.3;
+   const { x, z } = player.position;
+   const zone = world.zones?.find((one) => Math.hypot(x - one.x, z - one.z) < one.r && ZONE_LINES[one.id] && !hasSaid(`zona:${one.id}`));
+   if (zone) say(ZONE_LINES[zone.id], { once: `zona:${zone.id}`, tip: true });
   }
 
   if (!controller.busy || (idling && (brain.moving || brain.wantsUp))) {
@@ -115,7 +162,7 @@ export function Woody({ active }) {
     const from = brain.posture;
     brain.posture = "stand";
     brain.rest = 0;
-    controller.play(from === "lie" ? "Woody_WakeUp" : "Woody_StandUp", { loop: false, fade: 0.15, speed: 1.5 });
+    controller.play(from === "lie" ? "Woody_WakeUp" : "Woody_StandUp", { loop: false, fade: 0.2, speed: from === "lie" ? 1.9 : 1.5 });
    } else if (brain.posture === "sit") {
     if (brain.wantsLie) {
      brain.posture = "lie";
@@ -125,35 +172,55 @@ export function Woody({ active }) {
     controller.play("Woody_Sleep", { fade: 0.4 });
    } else if (speed > 0.3) {
     idle.current.timer = 0;
-    if (speed > 4.2) controller.play("Woody_Run", { fade: 0.15, speed: Math.min(Math.max(speed / CLIP_SPEED.run, 0.8), 1.9) });
-    else if (speed > 1.25) controller.play("Woody_Trot", { fade: 0.15, speed: Math.min(Math.max(speed / CLIP_SPEED.trot, 0.7), 2.2) });
-    else controller.play("Woody_Walk", { fade: 0.15, speed: Math.min(Math.max(speed / CLIP_SPEED.walk, 0.7), 2) });
+    idle.current.next = 0.8 + Math.random() * 0.5;
+    // Corre si corre el astronauta (o si se ha quedado atrás); trota a su
+    // paso; anda en los acercamientos cortos.
+    const hold = (limit, above) => limit + (above ? -HOLD : HOLD);
+    const gait = speed > hold(RUN_FROM, memo.gait === "run") ? "run" : speed > hold(TROT_FROM, memo.gait !== "walk") ? "trot" : "walk";
+    memo.gait = gait;
+    controller.play(GAIT_CLIP[gait], { fade: 0.18, speed: Math.min(Math.max(speed / CLIP_SPEED[gait], 0.55), 2.6) });
    } else if (brain.mode === "guide" && brain.waiting) {
     controller.play("Woody_GuideWait", { fade: 0.25 });
    } else if (brain.wantsSit) {
     brain.posture = "sit";
     controller.play("Woody_SitDown", { loop: false, fade: 0.2 });
    } else {
-    // De pie y quieto: respira, y cada pocos segundos hace algo de perro.
-    const state = idle.current;
-    state.timer += delta;
-    if (state.timer > state.next) {
-     state.timer = 0;
-     state.next = 5 + Math.random() * 5;
+    // De pie y quieto: respira y, antes de sentarse, olfatea o mira alrededor.
+    const pause = idle.current;
+    pause.timer += delta;
+    if (pause.timer > pause.next && !speaking) {
+     pause.timer = 0;
+     pause.next = 4 + Math.random() * 4;
      controller.play(IDLE_GESTURES[Math.floor(Math.random() * IDLE_GESTURES.length)], { loop: false, fade: 0.25, hold: false });
     } else controller.play("Woody_Idle_Breathe", { fade: 0.3 });
    }
   }
   controller.update(delta);
 
+  // Pegado al terreno: posición, rumbo y cabeceo según la pendiente.
   group.current.position.copy(woody.position);
   let turn = woody.facing - group.current.rotation.y;
   turn = Math.atan2(Math.sin(turn), Math.cos(turn));
   group.current.rotation.y += turn * Math.min(1, delta * 10);
+  group.current.rotation.x = brain.posture === "stand" ? brain.pitch : brain.pitch * 0.5;
+
+  // Cuando habla, mira al astronauta: gira el cuello y la cabeza hacia él.
+  memo.attend += ((speaking && !brain.moving ? 1 : 0) - memo.attend) * Math.min(1, delta * 5);
+  if (memo.attend > 0.02 && bones.neck && bones.head) {
+   const toward = Math.atan2(-(player.position.x - woody.position.x), -(player.position.z - woody.position.z));
+   let aside = toward - group.current.rotation.y;
+   aside = Math.max(-1.1, Math.min(1.1, Math.atan2(Math.sin(aside), Math.cos(aside)))) * memo.attend * 0.5;
+   for (const bone of [bones.neck, bones.head]) {
+    // Giro alrededor de la vertical del mundo, expresado en el hueso.
+    bone.parent.getWorldQuaternion(parentTurn);
+    turnBy.setFromAxisAngle(UP, aside);
+    bone.quaternion.premultiply(parentTurn.clone().invert().multiply(turnBy).multiply(parentTurn));
+   }
+  }
  });
 
  return (
-  <group ref={group} {...click}>
+  <group ref={group} rotation-order="YXZ" {...click}>
    {/* El frente del modelo es +Z; el del juego, -Z. */}
    <primitive object={scene} scale={SCALE} rotation-y={Math.PI} />
    {/* Zona de clic algo mayor que el perro. */}

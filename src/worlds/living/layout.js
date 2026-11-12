@@ -716,6 +716,17 @@ export const living = {
   { id: "cascada", x: POND.x, z: POND.z + 1, r: 7 },
   { id: "deportes", x: (COURT.x0 + COURT.x1) / 2, z: (COURT.z0 + COURT.z1) / 2, r: 7 },
  ],
+ // Zonas de las que Woody dice algo la primera vez que se entra (content/woody.js).
+ zones: [
+  { id: "proyectos", x: PLAZA.x, z: PLAZA.z, r: 8 },
+  { id: "sobre-mi", x: TREEHOUSE.x + 1.5, z: TREEHOUSE.z + 3, r: 5.5 },
+  { id: "contacto", x: CONTACT.x, z: CONTACT.z + 1, r: 6 },
+  { id: "cv", x: CV_KIOSK.x, z: CV_KIOSK.z + 0.8, r: 2.8 },
+  { id: "observatorio", x: OBSERVATORY.x, z: OBSERVATORY.z + 2.5, r: 5 },
+  { id: "pistas", x: (COURT.x0 + COURT.x1) / 2, z: (COURT.z0 + COURT.z1) / 2, r: 8 },
+  { id: "pistas", x: (PITCH.x0 + PITCH.x1) / 2, z: (PITCH.z0 + PITCH.z1) / 2, r: 9 },
+  { id: "nave", x: PAD.x, z: PAD.z, r: PAD.padRadius + 1.4 },
+ ],
  colliders,
  ship: PAD,
  shipCollider,
@@ -765,13 +776,8 @@ export const living = {
    ["sobre-mi", "senda-meseta-b"],
    ["senda-meseta-b", "observatorio"],
   ],
-  places: [
-   { id: "proyectos", ask: "Muéstrame proyectos", arrive: "Aquí están los proyectos" },
-   { id: "cohete", ask: "Llévame al cohete", arrive: "El cohete" },
-   { id: "contacto", ask: "¿Dónde está Contacto?", arrive: "Contacto, al otro lado del río" },
-   { id: "sobre-mi", ask: "Llévame a Sobre mí", arrive: "Sobre mí, en la casa del árbol" },
-   { id: "cv", ask: "¿Dónde está el CV?", arrive: "Aquí tienes el CV" },
-  ],
+  // (Lo que Woody dice al pedírselo y al llegar está en content/woody.js.)
+  places: [{ id: "proyectos" }, { id: "cohete" }, { id: "contacto" }, { id: "sobre-mi" }, { id: "cv" }],
  },
  // Colores de día y de noche de este planeta (ver experience/theme.js).
  themes: {

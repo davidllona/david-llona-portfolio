@@ -37,14 +37,14 @@ const inside = await t.evaluate(() => { const { woody, world } = window.__world;
 check(!inside, "Woody no queda metido en ningún obstáculo");
 
 // Descanso: quietos, se sienta; al moverte, se levanta.
-await wait(5500);
-w = await t.woody(); check(w.posture === "sit" && /Sit/.test(await dog()), `quieto 6 s: se sienta (${w.posture}, ${await dog()})`);
+await wait(3500);
+w = await t.woody(); check(w.posture === "sit" && /Sit/.test(await dog()), `quieto 5 s: se sienta (${w.posture}, ${await dog()})`);
 await t.hold("KeyA", 1800); await wait(600);
 w = await t.woody(); check(w.posture === "stand", `al alejarte se levanta y te sigue (${w.posture}, ${await dog()})`);
 
 // Caricias.
 await t.put(0, 7); await wait(400);
-check(/Acariciar a Woody/.test((await t.text(".hud__prompt")) ?? ""), `junto a Woody: "${await t.text(".hud__prompt")}"`);
+check(/Acariciar a Woody/.test((await t.hint()) ?? ""), `junto a Woody: "${await t.hint()}"`);
 await page.keyboard.press("KeyE"); await wait(1400);
 check((await astro()) === "Astro_PetWoody" && (await dog()) === "Woody_PetReact", `E: lo acaricia (${await astro()} / ${await dog()})`);
 p = await t.pos(); w = await t.woody();
@@ -59,7 +59,7 @@ await t.hold("KeyD", 400); check((await t.pos()).x > p.x + 0.5, "al terminar, re
 await t.put(0, 7);
 await page.keyboard.press("KeyG"); await wait(300);
 const options = await t.evaluate(() => [...document.querySelectorAll(".woody-menu__list button")].map((b) => b.textContent));
-check(options.includes("Muéstrame proyectos") && options.includes("Llévame al cohete") && options.includes("Acompáñame") && options.includes("Silenciar consejos"), `G abre el menú: ${options.join(" · ")}`);
+check(options.includes("Muéstrame proyectos") && options.includes("Llévame al cohete") && options.includes("Acompáñame") && options.some((option) => /consejos/.test(option)), `G abre el menú: ${options.join(" · ")}`);
 await t.evaluate(() => [...document.querySelectorAll(".woody-menu__list button")].find((b) => b.textContent === "Muéstrame proyectos").click());
 await wait(3500);
 w = await t.woody(); p = await t.pos();
@@ -84,7 +84,7 @@ for (let i = 0; i < 120 && !arrived; i++) {
 for (const key of held) await page.keyboard.up(key);
 w = await t.woody();
 check(arrived && Math.hypot(w.x - destination[0], w.z - destination[1]) < 2.5, `al seguirle, llega a Proyectos y vuelve a acompañarte (${w.x}, ${w.z})`);
-check(/Woody: /.test((await t.text(".hud__toast")) ?? ""), `avisa al llegar: "${await t.text(".hud__toast")}"`);
+check(/proyectos/i.test((await t.speech()) ?? ""), `lo dice al llegar, en su bocadillo: "${await t.speech()}"`);
 
 console.log("fps:", await t.fps());
 await t.done();

@@ -1,22 +1,18 @@
 import { useEffect, useRef, useState } from "react";
+import { MENU, MENU_FOLLOW, MENU_MUTE, MENU_UNMUTE } from "../content/woody";
+import { setTips } from "../experience/speech";
 import { emit, events, woody } from "../experience/state";
 import { world } from "../worlds";
 
-const TIPS_KEY = "woody-consejos";
-
-// Menú de Woody: pedirle que te lleve a un sitio, que deje de guiar o que no
-// dé consejos. Se abre con su botón o con la tecla G.
+// Menú de guía de Woody: pedirle que te lleve a un sitio, que vuelva a
+// acompañarte o que no dé consejos. Se abre con su botón o con la tecla G.
+// (Los textos están en content/woody.js.)
 export function WoodyMenu() {
  const [open, setOpen] = useState(false);
  const [, refresh] = useState(0);
  const button = useRef(null);
 
  useEffect(() => {
-  try {
-   woody.tips = window.localStorage.getItem(TIPS_KEY) !== "off";
-  } catch {
-   // Sin almacenamiento, los consejos se quedan activados.
-  }
   const onChange = () => refresh((value) => value + 1);
   const onKey = (event) => {
    if (event.code === "KeyG" && !event.repeat && !event.metaKey && !event.ctrlKey) setOpen((value) => !value);
@@ -31,22 +27,19 @@ export function WoodyMenu() {
  }, []);
 
  const guide = (to) => {
-  emit("guide", { to });
+  emit("guide", { to, asked: true });
   setOpen(false);
   button.current?.blur();
  };
 
  const toggleTips = () => {
-  woody.tips = !woody.tips;
-  try {
-   window.localStorage.setItem(TIPS_KEY, woody.tips ? "on" : "off");
-  } catch {
-   // Sin almacenamiento, la preferencia dura solo esta visita.
-  }
+  setTips(!woody.tips);
   refresh((value) => value + 1);
  };
 
- const places = world.guide?.places ?? [];
+ // Solo los sitios a los que sabe llegar en este planeta.
+ const known = new Set((world.guide?.places ?? []).map((place) => place.id));
+ const places = MENU.filter((entry) => known.has(entry.place));
 
  return (
   <div className="woody-menu">
@@ -71,21 +64,21 @@ export function WoodyMenu() {
 
    {open && (
     <ul id="woody-menu-list" className="woody-menu__list">
-     {places.map((place) => (
-      <li key={place.id}>
-       <button type="button" onClick={() => guide(place.id)} aria-current={woody.guideTo === place.id}>
-        {place.ask}
+     {places.map((entry) => (
+      <li key={entry.place}>
+       <button type="button" onClick={() => guide(entry.place)} aria-current={woody.guideTo === entry.place}>
+        {entry.ask}
        </button>
       </li>
      ))}
      <li>
       <button type="button" onClick={() => guide(null)} disabled={!woody.guideTo}>
-       Acompáñame
+       {MENU_FOLLOW}
       </button>
      </li>
      <li>
       <button type="button" onClick={toggleTips} aria-pressed={!woody.tips}>
-       {woody.tips ? "Silenciar consejos" : "Activar consejos"}
+       {woody.tips ? MENU_MUTE : MENU_UNMUTE}
       </button>
      </li>
     </ul>

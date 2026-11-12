@@ -16,6 +16,7 @@ import { Ship } from "./Ship";
 import { Sky } from "./Sky";
 import { current } from "./theme";
 import { WarmLights } from "./WarmLights";
+import { WorldUi } from "./ui3d/WorldUi";
 import { Welcome } from "./Welcome";
 
 // Dos niveles de calidad. El planeta es el mismo; en móvil se recorta lo que
@@ -283,6 +284,7 @@ export function Experience({ active, lowPower, onReady }) {
       <Ship />
       <Player active={active} />
       <Woody active={active} />
+      <WorldUi />
      </group>
      {built && <Ready spread onReady={onReady} />}
     </Suspense>

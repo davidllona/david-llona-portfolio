@@ -5,14 +5,12 @@ import { Tracker } from "./achievements/Tracker";
 import { Sounds } from "./audio/Sounds";
 import { Experience } from "./experience/Experience";
 import { useDesktopControls } from "./experience/useDesktopControls";
-import { emit, events, rig } from "./experience/state";
-import { AchievementToast, AchievementsPanel } from "./ui/Achievements";
+import { events, rig, ui } from "./experience/state";
+import { AchievementsPanel } from "./ui/Achievements";
 import { ErrorBoundary, Fallback } from "./ui/Fallback";
-import { Hud } from "./ui/Hud";
 import { stage } from "./ui/loaderControl";
 import { Modal } from "./ui/Modal";
 import { QuickMenu } from "./ui/QuickMenu";
-import { Sheet } from "./ui/Sheet";
 import { SoundToggle } from "./ui/SoundToggle";
 import { StartOverlay } from "./ui/StartOverlay";
 import { Flash } from "./ui/Flash";
@@ -36,9 +34,6 @@ function App() {
  const [entered, setEntered] = useState(false);
  // La estación tarda un momento en descargar sus piezas.
  const [ready, setReady] = useState(false);
- // Portfolio legible abierto encima (menú rápido o modo directo): sección a mostrar.
- const [sheet, setSheet] = useState(null);
- const closeSheet = useCallback(() => setSheet(null), []);
  const [achievements, setAchievements] = useState(false);
  const closeAchievements = useCallback(() => setAchievements(false), []);
  // ¿Ha terminado el descenso desde la bienvenida? Hasta entonces no hay interfaz de juego.
@@ -59,7 +54,7 @@ function App() {
  // Esc pausa y vuelve a la pantalla de inicio.
  useEffect(() => {
   // (Si hay una ventana abierta, Esc solo la cierra.)
-  const onKey = (event) => event.key === "Escape" && !document.querySelector(".modal, .sheet") && setActive(false);
+  const onKey = (event) => event.key === "Escape" && !ui.open && !document.querySelector(".woody-menu__list") && setActive(false);
   window.addEventListener("keydown", onKey);
   return () => window.removeEventListener("keydown", onKey);
  }, []);
@@ -99,32 +94,15 @@ function App() {
      }}
      onEnter={enter}
     />
-    {playing && <Hud touch={touch} />}
     {playing && touch && <TouchControls onPause={() => setActive(false)} />}
     <Sounds active={active} />
     {playing && <ThemeToggle />}
     {playing && <SoundToggle />}
     {playing && <WoodyMenu />}
     {active && <Modal />}
-    {playing && !sheet && !achievements && <QuickMenu onOpen={setSheet} onAchievements={() => setAchievements(true)} />}
+    {playing && !achievements && <QuickMenu onAchievements={() => setAchievements(true)} />}
     {achievements && <AchievementsPanel onClose={closeAchievements} />}
     <Tracker active={active} />
-    {playing && <AchievementToast />}
-    {sheet && (
-     <Sheet
-      section={sheet}
-      onClose={closeSheet}
-      // Solo jugando tiene sentido que Woody te lleve.
-      onGuide={
-       active
-        ? (place) => {
-           emit("guide", { to: place });
-           setSheet(null);
-          }
-        : undefined
-      }
-     />
-    )}
    </ErrorBoundary>
    <SpeedInsights />
    <Analytics />

@@ -135,7 +135,7 @@ export function Ship() {
   player.velocity.set(0, 0, 0);
   world.shipCollider.active = false;
   rig.shake = 0.5;
-  emit("toast", { text: "¡Despegue!" });
+  emit("toast", { text: "¡Despegue!", at: { x: SHIP.x, y: 9.4, z: SHIP.z } });
   emit("ship", { phase: "launch" });
  };
  const land = () => {
@@ -145,6 +145,7 @@ export function Ship() {
 
  const click = useInteractable({
   position: SHIP,
+  sign: { x: SHIP.x, y: 3.3, z: SHIP.z + 2.9 }, // delante de la nave, no dentro
   radius: 6.2,
   priority: 2,
   hint: () => (flight.current.phase === "orbit" ? "Aterrizar" : "Subir a la nave"),

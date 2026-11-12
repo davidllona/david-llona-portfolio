@@ -22,6 +22,7 @@ export function cvCard() {
   title: "CV de David Llona",
   paragraphs: [CV.updated ? `Última versión: ${CV.updated}.` : "Versión actual en PDF."],
   link: CV.file,
-  linkLabel: "Abrir el PDF",
+  linkLabel: "Descargar el PDF",
+  download: true,
  };
 }

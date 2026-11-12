@@ -650,154 +650,6 @@
  }
 }
 
-/* ── HUD con el ratón capturado ─────────────────────────── */
-
-.hud {
- position: fixed;
- inset: 0;
- z-index: 5;
- pointer-events: none;
-}
-
-.hud__crosshair {
- position: absolute;
- top: 50%;
- left: 50%;
- width: 6px;
- height: 6px;
- border-radius: 50%;
- background: rgba(255, 255, 255, 0.9);
- box-shadow: 0 0 0 1.5px rgba(10, 12, 18, 0.7);
- transform: translate(-50%, -50%);
-}
-
-.hud kbd {
- display: inline-block;
- margin: 0 3px 0 0;
- padding: 2px 7px;
- border: 1px solid rgba(255, 255, 255, 0.16);
- border-radius: 6px;
- background: rgba(255, 255, 255, 0.07);
- color: var(--color-text);
- font-size: 11px;
- font-weight: 600;
-}
-
-/* Avisos centrados en la parte baja de la pantalla. */
-.hud__teleport,
-.hud__prompt {
- position: absolute;
- left: 50%;
- bottom: clamp(84px, 16vh, 150px);
- transform: translateX(-50%);
- padding: 12px 20px;
- border: 1px solid rgba(255, 255, 255, 0.12);
- border-radius: 14px;
- background: rgba(9, 11, 16, 0.82);
- backdrop-filter: blur(8px);
- font-size: 15px;
- font-weight: 500;
- white-space: nowrap;
- animation: hud-pop 0.18s ease-out;
-}
-
-.hud__teleport strong {
- color: var(--color-primary);
- font-weight: 800;
- letter-spacing: 0.04em;
-}
-
-/* La indicación de la tecla E: clara, como un cartelito de papel sobre la escena. */
-.hud__prompt {
- padding: 10px 18px 10px 12px;
- border: 1px solid rgba(107, 70, 48, 0.22);
- border-radius: 999px;
- background: rgba(250, 243, 229, 0.96);
- backdrop-filter: none;
- box-shadow: 0 6px 18px rgba(40, 26, 14, 0.22);
- color: #3a2a1e;
- font-weight: 650;
-}
-
-.hud__prompt p {
- display: flex;
- align-items: center;
- gap: 10px;
-}
-
-.hud__prompt kbd {
- margin: 0;
- min-width: 26px;
- padding: 4px 8px;
- border: 0;
- border-radius: 8px;
- background: var(--color-primary);
- box-shadow: 0 2px 0 #c4491a;
- color: #fff;
- font-size: 13px;
- font-weight: 800;
- text-align: center;
-}
-
-/* Barra que se llena durante la carga del teletransporte. */
-.hud__teleport span,
-.hud__power {
- display: block;
- height: 3px;
- margin-top: 10px;
- border-radius: 2px;
- background: rgba(255, 255, 255, 0.14);
- overflow: hidden;
-}
-
-.hud__teleport span::after {
- content: "";
- display: block;
- height: 100%;
- background: var(--color-primary);
- transform-origin: left;
- animation: hud-fill var(--duration) linear forwards;
-}
-
-.hud__power span {
- display: block;
- height: 100%;
- background: linear-gradient(90deg, #ffd27a, var(--color-primary));
- transform: scaleX(0);
- transform-origin: left;
-}
-
-.hud__toast {
- position: absolute;
- left: 50%;
- top: 16%;
- padding: 9px 18px;
- border-radius: 999px;
- background: rgba(9, 11, 16, 0.82);
- font-size: 15px;
- font-weight: 600;
- white-space: nowrap;
- animation: hud-score 1.8s ease-out forwards;
-}
-
-.hud__score {
- position: absolute;
- left: 50%;
- top: 22%;
- font-size: clamp(1.8rem, 5vw, 3.2rem);
- font-weight: 800;
- font-stretch: 75%;
- font-variation-settings: "wdth" 75;
- text-transform: uppercase;
- text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
- white-space: nowrap;
- animation: hud-score 1.6s ease-out forwards;
-}
-
-.hud__score strong {
- color: var(--color-primary);
-}
-
 @keyframes hud-pop {
  from {
   opacity: 0;
@@ -830,18 +682,6 @@
  }
 }
 
-.hud__hint {
- position: absolute;
- left: 16px;
- bottom: 14px;
- padding: 6px 10px;
- border-radius: 10px;
- /* La estación es clara: el texto necesita su propio fondo para leerse. */
- background: rgba(10, 12, 18, 0.62);
- font-size: 12px;
- color: #d6d9e0;
-}
-
 /* ── Versión sin 3D ─────────────────────────────────────── */
 
 .fallback {
@@ -853,33 +693,11 @@
  padding: 64px 24px;
 }
 
-.fallback h2 {
- margin: 40px 0 14px;
- font-size: 14px;
- letter-spacing: 0.2em;
- text-transform: uppercase;
- color: var(--color-primary);
-}
-
-.fallback__projects {
- display: grid;
- gap: 18px;
-}
-
-.fallback__projects p {
- color: var(--color-text-muted);
- font-size: 14px;
-}
-
-.fallback .overlay__links {
- justify-content: flex-start;
-}
-
 @media (prefers-reduced-motion: reduce) {
  .overlay,
- .overlay__enter,
- .overlay__enter span,
- .touch__stick {
+.overlay__enter,
+.overlay__enter span,
+.touch__stick {
   transition: none;
  }
 }
@@ -935,7 +753,7 @@
 /* En vertical y estrecho no caben junto a Woody: bajan a una segunda fila. */
 @media (max-width: 560px) {
  .quick,
- .touch ~ .quick {
+.touch ~ .quick {
   top: calc(env(safe-area-inset-top) + 68px);
   right: auto;
   left: calc(env(safe-area-inset-left) + 14px);
@@ -1012,34 +830,6 @@
  color: var(--color-primary);
 }
 
-.sheet__nav {
- display: flex;
- gap: 2px;
- margin-left: auto;
- overflow-x: auto;
- touch-action: pan-x;
-}
-
-.sheet__nav button {
- height: 36px;
- padding: 0 12px;
- border: 0;
- border-radius: 999px;
- background: transparent;
- color: var(--color-text-muted);
- font: inherit;
- font-size: 14px;
- font-weight: 600;
- white-space: nowrap;
- cursor: pointer;
-}
-
-.sheet__nav button:hover,
-.sheet__nav button:focus-visible {
- background: rgba(255, 255, 255, 0.1);
- color: var(--color-text);
-}
-
 .sheet__close {
  top: 11px;
 }
@@ -1061,73 +851,6 @@
   padding-left: 8px;
   padding-right: 58px;
  }
-
- .sheet__nav {
-  margin-left: 0;
- }
-
- .sheet__nav button {
-  padding: 0 9px;
- }
-}
-
-.portfolio section {
- padding-top: 34px;
- scroll-margin-top: 0;
-}
-
-.portfolio__head {
- display: flex;
- align-items: baseline;
- justify-content: space-between;
- gap: 16px;
- margin-bottom: 18px;
-}
-
-.portfolio h2 {
- font-size: clamp(2rem, 5vw, 2.8rem);
- font-weight: 800;
- font-stretch: 75%;
- font-variation-settings: "wdth" 75;
- line-height: 1;
- text-transform: uppercase;
- letter-spacing: 0;
- color: var(--color-text);
- margin: 0;
-}
-
-.portfolio__guide {
- padding: 7px 14px;
- border: 1px solid rgba(255, 255, 255, 0.2);
- border-radius: 999px;
- background: none;
- color: var(--color-text);
- font: inherit;
- font-size: 13px;
- font-weight: 600;
- white-space: nowrap;
- cursor: pointer;
-}
-
-.portfolio__guide:hover {
- border-color: var(--color-primary);
- color: var(--color-primary-soft);
-}
-
-.portfolio__projects {
- display: grid;
- gap: 16px;
-}
-
-.project {
- display: grid;
- grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
- gap: clamp(14px, 2.4vw, 26px);
- padding: 14px;
- border: 1px solid rgba(255, 255, 255, 0.1);
- border-left: 4px solid var(--tint, var(--color-primary));
- border-radius: 16px;
- background: rgba(255, 255, 255, 0.03);
 }
 
 .project__image {
@@ -1164,113 +887,6 @@
  max-width: 68ch;
  color: #cfcfd8;
  font-size: 15px;
-}
-
-.project .modal__tags {
- margin-top: 12px;
-}
-
-@media (max-width: 640px) {
- .project {
-  grid-template-columns: 1fr;
- }
-}
-
-.portfolio__sub {
- margin: 30px 0 12px;
- font-size: 13px;
- font-weight: 600;
- letter-spacing: 0.2em;
- text-transform: uppercase;
- color: var(--color-primary);
-}
-
-.portfolio__lab {
- display: grid;
- grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
- gap: 14px;
-}
-
-.portfolio__lab li {
- padding: 16px;
- border: 1px solid rgba(255, 255, 255, 0.1);
- border-radius: 14px;
-}
-
-.portfolio__lab h4 {
- margin: 4px 0 0;
- font-size: 1.1rem;
-}
-
-.portfolio__lab a {
- display: inline-block;
- margin-top: 12px;
- font-weight: 600;
- font-size: 14px;
-}
-
-.portfolio__lead {
- font-size: clamp(1.3rem, 3vw, 1.7rem);
- font-weight: 700;
- line-height: 1.2;
-}
-
-.portfolio__skills {
- display: grid;
- grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
- gap: 10px;
- margin-top: 20px;
-}
-
-.portfolio__skills li {
- display: grid;
- gap: 2px;
- padding: 12px 14px;
- border: 1px solid rgba(255, 255, 255, 0.1);
- border-radius: 12px;
-}
-
-.portfolio__skills span {
- font-size: 13px;
- color: var(--color-text-muted);
-}
-
-.portfolio__pending {
- margin-top: 0;
- padding: 14px 16px;
- border: 1px dashed rgba(255, 255, 255, 0.25);
- border-radius: 12px;
-}
-
-.portfolio__contact {
- display: grid;
- grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
- gap: 12px;
-}
-
-.portfolio__contact a {
- display: grid;
- gap: 2px;
- padding: 16px;
- border: 1px solid rgba(255, 255, 255, 0.14);
- border-radius: 14px;
- color: var(--color-text);
- text-decoration: none;
-}
-
-.portfolio__contact a:hover {
- border-color: var(--color-primary);
-}
-
-.portfolio__contact span {
- font-size: 1.15rem;
- font-weight: 700;
-}
-
-.portfolio__contact small {
- overflow-wrap: anywhere;
- font-size: 13px;
- color: var(--color-text-muted);
 }
 
 /* Sin WebGL, el mismo portfolio ocupa la página. */
@@ -1431,44 +1047,6 @@
  cursor: default;
 }
 
-.achievement-toast {
- position: fixed;
- top: calc(env(safe-area-inset-top) + 72px);
- right: calc(env(safe-area-inset-right) + 14px);
- z-index: 8;
- display: flex;
- align-items: center;
- gap: 12px;
- padding: 10px 18px 10px 12px;
- border: 1px solid rgba(255, 139, 87, 0.5);
- border-radius: 16px;
- background: rgba(16, 12, 26, 0.92);
- box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4);
- pointer-events: none;
- animation: achievement-in 4.2s ease both;
-}
-
-.achievement-toast p {
- display: grid;
-}
-
-.achievement-toast span {
- font-size: 11px;
- font-weight: 600;
- letter-spacing: 0.16em;
- text-transform: uppercase;
- color: var(--color-primary-soft);
-}
-
-.achievement-toast strong {
- font-size: 1.3rem;
- font-weight: 800;
- font-stretch: 75%;
- font-variation-settings: "wdth" 75;
- line-height: 1.1;
- text-transform: uppercase;
-}
-
 @keyframes achievement-in {
  0% {
   opacity: 0;
@@ -1485,9 +1063,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
- .achievement-toast {
-  animation: achievement-fade 4.2s linear both;
- }
 
  @keyframes achievement-fade {
   0%,
@@ -1498,12 +1073,6 @@
   92% {
    opacity: 1;
   }
- }
-}
-
-@media (max-width: 560px) {
- .achievement-toast {
-  top: calc(env(safe-area-inset-top) + 122px);
  }
 }
 
@@ -1744,11 +1313,6 @@
  border-color: rgba(255, 255, 255, 0.12);
 }
 
-/* La chuleta de controles se retira sola a los pocos segundos. */
-.hud__hint {
- animation: hint-retire 14s ease forwards;
-}
-
 @keyframes hint-retire {
  0%,
  82% {
@@ -1758,4 +1322,37 @@
   opacity: 0;
   visibility: hidden;
  }
+}
+
+/* ── Menú superior: cada botón lleva a su zona; el CV, además, se descarga ── */
+.quick__item {
+ display: inline-flex;
+ align-items: center;
+}
+
+.quick__download {
+ display: inline-grid;
+ place-items: center;
+ width: 26px;
+ height: 26px;
+ margin-left: -4px;
+ border-radius: 50%;
+ background: var(--color-primary);
+ color: #fff;
+ font-weight: 800;
+ text-decoration: none;
+}
+
+/* ── Aviso para navegadores sin WebGPU ni WebGL2 ── */
+.fallback__contact {
+ display: flex;
+ flex-wrap: wrap;
+ gap: 12px 28px;
+ margin-top: 28px;
+ font-size: 1.15rem;
+ font-weight: 700;
+}
+
+.fallback__contact a {
+ color: var(--color-primary-soft);
 }

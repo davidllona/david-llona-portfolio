@@ -1,22 +1,30 @@
 import { Component, useEffect } from "react";
+import { CONTACT_LINKS, EMAIL } from "../content/contact";
 import { dismissLoader } from "./loaderControl";
-import { Portfolio } from "./Portfolio";
 
-// Versión sin 3D: se muestra si el navegador no tiene WebGL o si la escena falla.
+// Aviso para los navegadores que no pueden dibujar el planeta (sin WebGPU ni
+// WebGL2) o si la escena falla: el porfolio es solo 3D, así que aquí solo se
+// dice y se deja cómo escribirme.
 export function Fallback() {
  // No hay escena que esperar: la pantalla de carga se retira ya.
  useEffect(dismissLoader, []);
+ const linkedin = CONTACT_LINKS.find((link) => link.label === "LinkedIn");
  return (
   <main className="fallback">
-   <p className="overlay__eyebrow">Portfolio</p>
+   <p className="overlay__eyebrow">Portfolio · Frontend developer</p>
    <h1 className="overlay__title">
     David <span>Llona</span>
    </h1>
    <p className="overlay__lead">
-    Frontend developer. Tu navegador no puede mostrar el planeta en 3D, así que aquí tienes todo el contenido en
-    versión de lectura.
+    Este porfolio es un planeta en 3D y tu navegador no puede mostrarlo. Prueba con una versión reciente de Chrome,
+    Edge, Firefox o Safari.
    </p>
-   <Portfolio />
+   <p className="fallback__contact">
+    <a href={linkedin.href} target="_blank" rel="noopener noreferrer">
+     LinkedIn
+    </a>
+    <a href={`mailto:${EMAIL}`}>{EMAIL}</a>
+   </p>
   </main>
  );
 }

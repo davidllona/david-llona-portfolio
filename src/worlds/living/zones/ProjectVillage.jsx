@@ -97,6 +97,7 @@ function Project({ project, site, index, models }) {
  const open = () =>
   emit("open", {
    kind: "project",
+   at: { x, y: 1.3, z: z - 1.0 }, // la cámara se acerca a la casa antes de abrir la ficha
    eyebrow: `Proyecto · ${project.year}`,
    title: project.name,
    paragraphs: [project.tagline, project.description],
