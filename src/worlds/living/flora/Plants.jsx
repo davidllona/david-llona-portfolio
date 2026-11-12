@@ -80,9 +80,8 @@ export function Plants() {
 
  return (
   <>
-   {Object.entries(models.tufts).map(([kind, geometry]) => (
-    <Instances key={kind} geometry={geometry} material={material.blades} items={items.tufts[kind]} colored receiveShadow />
-   ))}
+   {/* Del césped se encarga Grass.jsx; aquí quedan solo las espigas, como acento en las praderas. */}
+   <Instances geometry={models.tufts.seed} material={material.blades} items={items.tufts.seed} colored receiveShadow />
    {Object.entries(models.flowers).map(([kind, geometry]) => items.flowers[kind].length > 0 && <Instances key={kind} geometry={geometry} material={material.flowers} items={items.flowers[kind]} />)}
    <Instances geometry={models.clover} material={material.still} items={items.clover} receiveShadow />
    {each(models.ferns, items.ferns, material.ferns)}

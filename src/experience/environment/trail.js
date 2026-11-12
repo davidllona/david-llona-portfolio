@@ -70,3 +70,10 @@ export const trailPush = Fn(([position]) => {
  const push = texture(trailTexture, position.div(SPAN)).rg.sub(128 / 255).mul(255 / 127);
  return vec3(push, push.length().min(1));
 });
+
+// Fuerza del rastro (0–1) en un punto; para depurar y para las pruebas.
+export function trailAt(x, z) {
+ const scale = SIZE / SPAN;
+ const i = (wrap(Math.floor(z * scale)) * SIZE + wrap(Math.floor(x * scale))) * 2;
+ return Math.hypot(field[i], field[i + 1]);
+}

@@ -374,8 +374,31 @@ const FOOTPRINTS = [
  { ...CONTACT.antenna, r: 1.5 },
  ...CONTACT.terminals.map((t) => ({ ...t, r: 0.8 })),
  { ...WIND_CHIME, r: 0.5 },
+ // Rótulos tumbados en el suelo: la hierba no debe taparlos.
+ ...PROJECT_CABINS.flatMap((c) => [-1.8, 0, 1.8].map((dx) => ({ x: c.x + 0.4 + dx, z: c.z + 3.1, r: 1.05 }))),
+ ...LAB_TOTEMS.flatMap((t) => [-0.8, 0.8].map((dx) => ({ x: t.x + dx, z: t.z + 1.5, r: 0.8 }))),
+ { x: CV_KIOSK.x, z: CV_KIOSK.z + 1.3, r: 0.9 },
+ ...[-0.9, 0.9].map((dx) => ({ x: TREEHOUSE.x + 1 + dx, z: TREEHOUSE.z + 3.6, r: 1 })),
+ ...[-1.2, 0, 1.2].map((dx) => ({ x: OBSERVATORY.x + dx, z: OBSERVATORY.z + 3.9, r: 0.9 })),
+ ...[-1.2, 0, 1.2].map((dx) => ({ x: CONTACT.x + dx, z: CONTACT.z + 5.4, r: 0.9 })),
+ ...CONTACT.terminals.map((t) => ({ x: t.x, z: t.z + 1.3, r: 0.9 })),
+ ...[-1.6, 0, 1.6].map((dx) => ({ x: (COURT.x0 + COURT.x1) / 2 + dx, z: COURT.z1 + 1.6, r: 1 })),
+ ...[-1, 1].map((dx) => ({ x: (PITCH.x0 + PITCH.x1) / 2 + dx, z: PITCH.z1 + 1.5, r: 1 })),
+ ...[-2, 0, 2].map((dx) => ({ x: -9.5 + dx, z: 1.9, r: 1.1 })),
 ];
 const built = (x, z) => FOOTPRINTS.some((f) => (f.x - x) ** 2 + (f.z - z) ** 2 < f.r * f.r);
+
+// Cuánta hierba crece en un punto, de 0 (nada) a 1 (pradera alta). De aquí
+// sale la máscara que lee el césped: densidad y altura a la vez.
+const GRASS_AMOUNT = { meadow: 1, grass: 0.7, moss: 0.86, shade: 0.5, pathEdge: 0.22 };
+export function grassAmount(x, z) {
+ if (built(x, z)) return 0;
+ const base = GRASS_AMOUNT[surface(x, z)] ?? 0;
+ // Dentro de cada zona, manchas algo más altas y más bajas.
+ return base * (0.8 + meadow(x, z) * 0.4);
+}
+// ¿Queda a la sombra de un árbol?
+export const inShade = (x, z) => shadeSpots.some((spot) => (spot.x - x) ** 2 + (spot.z - z) ** 2 < spot.r2);
 
 shadeSpots = trees.map((t) => ({ x: t.x, z: t.z, r2: (t.kind === "willow" ? 2.3 : 1.7) ** 2 * t.scale ** 2 }));
 
@@ -498,6 +521,9 @@ for (const path of PATHS) {
   }
  }
 }
+
+// Las rocas del agua asoman siempre: se apoyan, como mucho, un poco bajo la superficie.
+for (const rock of shoreRocks) rock.y = Math.max(rock.y, WATER_LEVEL - 0.28 * rock.scale);
 
 export const SCATTER = { trees, rocks, cliffRocks, shoreRocks, pebbles, bushes, ferns, mushrooms, flowers, flowersByKind, clover, tufts, reeds, lilies, lanterns };
 

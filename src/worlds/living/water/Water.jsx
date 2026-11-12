@@ -1,6 +1,8 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
-import { attribute, cameraPosition, cross, dFdx, dFdy, dot, floor, fract, max, mix, positionGeometry, positionWorld, pow, sin, smoothstep, step, varying, vec2, vec3 } from "three/tsl";
+import { attribute, cameraPosition, cross, dFdx, dFdy, dot, floor, fract, max, mix, positionGeometry, positionWorld, pow, sin, smoothstep, step, texture, varying, vec2, vec3 } from "three/tsl";
+import { noiseTexture } from "../../../experience/environment/noise";
+import { trailPush } from "../../../experience/environment/trail";
 import { unlit } from "../../../experience/materials";
 import { uniforms } from "../../../experience/theme";
 import { POND, RIVER, SCATTER, WATERFALL, WATER_LEVEL, groundHeight } from "../layout";
@@ -57,8 +59,11 @@ function createMaterial() {
 
  // Luz: cada cara recibe distinto y algunas devuelven un destello.
  color = color.mul(max(dot(normal, uSunDirection), 0).mul(0.26).add(0.84));
- const glint = pow(max(dot(normal, uSunDirection.add(toEye).normalize()), 0), 120);
- color = color.add(uSunColor.mul(step(0.3, glint)).mul(uNight.mul(0.3).add(0.4)));
+ // Destellos sueltos, no un espejo: solo chispean algunas celdas, y solo
+ // donde la cara devuelve la luz hacia la cámara.
+ const glint = pow(max(dot(normal, uSunDirection.add(toEye).normalize()), 0), 60);
+ const sparkle = step(0.88, cells(pos.mul(2.6).add(vec2(uTime.mul(0.4), uTime.mul(0.27))), uTime.mul(2)).x.oneMinus()).mul(step(0.64, texture(noiseTexture, pos.mul(0.09).add(uTime.mul(0.015))).r));
+ color = color.add(uSunColor.mul(step(0.5, glint)).mul(sparkle).mul(0.5));
  const grazing = pow(max(dot(normal, toEye), 0).oneMinus(), 3);
  color = mix(color, uSkyHorizon, grazing.mul(0.4));
 
@@ -72,7 +77,7 @@ function createMaterial() {
  const band = fract(depth.mul(1.5).sub(uTime.mul(0.14)));
  foam = max(foam, smoothstep(0, 0.05, band).mul(smoothstep(0.15, 0.05, band)).mul(smoothstep(1.3, 0.25, depth)).mul(broken).mul(0.8));
  // Alrededor de las rocas que asoman.
- foam = max(foam, smoothstep(0.3, 0.06, rock.sub(ragged)).mul(step(-0.35, rock)));
+ foam = max(foam, smoothstep(0.2, 0.04, rock.sub(ragged)).mul(step(-0.3, rock)));
  // Corriente del río: jirones de espuma estirados que bajan con el agua.
  const dir = flow.div(current.max(0.0001));
  const along = vec2(dot(pos, dir).mul(0.22).sub(uTime.mul(0.6)), dot(pos, vec2(dir.y.negate(), dir.x)).mul(1.9));
@@ -84,6 +89,10 @@ function createMaterial() {
  const rings = sin(fromFall.mul(5).sub(uTime.mul(4.5))).mul(0.5).add(0.5);
  foam = max(foam, smoothstep(1.5, 0.5, fromFall.add(foamNoise.x.mul(0.9))));
  foam = max(foam, smoothstep(0.62, 0.9, rings).mul(smoothstep(POND.r, 1.2, fromFall)).mul(broken).mul(0.6));
+ // Al vadear: el rastro del astronauta y de Woody deja ondas que se deshacen.
+ const wake = trailPush(pos).z;
+ const ripples = sin(wake.mul(16).sub(uTime.mul(5))).mul(0.5).add(0.5);
+ foam = max(foam, smoothstep(0.1, 0.3, wake).mul(smoothstep(0.35, 0.8, ripples)).mul(0.85));
  foam = foam.clamp(0, 1);
  color = mix(color, mix(vec3(1), vec3(0.62, 0.78, 1), uNight.mul(0.75)), foam.mul(0.94));
 
@@ -138,7 +147,7 @@ function createGeometries() {
   depth[i] = WATER_LEVEL - groundHeight(x, z);
   flow.set(riverFlow(x, z), i * 2);
   let nearest = 9;
-  for (const stone of wet) nearest = Math.min(nearest, Math.hypot(stone.x - x, stone.z - z) - stone.scale * 0.85);
+  for (const stone of wet) nearest = Math.min(nearest, Math.hypot(stone.x - x, stone.z - z) - stone.scale * 0.62);
   rock[i] = nearest;
  }
  inner.setAttribute("depth", new THREE.BufferAttribute(depth, 1));

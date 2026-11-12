@@ -1,9 +1,12 @@
 import { useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { updateTrail } from "./environment/trail";
-import { updateWind } from "./environment/wind";
+import { trailAt, updateTrail } from "./environment/trail";
+import { startGust, updateWind, windDebug } from "./environment/wind";
 import { player, rig, woody } from "./state";
 import { current, sunDirection, updateTheme } from "./theme";
+
+// Para depurar en la consola y para las pruebas automáticas.
+if (import.meta.env.DEV) window.__world.env = { ...windDebug, startGust, trailAt };
 
 const SHADOW_REACH = 38; // m alrededor del jugador con sombras
 

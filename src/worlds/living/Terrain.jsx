@@ -1,26 +1,11 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { Instances } from "../../experience/Instances";
-import { BRIDGES, PATHS, groundHeight, noise2, surface } from "./layout";
+import { groundColor } from "./groundColor";
+import { BRIDGES, PATHS, groundHeight, noise2 } from "./layout";
 import { Water } from "./water/Water";
 import { Waterfall } from "./water/Waterfall";
 
-// Tonos de cada tipo de suelo (ver `surface` en layout.js).
-const PALETTE = {
- grass: ["#7cc65c", "#70bd57", "#88cc62"],
- meadow: ["#93d266", "#9ed86c", "#89cb60"],
- shade: ["#5a9f4d", "#52964a", "#63a851"],
- moss: ["#62a955", "#6db058", "#589f52"],
- bank: ["#b3a47c", "#a59670", "#bfb189"],
- wetsand: ["#d3bd88", "#c9b27d"],
- sand: ["#f3e2ad", "#ecd79b", "#f7e9bb"],
- path: ["#e3ca98", "#dcc08b"],
- pathEdge: ["#c5a676", "#b99868"],
- stone: ["#a9a6b3", "#9b98a6"],
- bed: ["#4f9f9c", "#3f8f90", "#2f7f86"],
-};
-// La roca va por estratos: el tono depende de la altura.
-const STRATA = ["#8a847d", "#a59f95", "#b9b3a7", "#968f88", "#aaa398"];
 const GROUND_RADIUS = 64;
 
 // El suelo: una malla facetada, coloreada según lo que hay en cada punto.
@@ -42,29 +27,16 @@ function createGround() {
  const position = geometry.attributes.position;
  for (let i = 0; i < position.count; i++) position.setY(i, groundHeight(position.getX(i), position.getZ(i)));
 
- const palette = Object.fromEntries(Object.entries(PALETTE).map(([key, list]) => [key, list.map((c) => new THREE.Color(c))]));
- const strata = STRATA.map((c) => new THREE.Color(c));
  const colors = new Float32Array(position.count * 3);
+ const tone = new THREE.Color();
  for (let i = 0; i < position.count; i += 3) {
   const x = (position.getX(i) + position.getX(i + 1) + position.getX(i + 2)) / 3;
   const z = (position.getZ(i) + position.getZ(i + 1) + position.getZ(i + 2)) / 3;
-  // Manchas grandes de tono, y algún triángulo suelto distinto.
-  const patch = noise2(x * 0.11, z * 0.11) * 0.65 + noise2(x * 0.4 + 7, z * 0.4) * 0.35;
-  const odd = noise2(x * 2.1, z * 2.1) > 0.84;
-  // El tipo de suelo se mira en cada esquina: así el borde entre hierba,
+  // El tono (mancha grande, y algún triángulo suelto distinto) es uno por
+  // cara; el tipo de suelo se mira en cada esquina: así el borde entre hierba,
   // camino y arena se funde dentro del triángulo en vez de hacer dientes.
-  for (let k = 0; k < 3; k++) {
-   const kind = surface(position.getX(i + k), position.getZ(i + k));
-   if (kind === "rock") {
-    const band = Math.floor(position.getY(i + k) * 1.5 + noise2(x * 0.5, z * 0.5) * 1.6);
-    strata[((band % strata.length) + strata.length) % strata.length].toArray(colors, (i + k) * 3);
-    continue;
-   }
-   const tones = palette[kind];
-   let tone = Math.min(tones.length - 1, Math.floor(patch * tones.length));
-   if (odd) tone = (tone + 1) % tones.length;
-   tones[tone].toArray(colors, (i + k) * 3);
-  }
+  const odd = noise2(x * 2.1, z * 2.1) > 0.84;
+  for (let k = 0; k < 3; k++) groundColor(tone, position.getX(i + k), position.getZ(i + k), { at: [x, z], odd }).toArray(colors, (i + k) * 3);
  }
  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
  geometry.computeVertexNormals();
