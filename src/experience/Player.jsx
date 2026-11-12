@@ -4,6 +4,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { Astronaut } from "../characters/Astronaut";
 import { world } from "../worlds";
 import { moveAgent } from "../worlds/collision";
+import { dust, splash } from "./effects/pools";
 import { updateSeeThrough } from "./environment/seeThrough";
 import { WELCOME, emit, input, player, rig, ui } from "./state";
 
@@ -26,7 +27,6 @@ const CAMERA_DISTANCE = 13.4; // m hasta el punto que mira
 const CAMERA_PITCH = (39 * Math.PI) / 180;
 const CAMERA = { height: CAMERA_DISTANCE * Math.sin(CAMERA_PITCH), back: CAMERA_DISTANCE * Math.cos(CAMERA_PITCH), lookAhead: 0.5, lookUp: 1.0, response: 4.5, fov: 40 };
 
-const PUFFS = 10;
 
 // El controlador del jugador: lee la entrada, mueve al astronauta por el
 // mundo activo (colisiones, relieve, agua, salto) y lleva la cámara. El aspecto
@@ -38,10 +38,7 @@ export function Player({ active }) {
  const aspect = useThree((state) => state.size.width / state.size.height);
  const group = useRef(null);
  const shadow = useRef(null);
- const puffs = useRef([]);
  const body = useRef({
-  puffTimer: 0,
-  nextPuff: 0,
   focus: new THREE.Vector3(player.position.x, 0, player.position.z),
   distance: 1,
   tilt: 0,
@@ -58,14 +55,6 @@ export function Player({ active }) {
   if (import.meta.env.DEV) window.__world.camera = camera; // para las pruebas automáticas
  }, [camera]);
 
- // Polvo al correr y ondas al andar por el agua: una nube o un aro que crece y se apaga.
- const spawnPuff = (x, y, z, water) => {
-  const puff = puffs.current[body.current.nextPuff++ % PUFFS];
-  if (!puff) return;
-  puff.position.set(x, y, z);
-  puff.userData = { life: 1, water };
-  puff.visible = true;
- };
 
  useFrame(({ size }, rawDelta) => {
   const dt = Math.min(rawDelta, MAX_STEP);
@@ -110,7 +99,11 @@ export function Player({ active }) {
    velocity.y -= GRAVITY * dt;
    position.y += velocity.y * dt;
    if (position.y <= ground || (player.grounded && velocity.y <= 0 && position.y - ground < 0.35)) {
-    if (!player.grounded && velocity.y < -4) spawnPuff(position.x, Math.max(ground, waterLevel) + 0.05, position.z, inWater);
+    // Al aterrizar de un salto: una corona de polvo (o un chapuzón, en el agua).
+    if (!player.grounded && velocity.y < -4) {
+     if (ground < waterLevel - 0.08) splash(position.x, waterLevel, position.z, { count: 14, speed: 2.6 });
+     else dust(position.x, ground, position.z, { count: 8, speed: 1.5, size: 0.24, duration: 0.7 });
+    }
     position.y = ground;
     velocity.y = 0;
     player.grounded = true;
@@ -127,26 +120,7 @@ export function Player({ active }) {
   group.current.rotation.y += turn * Math.min(1, dt * TURN_RESPONSE);
   group.current.position.copy(position);
 
-  // Polvo al correr; ondas en el agua.
-  state.puffTimer -= dt;
-  if (player.grounded && !player.hidden && state.puffTimer <= 0 && groundSpeed > (inWater ? 0.8 : WALK_SPEED + 0.6)) {
-   state.puffTimer = inWater ? 0.28 : 0.14;
-   spawnPuff(position.x, inWater ? waterLevel + 0.02 : position.y + 0.08, position.z, inWater);
-  }
-  for (const puff of puffs.current) {
-   if (!puff?.visible) continue;
-   const data = puff.userData;
-   data.life -= dt * (data.water ? 1.1 : 2.4);
-   if (data.life <= 0) {
-    puff.visible = false;
-    continue;
-   }
-   const grow = 1 - data.life;
-   if (data.water) puff.scale.set(0.5 + grow * 2.6, 0.06, 0.5 + grow * 2.6);
-   else puff.scale.setScalar(0.2 + grow * 0.5);
-   puff.material.opacity = data.life * (data.water ? 0.55 : 0.5);
-   if (!data.water) puff.position.y += dt * 0.5;
-  }
+  // (El polvo al andar y correr y las ondas al vadear los pone effects/Bursts.jsx.)
 
   // Sombra de contacto bajo los pies cuando salta.
   const ground = world.height(position.x, position.z);
@@ -201,12 +175,6 @@ export function Player({ active }) {
     <circleGeometry args={[0.4, 20]} />
     <meshBasicMaterial color="#000000" transparent opacity={0.28} depthWrite={false} />
    </mesh>
-   {Array.from({ length: PUFFS }, (_, i) => (
-    <mesh key={i} ref={(node) => (puffs.current[i] = node)} visible={false}>
-     <icosahedronGeometry args={[0.5, 1]} />
-     <meshBasicMaterial color="#ffffff" transparent opacity={0} depthWrite={false} />
-    </mesh>
-   ))}
   </>
  );
 }

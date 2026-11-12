@@ -1,27 +1,34 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
-import { attribute, cameraPosition, cross, dFdx, dFdy, dot, floor, fract, max, mix, positionGeometry, positionWorld, pow, sin, smoothstep, step, texture, varying, vec2, vec3 } from "three/tsl";
+import { attribute, cameraPosition, float, fract, max, mix, positionGeometry, positionWorld, pow, sin, smoothstep, step, texture, varying, vec2, vec3 } from "three/tsl";
 import { noiseTexture } from "../../../experience/environment/noise";
 import { trailPush } from "../../../experience/environment/trail";
 import { unlit } from "../../../experience/materials";
 import { uniforms } from "../../../experience/theme";
 import { POND, RIVER, SCATTER, WATERFALL, WATER_LEVEL, groundHeight } from "../layout";
-import { cells } from "./nodes";
 
 // El agua de la isla: mar, río y estanque en un único plano al nivel del agua.
 // Cada vértice lleva la profundidad del fondo bajo él (el agua aparece sola
-// donde el suelo queda por debajo), la corriente del río y lo cerca que tiene
-// una roca. Con eso el material (nodos TSL) hace todo lo demás:
-//  · oleaje por vértice y caras facetadas que brillan al sol o a la luna;
-//  · tono por bandas de profundidad;
-//  · dibujo de celdas claras que deriva (y corre río abajo);
-//  · espuma irregular en orillas, alrededor de las rocas y donde cae la cascada.
+// donde el suelo queda por debajo), la corriente del río, su posición a lo
+// largo del cauce y lo cerca que tiene una roca. Con eso el material (nodos
+// TSL) hace todo lo demás:
+//  · color continuo según la profundidad: turquesa claro en la orilla, más
+//    intenso en el centro, con manchas suaves de luz que derivan;
+//  · ondas: líneas claras y curvas que nacen de dos capas de ruido que se
+//    cruzan (no hay celdas ni facetas: no se lee la malla); en el río las
+//    mismas líneas se estiran y corren aguas abajo;
+//  · espuma irregular en orillas y costa, alrededor de las rocas, en la
+//    corriente y donde cae la cascada; ondas donde vadean los personajes.
+// (El agua como «color liso + detalles que siguen la profundidad» es la idea
+// de folio-2025, de Bruno Simon, MIT; el código y el aspecto son propios.)
 function createMaterial() {
- const { uTime, uWaterShallow, uWaterDeep, uSkyHorizon, uSunColor, uSunDirection, uSpace, uNight } = uniforms;
+ const { uTime, uWaterShallow, uWaterDeep, uSkyHorizon, uSunColor, uSpace, uNight } = uniforms;
  const fall = vec2(WATERFALL.x, WATERFALL.z + 1.5);
  const bed = attribute("depth", "float");
  const flow = attribute("flow", "vec2");
  const rock = attribute("rock", "float");
+ const course = attribute("course", "vec2"); // metros a lo largo del río, metros a su través
+ const noise = (uv) => texture(noiseTexture, uv);
 
  // ── Vértices: oleaje ──
  // Mar de fondo en mar abierto; apenas un temblor en río y estanque. En el
@@ -29,74 +36,82 @@ function createMaterial() {
  const p = positionGeometry;
  const open = smoothstep(40, 54, p.xz.length());
  const edge = smoothstep(50, 57, max(p.x.abs(), p.z.abs())).oneMinus();
- const amplitude = mix(0.028, 0.15, open).mul(smoothstep(-0.2, 1, bed)).mul(edge);
+ const amplitude = mix(0.02, 0.13, open).mul(smoothstep(-0.2, 1, bed)).mul(edge);
  const swell = sin(p.x.mul(0.34).add(uTime.mul(0.9)))
   .add(sin(p.z.mul(0.41).sub(uTime.mul(0.7)).add(p.x.mul(0.12))))
   .add(sin(p.x.add(p.z).mul(0.9).add(uTime.mul(1.6))).mul(0.5));
  const lift = amplitude.mul(swell);
  const depth = varying(bed.add(lift));
+ const current = varying(flow.length());
+ const along = varying(course);
 
  // ── Fragmentos ──
  const pos = positionWorld.xz;
  const fromCentre = pos.length();
- const current = flow.length();
- // Normal de cada cara, a partir de la superficie ya movida: da el facetado.
- const facet = cross(dFdx(positionWorld), dFdy(positionWorld)).normalize();
- const normal = facet.mul(facet.y.sign());
  const toEye = cameraPosition.sub(positionWorld).normalize();
+ const day = uNight.mul(0.78).oneMinus(); // de noche las ondas y los destellos casi se apagan
 
- // Tono por bandas de profundidad, con el contorno algo ondulado.
- const wavy = depth.add(sin(pos.x.mul(0.7).add(uTime.mul(0.3))).mul(sin(pos.y.mul(0.6).sub(uTime.mul(0.25)))).mul(0.16));
- const deep = wavy.div(1.7).clamp(0, 1);
- const banded = floor(deep.mul(4)).add(smoothstep(0.7, 1, fract(deep.mul(4)))).div(4);
- let color = mix(uWaterShallow, uWaterDeep, banded);
+ // Dos capas de ruido que derivan en sentidos distintos. En el cauce se
+ // cambian por otras dos medidas a lo largo del río, que bajan con él.
+ const calmA = noise(pos.mul(0.047).add(vec2(uTime.mul(0.011), uTime.mul(0.007)))).r;
+ const calmB = noise(pos.mul(0.081).add(vec2(uTime.mul(-0.009), uTime.mul(0.013)))).g;
+ const riverUv = vec2(along.x.mul(0.058).sub(uTime.mul(0.13)), along.y.mul(0.17));
+ const riverA = noise(riverUv).r;
+ const riverB = noise(riverUv.mul(vec2(1.7, 1.45)).add(vec2(uTime.mul(-0.05), 0.37))).g;
+ const running = smoothstep(0.15, 0.75, current);
+ const waveA = mix(calmA, riverA, running);
+ const waveB = mix(calmB, riverB, running);
 
- // Dibujo de celdas: deriva despacio; en el río corre aguas abajo.
- const drift = mix(vec2(uTime.mul(0.06), uTime.mul(0.035)), flow.mul(uTime).mul(1.5), step(0.01, current));
- const pattern = cells(pos.sub(drift).mul(0.5), uTime.mul(0.45));
- const lines = smoothstep(0.05, 0, pattern.y).mul(smoothstep(110, 70, fromCentre));
- color = color.add(mix(vec3(1), uSunColor, 0.4).mul(lines).mul(current.mul(0.1).add(0.075)).mul(uNight.mul(0.45).oneMinus()));
+ // Color por profundidad: continuo, con el contorno algo movido por el ruido.
+ const deep = smoothstep(0.05, 1.75, depth.add(calmA.sub(0.5).mul(0.5)));
+ const shore = mix(uWaterShallow, vec3(1), 0.3);
+ let color = mix(mix(shore, uWaterShallow, smoothstep(0, 0.3, deep)), uWaterDeep, smoothstep(0.22, 1, deep));
+ // Manchas de luz y sombra que se mueven despacio: el agua no es un color plano.
+ color = color.mul(waveA.sub(0.5).mul(0.3).add(waveB.sub(0.5).mul(0.14)).add(1));
 
- // Luz: cada cara recibe distinto y algunas devuelven un destello.
- color = color.mul(max(dot(normal, uSunDirection), 0).mul(0.26).add(0.84));
- // Destellos sueltos, no un espejo: solo chispean algunas celdas, y solo
- // donde la cara devuelve la luz hacia la cámara.
- const glint = pow(max(dot(normal, uSunDirection.add(toEye).normalize()), 0), 60);
- const sparkle = step(0.88, cells(pos.mul(2.6).add(vec2(uTime.mul(0.4), uTime.mul(0.27))), uTime.mul(2)).x.oneMinus()).mul(step(0.64, texture(noiseTexture, pos.mul(0.09).add(uTime.mul(0.015))).r));
- color = color.add(uSunColor.mul(step(0.5, glint)).mul(sparkle).mul(0.5));
- const grazing = pow(max(dot(normal, toEye), 0).oneMinus(), 3);
- color = mix(color, uSkyHorizon, grazing.mul(0.4));
+ // Ondas: donde las dos capas suman lo mismo sale una línea curva y fina, que
+ // se retuerce al derivar. Una tercera capa las corta en tramos.
+ const ridge = waveA.add(waveB).sub(1).abs();
+ const breaks = smoothstep(0.4, 0.58, noise(pos.mul(0.021).add(vec2(uTime.mul(0.004), uTime.mul(-0.003)))).g);
+ const waves = smoothstep(0.02, 0.004, ridge).mul(mix(breaks, float(1), running)).mul(smoothstep(110, 70, fromCentre));
+ color = color.add(mix(vec3(1), uSunColor, 0.35).mul(waves).mul(mix(0.2, 0.3, running)).mul(day));
+ // Destellos sueltos que se encienden y se apagan.
+ const twinkle = smoothstep(0.93, 0.97, noise(pos.mul(0.43).add(vec2(uTime.mul(0.02), uTime.mul(0.015)))).r.add(noise(pos.mul(0.71).sub(vec2(uTime.mul(0.03), uTime.mul(0.011)))).g).mul(0.62));
+ color = color.add(uSunColor.mul(twinkle).mul(0.22).mul(day));
+ // A ras de agua refleja el cielo.
+ const grazing = pow(toEye.y.max(0).oneMinus(), 3);
+ color = mix(color, uSkyHorizon, grazing.mul(0.35));
 
  // Espuma. El ruido rompe el borde para que no sea una línea de regla.
- const foamNoise = cells(pos.mul(1.7).add(vec2(uTime.mul(0.1), uTime.mul(-0.07))), uTime.mul(0.8));
- const ragged = foamNoise.x.mul(0.09);
- // Máscara suave que rompe las líneas de espuma en tramos.
- const broken = smoothstep(-0.25, 0.1, sin(pos.x.mul(2.1).add(uTime.mul(0.3))).mul(sin(pos.y.mul(1.7).sub(uTime.mul(0.22)))));
- let foam = smoothstep(0, 0.06, depth.sub(ragged).add(0.03)).oneMinus();
- // Bandas que siguen la profundidad y se acercan a la orilla (idea de folio-2025).
- const band = fract(depth.mul(1.5).sub(uTime.mul(0.14)));
- foam = max(foam, smoothstep(0, 0.05, band).mul(smoothstep(0.15, 0.05, band)).mul(smoothstep(1.3, 0.25, depth)).mul(broken).mul(0.8));
+ const foamNoise = noise(pos.mul(0.19).add(vec2(uTime.mul(0.03), uTime.mul(-0.021)))).r;
+ const fine = noise(pos.mul(0.47).add(vec2(uTime.mul(-0.04), uTime.mul(0.033)))).g;
+ const ragged = foamNoise.sub(0.5).mul(0.2).add(fine.sub(0.5).mul(0.1));
+ // Orilla y costa: una franja que respira.
+ const breathe = sin(uTime.mul(0.9).add(foamNoise.mul(6))).mul(0.025);
+ let foam = smoothstep(0.1, 0.035, depth.add(ragged).add(breathe));
+ // Ondas que se acercan a la orilla siguiendo la profundidad, a tramos.
+ const band = fract(depth.mul(1.35).sub(uTime.mul(0.12)).add(foamNoise.mul(0.6)));
+ const broken = smoothstep(0.46, 0.56, fine.add(foamNoise).mul(0.5));
+ foam = max(foam, smoothstep(0, 0.07, band).mul(smoothstep(0.24, 0.1, band)).mul(smoothstep(1.25, 0.3, depth)).mul(broken).mul(0.75));
  // Alrededor de las rocas que asoman.
- foam = max(foam, smoothstep(0.2, 0.04, rock.sub(ragged)).mul(step(-0.3, rock)));
- // Corriente del río: jirones de espuma estirados que bajan con el agua.
- const dir = flow.div(current.max(0.0001));
- const along = vec2(dot(pos, dir).mul(0.22).sub(uTime.mul(0.6)), dot(pos, vec2(dir.y.negate(), dir.x)).mul(1.9));
- const streaks = cells(along, 0);
- const patchy = step(0.55, cells(along.mul(0.35).add(3.7), 0).x);
- foam = max(foam, smoothstep(0.05, 0, streaks.y).mul(patchy).mul(current).mul(0.6));
+ foam = max(foam, smoothstep(0.24, 0.06, rock.add(ragged)).mul(step(-0.3, rock)));
+ // Corriente del río: jirones de espuma que bajan con el agua.
+ const streaks = smoothstep(0.6, 0.68, riverA).mul(smoothstep(0.5, 0.62, riverB));
+ foam = max(foam, streaks.mul(running).mul(0.7));
  // Donde cae la cascada: agua batida y anillos que se abren.
  const fromFall = pos.sub(fall).length();
- const rings = sin(fromFall.mul(5).sub(uTime.mul(4.5))).mul(0.5).add(0.5);
- foam = max(foam, smoothstep(1.5, 0.5, fromFall.add(foamNoise.x.mul(0.9))));
- foam = max(foam, smoothstep(0.62, 0.9, rings).mul(smoothstep(POND.r, 1.2, fromFall)).mul(broken).mul(0.6));
+ const rings = sin(fromFall.mul(4.2).sub(uTime.mul(3.6)).add(foamNoise.mul(2.5))).mul(0.5).add(0.5);
+ foam = max(foam, smoothstep(1.7, 0.6, fromFall.add(foamNoise.mul(1.1))));
+ foam = max(foam, smoothstep(0.7, 0.92, rings).mul(smoothstep(POND.r, 1.4, fromFall)).mul(broken.mul(0.6).add(0.4)).mul(0.55));
  // Al vadear: el rastro del astronauta y de Woody deja ondas que se deshacen.
  const wake = trailPush(pos).z;
  const ripples = sin(wake.mul(16).sub(uTime.mul(5))).mul(0.5).add(0.5);
  foam = max(foam, smoothstep(0.1, 0.3, wake).mul(smoothstep(0.35, 0.8, ripples)).mul(0.85));
  foam = foam.clamp(0, 1);
- color = mix(color, mix(vec3(1), vec3(0.62, 0.78, 1), uNight.mul(0.75)), foam.mul(0.94));
+ // (De noche la espuma se apaga: sin sol no puede ser lo más claro de la escena.)
+ color = mix(color, mix(vec3(1), vec3(0.42, 0.56, 0.86), uNight), foam.mul(mix(0.94, 0.7, uNight)));
 
- let alpha = max(mix(0.7, 0.96, deep), foam);
+ let alpha = max(mix(0.72, 0.96, deep), foam);
  // El mar se funde con el horizonte; desde la nave se recoge alrededor de la isla.
  alpha = alpha.mul(smoothstep(170, 105, fromCentre)).mul(uSpace.mul(smoothstep(60, 94, fromCentre)).oneMinus());
  // Donde el fondo asoma por encima del agua no se pinta nada.
@@ -110,13 +125,16 @@ function createMaterial() {
 }
 
 const GRID = 116; // metros de lado del plano detallado
-const CELLS_PER_SIDE = 232; // celdas de medio metro: orillas finas y oleaje facetado menudo
+const CELLS_PER_SIDE = 232; // celdas de medio metro: orillas finas
 
 // Dirección y fuerza de la corriente en (x, z): se nota en el cauce y se apaga
-// al llegar al mar abierto.
+// al llegar al mar abierto. Devuelve además por dónde va ese punto del río:
+// metros recorridos desde el estanque y metros a un lado del eje.
 function riverFlow(x, z) {
  let best = Infinity;
  let flow = [0, 0];
+ let course = [0, 0];
+ let walked = 0;
  for (let i = 0; i < RIVER.length - 1; i++) {
   const [ax, az] = RIVER[i];
   const [bx, bz] = RIVER[i + 1];
@@ -127,10 +145,14 @@ function riverFlow(x, z) {
   if (d < best) {
    best = d;
    flow = [dx / length, dz / length];
+   course = [walked + t * length, ((x - ax) * dz - (z - az) * dx) / length];
   }
+  walked += length;
  }
- const strength = (1 - Math.min(1, Math.max(0, (best - 1.2) / 1.6))) * (1 - Math.min(1, Math.max(0, (Math.hypot(x, z) - 40) / 6)));
- return [flow[0] * strength, flow[1] * strength];
+ // (En el estanque el agua está quieta: la corriente arranca a su salida.)
+ const leaving = Math.min(1, Math.max(0, (Math.hypot(x - POND.x, z - POND.z) - POND.r * 0.75) / (POND.r * 0.6)));
+ const strength = (1 - Math.min(1, Math.max(0, (best - 1.2) / 1.6))) * (1 - Math.min(1, Math.max(0, (Math.hypot(x, z) - 40) / 6))) * leaving;
+ return { flow: [flow[0] * strength, flow[1] * strength], course };
 }
 
 function createGeometries() {
@@ -141,17 +163,21 @@ function createGeometries() {
  const position = inner.attributes.position;
  const depth = new Float32Array(position.count);
  const flow = new Float32Array(position.count * 2);
+ const course = new Float32Array(position.count * 2);
  const rock = new Float32Array(position.count);
  for (let i = 0; i < position.count; i++) {
   const x = position.getX(i), z = position.getZ(i);
   depth[i] = WATER_LEVEL - groundHeight(x, z);
-  flow.set(riverFlow(x, z), i * 2);
+  const river = riverFlow(x, z);
+  flow.set(river.flow, i * 2);
+  course.set(river.course, i * 2);
   let nearest = 9;
   for (const stone of wet) nearest = Math.min(nearest, Math.hypot(stone.x - x, stone.z - z) - stone.scale * 0.62);
   rock[i] = nearest;
  }
  inner.setAttribute("depth", new THREE.BufferAttribute(depth, 1));
  inner.setAttribute("flow", new THREE.BufferAttribute(flow, 2));
+ inner.setAttribute("course", new THREE.BufferAttribute(course, 2));
  inner.setAttribute("rock", new THREE.BufferAttribute(rock, 1));
 
  // Fuera: mar abierto, siempre profundo. Es un marco que encaja con la rejilla.
@@ -162,6 +188,7 @@ function createGeometries() {
  const count = outer.attributes.position.count;
  outer.setAttribute("depth", new THREE.BufferAttribute(new Float32Array(count).fill(3), 1));
  outer.setAttribute("flow", new THREE.BufferAttribute(new Float32Array(count * 2), 2));
+ outer.setAttribute("course", new THREE.BufferAttribute(new Float32Array(count * 2), 2));
  outer.setAttribute("rock", new THREE.BufferAttribute(new Float32Array(count).fill(9), 1));
  return [inner, outer];
 }

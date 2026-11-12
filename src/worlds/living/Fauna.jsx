@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { attribute, cos, positionLocal, pow, sin, vec3 } from "three/tsl";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { attribute, cos, float, instanceIndex, positionLocal, pow, sin, vec3 } from "three/tsl";
 import { unlit } from "../../experience/materials";
 import { emit, events, player } from "../../experience/state";
 import { startGust, uniforms } from "../../experience/theme";
+import { WIND } from "../../experience/environment/wind";
+import { ring, splash } from "../../experience/effects/pools";
+import { merge, piece } from "./kit/geometry";
 import { POND, SCATTER, WATER_LEVEL, height } from "./layout";
+import { Leaves, Pollen } from "./life/Leaves";
 
 // Generador con semilla: la fauna sale siempre en los mismos sitios.
 function seeded(seed) {
@@ -20,34 +25,66 @@ const dummy = new THREE.Object3D();
 const tint = new THREE.Color();
 
 // ── Mariposas ───────────────────────────────────────────────────────────────
-// Cada una ronda una flor. Son dos alas (dos instancias) que baten.
-const BUTTERFLY_COLORS = ["#ffd24a", "#ff8fc7", "#8fd6ff", "#ffffff", "#ffa45c"];
+// Cada una ronda una flor. Es una sola malla con instancias: cuerpo y dos alas
+// con forma, que baten en la GPU (cada vértice sabe de qué ala es). Aquí solo
+// se mueve cada mariposa por su ruta.
+const BUTTERFLY_COLORS = ["#ffd24a", "#ff8fc7", "#8fd6ff", "#fff3d6", "#ffa45c", "#c9a0ff"];
+
+function createButterfly() {
+ // Ala derecha vista desde arriba (x hacia fuera, y hacia delante): dos lóbulos.
+ const outline = [[0.012, 0.05], [0.1, 0.17], [0.19, 0.15], [0.2, 0.05], [0.12, 0], [0.15, -0.08], [0.09, -0.14], [0.012, -0.05]];
+ const parts = [];
+ for (const side of [1, -1]) {
+  const shape = new THREE.Shape(outline.map(([x, y]) => new THREE.Vector2(x * side, y)));
+  const wing = new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2).toNonIndexed();
+  const count = wing.attributes.position.count;
+  const colors = new Float32Array(count * 3);
+  // Más claras junto al cuerpo, con el borde algo más oscuro.
+  for (let i = 0; i < count; i++) colors.fill(1 - Math.min(0.35, Math.abs(wing.attributes.position.getX(i)) * 1.6), i * 3, i * 3 + 3);
+  wing.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  wing.setAttribute("wing", new THREE.BufferAttribute(new Float32Array(count).fill(1), 1));
+  wing.deleteAttribute("uv");
+  wing.deleteAttribute("normal");
+  parts.push(wing);
+ }
+ const body = new THREE.BoxGeometry(0.03, 0.03, 0.2).toNonIndexed();
+ body.setAttribute("color", new THREE.BufferAttribute(new Float32Array(body.attributes.position.count * 3).fill(0.16), 3));
+ body.setAttribute("wing", new THREE.BufferAttribute(new Float32Array(body.attributes.position.count), 1));
+ body.deleteAttribute("uv");
+ body.deleteAttribute("normal");
+ parts.push(body);
+ const geometry = mergeGeometries(parts);
+ parts.forEach((part) => part.dispose());
+ return geometry;
+}
 
 function Butterflies({ count = 26 }) {
- const left = useRef(null);
- const right = useRef(null);
- const wing = useMemo(() => new THREE.PlaneGeometry(0.2, 0.26).translate(0.1, 0, 0).rotateX(-Math.PI / 2), []);
- const material = useMemo(() => new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, toneMapped: false }), []);
+ const mesh = useRef(null);
+ const geometry = useMemo(createButterfly, []);
+ const material = useMemo(() => {
+  const result = unlit({ side: THREE.DoubleSide, vertexColors: true });
+  // Aleteo: las alas giran sobre el eje del cuerpo, las dos hacia arriba, cada mariposa a su compás.
+  const beat = sin(uniforms.uTime.mul(15).add(float(instanceIndex).mul(2.39))).mul(0.5).add(0.5);
+  const angle = beat.mul(1.25).sub(0.2).mul(attribute("wing", "float"));
+  result.positionNode = vec3(positionLocal.x.mul(cos(angle)), positionLocal.y.add(positionLocal.x.abs().mul(sin(angle))), positionLocal.z);
+  return result;
+ }, []);
  const list = useMemo(() => {
   const random = seeded(77);
   const flowers = SCATTER.flowers;
   return Array.from({ length: count }, (_, i) => {
    const home = flowers[Math.floor(random() * flowers.length)];
-   return { x: home.x, z: home.z, phase: random() * 20, reach: 1.2 + random() * 2.2, speed: 0.5 + random() * 0.5, color: BUTTERFLY_COLORS[i % BUTTERFLY_COLORS.length] };
+   return { x: home.x, z: home.z, phase: random() * 20, reach: 1.2 + random() * 2.2, speed: 0.5 + random() * 0.5, size: 0.85 + random() * 0.4, color: BUTTERFLY_COLORS[i % BUTTERFLY_COLORS.length] };
   });
  }, [count]);
  useEffect(() => {
-  list.forEach((butterfly, i) => {
-   left.current.setColorAt(i, tint.set(butterfly.color));
-   right.current.setColorAt(i, tint.set(butterfly.color));
-  });
-  left.current.instanceColor.needsUpdate = true;
-  right.current.instanceColor.needsUpdate = true;
+  list.forEach((butterfly, i) => mesh.current.setColorAt(i, tint.set(butterfly.color)));
+  mesh.current.instanceColor.needsUpdate = true;
   return () => {
-   wing.dispose();
+   geometry.dispose();
    material.dispose();
   };
- }, [list, wing, material]);
+ }, [list, geometry, material]);
 
  useFrame(({ clock }) => {
   const time = clock.elapsedTime;
@@ -55,28 +92,20 @@ function Butterflies({ count = 26 }) {
    const t = time * butterfly.speed + butterfly.phase;
    const x = butterfly.x + Math.sin(t) * butterfly.reach + Math.sin(t * 2.3) * 0.4;
    const z = butterfly.z + Math.cos(t * 0.8) * butterfly.reach;
-   const y = height(x, z) + 0.9 + Math.sin(t * 1.7) * 0.35;
-   const heading = Math.atan2(Math.cos(t) * butterfly.reach, -Math.sin(t * 0.8) * butterfly.reach * 0.8);
-   const flap = Math.sin(time * 16 + butterfly.phase) * 0.95;
+   // Vuelo a saltitos: sube con cada batida.
+   const y = height(x, z) + 0.9 + Math.sin(t * 1.7) * 0.35 + Math.abs(Math.sin(time * 7.5 + butterfly.phase)) * 0.07;
+   // Rumbo: la derivada de la ruta (el morro mira a −z).
+   const vx = Math.cos(t) * butterfly.reach + Math.cos(t * 2.3) * 0.92, vz = -Math.sin(t * 0.8) * butterfly.reach * 0.8;
    dummy.position.set(x, y, z);
-   dummy.scale.setScalar(1);
-   dummy.rotation.set(0, heading, flap, "YXZ");
+   dummy.rotation.set(0.25, Math.atan2(-vx, -vz), Math.sin(t * 1.3) * 0.2, "YXZ");
+   dummy.scale.setScalar(butterfly.size);
    dummy.updateMatrix();
-   right.current.setMatrixAt(i, dummy.matrix);
-   dummy.rotation.set(0, heading + Math.PI, -flap, "YXZ");
-   dummy.updateMatrix();
-   left.current.setMatrixAt(i, dummy.matrix);
+   mesh.current.setMatrixAt(i, dummy.matrix);
   });
-  left.current.instanceMatrix.needsUpdate = true;
-  right.current.instanceMatrix.needsUpdate = true;
+  mesh.current.instanceMatrix.needsUpdate = true;
  });
 
- return (
-  <>
-   <instancedMesh ref={left} args={[wing, material, count]} frustumCulled={false} />
-   <instancedMesh ref={right} args={[wing, material, count]} frustumCulled={false} />
-  </>
- );
+ return <instancedMesh ref={mesh} args={[geometry, material, count]} frustumCulled={false} />;
 }
 
 // ── Pájaros ─────────────────────────────────────────────────────────────────
@@ -112,8 +141,13 @@ function Birds({ count = 12 }) {
   });
   body.current.instanceColor.needsUpdate = true;
   wings.current.instanceColor.needsUpdate = true;
-  const scareAll = () => birds.forEach((bird) => bird.flying < 0 && takeOff(bird, random() * 0.8));
+  // Con una ráfaga despegan en cadena: cada una cuando le llega el frente.
+  const scareAll = (event) => {
+   const { x = 0, z = 0 } = event.detail ?? {};
+   birds.forEach((bird) => !bird.started && takeOff(bird, Math.hypot(bird.x - x, bird.z - z) / WIND.gustSpeed + random() * 0.5));
+  };
   events.addEventListener("gust", scareAll);
+  if (import.meta.env.DEV) window.__world.birds = birds; // para las pruebas automáticas
   return () => {
    events.removeEventListener("gust", scareAll);
    bodyGeometry.dispose();
@@ -189,32 +223,58 @@ function Birds({ count = 12 }) {
 }
 
 // ── Peces ───────────────────────────────────────────────────────────────────
-// Dan vueltas por el estanque y de vez en cuando saltan.
+// Carpas que dan vueltas por el estanque coleteando y de vez en cuando saltan,
+// con su salpicadura al salir y al caer.
+const FISH_COLORS = ["#ff8a3d", "#f4f1ea", "#ff6a3a", "#ffc24a", "#f4f1ea", "#e8552e", "#ffd9a0"];
+
+function createFish() {
+ // Mira a +z. Cuerpo ahusado, cola en abanico y una aleta dorsal.
+ return merge([
+  piece(new THREE.OctahedronGeometry(1, 1), { bottom: "#d9d9d9", top: "#ffffff", vary: 0.06, scale: [0.075, 0.085, 0.24] }),
+  piece(new THREE.ConeGeometry(0.11, 0.17, 4), { color: "#ececec", position: [0, 0, -0.29], rotation: [Math.PI / 2, 0, 0], scale: [0.35, 1, 1] }),
+  piece(new THREE.ConeGeometry(0.05, 0.12, 3), { color: "#e0e0e0", position: [0, 0.085, 0.0], rotation: [-0.5, 0, 0], scale: [0.3, 1, 1] }),
+ ]);
+}
+
 function Fish({ count = 7 }) {
  const mesh = useRef(null);
- const geometry = useMemo(() => new THREE.ConeGeometry(0.11, 0.46, 4).rotateX(Math.PI / 2).scale(0.6, 1, 1), []);
- const material = useMemo(() => new THREE.MeshLambertMaterial({ color: "#ff8a3d", flatShading: true }), []);
+ const geometry = useMemo(createFish, []);
+ const material = useMemo(() => new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), []);
  const fish = useMemo(() => {
   const random = seeded(404);
-  return Array.from({ length: count }, () => ({ radius: 1 + random() * (POND.r - 2.6), speed: (0.35 + random() * 0.4) * (random() < 0.5 ? -1 : 1), phase: random() * 30, every: 9 + random() * 14 }));
+  return Array.from({ length: count }, () => ({ radius: 1 + random() * (POND.r - 2.6), speed: (0.35 + random() * 0.4) * (random() < 0.5 ? -1 : 1), phase: random() * 30, every: 9 + random() * 14, size: 0.85 + random() * 0.5, jumping: false }));
  }, [count]);
- useEffect(
-  () => () => {
+ useEffect(() => {
+  fish.forEach((_, i) => mesh.current.setColorAt(i, tint.set(FISH_COLORS[i % FISH_COLORS.length])));
+  mesh.current.instanceColor.needsUpdate = true;
+  return () => {
    geometry.dispose();
    material.dispose();
-  },
-  [geometry, material],
- );
+  };
+ }, [fish, geometry, material]);
  useFrame(({ clock }) => {
   const time = clock.elapsedTime;
   fish.forEach((one, i) => {
    const angle = time * one.speed + one.phase;
    // Salto: un arco de 0,7 s cada `every` segundos.
    const cycle = ((time + one.phase) % one.every) / 0.7;
-   const jump = cycle < 1 ? Math.sin(cycle * Math.PI) : 0;
-   dummy.position.set(POND.x + Math.cos(angle) * one.radius, WATER_LEVEL - 0.1 + jump * 0.75, POND.z + Math.sin(angle) * one.radius);
-   dummy.rotation.set(cycle < 1 ? (0.5 - cycle) * 1.6 * -1 : 0, -angle + (one.speed > 0 ? Math.PI : 0), 0, "YXZ");
-   dummy.scale.setScalar(1);
+   const jumping = cycle < 1;
+   const jump = jumping ? Math.sin(cycle * Math.PI) : 0;
+   const x = POND.x + Math.cos(angle) * one.radius, z = POND.z + Math.sin(angle) * one.radius;
+   if (jumping !== one.jumping) {
+    // Rompe el agua al salir y al volver a entrar.
+    one.jumping = jumping;
+    if (jumping) splash(x, WATER_LEVEL, z, { count: 5, speed: 1.5, size: 0.05 });
+    else {
+     splash(x, WATER_LEVEL, z, { count: 7, speed: 1.2, size: 0.05 });
+     ring(x, WATER_LEVEL, z, { size: 0.8, duration: 1.4 });
+    }
+   }
+   dummy.position.set(x, WATER_LEVEL - 0.07 + jump * 0.75, z);
+   // Nada de cara a su marcha (tangente a la vuelta) y colea.
+   const heading = -angle + (one.speed > 0 ? 0 : Math.PI);
+   dummy.rotation.set(jumping ? (cycle - 0.5) * 1.7 : 0, heading + Math.sin(time * 7 + one.phase) * 0.28, 0, "YXZ");
+   dummy.scale.setScalar(one.size);
    dummy.updateMatrix();
    mesh.current.setMatrixAt(i, dummy.matrix);
   });
@@ -268,91 +328,6 @@ function Fireflies({ count = 170 }) {
  return <instancedMesh ref={mesh} args={[geometry, material, count]} frustumCulled={false} />;
 }
 
-// ── Pétalos ─────────────────────────────────────────────────────────────────
-// Unos pocos caen siempre de los cerezos; con una ráfaga salen muchos más.
-const PETALS = 150;
-const CALM_PETALS = 26;
-
-function Petals() {
- const mesh = useRef(null);
- const geometry = useMemo(() => new THREE.PlaneGeometry(0.13, 0.09), []);
- const material = useMemo(() => new THREE.MeshBasicMaterial({ color: "#ffc4dc", side: THREE.DoubleSide, toneMapped: false }), []);
- const cherries = useMemo(() => {
-  const list = SCATTER.trees.filter((tree) => tree.kind === "cherry");
-  return list.length ? list : SCATTER.trees;
- }, []);
- const state = useRef({ active: CALM_PETALS, wind: { x: 0.5, z: 0.2 }, until: 0 });
- const petals = useMemo(() => {
-  const random = seeded(606);
-  return Array.from({ length: PETALS }, () => ({ x: 0, y: -50, z: 0, life: random() * 6, seed: random() * 50, drift: 0.4 + random() * 0.8 }));
- }, []);
- const random = useMemo(() => seeded(8), []);
-
- useEffect(() => {
-  const burst = (event) => {
-   const { x = 0, z = 0 } = event.detail ?? {};
-   state.current.active = PETALS;
-   state.current.until = uniforms.uTime.value + 9;
-   state.current.origin = { x, z };
-  };
-  events.addEventListener("gust", burst);
-  return () => {
-   events.removeEventListener("gust", burst);
-   geometry.dispose();
-   material.dispose();
-  };
- }, [geometry, material]);
-
- useFrame(({ clock }, delta) => {
-  const time = clock.elapsedTime;
-  const windy = time < state.current.until;
-  if (!windy) state.current.active = CALM_PETALS;
-  const dt = Math.min(delta, 0.05);
-  petals.forEach((petal, i) => {
-   petal.life -= dt;
-   const ground = height(petal.x, petal.z);
-   if ((petal.life <= 0 || petal.y < ground) && i < state.current.active) {
-    // Nace en la copa de un cerezo; con viento, en uno cercano al jugador.
-    let tree = cherries[Math.floor(random() * cherries.length)];
-    if (windy) {
-     for (let attempt = 0; attempt < 6; attempt++) {
-      const other = cherries[Math.floor(random() * cherries.length)];
-      if (Math.hypot(other.x - player.position.x, other.z - player.position.z) < Math.hypot(tree.x - player.position.x, tree.z - player.position.z)) tree = other;
-     }
-    }
-    petal.x = tree.x + (random() - 0.5) * 3;
-    petal.z = tree.z + (random() - 0.5) * 3;
-    petal.y = height(tree.x, tree.z) + 3 + random() * 1.8;
-    petal.life = 5 + random() * 4;
-   } else if (petal.life <= 0 || petal.y < ground) {
-    petal.y = -50;
-   }
-   if (petal.y > -40) {
-    let wx = 0.5;
-    let wz = 0.2;
-    if (windy && state.current.origin) {
-     const dx = petal.x - state.current.origin.x;
-     const dz = petal.z - state.current.origin.z;
-     const length = Math.hypot(dx, dz) || 1;
-     wx = (dx / length) * 4.5;
-     wz = (dz / length) * 4.5;
-    }
-    petal.x += (wx + Math.sin(time * 1.3 + petal.seed) * 0.8) * petal.drift * dt;
-    petal.z += (wz + Math.cos(time * 1.1 + petal.seed) * 0.8) * petal.drift * dt;
-    petal.y -= (windy ? 0.35 : 0.7) * dt;
-   }
-   dummy.position.set(petal.x, petal.y, petal.z);
-   dummy.rotation.set(time * 2 + petal.seed, time * 1.3 + petal.seed, 0);
-   dummy.scale.setScalar(1);
-   dummy.updateMatrix();
-   mesh.current.setMatrixAt(i, dummy.matrix);
-  });
-  mesh.current.instanceMatrix.needsUpdate = true;
- });
-
- return <instancedMesh ref={mesh} args={[geometry, material, PETALS]} frustumCulled={false} />;
-}
-
 // ── Viento ──────────────────────────────────────────────────────────────────
 // «El bosque despierta»: el carillón (o el propio bosque, de vez en cuando)
 // lanza una ráfaga que dobla la vegetación, suelta pétalos y espanta pájaros.
@@ -386,7 +361,8 @@ export function Fauna() {
    <Birds />
    <Fish />
    <Fireflies />
-   <Petals />
+   <Leaves />
+   <Pollen />
   </>
  );
 }

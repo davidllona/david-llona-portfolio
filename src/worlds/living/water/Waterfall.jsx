@@ -2,27 +2,32 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { createGlowTexture } from "../../../experience/textures";
-import { attribute, mix, positionLocal, sin, smoothstep, step, uv, vec2, vec3 } from "three/tsl";
+import { attribute, mix, positionLocal, sin, smoothstep, step, texture, uv, vec2, vec3 } from "three/tsl";
+import { noiseTexture } from "../../../experience/environment/noise";
 import { lambert, unlit } from "../../../experience/materials";
 import { current, uniforms } from "../../../experience/theme";
 import { blob, merge, piece } from "../kit/geometry";
 import { ROCK } from "../kit/palette";
 import { STREAM, STREAM_LEVEL, WATERFALL, WATER_LEVEL } from "../layout";
-import { cells } from "./nodes";
 
 // Agua que corre por una cinta: el arroyo de la meseta y las láminas de la
 // cascada. uv.x cruza la cinta y uv.y la recorre (0 arriba, 1 abajo).
 //  · fall: 0 = arroyo tumbado, 1 = lámina que cae (más blanca, borde dentado).
 function flowMaterial({ speed, length, width, fall = 0, white = 0, seed = 0 }) {
  const { uTime, uWaterShallow, uWaterDeep, uNight } = uniforms;
+ const noise = (p) => texture(noiseTexture, p);
  const across = uv().x.sub(0.5);
  const along = uv().y.mul(length);
- // Celdas estiradas en el sentido de la corriente: hilos de agua que bajan.
- const threads = cells(vec2(uv().x.mul(width * 1.5).add(seed), along.mul(fall ? 0.28 : 0.5).sub(uTime.mul(speed))), 0);
- const lines = smoothstep(fall ? 0.16 : 0.09, 0, threads.y);
- const clumps = smoothstep(0.25, 0.6, threads.x);
- // Borde: en la cascada se deshilacha; en el arroyo es espuma contra la orilla.
- const ragged = cells(vec2(along.mul(1.3).sub(uTime.mul(speed * 2)), seed), 0).x.mul(0.13 * fall);
+ // Hilos de agua: dos capas de ruido muy estiradas en el sentido de la
+ // corriente, que bajan a distinto paso; donde se cruzan sale un hilo claro.
+ const stretch = fall ? 0.034 : 0.05;
+ const first = noise(vec2(uv().x.mul(width * 0.2).add(seed * 0.13), along.mul(stretch).sub(uTime.mul(speed * 0.12)))).r;
+ const second = noise(vec2(uv().x.mul(width * 0.34).add(seed * 0.29 + 0.4), along.mul(stretch * 1.7).sub(uTime.mul(speed * 0.2)))).g;
+ const lines = smoothstep(fall ? 0.07 : 0.03, 0.006, first.add(second).sub(1).abs());
+ const clumps = smoothstep(0.35, 0.65, first);
+ // Borde: en la cascada se deshilacha (entra y sale mientras cae); en el
+ // arroyo es espuma contra la orilla.
+ const ragged = noise(vec2(along.mul(0.1).sub(uTime.mul(speed * 0.28)), uv().x.mul(0.05).add(seed * 0.37))).r.sub(0.45).mul(0.34 * fall);
  const edge = across.abs().add(ragged);
  const rim = smoothstep(0.34, 0.48, edge);
  // Cuerpo de agua de color, en dos tonos, y por encima los hilos blancos.
@@ -113,12 +118,10 @@ function createRocks() {
 const PILLOWS = 9; // almohadas de espuma en la base
 const DROPS = 46;
 const MIST = 8;
-const RINGS = 3;
 
 export function Waterfall() {
  const drops = useRef(null);
  const mist = useRef([]);
- const rings = useRef([]);
  const helper = useMemo(() => new THREE.Object3D(), []);
  const rocks = useMemo(createRocks, []);
  const rockMaterial = useMemo(() => lambert(), []);
@@ -230,12 +233,7 @@ export function Waterfall() {
    sprite.material.opacity = Math.sin(t * Math.PI) * 0.09 * dim;
   });
 
-  // Anillos de espuma que se abren sobre el estanque.
-  rings.current.forEach((ring, i) => {
-   const t = (uniforms.uTime.value * 0.3 + i / RINGS) % 1;
-   ring.scale.setScalar(1.1 + t * 2.6);
-   ring.material.opacity = (1 - t) * 0.5 * dim;
-  });
+  // (Los anillos que se abren sobre el estanque los dibuja el propio agua: Water.jsx.)
  });
 
  return (
@@ -253,12 +251,6 @@ export function Waterfall() {
     <mesh key={i} ref={(node) => (mist.current[i] = node)} renderOrder={8}>
      <planeGeometry />
      <meshBasicMaterial map={glow} color="#eaf6ff" transparent opacity={0} depthWrite={false} fog={false} />
-    </mesh>
-   ))}
-   {Array.from({ length: RINGS }, (_, i) => (
-    <mesh key={i} ref={(node) => (rings.current[i] = node)} position={[baseX, WATER_LEVEL + 0.03, baseZ + 0.25]} rotation-x={-Math.PI / 2} renderOrder={6}>
-     <ringGeometry args={[0.86, 1, 9]} />
-     <meshBasicMaterial color="#ffffff" transparent opacity={0} depthWrite={false} />
     </mesh>
    ))}
    {/* Manantial del que nace el arroyo: una poza entre piedras. */}

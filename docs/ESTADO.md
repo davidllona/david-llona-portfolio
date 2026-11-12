@@ -4,19 +4,22 @@ Actualizado: 12 de noviembre de 2026 · rama `estacion-espacial` (solo commits l
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git).
 **En curso: objetivo 5 — casas y proyectos.** Hecho el paso 1 (una casa de referencia, el taller del Configurador, modelada en Blender) y **parado a la espera del visto bueno** antes de seguir con los pasos 2–8 (ver «Objetivo 5» más abajo).
-Último objetivo cerrado: **objetivo 4 — cohete y errores de terreno** (12-11-2026, terminado en Windows). El proyecto se trabaja ahora en Windows además de en Mac (ver «Windows» más abajo).
+Último objetivo cerrado: **objetivo 7 — agua y partículas** (12-11-2026; ver su fila en «Terminado y verificado»). El objetivo 6 (árboles y hierba con modelos externos) no se empezó: la carpeta `assets-externos/` no existe.
+Anterior: **objetivo 4 — cohete y errores de terreno** (12-11-2026, terminado en Windows). El proyecto se trabaja ahora en Windows además de en Mac (ver «Windows» más abajo).
 Trabajo en curso: **revisión definitiva de The Living World** (fases A–F del plan del 12-11-2026: carga, estándar artístico, zonas, observatorio y naturaleza, fútbol, validación). Etiqueta de retorno: `antes-revision-definitiva`. Antes: **rediseño artístico de The Living World** (solo el Planeta 1): primero se valida un estándar en la bienvenida y la aldea de proyectos; después se extiende al resto. Modelos propios (kit de código; Blender si hace falta), nada de packs de terceros. Punto de retorno anterior: etiqueta `antes-rediseno-artistico`.
 
 ## Cómo arrancarlo y probarlo
 
 ```
 npm run dev -- --port 5199     # http://localhost:5199
-npm run e2e                    # 191 comprobaciones en Chrome sin ventana (con el servidor encendido)
+npm run e2e                    # 201 comprobaciones en Chrome sin ventana (con el servidor encendido)
 node tests/e2e/woody.mjs       # bocadillos, ritmo, descanso, cuestas y ruta guiada (incluida en e2e)
 node tests/e2e/camera.mjs      # cámara, zoom, tarjeta «E», postes y oclusión, cohete incluido (incluida en e2e)
 node tests/e2e/rocket.mjs      # despegue: escala, empuje, cámara, aceleración; saca la serie de fotogramas (incluida en e2e)
 node tests/e2e/terrain.mjs     # objetos que flotan, hundidos o bajo el agua (incluida en e2e); «lista» y «capturas» como argumento
 node tests/perf/entrada.mjs    # tirones y pipelines compilados en caliente al entrar y al despegar
+node tests/e2e/life.mjs        # polvo, salpicaduras, hojas, polen, luciérnagas y «El bosque despierta»; saca fotogramas (incluida en e2e)
+node tests/e2e/water.mjs       # capturas del río, el estanque, la cascada, la costa y el mar, de día y de noche; no comprueba nada
 node tests/e2e/buildings.mjs   # capturas de cada edificio (cerca y cámara de juego, día y noche) y llamadas de dibujo; no comprueba nada
 node tests/e2e/living.mjs fps  # además mide fps a 2880 × 1620 sin límite
 node tests/e2e/motion.mjs      # viento, ráfaga y rastro en la hierba; guarda fotogramas
@@ -59,6 +62,8 @@ Capturas de comparación (fuera de git), mismas 12 vistas de día y de noche: `c
 
 Medidas (desarrollo, 1440 × 900, este equipo Windows): antes, 296 llamadas de dibujo en la plaza con la cámara lejos y 263 junto al cohete, ~850.000 triángulos, botón de entrar a los 10,2 s. Con el taller nuevo: 293 y 258 llamadas, ~900.000 triángulos, 11,1 s. Capturas de partida de todos los edificios (cerca y cámara de juego, día y noche): `capturas/12-edificios/antes/`.
 
+Rendimiento del objetivo 7 (2880 × 1620 sin límite, este equipo, alternando el commit anterior y el nuevo en tres pasadas): antes 84–101 fps, después 81–101 fps según el punto y la pasada; la variación entre pasadas (±10 fps) es mayor que cualquier diferencia entre versiones. Tras pulsar para entrar y al despegar: 0 pipelines compilados en caliente.
+
 ## Arquitectura gráfica
 
 - **Renderer**: `WebGPURenderer` (three r183) con inicialización asíncrona; donde no hay WebGPU cae solo a su backend WebGL2. `src/experience/Experience.jsx`.
@@ -76,7 +81,10 @@ Medidas (desarrollo, 1440 × 900, este equipo Windows): antes, 296 llamadas de d
 | Césped: una malla de ~113.000 briznas curvas que sigue a la cámara; densidad y altura por máscara de terreno; color que nace del suelo; se aparta al paso y se recupera | `motion` 7; capturas |
 | Viento global en GPU: hierba, flores, helechos, juncos, arbustos y árboles leen el mismo campo; ráfagas que avanzan por el terreno | `motion` |
 | Luz nocturna con farolas y ventanas que iluminan de verdad; cielo, estrellas, luna | capturas de noche |
-| Agua: oleaje facetado, bandas de profundidad, espuma irregular, corriente, rocas que asoman, ondas al vadear; cascada por láminas con bruma; arroyo con cauce | capturas |
+| **Agua** (objetivo 7): sin patrón de celdas ni facetas en mar, río y estanque. Color continuo por profundidad (turquesa claro en la orilla, intenso en el centro), ondas hechas con dos capas de ruido que se cruzan, corriente que baja por el río (cada vértice sabe en qué punto del cauce está), espuma irregular en orillas, costa, rocas y corriente, anillos donde cae la cascada. Cascada y arroyo con hilos de agua del mismo ruido y borde deshilachado. De noche se apagan ondas y espuma. `water/Water.jsx`, `water/Waterfall.jsx` | `capturas/13-agua/antes/` y `despues/` (ocho vistas, día y noche) |
+| **Efectos breves en GPU** (objetivo 7): polvo al andar, correr y aterrizar; gotas y aros al entrar en el agua, al vadear y al saltar un pez. Tres mallas con instancias cuyo movimiento calcula el sombreador (`experience/effects/Bursts.jsx`, `pools.js`); sustituyen a las diez bolas sueltas del jugador | `life` 10; `capturas/13-agua/vida/` |
+| **Vida ambiental** (objetivo 7): 900 hojas y pétalos que caen de las copas y derivan con el viento, 240 motas de polen de día y las luciérnagas de noche, todo en GPU (`worlds/living/life/Leaves.jsx`); mariposas con alas con forma y aleteo en el sombreador; carpas de colores que colean y salpican al saltar | `life`; capturas |
+| **«El bosque despierta»** (objetivo 7): la ráfaga del carillón recorre hierba y árboles, su frente va soltando las hojas de cada árbol al alcanzarlo y las aves despegan en cadena según les llega; después vuelve la calma. El jugador conserva el control | `life` (aves en vuelo: 0, 1, 2, 5, 6, 8, 12, 12; el jugador avanza 11,7 m durante el evento) |
 | Siete especies de árbol + árbol viejo; flores por especies, helechos, juncos, setas, rocas con musgo; suelo con doce tipos de superficie | capturas |
 | Observatorio nuevo (torre, galería, cúpula giratoria, telescopio, anexo, atrezo) | `living` (interacción día/noche) |
 | Hueco de visión: la copa que tapa al astronauta se deshace a su alrededor | capturas |
@@ -125,6 +133,7 @@ Rendimiento medido en el Mac a 2880 × 1620 sobre WebGPU: 192–221 fps tras el 
 - **Pulido del Planeta 1, lo que falta** (ver «Siguiente paso»): caída del río al mar, cascada aún muy blanca vista de cerca, troncos curvados y árboles protagonistas, modelo de luz con sombras teñidas, acabado de cabañas/puente/farolas, vida ambiental nueva (hojas, humo, libélulas, ranas).
 - **Variación espacial del viento**: está en el sombreador (ruido por posición) y se ve en las capturas, pero la prueba automática solo demuestra que hay movimiento y que la ráfaga avanza; no mide que dos zonas se muevan distinto.
 - **Ondas al vadear**: salen también bajo el puente cuando se cruza por encima.
+- **Agua y partículas, lo que queda**: los peces y las mariposas son de código (no había GLB en `assets-externos/`); las salpicaduras de la cascada siguen moviéndose por CPU (46 gotas); el arroyo de la meseta comparte material con la cascada y no tiene espuma propia en las orillas; las ondas del agua se ven algo quebradas muy de cerca (la textura de ruido es de 128 px).
 - **Sonido**: comprobado que cada acción pide su sonido y que el contexto arranca; **no se ha escuchado** (las pruebas son sin altavoces). Volúmenes y timbres pendientes de oído humano.
 - **Móvil**: probado con emulación táctil (horizontal y vertical). **No probado en un teléfono real.**
 

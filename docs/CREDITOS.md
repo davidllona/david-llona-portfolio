@@ -12,6 +12,8 @@ texturas, sonidos, fuentes ni escenarios: solo ideas de ingeniería, reescritas 
 | Césped en una sola malla que sigue a la cámara, controlado por una textura de terreno | `World/Grass.js`, `Terrain.js` | `src/worlds/living/flora/Grass.jsx`, `src/worlds/living/terrainData.js` |
 | Rastro del jugador que afecta a la hierba | `Tracks.js` | `src/experience/environment/trail.js` |
 | Bandas de espuma que siguen la profundidad | `World/WaterSurface.js` | `src/worlds/living/water/Water.jsx` |
+| Agua como color liso más una máscara de detalles (ondas, orilla) rota con ruido de textura, en lugar de un patrón de celdas | `World/WaterSurface.js` | `src/worlds/living/water/Water.jsx`, `Waterfall.jsx` |
+| Partículas cuyo movimiento se calcula en la GPU a partir de datos por instancia (hojas que caen y derivan con el viento) | `World/Leaves.js` | `src/worlds/living/life/Leaves.jsx`, `src/experience/effects/Bursts.jsx` |
 
 Aviso de la licencia original:
 
