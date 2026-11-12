@@ -44,7 +44,7 @@ Capturas de comparación (fuera de git): `capturas/0-antes/` (antes del pulido) 
 | Hueco de visión: la copa que tapa al astronauta se deshace a su alrededor | capturas |
 | Cascada con canal de roca mojada y almohadas de espuma | capturas |
 
-Rendimiento medido en este Mac a 2880 × 1620 sobre WebGPU: 272–362 fps según la zona (antes de la migración, 187–224).
+Rendimiento medido en este Mac a 2880 × 1620 sobre WebGPU: 224–263 fps según la zona (antes de la migración, 187–224). Con el césped nuevo y sin el hueco de visión de los árboles eran 272–362: ese tramado cuesta en torno a una cuarta parte y es lo primero a optimizar si hiciera falta.
 
 ## Parcial
 
