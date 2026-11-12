@@ -40,7 +40,7 @@ const close = async () => {
  await page.keyboard.press("Escape");
  await wait(300);
  // Esc también pausa: si ha salido la pantalla de pausa, se vuelve a entrar.
- if (await page.$(".overlay__enter")) await t.enter();
+ if (await page.$(".overlay:not(.overlay--hidden)")) await t.enter();
 };
 
 check((await t.evaluate(() => window.__world.world().id)) === "living", "el planeta de inicio es The Living World");

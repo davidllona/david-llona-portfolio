@@ -23,6 +23,9 @@ const PALETTE = {
  Woody_Eye: { color: "#6b4a26", emissive: "#6b4a26", glow: 0.5 },
 };
 
+// Lo que hace de pie y quieto cada pocos segundos.
+const IDLE_GESTURES = ["Woody_Idle_LookAround", "Woody_HeadTiltLeft", "Woody_HeadTiltRight", "Woody_SniffGround", "Woody_TailWag_Slow"];
+
 // Woody: te sigue, descansa cuando te paras, te guía si se lo pides y se deja
 // acariciar. Su comportamiento está en WoodyBrain.js; aquí se elige el clip.
 export function Woody({ active }) {
@@ -94,7 +97,9 @@ export function Woody({ active }) {
 
  useFrame((_, rawDelta) => {
   const delta = Math.min(rawDelta, 0.05);
-  const busy = controller.busy;
+  // Los gestos de espera (olfatear, ladear la cabeza…) se cortan si hay que moverse.
+  const idling = IDLE_GESTURES.includes(controller.name);
+  const busy = controller.busy && !idling;
   const out = updateBrain(brain, active ? delta : 0, { world, player, woody, busy });
   group.current.visible = !brain.hidden;
 
@@ -111,7 +116,7 @@ export function Woody({ active }) {
    emit("woody");
   }
 
-  if (!controller.busy) {
+  if (!controller.busy || (idling && (brain.moving || brain.wantsUp))) {
    const speed = brain.speed;
    if (brain.wantsUp) {
     // Se levanta antes de echar a andar.
@@ -143,8 +148,7 @@ export function Woody({ active }) {
     if (state.timer > state.next) {
      state.timer = 0;
      state.next = 5 + Math.random() * 5;
-     const gestures = ["Woody_Idle_LookAround", "Woody_HeadTiltLeft", "Woody_HeadTiltRight", "Woody_SniffGround", "Woody_TailWag_Slow"];
-     controller.play(gestures[Math.floor(Math.random() * gestures.length)], { loop: false, fade: 0.25, hold: false });
+     controller.play(IDLE_GESTURES[Math.floor(Math.random() * IDLE_GESTURES.length)], { loop: false, fade: 0.25, hold: false });
     } else controller.play("Woody_Idle_Breathe", { fade: 0.3 });
    }
   }
