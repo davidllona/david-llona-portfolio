@@ -59,7 +59,9 @@ export const WELCOME = {
 export const events = new EventTarget();
 export const emit = (type, detail) => events.dispatchEvent(new CustomEvent(type, { detail }));
 
-export const game = { score: 0 };
+// `minigame`: el minijuego que se está jugando ("football") o null. Mientras
+// dura, Woody no suelta bocadillos (ver experience/speech.js).
+export const game = { score: 0, minigame: null };
 
 // Lo que la escena muestra como tarjetas 3D (ver experience/ui3d/WorldUi.jsx):
 // la indicación de la tecla E, los mensajes, el logro recién conseguido y el

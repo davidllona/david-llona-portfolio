@@ -1,10 +1,11 @@
 # Estado del universo de tres planetas
 
-Actualizado: 12 de noviembre de 2026 · rama `estacion-espacial` (solo commits locales, sin push).
+Actualizado: 13 de noviembre de 2026 · rama `estacion-espacial` (solo commits locales, sin push).
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git).
+Último objetivo cerrado: **objetivo 8 — fútbol jugable** (13-11-2026, terminado en el Mac; ver su fila en «Terminado y verificado» y lo que queda en «Parcial»).
 **En curso: objetivo 5 — casas y proyectos.** Hecho el paso 1 (una casa de referencia, el taller del Configurador, modelada en Blender) y **parado a la espera del visto bueno** antes de seguir con los pasos 2–8 (ver «Objetivo 5» más abajo).
-Último objetivo cerrado: **objetivo 7 — agua y partículas** (12-11-2026; ver su fila en «Terminado y verificado»). El objetivo 6 (árboles y hierba con modelos externos) no se empezó: la carpeta `assets-externos/` no existe.
+Antes: **objetivo 7 — agua y partículas** (12-11-2026; ver su fila en «Terminado y verificado»). El objetivo 6 (árboles y hierba con modelos externos) no se empezó: la carpeta `assets-externos/` no existe.
 Anterior: **objetivo 4 — cohete y errores de terreno** (12-11-2026, terminado en Windows). El proyecto se trabaja ahora en Windows además de en Mac (ver «Windows» más abajo).
 Trabajo en curso: **revisión definitiva de The Living World** (fases A–F del plan del 12-11-2026: carga, estándar artístico, zonas, observatorio y naturaleza, fútbol, validación). Etiqueta de retorno: `antes-revision-definitiva`. Antes: **rediseño artístico de The Living World** (solo el Planeta 1): primero se valida un estándar en la bienvenida y la aldea de proyectos; después se extiende al resto. Modelos propios (kit de código; Blender si hace falta), nada de packs de terceros. Punto de retorno anterior: etiqueta `antes-rediseno-artistico`.
 
@@ -12,7 +13,8 @@ Trabajo en curso: **revisión definitiva de The Living World** (fases A–F del 
 
 ```
 npm run dev -- --port 5199     # http://localhost:5199
-npm run e2e                    # 201 comprobaciones en Chrome sin ventana (con el servidor encendido)
+npm run e2e                    # 260 comprobaciones en Chrome sin ventana (con el servidor encendido)
+node tests/e2e/football.mjs    # fútbol de principio a fin, con fotogramas de cada tiro (incluida en e2e)
 node tests/e2e/woody.mjs       # bocadillos, ritmo, descanso, cuestas y ruta guiada (incluida en e2e)
 node tests/e2e/camera.mjs      # cámara, zoom, tarjeta «E», postes y oclusión, cohete incluido (incluida en e2e)
 node tests/e2e/rocket.mjs      # despegue: escala, empuje, cámara, aceleración; saca la serie de fotogramas (incluida en e2e)
@@ -31,6 +33,8 @@ node tests/e2e/look.mjs tests/e2e/views.json   # las 12 vistas fijas, de día y 
 Atajos de desarrollo: `?world=cosmic` abre el planeta antiguo; `?webgl=0` simula un navegador sin GPU (solo sale un aviso con LinkedIn y correo); `?backend=webgl` fuerza el respaldo WebGL2.
 
 **Textos de Woody**: `src/content/woody.js` (bienvenida, una frase por zona, menú y frases de guía). Se editan ahí, sin tocar código.
+
+**Fútbol**: E junto al campo para entrar. Se apunta con el ratón (o el dedo) sobre la portería, se mantiene pulsado para cargar, se mueve de lado mientras se carga para dar efecto y se suelta para chutar (Espacio también carga; A/D dan efecto). 1–4 cambian de modo, B pone o quita la barrera, R reinicia, Esc sale.
 
 Controles: WASD o flechas, Espacio saltar, Shift correr, E usar, G menú de Woody, N día/noche, M sonido, Esc pausa. Con el ratón se hace clic en los objetos; la rueda (o el pellizco en móvil) acerca y aleja la cámara.
 
@@ -113,6 +117,10 @@ Rendimiento del objetivo 7 (2880 × 1620 sin límite, este equipo, alternando el
 | **Objetos apoyados en el terreno** (objetivo 4): todo lo repartido se asienta según el suelo bajo su apoyo (`settle` en `layout.js`): se planta en el punto más bajo para no flotar y solo se retira lo que cae en un talud o un cauce. Las rocas con el pie en el agua asoman siempre | `terrain`: 2.663 objetos en 50 grupos, ninguno flota, hundido ni sumergido; `capturas/11-windows/terreno/` |
 | **Tarjeta «E»** discreta (23–32 px de alto según el zoom), sobre su objeto (encima de Woody) y apartada del astronauta si fuera a taparlo. El logro, en vuelo, sale por encima del morro de la nave | `camera` (tres distancias de cámara) |
 | **El cohete se vuelve translúcido** alrededor del astronauta cuando lo tapa (mismo tramado que árboles y casas) | `camera`; `capturas/11-windows/oclusion-cohete.jpg` |
+| **Fútbol jugable** (objetivo 8): balón con física propia (`game/ballPhysics.js`: gravedad, aire, efecto Magnus, bote, rodadura y choques con cápsulas), red de tela (`game/cloth.js`), portero que lee el tiro y se lanza, barrera de tres maniquíes que saltan, dianas, cuatro modos (penaltis, tiros libres, precisión, contrarreloj), sonidos, celebraciones del astronauta y de Woody, logros («Primer gol», «Al palo», «Especialista», «Dianas») y vitrina del trofeo. Gol, poste, larguero, fuera, alto, corto, parada y barrera salen de la física, no de un guion. `worlds/living/football/` | `football` 59; `capturas/14-futbol/despues/` |
+| **Efecto en el chut**: el giro curva el vuelo de verdad (34 cm de flecha en un penalti, más en una falta) y el balón sale abierto hacia el lado contrario para que la curva lo traiga a donde se apunta (`launch` en `match.js`, que prueba el tiro con un balón de ensayo). Una hilera de puntos enseña la trayectoria prevista con la potencia y el efecto de cada momento | `football` (curva a un lado y al otro; cruza a 0,00 m del punto) |
+| **Marcador único, el de madera del campo**: en directo (intentos, goles, puntos, quedan/tiempo, último tiro), en dos filas con letra grande; el tablero va por delante de sus postes (eran los que tapaban «INTENTOS» y «QUEDAN»), se aparta de la portería según el lado del tiro y los botones del juego van arriba a la izquierda. Sin marcador 2D | `football` (entero en pantalla desde el penalti y los cinco puntos de falta) |
+| **Woody calla durante un minijuego** (`game.minigame`): ni tutorial ni frases de zona; lo que estuviera diciendo se esconde sin caducar y sigue al salir. Su bocadillo es más pequeño (0,25 del alto de pantalla el lienzo entero; antes 0,4) | `football`, `woody` 36 |
 | **Luces sin quemar**: los cristales solo emiten (0,7 de día, 1,3 como mucho de noche), caída de luz más suave y luces separadas de postes y fachadas | capturas de noche |
 
 Rendimiento medido en el Mac a 2880 × 1620 sobre WebGPU: 192–221 fps tras el rediseño (224–263 justo antes;  antes de la migración, 187–224). Con el césped nuevo y sin el hueco de visión de los árboles eran 272–362: ese tramado cuesta en torno a una cuarta parte y es lo primero a optimizar si hiciera falta.
@@ -125,7 +133,7 @@ Rendimiento medido en el Mac a 2880 × 1620 sobre WebGPU: 192–221 fps tras el 
 - **Oclusión**: es un tramado por píxel, no mezcla alfa; cubre árboles, rocas, casas de la aldea y el cohete, pero no el observatorio, la casa del árbol ni la estación de Contacto. La indicación «E» comprueba que el objeto esté en pantalla, no que no lo tape otra cosa.
 - **Pistas**: se mantiene su tamaño (16 × 10,4 m y 19 × 12 m); con la cámara cercana ya no caben enteras en pantalla. Reducirlas toca el juego de baloncesto, no solo el aspecto.
 - **Baloncesto**: balón físico, aro, tablero, marcador y sonido. Falta el minijuego (fase 6).
-- **Fútbol**: solo el campo y la portería como escenario (fase 7).
+- **Fútbol, lo que no está comprobado o falta**: los controles táctiles (apuntar, cargar y efecto con el dedo) están programados pero sin probar, ni emulados ni en un teléfono; el sonido no se ha escuchado; las pruebas chutan con valores fijos y sin la dispersión aleatoria, así que la dificultad real (portero, potencia) no está afinada a mano; una ronda completa de contrarreloj hasta agotar el tiempo y el final de «Especialista» (3 goles de falta) y «Dianas» (las cinco) no se han jugado enteros; mientras la cámara acompaña al balón en el vuelo, el marcador puede quedar cortado por el borde derecho un instante; el efecto está exagerado a propósito (190 rad/s) para que se vea en 8 m; el portero y la barrera son maniquíes, sin animación de personaje.
 - **Cohete**: despega (encendido, humo, subida), queda en órbita y aterriza en el mismo planeta, con sonido. El aterrizaje reutiliza el escape pero no se ha revisado fotograma a fotograma. Falta el planeta esférico, el selector y el viaje (fase 9).
 - **Terreno**: la comprobación mide lo que está marcado como apoyado (`rests`). Quedan fuera, a propósito, lo que no pisa el suelo (cielo, agua, puente, cascada, fauna, cristales de farola, rótulos) y las cajas y barriles con física; se listan con `node tests/e2e/terrain.mjs lista`. No detecta un objeto que atraviese a otro objeto (solo contra el terreno y el agua).
 - **Máquina de estados y ajustes** (plan, fase 1): no se han hecho `src/game/state.js` ni `settings.js`. Se usa `active` (App), `player.frozen/gesture/hidden` y `ui.open`. No hay todavía panel de ajustes de calidad ni de volumen (solo silenciar).
@@ -140,7 +148,6 @@ Rendimiento medido en el Mac a 2880 × 1620 sobre WebGPU: 192–221 fps tras el 
 ## Pendiente
 
 - Fase 6 — Baloncesto: tiro apuntado con carga, línea de tres, red que reacciona, maniquíes defensores con dificultad, modos, celebraciones.
-- Fase 7 — Fútbol: chute, postes, gol por línea, barrera, dianas, vitrina 2010.
 - Fase 8 — Casa con sofá, gimnasio, biblioteca con pasadizo, habitación personal, tocadiscos.
 - Fase 9 — Cohete: embarque, planeta esférico, selector de tres planetas, viaje y aterrizaje.
 - Fase 10 — Planeta 2, The Twisted Moon.
@@ -162,6 +169,7 @@ Rendimiento medido en el Mac a 2880 × 1620 sobre WebGPU: 192–221 fps tras el 
 
 - **Windows, al entrar al planeta**: dos huecos de ~95 y ~125 ms justo tras el clic (en el Mac eran 0). No es compilación (0 pipelines en caliente) y ya ocurre con el commit anterior; causa sin identificar. Medido en desarrollo, no en la build de producción.
 - Los 113–117 fps que da `living.mjs fps` en este equipo Windows no son comparables con las cifras del Mac (otra máquina y otra GPU).
+- `life.mjs` falló una vez en el Mac en «y todo vuelve a la calma» (espera 9 s a que acabe la ráfaga) y pasó en las dos pasadas siguientes, también con el commit anterior: es intermitente, no viene del fútbol.
 - Una pasada de `progress.mjs` falló una vez en las caricias a Woody y no se ha vuelto a reproducir en cinco pasadas seguidas. Causa sin identificar.
 - El paquete principal pesa 1,36 MB (413 kB comprimido); Vite avisa. Trocearlo queda para la fase 12.
 - En el planeta antiguo (`cosmic`) los pasos suenan siempre a camino y no hay sonido de agua.
@@ -170,7 +178,7 @@ Rendimiento medido en el Mac a 2880 × 1620 sobre WebGPU: 192–221 fps tras el 
 
 Plan en curso (aprobado el 12-11-2026), fases A–F. Hecho: **A** (carga y pantalla del astronauta) y, de la **C**, Contacto y Sobre mí. Lo que sigue, en orden:
 
-1. **Fase E — Fútbol real** (lo más reclamado y aún sin empezar): `src/game/ballPhysics.js` extraído de `worlds/living/Court.jsx`; `worlds/living/Football.jsx` con apuntado y carga, salida del balón en `kick_impact`, gol por cruce de línea, postes y larguero, red, barrera de maniquíes, tres modos, marcador, sonidos, Woody, logros y vitrina 2010. Hoy solo existe el campo y la portería como decorado (`Pitch` en `Zones.jsx`).
+1. **Fase E — Fútbol real**: hecho (objetivo 8). Queda probarlo con el dedo y afinar la dificultad jugando.
 2. **Fase B — Estándar con Blender**: canal `tools/blender/*.py` → `public/models/living/*.glb`; árbol de bienvenida con copas más finas, una cabaña de máxima calidad, farola definitiva. Aún no se ha usado Blender: todo sigue saliendo del kit de código.
 3. **Fase C, lo que falta**: proyectos como instalaciones distintas según el proyecto (hoy son cuatro casas distintas, todas «casa + escaparate»); cámara que se acerca al abrir una ficha; atril del CV y plataforma del cohete siguen de bloque; placas de los tótems del laboratorio con letra muy pequeña para la cámara nueva.
 4. **Fase D**: observatorio (más segmentos, uniones, telescopio alineado, colisiones de escalones), árboles con masas menores, agua sin el dibujo de celdas tan evidente, cascada menos blanca.

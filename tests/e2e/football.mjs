@@ -28,7 +28,7 @@ async function shoot(name, shot, { frames = 5, every = 230, keeper = false } = {
  await t.evaluate(() => {
   const w = window.__world;
   w.football.match.noise = 0;
-  w.shotLog = { bulge: 0, wallJump: [0, 0, 0], keeperLean: 0, woody: [], clips: new Set(), result: null };
+  w.shotLog = { bulge: 0, wallJump: [0, 0, 0], keeperLean: 0, woody: [], clips: new Set(), result: null, path: [] };
   w.shotTimer = setInterval(() => {
    const { match } = w.football;
    const log = w.shotLog;
@@ -36,6 +36,7 @@ async function shoot(name, shot, { frames = 5, every = 230, keeper = false } = {
    match.wall.forEach((one, i) => (log.wallJump[i] = Math.max(log.wallJump[i], one.y)));
    log.keeperLean = Math.max(log.keeperLean, Math.abs(match.keeper.lean));
    log.woody.push(w.woodyLook ?? 0);
+   if (match.phase === "flight" && !match.shot?.result) log.path.push([match.ball.position.x, match.ball.position.z]);
    log.clips.add(w.astroClip());
    log.woodyClip = log.woodyClip || (w.woodyClip() === "Woody_CelebrateGoal");
    if (match.shot?.result) log.result = { result: match.shot.result, tags: [...match.shot.tags], impacts: match.shot.impacts, net: match.shot.net, cross: match.shot.cross ?? null };
@@ -53,7 +54,7 @@ async function shoot(name, shot, { frames = 5, every = 230, keeper = false } = {
   const w = window.__world;
   clearInterval(w.shotTimer);
   const b = w.football.match.ball.position;
-  return { ...w.shotLog.result, bulge: w.shotLog.bulge, wallJump: w.shotLog.wallJump, keeperLean: w.shotLog.keeperLean, woodySwing: Math.max(...w.shotLog.woody) - Math.min(...w.shotLog.woody), clips: [...w.shotLog.clips], woodyCheer: Boolean(w.shotLog.woodyClip), ball: [b.x, b.y, b.z] };
+  return { ...w.shotLog.result, bulge: w.shotLog.bulge, wallJump: w.shotLog.wallJump, keeperLean: w.shotLog.keeperLean, woodySwing: Math.max(...w.shotLog.woody) - Math.min(...w.shotLog.woody), clips: [...w.shotLog.clips], woodyCheer: Boolean(w.shotLog.woodyClip), ball: [b.x, b.y, b.z], path: w.shotLog.path };
  });
 }
 
@@ -68,11 +69,33 @@ const cam = await t.evaluate(() => {
  const w = window.__world;
  const { match } = w.football;
  const c = w.camera.position;
- return { behind: c.x - match.ball.position.x, frozen: w.player.frozen, hud: Boolean(document.querySelector(".football")), font: getComputedStyle(document.querySelector(".football__score dd")).fontFamily, woody: Math.hypot(w.woody.position.x - match.ball.position.x, w.woody.position.z - match.ball.position.z), woodySide: Math.abs(w.woody.position.z - match.ball.position.z) };
+ return { behind: c.x - match.ball.position.x, frozen: w.player.frozen, hud: Boolean(document.querySelector(".football")), flat: document.querySelectorAll(".football__score, .football dl").length, woody: Math.hypot(w.woody.position.x - match.ball.position.x, w.woody.position.z - match.ball.position.z), woodySide: Math.abs(w.woody.position.z - match.ball.position.z) };
 });
 check(s.active && s.phase === "aim" && cam.frozen && cam.hud, "E entra en el juego: partido en marcha, astronauta quieto e interfaz a la vista");
 check(cam.behind > 2.5, `la cámara de lanzamiento se pone a la espalda del balón, mirando a la portería (${cam.behind.toFixed(1)} m por detrás)`);
-check(/Bricolage/.test(cam.font), `el marcador usa la tipografía del porfolio (${cam.font.split(",")[0]})`);
+check(cam.flat === 0, "no hay marcador 2D en pantalla: el único es el de madera del campo");
+{
+ // El marcador de madera: entero dentro de la pantalla y con los rótulos completos.
+ const board = await t.evaluate(() => ({ shown: window.__world.football.board(), corners: window.__world.football.boardCorners() }));
+ const corners = [];
+ for (const corner of board.corners) corners.push(await t.screen(...corner));
+ const inside = corners.every(([x, y]) => x > 0 && x < 1440 && y > 56 && y < 900);
+ // …y sin que lo tapen los botones del juego (arriba a la izquierda) ni el menú (arriba).
+ const bar = await t.evaluate(() => { const r = document.querySelector(".football__top").getBoundingClientRect(); return [r.left, r.right, r.top, r.bottom]; });
+ const left = Math.min(...corners.map(([x]) => x)), top = Math.min(...corners.map(([, y]) => y));
+ check(left > bar[1] || top > bar[3], `los botones del juego no lo tapan (botones hasta x ${bar[1].toFixed(0)}; el marcador empieza en x ${left.toFixed(0)})`);
+ check(inside, `el marcador de madera se ve entero desde el punto de penalti (esquinas en ${corners.map(([x, y]) => `${x.toFixed(0)},${y.toFixed(0)}`).join(" · ")})`);
+ const labels = board.shown.cells.map(([label]) => label);
+ check(labels.join("|") === "INTENTOS|GOLES|PUNTOS|QUEDAN" && board.shown.widest <= board.shown.room, `sus rótulos caben enteros en su casilla (${labels.join(" · ")}; el más ancho mide ${board.shown.widest.toFixed(0)} de ${board.shown.room.toFixed(0)} px, letra de ${board.shown.labelSize} px)`);
+ check(board.shown.title === "PENALTIS" && board.shown.cells.map(([, value]) => value).join("|") === "0|0|0|5", `y empieza a cero (${board.shown.cells.map(([, value]) => value).join(" · ")})`);
+}
+// Woody no interrumpe el juego: lo que estuviera diciendo espera.
+await t.evaluate(() => (window.__world.ui3d.speech = { text: "Esto lo digo luego.", age: 0, life: 4 }));
+await wait(1200);
+{
+ const quiet = await t.evaluate(() => ({ shown: window.__world.ui3d.speechShown, age: window.__world.ui3d.speech?.age }));
+ check(quiet.shown === false && quiet.age === 0, `jugando, el bocadillo de Woody no sale y queda en pausa (a la vista: ${quiet.shown}, edad ${quiet.age})`);
+}
 {
  const [bx, by] = await t.screen(...s.ball);
  const [gx, gy] = await t.screen(GOAL.x, 1.1, cz);
@@ -151,8 +174,22 @@ check(r.result === "corto" && r.ball[0] > GOAL.x + 1, `con poca potencia el bal�
 
 // ── Efecto ───────────────────────────────────────────────────────────────────
 r = await shoot("efecto", { y: 1.0, z: cz, power: 0.6, curl: 1 }, { frames: 3 });
-const curved = (r.cross?.z ?? cz) - cz;
-check(Math.abs(curved) > 0.3 && Math.abs(curved) < 2, `el efecto curva el tiro, con moderación (apuntando al centro, cruza la línea ${Math.abs(curved).toFixed(2)} m a un lado; resultado «${r.result}»)`);
+{
+ // Cuánto se aparta el vuelo de la recta que une el balón con donde cruza la línea.
+ const bend = (path) => {
+  const [ax, az] = path[0], [bx, bz] = path[path.length - 1];
+  const length = Math.hypot(bx - ax, bz - az);
+  return path.map(([x, z]) => ((bx - ax) * (az - z) - (ax - x) * (bz - az)) / length).reduce((most, one) => (Math.abs(one) > Math.abs(most) ? one : most), 0);
+ };
+ const flight = r.path.filter(([x]) => x > GOAL.x);
+ const curve = bend(flight);
+ const miss = Math.abs((r.cross?.z ?? 99) - cz);
+ check(Math.abs(curve) > 0.3, `el efecto curva el vuelo de verdad (se aparta ${Math.abs(curve).toFixed(2)} m de la recta en un penalti)`);
+ check(miss < 0.35, `y aun así el balón llega a donde se apunta (cruza a ${miss.toFixed(2)} m del punto; resultado «${r.result}»)`);
+ const other = await shoot("efecto-contrario", { y: 1.0, z: cz, power: 0.6, curl: -1 }, { frames: 3 });
+ const back = bend(other.path.filter(([x]) => x > GOAL.x));
+ check(Math.sign(back) === -Math.sign(curve) && Math.abs(back) > 0.3, `con el efecto al otro lado, la curva es la contraria (${back.toFixed(2)} m frente a ${curve.toFixed(2)} m)`);
+}
 
 // ── Parada del portero ───────────────────────────────────────────────────────
 r = await shoot("parada", { y: 1.0, z: cz + 0.9, power: 0.55, curl: 0 }, { keeper: 1 });
@@ -163,6 +200,24 @@ await mode("Digit2");
 s = await state();
 check(s.mode === "faltas" && s.wall.every((one) => one.on), "tiros libres: sale la barrera de tres maniquíes");
 await t.shot("futbol-barrera");
+// El marcador se lee desde todos los puntos de tiro libre: entero en pantalla y fuera de la portería.
+{
+ const seen = [];
+ for (let i = 0; i < 5; i++) {
+  await t.evaluate(async (i) => (await import("/src/worlds/living/football/match.js")).placeBall(window.__world.football.match, i), i);
+  await wait(2400);
+  const data = await t.evaluate(() => ({ corners: window.__world.football.boardCorners(), post: [window.__world.football.GOAL.x, 1.1, window.__world.football.GOAL.z - 2.4] }));
+  const corners = [];
+  for (const corner of data.corners) corners.push(await t.screen(...corner));
+  const [postX] = await t.screen(...data.post);
+  const left = Math.min(...corners.map(([x]) => x)), right = Math.max(...corners.map(([x]) => x)), top = Math.min(...corners.map(([, y]) => y));
+  seen.push({ ok: left > postX && right < 1440 && top > 56, left: Math.round(left), right: Math.round(right), post: Math.round(postX) });
+  if (i === 1 || i === 4) await t.shot(`futbol-marcador-punto-${i + 1}`);
+ }
+ check(seen.every((one) => one.ok), `el marcador se ve entero y fuera de la portería desde los cinco puntos de falta (${seen.map((one) => `${one.post}<${one.left}–${one.right}`).join(" · ")})`);
+ await t.evaluate(async () => (await import("/src/worlds/living/football/match.js")).placeBall(window.__world.football.match, 0));
+ await wait(1500);
+}
 const wallAim = await t.evaluate(() => {
  const { match } = window.__world.football;
  // El punto de la portería que queda justo detrás del maniquí del centro.
@@ -203,8 +258,12 @@ await wait(1500);
 s = await state();
 check(s.mode === "contrarreloj" && s.stats.time < 44.5 && s.stats.time > 30, `contrarreloj: el tiempo corre desde el primer chut (quedan ${s.stats.time.toFixed(1)} s)`);
 {
- const hud = await t.evaluate(() => [...document.querySelectorAll(".football__score dd")].map((dd) => dd.textContent));
- check(hud[0] === String(s.stats.attempts) && hud[1] === String(s.stats.goals) && hud[2] === String(s.stats.score) && /s$/.test(hud[3]), `el marcador enseña intentos, goles, puntos y tiempo (${hud.join(" · ")})`);
+ const board = await t.evaluate(() => window.__world.football.board());
+ const hud = board.cells.map(([, value]) => value);
+ check(board.title === "CONTRARRELOJ" && hud[0] === String(s.stats.attempts) && hud[1] === String(s.stats.goals) && hud[2] === String(s.stats.score) && /s$/.test(hud[3]) && board.cells[3][0] === "TIEMPO", `el marcador de madera enseña en directo intentos, goles, puntos y tiempo (${hud.join(" · ")})`);
+ await wait(2100);
+ const later = await t.evaluate(() => window.__world.football.board().cells[3][1]);
+ check(later !== hud[3], `y el tiempo va bajando en él (${hud[3]} → ${later})`);
  await t.shot("futbol-marcador");
 }
 
@@ -236,6 +295,10 @@ const out = await t.evaluate(() => {
  return { active: w.football.match.active, frozen: w.player.frozen, focus: w.rig.focus, hud: Boolean(document.querySelector(".football")), overlay: Boolean(enter && enter.getBoundingClientRect().width > 0 && getComputedStyle(enter.closest(".overlay")).visibility !== "hidden" && getComputedStyle(enter.closest(".overlay")).opacity !== "0"), jump: w.camLog.jump, side: Math.abs(dx), post: w.woody.post };
 });
 check(!out.active && !out.frozen && out.focus === null && !out.hud && !out.post, "Esc sale del minijuego: sin partido, sin interfaz y con el astronauta libre");
+{
+ const speech = await t.evaluate(() => ({ shown: window.__world.ui3d.speechShown, text: window.__world.ui3d.speech?.text ?? null, age: window.__world.ui3d.speech?.age ?? null }));
+ check(speech.text === "Esto lo digo luego." && speech.shown === true && speech.age > 0.5, `al salir, Woody sigue con lo que tenía pendiente ("${speech.text}", ${speech.age?.toFixed(1)} s a la vista)`);
+}
 check(!out.overlay, "y no pausa el portfolio");
 check(out.jump < 3 && out.side < 0.6, `la cámara vuelve tras el astronauta sin saltos (mayor paso entre fotogramas: ${out.jump.toFixed(2)} m)`);
 await t.shot("futbol-salida");

@@ -48,7 +48,8 @@ const TARGETS = [
 ];
 
 export const powerToSpeed = (power) => 6 + 22 * power;
-const SWEET = 0.6; // potencia con la que el balón va justo a donde se apunta
+export const SWEET = 0.6; // potencia con la que el balón va justo a donde se apunta
+const CURL_SPIN = 190; // rad/s de giro sobre la vertical con el efecto al máximo: exagerado, para que la curva se vea en un tiro de 8 m
 
 const ground = (x, z) => (x > PITCH.x0 - 0.3 && x < PITCH.x1 + 0.3 && z > PITCH.z0 - 0.3 && z < PITCH.z1 + 0.3 ? TURF : Math.max(terrainHeight(x, z), -0.25));
 const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 0.75;
@@ -305,25 +306,92 @@ export function release(match, shot = {}) {
  return true;
 }
 
-// El pie toca el balón: aquí nace el tiro. Con la potencia justa va a donde se
-// apunta; con menos se queda corto y con más sale alto y menos preciso.
+// Con qué velocidad y qué giro sale un chut desde `from`. Con la potencia justa
+// va a donde se apunta; con menos se queda corto y con más sale alto y menos
+// preciso.
+//
+// El efecto es giro sobre la vertical: el aire empuja el balón de lado durante
+// todo el vuelo (Magnus, en game/ballPhysics.js). Para que la curva sirva de
+// algo, el balón sale abierto hacia el lado contrario y el efecto lo trae de
+// vuelta al punto al que se apunta: así se puede rodear la barrera o buscar el
+// palo por fuera. Cuánto abrirlo se averigua probando el tiro con un balón de
+// ensayo, no con una fórmula.
+const trial = createBall(BALL_RADIUS);
+function fly(from, velocity, spin) {
+ trial.position.copy(from);
+ trial.velocity.copy(velocity);
+ trial.spin.copy(spin);
+ for (let i = 0; i < 600 && trial.position.x > GOAL.x; i++) stepBall(trial, 1 / 120, { gravity: GRAVITY, ground });
+ return trial.position;
+}
+export function launch(from, { power, curl, y, z }, noise = 0, out = { velocity: new THREE.Vector3(), spin: new THREE.Vector3() }) {
+ const speed = powerToSpeed(power), reference = powerToSpeed(SWEET);
+ const wild = noise * (0.006 + Math.max(0, power - SWEET) * 0.045);
+ const set = (aimZ) => {
+  const dx = GOAL.x - from.x, dz = aimZ - from.z;
+  const distance = Math.hypot(dx, dz);
+  const rise = y - from.y;
+  const root = reference ** 4 - GRAVITY * (GRAVITY * distance * distance + 2 * rise * reference * reference);
+  let angle = root > 0 ? Math.atan((reference * reference - Math.sqrt(root)) / (GRAVITY * distance)) : Math.PI / 4;
+  angle += 0.0019 * distance; // lo que le quita el aire
+  angle += Math.max(0, power - 0.8) * 0.6;
+  const yaw = Math.atan2(dz, dx);
+  out.velocity.set(Math.cos(yaw) * Math.cos(angle) * speed, Math.sin(angle) * speed, Math.sin(yaw) * Math.cos(angle) * speed);
+  // Giro sobre la vertical (el efecto) y algo de giro hacia atrás.
+  out.spin.set(0, -curl * CURL_SPIN, 0).addScaledVector(v.set(-Math.sin(yaw), 0, Math.cos(yaw)), -speed * 0.35);
+  return { angle, yaw };
+ };
+ let aimZ = z;
+ let shot = set(aimZ);
+ if (Math.abs(curl) > 0.02) {
+  // Dos ensayos: se mira por dónde cruzaría y se corrige la salida.
+  for (let i = 0; i < 2; i++) {
+   const end = fly(from, out.velocity, out.spin);
+   if (end.x > GOAL.x) break; // no llega: no hay nada que corregir
+   aimZ += z - end.z;
+   shot = set(aimZ);
+  }
+ }
+ if (wild > 0) {
+  const angle = shot.angle + gauss() * wild, yaw = shot.yaw + gauss() * wild;
+  out.velocity.set(Math.cos(yaw) * Math.cos(angle) * speed, Math.sin(angle) * speed, Math.sin(yaw) * Math.cos(angle) * speed);
+ }
+ return out;
+}
+
+// Por dónde irá el tiro que se está preparando: `count` puntos de su vuelo,
+// escritos en `points` (x, y, z seguidos). Devuelve cuántos ha escrito.
+const ghost = createBall(BALL_RADIUS);
+const planned = { velocity: new THREE.Vector3(), spin: new THREE.Vector3() };
+export function preview(match, kick, points, count) {
+ launch(match.spot, kick, 0, planned);
+ ghost.position.copy(match.spot);
+ ghost.velocity.copy(planned.velocity);
+ ghost.spin.copy(planned.spin);
+ let written = 0;
+ for (let i = 0; i < 400 && written < count; i++) {
+  stepBall(ghost, 1 / 120, { gravity: GRAVITY, ground });
+  if (ghost.position.x < GOAL.x - 0.2) break;
+  if (i % 7 === 6) {
+   points[written * 3] = ghost.position.x;
+   points[written * 3 + 1] = ghost.position.y;
+   points[written * 3 + 2] = ghost.position.z;
+   written += 1;
+   if (ghost.velocity.lengthSq() < 0.5) break;
+  }
+ }
+ return written;
+}
+
+// El pie toca el balón: aquí nace el tiro.
 export function strike(match) {
  if (match.phase !== "strike" || !match.kick) return;
- const { power, curl, y, z } = match.kick;
+ const { power } = match.kick;
  const { ball } = match;
- const dx = GOAL.x - ball.position.x, dz = z - ball.position.z;
- const distance = Math.hypot(dx, dz);
- const speed = powerToSpeed(power), reference = powerToSpeed(SWEET);
- const rise = y - ball.position.y;
- const root = reference ** 4 - GRAVITY * (GRAVITY * distance * distance + 2 * rise * reference * reference);
- let angle = root > 0 ? Math.atan((reference * reference - Math.sqrt(root)) / (GRAVITY * distance)) : Math.PI / 4;
- angle += 0.0019 * distance; // lo que le quita el aire
- const wild = match.noise * (0.006 + Math.max(0, power - SWEET) * 0.045);
- angle += Math.max(0, power - 0.8) * 0.6 + gauss() * wild;
- const yaw = Math.atan2(dz, dx) + gauss() * wild;
- ball.velocity.set(Math.cos(yaw) * Math.cos(angle) * speed, Math.sin(angle) * speed, Math.sin(yaw) * Math.cos(angle) * speed);
- // Efecto: giro sobre la vertical (curva hacia el lado pedido) y algo de giro hacia atrás.
- ball.spin.set(0, -curl * 34, 0).addScaledVector(v.set(-Math.sin(yaw), 0, Math.cos(yaw)), -speed * 0.35);
+ const start = launch(ball.position, match.kick, match.noise);
+ const speed = powerToSpeed(power);
+ ball.velocity.copy(start.velocity);
+ ball.spin.copy(start.spin);
  match.shot = { time: 0, tags: new Set(), result: null, still: 0, crossed: null, nearest: Infinity, net: false, free: MODES[match.mode].wall, impacts: [] };
  match.wall.forEach((one) => (one.delay = 0.03 + Math.random() * 0.36));
  const keeper = match.keeper;

@@ -5,13 +5,13 @@ import { spinMesh } from "../../../game/ballPhysics";
 import { panelLines } from "../../../game/cloth";
 import { useInteractable } from "../../../experience/interact";
 import { lambert } from "../../../experience/materials";
-import { emit, events, player, releaseMovement, rig, woody } from "../../../experience/state";
+import { emit, events, game, player, releaseMovement, rig, woody } from "../../../experience/state";
 import { createLabelTexture } from "../../../experience/textures";
 import { Glow } from "../buildings/Glow";
 import { merge, piece } from "../kit/geometry";
 import { CREAM, STONE, WOOD } from "../kit/palette";
 import { PITCH } from "../layout";
-import { BALL_RADIUS, GOAL, MODES, TARGET_PLANE, TURF, createMatch, enter, leave, netBulge, release, setAim, setKeeper, startCharge, startMode, strike, toggleWall, update } from "./match";
+import { BALL_RADIUS, GOAL, MODES, SWEET, TARGET_PLANE, TURF, createMatch, enter, leave, netBulge, preview, release, setAim, setKeeper, startCharge, startMode, strike, toggleWall, update } from "./match";
 import { football } from "./shared";
 
 // Fútbol jugable: lo que se ve y se toca del partido que lleva match.js.
@@ -20,7 +20,12 @@ import { football } from "./shared";
 // el ratón (o el dedo), se carga manteniendo pulsado y se suelta para chutar.
 
 const TROPHY = { x: PITCH.x0 + 6.2, z: PITCH.z0 - 1.9 };
-const BOARD = { x: GOAL.x - 0.9, z: GOAL.z - 4.7 };
+// El marcador de madera: detrás de la línea de fondo, a la derecha de la
+// portería según se chuta, bajo y girado hacia el lanzador. Es el único
+// marcador. (Sitio y tamaño elegidos para que quepa entero en pantalla desde
+// todos los puntos de tiro; los botones del juego van a la izquierda.)
+const BOARD = { x: GOAL.x - 1.2, z: GOAL.z - 3.85, turn: Math.PI / 2 - 0.3, scale: 1.15, y: 1.3 };
+const PREVIEW = 18; // puntos de la trayectoria prevista
 const KEEPER_X = GOAL.x + 0.5;
 
 const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
@@ -127,9 +132,9 @@ function createShowcase() {
 
 function createBoardFrame() {
  return merge([
-  ...[-1.05, 1.05].map((x) => piece(new THREE.CylinderGeometry(0.07, 0.09, 2.5, 6), { bottom: WOOD.dark, top: WOOD.mid, position: [x, 1.25, 0] })),
-  piece(box(2.5, 1.5, 0.1), { bottom: "#3a2619", top: "#4a3222", position: [0, 2.1, 0] }),
-  piece(box(2.66, 0.1, 0.2), { color: WOOD.dark, position: [0, 2.9, 0] }),
+  ...[-1.05, 1.05].map((x) => piece(new THREE.CylinderGeometry(0.07, 0.09, BOARD.y + 0.4, 6), { bottom: WOOD.dark, top: WOOD.mid, position: [x, (BOARD.y + 0.4) / 2, 0] })),
+  piece(box(2.5, 1.5, 0.2), { bottom: "#3a2619", top: "#4a3222", position: [0, BOARD.y, 0] }),
+  piece(box(2.66, 0.1, 0.2), { color: WOOD.dark, position: [0, BOARD.y + 0.8, 0] }),
  ]);
 }
 
@@ -152,26 +157,58 @@ function createScoreboard() {
   ctx.fillStyle = "#ffcf4a";
   ctx.font = `800 62px ${FONT}`;
   if ("letterSpacing" in ctx) ctx.letterSpacing = "4px";
-  ctx.fillText(MODES[mode].name.toUpperCase(), 384, 62);
+  ctx.fillText(MODES[mode].name.toUpperCase(), 384, 56);
   const cells = [["INTENTOS", stats.attempts], ["GOLES", stats.goals], ["PUNTOS", stats.score], [MODES[mode].time ? "TIEMPO" : "QUEDAN", MODES[mode].time ? `${Math.ceil(stats.time)}s` : MODES[mode].shots ? stats.left : "—"]];
+  // Dos filas de dos casillas: el rótulo a la izquierda y su número a la
+  // derecha, con letra grande (el marcador se lee desde 10–15 m). Los cuatro
+  // rótulos van con la misma letra: la mayor con la que el más largo
+  // («INTENTOS») y el número más ancho caben enteros en su casilla.
+  const cell = 384, pad = 26;
+  const fits = (size) => {
+   let widest = 0;
+   for (const [label, value] of cells) {
+    ctx.font = `700 ${size}px ${FONT}`;
+    if ("letterSpacing" in ctx) ctx.letterSpacing = "1px";
+    const text = ctx.measureText(label).width;
+    ctx.font = `800 ${Math.round(size * 2.1)}px ${FONT}`;
+    if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+    widest = Math.max(widest, text + 18 + ctx.measureText(String(value)).width);
+   }
+   return widest;
+  };
+  let size = 47;
+  let widest;
+  do {
+   size -= 1;
+   widest = fits(size);
+  } while (size > 20 && widest > cell - pad * 2);
   cells.forEach(([label, value], i) => {
-   const x = 96 + i * 192;
+   const left = (i % 2) * cell + pad, y = 162 + Math.floor(i / 2) * 104;
+   ctx.textAlign = "left";
    ctx.fillStyle = "#e3c9a3";
-   ctx.font = `700 30px ${FONT}`;
-   if ("letterSpacing" in ctx) ctx.letterSpacing = "3px";
-   ctx.fillText(label, x, 170);
+   ctx.font = `700 ${size}px ${FONT}`;
+   if ("letterSpacing" in ctx) ctx.letterSpacing = "1px";
+   ctx.fillText(label, left, y + 6);
+   ctx.textAlign = "right";
    ctx.fillStyle = "#fff6e0";
-   ctx.font = `800 104px ${FONT}`;
+   ctx.font = `800 ${Math.round(size * 2.1)}px ${FONT}`;
    if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
-   ctx.fillText(String(value), x, 262, 176);
+   ctx.fillText(String(value), left + cell - pad * 2, y);
   });
+  // Separador entre las dos columnas.
+  ctx.fillStyle = "rgba(227, 201, 163, 0.25)";
+  ctx.fillRect(382, 112, 3, 212);
+  ctx.textAlign = "center";
   ctx.fillStyle = "#ffb26a";
-  ctx.font = `700 44px ${FONT}`;
-  ctx.fillText(stats.last ? `Último: ${stats.last}` : "Apunta, carga y suelta", 384, 384);
+  ctx.font = `700 46px ${FONT}`;
+  ctx.fillText(stats.last ? `Último: ${stats.last}` : "Apunta, carga y suelta", 384, 392, 720);
+  // Lo que enseña, para las pruebas: textos, y si algo se sale de su casilla.
+  board.shown = { title: MODES[mode].name.toUpperCase(), cells: cells.map(([label, value]) => [label, String(value)]), last: stats.last, labelSize: size, widest, room: cell - pad * 2 };
   texture.needsUpdate = true;
  };
+ const board = { shown: null };
  document.fonts?.load(`800 104px ${FONT}`).then(() => last && draw(...last), () => {});
- return { texture, draw };
+ return { texture, draw, board };
 }
 
 const RESULT_TEXT = { "sin diana": "Sin diana", gol: "¡GOOOL!", poste: "¡Al poste!", larguero: "¡Al larguero!", parada: "¡Paradón!", barrera: "A la barrera", alto: "Por encima", fuera: "Fuera", corto: "No llega", diana: "¡Diana!" };
@@ -187,6 +224,8 @@ export function Football() {
  const focus = useMemo(() => new THREE.Vector3(), []);
  const memo = useRef({ party: 0, pointer: null, charging: false, startX: 0, celebrate: 0 });
  const bits = useMemo(() => Array.from({ length: CONFETTI }, () => ({ x: 0, y: -9, z: 0, vx: 0, vy: 0, vz: 0, spin: 0, turn: 0 })), []);
+ const path = useRef(null), boardMesh = useRef(null), boardGroup = useRef(null);
+ const trace = useMemo(() => new Float32Array(PREVIEW * 3), []);
 
  const models = useMemo(
   () => ({
@@ -225,7 +264,7 @@ export function Football() {
  useEffect(() => {
   football.match = match;
   score.draw(match.mode, match.stats);
-  if (import.meta.env.DEV) window.__world.football = { match, enter: () => enterGame(), exit: () => exitGame(), release: (shot) => kick(shot), startMode: (mode) => startMode(match, mode), toggleWall: () => toggleWall(match), setKeeper: (on, skill) => setKeeper(match, on, skill), netBulge: () => netBulge(match), GOAL }; // para las pruebas automáticas
+  if (import.meta.env.DEV) window.__world.football = { match, enter: () => enterGame(), exit: () => exitGame(), release: (shot) => kick(shot), startMode: (mode) => startMode(match, mode), toggleWall: () => toggleWall(match), setKeeper: (on, skill) => setKeeper(match, on, skill), netBulge: () => netBulge(match), GOAL, board: () => score.board.shown, boardCorners: () => BOARD_CORNERS.map(([x, y]) => boardMesh.current.localToWorld(new THREE.Vector3(x, y, 0)).toArray()) }; // para las pruebas automáticas
   return () => {
    football.match = null;
    for (const one of Object.values(models)) one.dispose();
@@ -249,6 +288,7 @@ export function Football() {
   if (match.active || player.hidden) return;
   releaseMovement();
   player.frozen = true;
+  game.minigame = "football"; // Woody deja los bocadillos para después
   enter(match, mode);
   placePlayer();
   player.act?.("Astro_Football_Prepare", { fade: 0.15 });
@@ -260,6 +300,7 @@ export function Football() {
   leave(match);
   memo.current.charging = false;
   player.frozen = false;
+  game.minigame = null;
   woody.post = null;
   Object.assign(rig, { focus: null, distance: 1, yaw: 0, lift: 1 });
   emit("sound", { id: "ui-close" });
@@ -449,6 +490,26 @@ export function Football() {
    reticle.current.position.set(GOAL.x + 0.12, match.aim.y, match.aim.z);
    reticle.current.scale.setScalar(1 + Math.sin(match.clock * 6) * 0.06 + match.power * 0.25);
   }
+  // El marcador se aparta de la portería cuando se chuta desde el otro lado:
+  // desde allí la red lo taparía. Se desliza, sin saltos.
+  const aside = match.active ? Math.max(0, match.spot.z - GOAL.z) : 0;
+  boardGroup.current.position.z += (BOARD.z - aside * 0.5 - boardGroup.current.position.z) * Math.min(1, dt * 3);
+
+  // Trayectoria prevista: una hilera de puntos que enseña por dónde irá el
+  // balón con la potencia y el efecto de ahora mismo (al apuntar, con la
+  // potencia justa). Con efecto se ve la curva antes de soltar.
+  const dots = aiming ? preview(match, { power: match.phase === "charge" ? Math.max(match.power, 0.12) : SWEET, curl: match.phase === "charge" ? match.curl : 0, y: match.aim.y, z: match.aim.z }, trace, PREVIEW) : 0;
+  if (dots > 0 || memo.current.dots > 0) {
+   for (let i = 0; i < PREVIEW; i++) {
+    confettiHelper.position.set(trace[i * 3], trace[i * 3 + 1], trace[i * 3 + 2]);
+    confettiHelper.rotation.set(0, 0, 0);
+    confettiHelper.scale.setScalar(i < dots ? 1 - (i / PREVIEW) * 0.45 : 0);
+    confettiHelper.updateMatrix();
+    path.current.setMatrixAt(i, confettiHelper.matrix);
+   }
+   path.current.instanceMatrix.needsUpdate = true;
+   memo.current.dots = dots;
+  }
 
   // Cámara de lanzamiento: a la espalda del balón, mirando a la portería; en
   // el vuelo acompaña al balón sin perder la portería.
@@ -505,6 +566,8 @@ export function Football() {
    confetti.current.setMatrixAt(i, zero);
    confetti.current.setColorAt(i, color.set(CONFETTI_COLORS[i % CONFETTI_COLORS.length]));
   }
+  for (let i = 0; i < PREVIEW; i++) path.current.setMatrixAt(i, zero);
+  path.current.instanceMatrix.needsUpdate = true;
   confetti.current.instanceMatrix.needsUpdate = true;
   confetti.current.instanceColor.needsUpdate = true;
  }, []);
@@ -547,6 +610,12 @@ export function Football() {
     </group>
    ))}
 
+   {/* Trayectoria prevista del tiro. */}
+   <instancedMesh ref={path} args={[undefined, undefined, PREVIEW]} frustumCulled={false} renderOrder={19}>
+    <sphereGeometry args={[0.055, 8, 6]} />
+    <meshBasicMaterial color="#fff3d6" transparent opacity={0.9} depthTest={false} toneMapped={false} fog={false} />
+   </instancedMesh>
+
    {/* Mirilla: dónde se apunta. */}
    <group ref={reticle} visible={false}>
     <mesh rotation-y={Math.PI / 2} renderOrder={20}>
@@ -560,9 +629,10 @@ export function Football() {
    </group>
 
    {/* Marcador, junto a la portería. */}
-   <group name="marcador de fútbol" userData={{ rests: 0, foot: 0.4 }} position={[BOARD.x, 0, BOARD.z]} rotation-y={Math.PI / 2 - 0.35}>
+   <group ref={boardGroup} name="marcador de fútbol" userData={{ rests: 0, foot: 0.4 }} position={[BOARD.x, 0, BOARD.z]} rotation-y={BOARD.turn} scale={BOARD.scale}>
     <mesh geometry={models.board} material={models.material} castShadow />
-    <mesh position={[0, 2.1, 0.06]}>
+    {/* El tablero va por delante de los postes: antes le tapaban el texto de los lados («I TENTOS», «QUEDA»). */}
+    <mesh ref={boardMesh} position={[0, BOARD.y, 0.115]}>
      <planeGeometry args={[2.36, 1.38]} />
      <meshBasicMaterial map={score.texture} toneMapped={false} fog={false} />
     </mesh>
@@ -589,3 +659,5 @@ export function Football() {
 }
 
 const confettiHelper = new THREE.Object3D();
+// Las cuatro esquinas del tablero del marcador, en su propio plano (para las pruebas).
+const BOARD_CORNERS = [[-1.18, -0.69], [1.18, -0.69], [-1.18, 0.69], [1.18, 0.69]];

@@ -4,8 +4,10 @@ import { MODES } from "../worlds/living/football/match";
 import { football } from "../worlds/living/football/shared";
 
 // Interfaz del fútbol, solo mientras se juega: modos, barrera, reiniciar y
-// salir (también para pantallas táctiles), el marcador y la barra de potencia
-// con el efecto. La barra se mueve por ref en cada fotograma, sin renders.
+// salir (también para pantallas táctiles) y la barra de potencia con el
+// efecto. El marcador no está aquí: es el de madera del campo
+// (worlds/living/football/Football.jsx). La barra se mueve por ref en cada
+// fotograma, sin renders.
 export function FootballHud({ touch }) {
  const [state, setState] = useState(null); // { mode, stats, phase, wallOn } mientras se juega
  const fill = useRef(null);
@@ -42,7 +44,7 @@ export function FootballHud({ touch }) {
  }, [playing]);
 
  if (!state) return null;
- const { mode, stats, wallOn, phase } = state;
+ const { mode, wallOn, phase } = state;
  const rules = MODES[mode];
  const command = (detail) => (event) => {
   event.currentTarget.blur();
@@ -68,12 +70,6 @@ export function FootballHud({ touch }) {
      <button type="button" className="football__exit" onClick={command({ command: "exit" })}>Salir</button>
     </div>
    </div>
-   <dl className="football__score" aria-live="polite">
-    <div><dt>Intentos</dt><dd>{stats.attempts}</dd></div>
-    <div><dt>Goles</dt><dd>{stats.goals}</dd></div>
-    <div><dt>Puntos</dt><dd>{stats.score}</dd></div>
-    <div><dt>{rules.time ? "Tiempo" : "Quedan"}</dt><dd>{rules.time ? `${Math.ceil(stats.time)}s` : rules.shots ? stats.left : "—"}</dd></div>
-   </dl>
    <div className="football__bottom">
     <p className="football__help">
      {phase === "over"

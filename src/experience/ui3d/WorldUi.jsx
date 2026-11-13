@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { BY_ID } from "../../achievements/list";
-import { skipSpeech, updateSpeech } from "../speech";
+import { skipSpeech, speechPaused, updateSpeech } from "../speech";
 import { ZOOM, events, player, rig, ui3d, woody } from "../state";
 import { createCard, drawAchievement, drawPill, drawSpeech } from "./cards";
 
@@ -21,7 +21,7 @@ const ACHIEVEMENT_LIFE = 4.2;
 const TAN_HALF_FOV = Math.tan((40 * Math.PI) / 360);
 
 // Alto de cada tarjeta, como fracción del alto de la pantalla.
-const SIZE = { hint: 0.046, toast: 0.066, achievement: 0.1, speech: 0.4 };
+const SIZE = { hint: 0.046, toast: 0.066, achievement: 0.1, speech: 0.25 };
 // La indicación «E» es discreta: al alejar la cámara encoge un poco (menos que
 // el mundo, para que se siga leyendo) y al acercarla crece otro poco.
 const hintSize = () => SIZE.hint * Math.pow(Math.min(ZOOM.max, Math.max(ZOOM.min, rig.zoom)), -0.35);
@@ -177,8 +177,9 @@ export function WorldUi() {
 
   // Bocadillo de Woody: sobre él, y apartado si fuera a tapar al astronauta.
   updateSpeech(delta);
-  // (Dentro de la nave Woody va contigo y no se le ve: el bocadillo espera.)
-  const line = player.hidden ? null : ui3d.speech;
+  // (Dentro de la nave y durante un minijuego el bocadillo se esconde y espera.)
+  const line = speechPaused() ? null : ui3d.speech;
+  if (import.meta.env.DEV) ui3d.speechShown = Boolean(line); // para las pruebas automáticas
   point.set(woody.position.x, woody.position.y + 1.45, woody.position.z);
   const high = place(speech, camera, delta, line?.text ?? null, drawSpeech, point, SIZE.speech);
   if (high > 0) {

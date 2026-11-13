@@ -5,7 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import { GUIDE, WELCOME, ZONE_LINES } from "../content/woody";
 import { useInteractable } from "../experience/interact";
 import { hasSaid, isSpeaking, say } from "../experience/speech";
-import { emit, events, player, rig, woody } from "../experience/state";
+import { emit, events, game, player, rig, woody } from "../experience/state";
 import { world } from "../worlds";
 import clipData from "./data/woody_clips.json";
 import { createBrain, startGuide, startPet, stopGuide, updateBrain } from "./WoodyBrain";
@@ -159,7 +159,7 @@ export function Woody({ active }) {
 
   // Una frase la primera vez que se entra en cada zona.
   memo.zoneTimer -= delta;
-  if (memo.zoneTimer <= 0 && active && rig.intro === 0 && !player.hidden && !speaking && brain.mode !== "guide") {
+  if (memo.zoneTimer <= 0 && active && rig.intro === 0 && !player.hidden && !game.minigame && !speaking && brain.mode !== "guide") {
    memo.zoneTimer = 0.3;
    const { x, z } = player.position;
    const zone = world.zones?.find((one) => Math.hypot(x - one.x, z - one.z) < one.r && ZONE_LINES[one.id] && !hasSaid(`zona:${one.id}`));

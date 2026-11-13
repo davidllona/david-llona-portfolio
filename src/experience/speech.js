@@ -1,4 +1,4 @@
-import { events, player, ui3d, woody } from "./state";
+import { events, game, player, ui3d, woody } from "./state";
 
 // Lo que dice Woody: una cola de frases que se muestran de una en una en su
 // bocadillo (experience/ui3d/WorldUi.jsx). Cada frase dura lo que se tarda en
@@ -65,12 +65,17 @@ export function say(lines, { once, tip = false, now = false } = {}) {
  return true;
 }
 
+// En pausa: dentro de la nave (a Woody no se le ve) y mientras se juega un
+// minijuego (el bocadillo taparía el juego). Lo que estuviera diciendo se
+// esconde, no caduca, y sigue donde iba al salir.
+export const speechPaused = () => player.hidden || Boolean(game.minigame);
+
 export const hasSaid = (id) => memory().has(id);
 export const isSpeaking = () => Boolean(ui3d.speech);
 
 // Pasa a la frase siguiente (o calla si no hay más).
 export function skipSpeech() {
- if (ui3d.speech) next();
+ if (ui3d.speech && !speechPaused()) next();
 }
 
 // Calla del todo (al silenciar los consejos).
@@ -79,10 +84,10 @@ export function hush() {
  if (ui3d.speech) next();
 }
 
-// Se llama en cada fotograma: la frase caduca sola.
+// Se llama en cada fotograma: la frase caduca sola (salvo en pausa).
 export function updateSpeech(dt) {
  const speech = ui3d.speech;
- if (!speech || player.hidden) return; // dentro de la nave no se le ve: espera
+ if (!speech || speechPaused()) return;
  speech.age += dt;
  if (speech.age > speech.life) next();
 }

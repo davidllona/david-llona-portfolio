@@ -1392,17 +1392,18 @@
  color: #1a0d05;
 }
 
+/* Arriba a la izquierda, bajo los botones del juego: el centro y la derecha
+   quedan libres para la portería y el marcador de madera. */
 .football__top {
  position: absolute;
- top: calc(env(safe-area-inset-top) + 62px);
- left: 50%;
+ top: calc(env(safe-area-inset-top) + 66px);
+ left: calc(env(safe-area-inset-left) + 14px);
  display: flex;
  flex-wrap: wrap;
- justify-content: center;
+ justify-content: flex-start;
  gap: 8px;
  width: max-content;
- max-width: calc(100vw - 24px);
- transform: translateX(-50%);
+ max-width: calc(100vw - 28px);
 }
 
 .football__modes,
@@ -1420,39 +1421,9 @@
  color: #ffb38a;
 }
 
-.football__score {
- position: absolute;
- top: calc(env(safe-area-inset-top) + 68px);
- left: calc(env(safe-area-inset-left) + 14px);
- display: flex;
- gap: 4px;
- margin: 0;
- padding: 8px 10px;
- border-radius: 18px;
- background: rgba(58, 38, 25, 0.88);
-}
 
-.football__score div {
- min-width: 78px;
- text-align: center;
-}
 
-.football__score dt {
- color: #e3c9a3;
- font-size: 11px;
- font-weight: 700;
- letter-spacing: 0.12em;
- text-transform: uppercase;
-}
 
-.football__score dd {
- margin: 0;
- color: #fff6e0;
- font-size: 30px;
- font-weight: 800;
- line-height: 1.1;
- font-variant-numeric: tabular-nums;
-}
 
 .football__bottom {
  position: absolute;
@@ -1534,15 +1505,6 @@
   font-size: 12px;
  }
 
- .football__score {
-  top: calc(env(safe-area-inset-top) + 112px);
- }
 
- .football__score div {
-  min-width: 58px;
- }
 
- .football__score dd {
-  font-size: 22px;
- }
 }
