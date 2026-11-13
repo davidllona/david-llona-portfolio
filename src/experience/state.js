@@ -47,31 +47,31 @@ export function zoomBy(factor) {
 // noche) y baja a 0 al entrar; `introTarget` es hacia dónde va.
 
 // Dónde está el islote de la bienvenida y cómo se encuadra (ver Welcome.jsx).
-//  · centre: el punto medio del islote (del pico de roca a la copa);
+//  · centre: la altura media del conjunto (de la punta de roca a la copa);
 //  · span: lo que mide de alto y de ancho contando las rocas que flotan.
-export const WELCOME = { origin: [0, 150, 78], centre: 0.62, span: [9.0, 7.5], fov: 40 };
+export const WELCOME = { origin: [0, 150, 78], centre: 1.3, span: [7.9, 7.3], fov: 40 };
 const pose = { camera: [0, 0, 0], look: [0, 0, 0] };
 // Cámara y punto al que mira, relativos al islote, para una ventana de
-// proporción `aspect`. El islote entra siempre entero: en horizontal ocupa la
-// mitad derecha (el título va a la izquierda); en vertical va centrado, entre
-// el título y la indicación de entrada.
+// proporción `aspect`. El islote entra siempre entero y lo más grande que
+// cabe: en horizontal llena la mitad derecha (el título va a la izquierda); en
+// vertical va centrado, entre el título y la indicación de entrada.
 export function welcomePose(aspect) {
  const [tall, wide] = WELCOME.span;
  const slope = 2 * Math.tan((WELCOME.fov * Math.PI) / 360);
  let height, x, y;
  if (aspect < 1) {
-  // Alto visible: el islote cabe a lo ancho y, a lo alto, en el 60 % central.
-  height = Math.max(wide / aspect, tall / 0.6);
+  // Alto visible: el islote cabe a lo ancho y, a lo alto, en el 58 % central.
+  height = Math.max(wide / aspect, tall / 0.58);
   x = 0;
-  y = WELCOME.centre + height * 0.05;
+  y = WELCOME.centre - height * 0.005;
  } else {
-  // El islote ocupa como mucho el 54 % derecho de la ventana.
-  height = Math.max(tall / 0.9, wide / 0.54 / aspect);
-  x = -height * aspect * 0.225;
-  y = WELCOME.centre + height * 0.01;
+  // De alto, casi toda la ventana; de ancho, como mucho el 57 % derecho.
+  height = Math.max(tall / 0.965, wide / 0.58 / aspect);
+  x = -height * aspect * 0.195;
+  y = WELCOME.centre;
  }
  const distance = height / slope;
- pose.camera = [x, y + distance * 0.085, distance];
+ pose.camera = [x, y + distance * 0.07, distance];
  pose.look = [x, y, 0];
  return pose;
 }

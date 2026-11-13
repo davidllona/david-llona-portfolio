@@ -24,7 +24,7 @@ for (const [name, options] of views) {
   // Tres recortes seguidos de los protagonistas: se ve si respiran y si Woody mueve la cola.
   for (let i = 0; i < 3; i++) {
    await wait(330);
-   await t.page.screenshot({ path: `${out}bienvenida-personajes-${i}-${tag}.jpg`, type: "jpeg", quality: 88, clip: { x: 960, y: 300, width: 420, height: 280 } });
+   await t.page.screenshot({ path: `${out}bienvenida-personajes-${i}-${tag}.jpg`, type: "jpeg", quality: 88, clip: { x: 980, y: 370, width: 380, height: 270 } });
   }
  }
  console.log(name, t.logs.length ? t.logs.join("\n") : "sin avisos");

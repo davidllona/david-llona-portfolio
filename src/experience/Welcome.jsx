@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
+import { lights } from "three/tsl";
+import { MeshLambertNodeMaterial } from "three/webgpu";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
 import { ASTRONAUT_PALETTE, ASTRONAUT_SCALE, WOODY_PALETTE, WOODY_SCALE } from "../characters/looks";
 import { Glow } from "../worlds/living/buildings/Glow";
@@ -13,6 +15,7 @@ import { createLamp, LAMP_GLASS } from "../worlds/living/props/lampModel";
 import { WIND, withWind } from "./environment/wind";
 import { Instances } from "./Instances";
 import { ISLET, TREE_LANTERNS, createFloater, createIslet, createLanternFrame, createMoon, createTreeExtras, isletEdge } from "./intro/isletModels";
+import { sceneLights } from "./lightSources";
 import { lambert } from "./materials";
 import { WELCOME, emit, rig, welcomePose } from "./state";
 import { createGlowTexture } from "./textures";
@@ -22,30 +25,81 @@ import { createGlowTexture } from "./textures";
 // portfolio. Al entrar, la cámara desciende de aquí al planeta mientras
 // amanece (ver `rig.intro` en state.js y la mezcla de cámara en Player.jsx).
 //
-// La luz: la luna, detrás a la izquierda, recorta las siluetas y da las sombras
-// (es la luz direccional de la escena; ver theme.js y Lights.jsx); la farola da
-// el tono cálido a los protagonistas, con alcance corto; una luz azul desde
-// abajo dibuja la roca. Nada supera el blanco salvo los cristales encendidos y
-// las luciérnagas: solo ahí hay resplandor.
+// La luz: la luna, detrás a la izquierda, recorta las siluetas y da sombras (es
+// la luz direccional de la escena; ver theme.js y Lights.jsx). La farola es una
+// luz puntual con sombras de verdad; cada farolillo ilumina las hojas que tiene
+// cerca; una luz azul desde abajo dibuja la roca. Todas estas luces puntuales
+// son solo del islote: no están en la escena, sino en un conjunto de luces
+// propio (`lightsNode`) que llevan los materiales de aquí. Los materiales del
+// planeta ni las ven ni pagan por ellas. Nada supera el blanco salvo los
+// cristales encendidos y las luciérnagas: solo ahí hay resplandor.
 
 const DESCENT = 2.8; // segundos que dura el viaje al planeta
-const TREE = { position: [-1.15, 0, -1.0], turn: 0.35, scale: 0.84 };
-const LAMP = { position: [2.3, 0, 2.05], scale: 0.86 };
-const ASTRONAUT = [0.05, 0, 1.45];
-const DOG = [1.12, 0, 1.95];
+const TREE = { position: [-0.55, 0, -0.9], turn: 0.35, scale: 0.9 };
+const LAMP = { position: [2.3, 0, 2.0], scale: 0.86 };
+const ASTRONAUT = [0.4, 0, 1.3];
+const DOG = [1.4, 0, 1.6];
 const STAGE = 1.1; // los protagonistas, algo mayores que en el juego: son el centro de la portada
 const ONLY_TREE = ["frondoso"];
+const MOON_DEPTH = -44;
 // Dónde queda un punto del árbol (a escala 1) dentro del islote.
 const onTree = ([x, y, z]) => {
  const cos = Math.cos(TREE.turn), sin = Math.sin(TREE.turn);
  return [TREE.position[0] + (x * cos + z * sin) * TREE.scale, y * TREE.scale, TREE.position[2] + (-x * sin + z * cos) * TREE.scale];
 };
 const lampGlass = [LAMP.position[0] + LAMP_GLASS[0] * LAMP.scale, LAMP_GLASS[1] * LAMP.scale, LAMP.position[2]];
+// El punto del árbol tras el que asoma la luna: arriba, a la izquierda de la copa.
+const MOON_BEHIND = onTree([-2.95, 4.75, -0.6]);
+const MOON_BEHIND_TALL = onTree([-1.75, 4.9, -0.6]);
+
+// Las luces del islote (posiciones relativas a él). La de la farola da sombra.
+// (Con una luz puntual con sombras, three r183 falla al dibujar dentro del
+// posproceso; un foco abierto da el mismo charco de luz y sí funciona.)
+const LIGHTS = [
+ // La farola: cálida, justo bajo el farol. Deja un charco de luz en la hierba y
+ // tiñe el lado derecho de los protagonistas. Respira un poco.
+ // Es un foco muy abierto que mira hacia abajo y un poco hacia ellos, con sombras.
+ { color: "#ffa24e", position: [lampGlass[0], lampGlass[1] - 0.24, lampGlass[2]], aim: [lampGlass[0] - 0.7, 0, lampGlass[2] - 0.25], power: 27, distance: 9, decay: 2, flicker: true, shadow: true },
+ // Lo poco que el farol da hacia los lados y hacia arriba.
+ { color: "#ffa24e", position: [lampGlass[0] - 0.1, lampGlass[1], lampGlass[2] + 0.3], power: 2.2, distance: 4, decay: 2, flicker: true },
+ // Los farolillos: cada uno ilumina las hojas y las ramas que tiene cerca.
+ ...TREE_LANTERNS.map(([x, y, z]) => ({ color: "#ffad55", position: onTree([x, y - 0.05, z]), power: 1.5, distance: 2.8, decay: 2 })),
+ // Relleno azul desde abajo: dibuja los estratos de la roca.
+ { color: "#7f9dff", position: [0.6, -3.2, 6.6], power: 20, distance: 18, decay: 1.5 },
+ // Luz fría por delante a la izquierda, suave: el lado de la luna no queda negro.
+ { color: "#86a8ff", position: [-5.5, 2.8, 5.5], power: 13, distance: 16, decay: 1.5 },
+ // Un toque para la roca que flota arriba a la derecha, lejos de las demás luces.
+ { color: "#8aa6ff", position: [3.6, 2.9, -1.6], power: 5, distance: 5.5, decay: 1.6 },
+];
+function createLights() {
+ const [ox, oy, oz] = WELCOME.origin;
+ const points = LIGHTS.map((spec) => {
+  const light = spec.aim ? new THREE.SpotLight(spec.color, spec.power, spec.distance, 1.2, 0.85, spec.decay) : new THREE.PointLight(spec.color, spec.power, spec.distance, spec.decay);
+  light.position.set(ox + spec.position[0], oy + spec.position[1], oz + spec.position[2]);
+  light.updateMatrixWorld();
+  if (spec.aim) {
+   light.target.position.set(ox + spec.aim[0], oy + spec.aim[1], oz + spec.aim[2]);
+   light.target.updateMatrixWorld();
+  }
+  if (spec.shadow) {
+   light.castShadow = true;
+   light.shadow.mapSize.set(1024, 1024);
+   light.shadow.camera.near = 0.1;
+   light.shadow.camera.far = spec.distance;
+   light.shadow.bias = -0.002;
+   light.shadow.normalBias = 0.02;
+  }
+  return light;
+ });
+ // Con las dos luces de la escena: el cielo y la luna (que también da sombra).
+ const node = lights([sceneLights.hemisphere, sceneLights.sun, ...points]);
+ return { points, node };
+}
 
 // Copia de un personaje riggeado, con su material facetado y sus clips en
 // bucle. `clips`: [{ name, only?, except? }]; `only` y `except` eligen huesos
 // (expresión regular), para sumar dos clips: sentado + la cola de otro.
-function Poser({ url, palette, clips, position, rotation, scale }) {
+function Poser({ url, palette, clips, position, rotation, scale, lightsNode }) {
  const { scene, animations } = useGLTF(url);
  const model = useMemo(() => {
   const copy = cloneSkinned(scene);
@@ -57,7 +111,9 @@ function Poser({ url, palette, clips, position, rotation, scale }) {
    const convert = (original) => {
     if (!materials.has(original.name)) {
      const spec = palette[original.name] ?? {};
-     materials.set(original.name, new THREE.MeshLambertMaterial({ color: spec.color ?? original.color, emissive: spec.emissive ?? "#000000", emissiveIntensity: spec.glow ?? 0, flatShading: true }));
+     const material = new MeshLambertNodeMaterial({ color: spec.color ?? original.color, emissive: spec.emissive ?? "#000000", emissiveIntensity: spec.glow ?? 0, flatShading: true });
+     material.lightsNode = lightsNode;
+     materials.set(original.name, material);
     }
     return materials.get(original.name);
    };
@@ -71,7 +127,7 @@ function Poser({ url, palette, clips, position, rotation, scale }) {
    mixer.clipAction(clip).play();
   }
   return { copy, mixer, materials };
- }, [scene, animations, palette, clips]);
+ }, [scene, animations, palette, clips, lightsNode]);
  useEffect(
   () => () => {
    model.mixer.stopAllAction();
@@ -84,10 +140,10 @@ function Poser({ url, palette, clips, position, rotation, scale }) {
 }
 const ASTRONAUT_CLIPS = [{ name: "Astro_Idle_Breathe" }];
 // Woody, sentado y moviendo la cola.
-const WOODY_CLIPS = [{ name: "Woody_SitIdle", except: /tail/i }, { name: "Woody_TailWag_Slow", only: /tail/i }];
+const WOODY_CLIPS = [{ name: "Woody_SitIdle", except: /tail/i }, { name: "Woody_TailWag_Happy", only: /tail/i }];
 
-// Sombra suave en el suelo: la que da la farola (alargada, hacia el lado
-// contrario) y la de contacto. Las sombras nítidas son las de la luna.
+// Sombra de contacto, muy suave, bajo cada protagonista. Las sombras de verdad
+// son las de la farola y las de la luna.
 function Shade({ position, size, turn = 0, opacity = 0.4, texture }) {
  return (
   <mesh position={position} rotation={[-Math.PI / 2, 0, turn]} scale={[size[0], size[1], 1]}>
@@ -96,13 +152,6 @@ function Shade({ position, size, turn = 0, opacity = 0.4, texture }) {
   </mesh>
  );
 }
-// Sombra de la farola para algo que está en `at`: se aleja de ella.
-const lampShade = (at, length) => {
- const dx = at[0] - lampGlass[0], dz = at[2] - lampGlass[2];
- const reach = Math.hypot(dx, dz);
- return { position: [at[0] + (dx / reach) * length * 0.42, 0.045, at[2] + (dz / reach) * length * 0.42], turn: -Math.atan2(dz, dx) };
-};
-
 // Luciérnagas: rondan el claro en curvas lentas y se encienden y apagan.
 function Fireflies({ count = 14 }) {
  const group = useRef(null);
@@ -133,15 +182,25 @@ function Fireflies({ count = 14 }) {
 }
 
 // Hojas que se sueltan de la copa de vez en cuando y caen meciéndose.
-function FallingLeaves({ count = 7 }) {
+function FallingLeaves({ count = 7, lightsNode }) {
  const group = useRef(null);
  const leaves = useMemo(() => {
   const random = randomFrom(0.52);
   return Array.from({ length: count }, (_, i) => {
    const [x, y, z] = onTree([-2.4 + random() * 3.6, 3.0 + random() * 0.8, -0.6 + random() * 1.3]);
-   return { x, y, z, every: 9 + random() * 8, offset: (i / count) * 13 + random() * 3, fall: 4.2 + random() * 1.6, sway: 0.25 + random() * 0.3, spin: 1 + random() * 2, color: ["#a3d86a", "#8fcf62", "#d6c35a"][i % 3] };
+   return { x, y, z, every: 9 + random() * 8, offset: (i / count) * 13 + random() * 3, fall: 4.2 + random() * 1.6, sway: 0.25 + random() * 0.3, spin: 1 + random() * 2 };
   });
  }, [count]);
+ const materials = useMemo(
+  () =>
+   ["#a3d86a", "#8fcf62", "#d6c35a"].map((color) => {
+    const material = new MeshLambertNodeMaterial({ color, side: THREE.DoubleSide });
+    material.lightsNode = lightsNode;
+    return material;
+   }),
+  [lightsNode],
+ );
+ useEffect(() => () => materials.forEach((material) => material.dispose()), [materials]);
  useFrame(({ clock }) => {
   group.current.children.forEach((leaf, i) => {
    const l = leaves[i];
@@ -155,10 +214,10 @@ function FallingLeaves({ count = 7 }) {
  });
  return (
   <group ref={group}>
-   {leaves.map((leaf, i) => (
+   {leaves.map((_, i) => (
     <mesh key={i} visible={false}>
      <planeGeometry args={[0.13, 0.08]} />
-     <meshLambertMaterial color={leaf.color} side={THREE.DoubleSide} />
+     <primitive object={materials[i % materials.length]} attach="material" />
     </mesh>
    ))}
   </group>
@@ -202,7 +261,7 @@ function ShootingStar() {
 }
 
 // Rocas que flotan alrededor, a distintas distancias; suben y bajan despacio.
-const FLOATERS = [[-3.05, -1.55, 1.3, 0.5, 0.4], [3.45, 3.35, -3.4, 0.58, 1.9], [2.45, -2.75, 0.9, 0.36, 3.1], [-2.6, -3.0, -1.6, 0.28, 4.4], [3.3, -0.9, -4.6, 0.44, 5.2]];
+const FLOATERS = [[-3.1, -1.25, 1.3, 0.44, 0.4], [3.0, 4.3, -3.6, 0.5, 1.9], [2.6, -1.75, 1.0, 0.32, 3.1], [-2.4, -1.9, -1.6, 0.26, 4.4], [3.3, -0.9, -4.6, 0.4, 5.2]];
 function Floaters({ material }) {
  const group = useRef(null);
  const models = useMemo(() => [createFloater(0.31), createFloater(0.74)], []);
@@ -231,18 +290,20 @@ function Islet({ onMounted }) {
  const glow = useMemo(() => createGlowTexture(), []);
  const paint = useFlora(ONLY_TREE);
  const models = useMemo(() => ({ islet: createIslet(), extras: createTreeExtras(), lamp: createLamp(), lanterns: TREE_LANTERNS.map(([, , , thread]) => createLanternFrame(thread)), moon: createMoon(), plants: createPlantModels() }), []);
- const tree = useMemo(() => paint("frondoso", { bark: BARK.old, leaf: LEAF.oak[1], vary: 0.18 }), [paint]);
+ const tree = useMemo(() => paint("frondoso", { bark: BARK.old, leaf: ["#5fae52", "#bfe680"], vary: 0.2 }), [paint]);
  useEffect(() => () => tree.dispose(), [tree]);
- const material = useMemo(
-  () => ({
+ const lighting = useMemo(createLights, []);
+ const material = useMemo(() => {
+  const lit = {
    still: lambert(),
    tree: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.tree, power: 2, cap: 7 }),
    blades: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.grass, cap: 0.9 }),
    flowers: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.flower, cap: 0.45 }),
-   moon: new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, fog: false, toneMapped: false }),
-  }),
-  [],
- );
+  };
+  Object.values(lit).forEach((one) => (one.lightsNode = lighting.node));
+  return { ...lit, moon: new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, fog: false, toneMapped: false }) };
+ }, [lighting]);
+ useEffect(() => () => lighting.points.forEach((light) => light.dispose()), [lighting]);
  useEffect(
   () => () => {
    const dispose = (value) => (value.isBufferGeometry ? value.dispose() : Object.values(value).forEach(dispose));
@@ -282,24 +343,34 @@ function Islet({ onMounted }) {
    ferns: scatter(5, 1.9, [tx - 0.3, tz - 0.4], [0.9, 0.5]),
    mushrooms: scatter(3, 0.5, [tx + 0.9, tz + 1.5], [1.2, 0.5]),
    // Césped corto donde están los protagonistas: se les ven los pies.
-   lawn: Array.from({ length: 26 }, (_, i) => ({ position: [ASTRONAUT[0] - 0.6 + ((i * 0.37) % 1) * (DOG[0] - ASTRONAUT[0] + 1.2), 0.03, ASTRONAUT[2] - 0.2 + ((i * 0.61) % 1) * 1.5], rotation: [0, i * 2.1, 0], scale: [0.9, 0.42, 0.9], color: "#f2ffe6" })).filter((item) => isletEdge(item.position[0], item.position[2]) < 0.93),
+   lawn: Array.from({ length: 22 }, (_, i) => ({ position: [ASTRONAUT[0] - 0.6 + ((i * 0.37) % 1) * (DOG[0] - ASTRONAUT[0] + 0.5), 0.03, ASTRONAUT[2] - 0.2 + ((i * 0.61) % 1) * 1.5], rotation: [0, i * 2.1, 0], scale: [0.9, 0.42, 0.9], color: "#f2ffe6" })).filter((item) => isletEdge(item.position[0], item.position[2]) < 0.93),
    clover: scatter(5, all * 0.7),
   };
  }, []);
 
- useFrame(({ size }) => {
-  // La luna se apaga al marcharse.
+ useFrame(({ size, clock }) => {
+  // La luna y las luces del islote se apagan al marcharse.
   const shown = Math.min(1, rig.intro * 1.6);
   material.moon.opacity = shown;
   halo.current.material.opacity = shown * 0.34;
-  // En vertical el título ocupa la parte alta: la luna baja y asoma tras la copa.
-  const [x, y] = size.width < size.height ? [-4.6, 6.6] : [-5.4, 9.7];
-  moon.current.position.set(x, y, -44);
-  halo.current.position.set(x, y, -45);
+  const time = clock.elapsedTime;
+  lighting.points.forEach((light, i) => {
+   const breath = LIGHTS[i].flicker ? 1 + 0.05 * Math.sin(time * 7.3) + 0.04 * Math.sin(time * 13.1) : 1;
+   light.intensity = LIGHTS[i].power * breath * shown;
+  });
+  // La luna queda siempre detrás de la copa, asomando por encima a la
+  // izquierda: se pone en la línea que va de la cámara a ese punto del árbol.
+  // (En vertical, más centrada: a la izquierda se saldría de la pantalla.)
+  const aspect = size.width / size.height;
+  const { camera } = welcomePose(aspect);
+  const behind = aspect < 1 ? MOON_BEHIND_TALL : MOON_BEHIND;
+  const far = (MOON_DEPTH - camera[2]) / (behind[2] - camera[2]);
+  const x = camera[0] + (behind[0] - camera[0]) * far, y = camera[1] + (behind[1] - camera[1]) * far;
+  moon.current.position.set(x, y, MOON_DEPTH);
+  halo.current.position.set(x, y, MOON_DEPTH - 1);
  });
 
  const plants = models.plants;
- const shade = { astronaut: lampShade(ASTRONAUT, 1.5), dog: lampShade(DOG, 1.0) };
  return (
   <group position={WELCOME.origin}>
    <mesh geometry={models.islet} material={material.still} castShadow receiveShadow />
@@ -336,63 +407,20 @@ function Islet({ onMounted }) {
    <Instances geometry={plants.mushrooms[0]} material={material.still} items={items.mushrooms} />
    <Instances geometry={plants.clover} material={material.still} items={items.clover} />
 
-   <Poser url="/models/characters/astronauta.glb" palette={ASTRONAUT_PALETTE} clips={ASTRONAUT_CLIPS} position={ASTRONAUT} rotation={[0, -0.12, 0]} scale={ASTRONAUT_SCALE * STAGE} />
-   <Poser url="/models/characters/woody.glb" palette={WOODY_PALETTE} clips={WOODY_CLIPS} position={DOG} rotation={[0, -0.95, 0]} scale={WOODY_SCALE * STAGE} />
-   <Shade texture={glow} position={[ASTRONAUT[0], 0.04, ASTRONAUT[2]]} size={[1.0, 1.0]} opacity={0.36} />
-   <Shade texture={glow} position={[DOG[0], 0.04, DOG[2]]} size={[1.0, 1.0]} opacity={0.36} />
-   <Shade texture={glow} {...shade.astronaut} size={[1.9, 0.75]} opacity={0.3} />
-   <Shade texture={glow} {...shade.dog} size={[1.4, 0.7]} opacity={0.3} />
-   {/* Charco de luz cálida de la farola sobre la hierba. */}
-   <mesh position={[lampGlass[0] - 0.95, 0.06, lampGlass[2] - 0.45]} rotation-x={-Math.PI / 2} scale={3.7}>
-    <planeGeometry />
-    <meshBasicMaterial map={glow} color="#ff9c45" transparent opacity={0.26} depthWrite={false} blending={THREE.AdditiveBlending} fog={false} />
-   </mesh>
+   <Poser url="/models/characters/astronauta.glb" palette={ASTRONAUT_PALETTE} clips={ASTRONAUT_CLIPS} position={ASTRONAUT} rotation={[0, -0.12, 0]} scale={ASTRONAUT_SCALE * STAGE} lightsNode={lighting.node} />
+   <Poser url="/models/characters/woody.glb" palette={WOODY_PALETTE} clips={WOODY_CLIPS} position={DOG} rotation={[0, -1.75, 0]} scale={WOODY_SCALE * STAGE} lightsNode={lighting.node} />
+   <Shade texture={glow} position={[ASTRONAUT[0], 0.04, ASTRONAUT[2]]} size={[0.9, 0.9]} opacity={0.3} />
+   <Shade texture={glow} position={[DOG[0], 0.04, DOG[2]]} size={[0.9, 0.9]} opacity={0.3} />
    <Fireflies />
-   <FallingLeaves />
+   <FallingLeaves lightsNode={lighting.node} />
    <ShootingStar />
 
-   {/* Luna detrás del árbol, a la izquierda: de ahí viene la luz que recorta las siluetas. */}
-   <mesh ref={moon} geometry={models.moon} material={material.moon} position={[-6.2, 9.4, -44]} scale={3.3} />
-   <mesh ref={halo} position={[-6.2, 9.4, -45]} scale={17}>
+   {/* Luna detrás de la copa: de ahí viene la luz que recorta las siluetas. */}
+   <mesh ref={moon} geometry={models.moon} material={material.moon} scale={3.4} />
+   <mesh ref={halo} scale={17}>
     <planeGeometry />
     <meshBasicMaterial map={glow} color="#5672d6" transparent opacity={0.34} depthWrite={false} fog={false} blending={THREE.AdditiveBlending} />
    </mesh>
-  </group>
- );
-}
-
-// Las luces del islote. Viven fuera de él y no se desmontan nunca: al llegar al
-// planeta se quedan apagadas. Si salieran de la escena cambiaría el conjunto de
-// luces y el renderer recompilaría todos los materiales iluminados justo al
-// aterrizar (un tirón de ~280 ms). Es lo mismo que hace WarmLights de día.
-const ISLET_LIGHTS = [
- // La farola: cálida y de alcance corto; ilumina el suelo y a los dos
- // protagonistas. Va algo por debajo y por delante del farol, para no quemar
- // su armazón, y respira un poco.
- { color: "#ffab5c", position: [lampGlass[0] - 0.3, lampGlass[1] - 0.5, lampGlass[2] + 0.45], power: 17, distance: 7.5, decay: 1.8, flicker: true },
- // Los farolillos del árbol: una luz tenue bajo la copa.
- { color: "#ff9a4a", position: onTree([-0.6, 2.2, 1.6]), power: 3.2, distance: 5.5, decay: 1.6 },
- // Relleno azul desde abajo: dibuja los estratos de la roca.
- { color: "#7f9dff", position: [0.8, -3.6, 7.2], power: 21, distance: 16, decay: 1.5 },
- // Un punto de luz fría por delante, muy suave: las caras a contraluz no quedan negras.
- { color: "#a9bdff", position: [-2.2, 2.4, 7.5], power: 12, distance: 14, decay: 1.5 },
-];
-
-function IsletLights() {
- const lights = useRef([]);
- useFrame(({ clock }) => {
-  const on = rig.intro > 0;
-  const time = clock.elapsedTime;
-  ISLET_LIGHTS.forEach((spec, i) => {
-   const breath = spec.flicker ? 1 + 0.05 * Math.sin(time * 7.3) + 0.04 * Math.sin(time * 13.1) : 1;
-   lights.current[i].intensity = on ? spec.power * breath : 0;
-  });
- });
- return (
-  <group position={WELCOME.origin}>
-   {ISLET_LIGHTS.map((spec, i) => (
-    <pointLight key={i} ref={(node) => (lights.current[i] = node)} color={spec.color} position={spec.position} intensity={spec.power} distance={spec.distance} decay={spec.decay} />
-   ))}
   </group>
  );
 }
@@ -421,9 +449,6 @@ export function Welcome({ onMounted }) {
   }
  });
  return (
-  <>
-   <IsletLights />
-   {mounted && <Islet onMounted={onMounted} />}
-  </>
+  mounted && <Islet onMounted={onMounted} />
  );
 }

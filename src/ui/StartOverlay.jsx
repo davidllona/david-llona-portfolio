@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 // Pequeñas ilustraciones de cada control, dibujadas con HTML y SVG.
 
 const Key = ({ children, wide }) => <kbd className={`key${wide ? " key--wide" : ""}`}>{children}</kbd>;
@@ -56,14 +58,60 @@ const TOUCH_CONTROLS = [
  { action: "Correr", art: <StickIcon pushed /> },
 ];
 
-// Indicación de entrada dibujada a mano: un subrayado y una flecha hacia el
-// islote que se trazan solos.
-const Scribble = () => (
- <svg className="hint__scribble" viewBox="0 0 330 46" aria-hidden="true">
-  <path className="hint__underline" d="M4 9c38-6 80-1 116-5 32-3 66 3 98-3" pathLength="1" />
-  <path className="hint__arrow" d="M236 8c26-4 50 0 70 13" pathLength="1" />
-  <path className="hint__arrow hint__arrow--head" d="M290 7c7 5 12 9 18 15-9 3-17 7-24 13" pathLength="1" />
+// Controles al pie de la bienvenida: teclas dibujadas con su etiqueta. Con
+// pantalla táctil, los gestos equivalentes.
+const WheelIcon = () => (
+ <svg className="legend__icon" viewBox="0 0 28 40" aria-hidden="true">
+  <rect x="3" y="2" width="22" height="36" rx="11" />
+  <rect className="legend__icon-fill" x="12" y="8" width="4" height="9" rx="2" />
+  <path d="M14 22v9m-3.5-3 3.5 3.5 3.5-3.5" />
  </svg>
+);
+const GestureIcon = ({ kind }) => (
+ <svg className="legend__icon legend__icon--round" viewBox="0 0 40 40" aria-hidden="true">
+  {kind === "stick" && (
+   <>
+    <circle cx="20" cy="20" r="16" />
+    <circle className="legend__icon-fill" cx="25" cy="15" r="6" />
+   </>
+  )}
+  {kind === "tap" && (
+   <>
+    <circle cx="20" cy="20" r="15" strokeDasharray="4 5" />
+    <circle className="legend__icon-fill" cx="20" cy="20" r="6" />
+   </>
+  )}
+  {kind === "pinch" && <path d="M5 35 15 25m0 7v-7H8M35 5 25 15m0-7v7h7" />}
+  {kind === "jump" && (
+   <>
+    <circle cx="20" cy="20" r="16" />
+    <path d="M20 28V13m-6 5 6-6 6 6" />
+   </>
+  )}
+ </svg>
+);
+const KEY_LEGEND = [
+ { label: "Moverte", art: ["W", "A", "S", "D"].map((key) => <kbd key={key} className="legend__key">{key}</kbd>) },
+ { label: "Saltar", art: <kbd className="legend__key legend__key--wide">Espacio</kbd> },
+ { label: "Correr", art: <kbd className="legend__key legend__key--wide">Shift</kbd> },
+ { label: "Interactuar", art: <kbd className="legend__key">E</kbd> },
+ { label: "Rueda: zoom", art: <WheelIcon /> },
+];
+const TOUCH_LEGEND = [
+ { label: "Moverte", art: <GestureIcon kind="stick" /> },
+ { label: "Tocar: usar", art: <GestureIcon kind="tap" /> },
+ { label: "Saltar", art: <GestureIcon kind="jump" /> },
+ { label: "Pellizco: zoom", art: <GestureIcon kind="pinch" /> },
+];
+const Legend = ({ touch }) => (
+ <ul className="legend" aria-label="Controles">
+  {(touch ? TOUCH_LEGEND : KEY_LEGEND).map((item) => (
+   <li key={item.label} className="legend__item">
+    <span className="legend__art">{item.art}</span>
+    <span className="legend__label">{item.label}</span>
+   </li>
+  ))}
+ </ul>
 );
 
 // Pantalla de inicio y de pausa. Un toque o un clic en cualquier punto entra.
@@ -74,7 +122,11 @@ export function StartOverlay({ visible, intro, ready, touch, onPointerDown, onEn
  const note = touch
   ? "Pulgar izquierdo para moverte; toca los objetos para usarlos. Mejor en horizontal."
   : "También valen las flechas. E usa lo que tengas cerca, N cambia entre día y noche y Esc pausa.";
- if (intro) {
+ // Mientras se desvanece conserva el aspecto con el que se vio: al entrar, la
+ // bienvenida se funde como bienvenida (y no cambia a la pausa a medio fundido).
+ const shown = useRef(intro);
+ if (visible) shown.current = intro;
+ if (shown.current) {
   return (
    <div className={`overlay overlay--intro${visible ? "" : " overlay--hidden"}`} aria-hidden={!visible} onPointerDown={onPointerDown} onClick={onEnter}>
     <header className="intro__title">
@@ -84,20 +136,21 @@ export function StartOverlay({ visible, intro, ready, touch, onPointerDown, onEn
      </h1>
      <p className="overlay__lead">Un planeta para explorar con Woody. Dentro está mi trabajo.</p>
      {/* La indicación de entrada va con el título (en vertical, al pie): nunca encima de la escena. */}
-     <div className={`intro__hint${ready ? "" : " intro__hint--waiting"}`}>
-      <button type="button" className="overlay__enter intro__enter" tabIndex={visible ? 0 : -1} disabled={!ready}>
-       {!ready ? "Preparando el planeta…" : touch ? "Toca para aterrizar" : "Haz clic para aterrizar"}
+     {/* El botón principal de la pantalla; en vertical va al pie. */}
+     <div className="intro__hint">
+      <button type="button" className={`overlay__enter intro__enter${ready ? "" : " intro__enter--waiting"}`} tabIndex={visible ? 0 : -1} disabled={!ready}>
+       <span className="intro__enter-text">{!ready ? "Preparando el planeta…" : touch ? "Toca para aterrizar" : "Haz clic para aterrizar"}</span>
+       {ready && (
+        <svg className="intro__enter-arrow" viewBox="0 0 24 24" aria-hidden="true">
+         <path d="M12 4v15m-6.5-6 6.5 6.5 6.5-6.5" />
+        </svg>
+       )}
       </button>
-      <Scribble />
      </div>
     </header>
 
     <footer className="intro__foot">
-     <ul className="intro__keys" aria-label="Controles">
-      {controls.map((control) => (
-       <li key={control.action}>{control.action}</li>
-      ))}
-     </ul>
+     <Legend touch={touch} />
     </footer>
    </div>
   );

@@ -6,7 +6,7 @@ import { BARK, LEAF, ROCK, WOOD } from "../../worlds/living/kit/palette";
 // los farolillos, las rocas que flotan alrededor y la luna.
 
 // Contorno del islote: irregular, algo más largo hacia el fondo que a lo ancho.
-export const ISLET = { rx: 3.0, rz: 3.35, depth: 3.7 };
+export const ISLET = { rx: 3.0, rz: 3.4, depth: 2.35 };
 const lobes = (angle) => 1 + 0.13 * Math.sin(angle * 2 + 0.7) + 0.09 * Math.sin(angle * 3 + 2.2) + 0.05 * Math.sin(angle * 5 + 4.1) + 0.03 * Math.sin(angle * 9 + 1.3);
 // Hasta dónde llega la hierba en una dirección (0–1 = dentro).
 export const isletEdge = (x, z) => {
@@ -78,18 +78,18 @@ export function createIslet() {
  // El borde de hierba cae de forma desigual y vuelve hacia dentro por debajo.
  const drip = ring(1.035, -0.36, random, { rough: 0.02, wave: 0.16 });
  const under = ring(0.95, -0.3, random, { rough: 0.02, wave: 0.04 });
- build.band(edge, drip, "#2c6b3a", "#47964a", 0.09);
+ build.band(edge, drip, "#3d8a45", "#52a04b", 0.09);
  build.band(drip, under, "#2a5c38", "#35763f", 0.06);
  // Tierra.
- const soil = ring(0.9, -0.95, random, { rough: 0.05, wave: 0.07 });
+ const soil = ring(0.9, -0.72, random, { rough: 0.05, wave: 0.06 });
  build.band(under, soil, "#8a5f3e", "#b98852", 0.1);
  // Estratos de roca: [arriba, abajo, y de abajo, color bajo, color alto, desplazamiento].
  let last = soil;
- let y = -0.95;
+ let y = -0.72;
  for (const [top, bottom, fall, low, high, shift] of [
-  [0.96, 0.84, 0.85, ROCK.mid, ROCK.light, [0.05, 0]],
-  [0.78, 0.6, 0.9, ROCK.dark, ROCK.mid, [-0.1, 0.1]],
-  [0.52, 0.3, 0.7, "#5f5a58", ROCK.dark, [-0.25, 0.05]],
+  [0.96, 0.84, 0.52, ROCK.mid, ROCK.light, [0.05, 0]],
+  [0.76, 0.58, 0.5, ROCK.dark, ROCK.mid, [-0.1, 0.1]],
+  [0.5, 0.26, 0.4, "#5f5a58", ROCK.dark, [-0.25, 0.05]],
  ]) {
   // Repisa: el estrato arranca más ancho o más estrecho que donde acabó el anterior.
   const start = ring(top, y - 0.04, random, { rough: 0.07, wave: 0.08, shift });
@@ -118,16 +118,16 @@ export function createIslet() {
   const angle = (i / 11) * Math.PI * 2 + random() * 0.4;
   const r = lobes(angle) * 1.0;
   const x = Math.cos(angle) * ISLET.rx * r, z = Math.sin(angle) * ISLET.rz * r;
-  const length = 0.5 + random() * 1.3;
+  const length = 0.4 + random() * 0.9;
   pieces.push(piece(blade([[x, -0.3, z], [x * 1.03, -0.3 - length * 0.5, z * 1.03], [x * 0.97, -0.3 - length, z * 0.97]], 0.09, { facing: angle + Math.PI / 2, tipWidth: 0.015 }), { bottom: "#7cc65c", top: "#3f8a45" }));
  }
  // Raíces que salen de la roca por debajo y se retuercen.
  for (let i = 0; i < 6; i++) {
   const angle = i * 1.13 + 0.5;
   const r = 0.62 - (i % 3) * 0.12;
-  const top = -1.0 - (i % 3) * 0.7;
+  const top = -0.85 - (i % 3) * 0.42;
   const x = Math.cos(angle) * ISLET.rx * r, z = Math.sin(angle) * ISLET.rz * r;
-  const length = 0.8 + random() * 0.9;
+  const length = 0.45 + random() * 0.5;
   pieces.push(piece(tube([[x * 0.85, top + 0.15, z * 0.85], [x * 1.08, top - length * 0.35, z * 1.08], [x * 0.98 + 0.1, top - length * 0.75, z * 0.98], [x * 1.05, top - length, z * 1.05 + 0.1]], (t) => 0.06 - t * 0.045, { sides: 5, segments: 6 }), { bottom: WOOD.mid, top: BARK.old[0], vary: 0.08, seed: i }));
  }
  return merge(pieces);
@@ -156,10 +156,11 @@ export function createTreeExtras() {
   pieces.push(piece(tube([[dx * 0.05, 0.85, dz * 0.05], [dx * reach * 0.4, 0.34, dz * reach * 0.4], [dx * reach * 0.8, 0.1, dz * reach * 0.8], [dx * reach, -0.14, dz * reach]], (t) => 0.27 - t * 0.21, { sides: 5, segments: 6 }), { bottom: bark[0], top: bark[1], jitter: 0.02, vary: 0.08, seed: i }));
  }
  // Masas pequeñas: rellenan los huecos de la copa y rompen su contorno.
- const tones = [LEAF.oak[1], LEAF.oak[0], LEAF.poplar[0], LEAF.oak[2]];
+ const tones = [LEAF.poplar[1], LEAF.oak[1], LEAF.poplar[0], LEAF.birch[0]];
  [
-  [-2.55, 3.05, -0.1, 0.42], [-2.3, 4.25, -0.9, 0.5], [-1.2, 5.25, -0.9, 0.5], [0.15, 4.85, -0.9, 0.55], [1.45, 4.3, -0.2, 0.44], [1.5, 3.3, -0.9, 0.46],
-  [0.75, 3.1, 0.25, 0.4], [-0.95, 3.75, 0.75, 0.48], [-2.75, 3.75, 0.3, 0.36], [0.3, 4.4, 0.55, 0.42], [-1.6, 4.6, 0.55, 0.4], [1.0, 4.75, -0.75, 0.38],
+  [-2.9, 3.1, -0.1, 0.5], [-2.6, 4.3, -0.9, 0.58], [-1.2, 5.1, -0.9, 0.55], [0.15, 4.85, -0.9, 0.6], [1.75, 4.25, -0.2, 0.52], [1.95, 3.3, -0.8, 0.55],
+  [0.9, 3.1, 0.35, 0.46], [-0.95, 3.75, 0.85, 0.52], [-3.1, 3.8, 0.3, 0.42], [0.3, 4.4, 0.65, 0.46], [-1.6, 4.6, 0.6, 0.44], [1.1, 4.75, -0.75, 0.42],
+  [2.3, 3.75, 0.1, 0.4], [-2.0, 3.0, 0.7, 0.42], [-0.2, 3.25, 0.95, 0.4], [1.5, 3.7, 0.6, 0.4],
  ].forEach(([x, y, z, size], i) => {
   const [bottom, top] = tones[i % tones.length];
   pieces.push(piece(blob(1), { bottom, top, jitter: 0.16, vary: 0.08, seed: i * 7 + 1, position: [x, y, z], rotation: [random() * 3, random() * 3, 0], scale: [size, size * 0.8, size] }));

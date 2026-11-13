@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { trailAt, updateTrail } from "./environment/trail";
 import { startGust, updateWind, windDebug } from "./environment/wind";
+import { sceneLights } from "./lightSources";
 import { WELCOME, player, rig, woody } from "./state";
 import { current, sunDirection, updateTheme } from "./theme";
 
@@ -16,8 +17,9 @@ const islet = { x: WELCOME.origin[0], y: WELCOME.origin[1], z: WELCOME.origin[2]
 // componente también hace avanzar la transición día ↔ noche y aplica sus
 // colores al fondo y a la niebla.
 export function Lights({ shadowMapSize }) {
- const hemisphere = useRef(null);
- const sun = useRef(null);
+ // Las dos luces viven en lightSources.js; aquí se montan y se mueven.
+ const hemisphere = useRef(sceneLights.hemisphere);
+ const sun = useRef(sceneLights.sun);
  const scene = useThree((state) => state.scene);
  const woodyStep = useRef({ x: 0, z: 0 });
 
@@ -59,9 +61,9 @@ export function Lights({ shadowMapSize }) {
 
  return (
   <>
-   <hemisphereLight ref={hemisphere} />
-   <directionalLight
-    ref={sun}
+   <primitive object={sceneLights.hemisphere} />
+   <primitive
+    object={sceneLights.sun}
     castShadow
     shadow-mapSize={[shadowMapSize, shadowMapSize]}
     shadow-bias={-0.0008}
