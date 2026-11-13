@@ -151,7 +151,7 @@ const told = (r) => `${r.ms.toFixed(0)} ms (ninguna tarea larga antes de ese fot
  const a = await sky();
  await wait(3000);
  const b = await sky();
- check(a.moon.r * 2 > 900 * 0.24 && a.moon.y - a.moon.r > -a.moon.r * 0.25 && a.moon.faces >= 1500, `la luna es más grande y detallada: ${(a.moon.r * 2).toFixed(0)} px de diámetro (${((a.moon.r * 200) / 900).toFixed(0)} % del alto; antes, ${((a.moon.r * 200 * 3.4) / a.moon.scale / 900).toFixed(0)} %), ${a.moon.faces} caras con 26 cráteres (antes 320 y 7), y entra en la pantalla (su borde alto, en y ${(a.moon.y - a.moon.r).toFixed(0)})`);
+ check(a.moon.r * 2 > 900 * 0.24 && a.moon.y - a.moon.r > -a.moon.r * 0.25 && a.moon.faces >= 1500, `la luna es más grande y detallada: ${(a.moon.r * 2).toFixed(0)} px de diámetro (${((a.moon.r * 200) / 900).toFixed(0)} % del alto; antes, ${((a.moon.r * 200 * 3.4) / a.moon.scale / 900).toFixed(0)} %), ${a.moon.faces} caras con 38 cráteres, y entra en la pantalla (su borde alto, en y ${(a.moon.y - a.moon.r).toFixed(0)})`);
  check(b.moon.turn > a.moon.turn, `y gira muy despacio (${((b.moon.turn - a.moon.turn) * (180 / Math.PI) / 3).toFixed(2)}° por segundo)`);
  check(a.globe.x > 0 && a.globe.x < 1440 && a.globe.y > 0 && a.globe.y + a.globe.r < 900 && b.globe.turn > a.globe.turn, `el planeta The Living World se ve abajo (centro en ${a.globe.x.toFixed(0)}, ${a.globe.y.toFixed(0)}; ${(a.globe.r * 2).toFixed(0)} px) y gira despacio (${((b.globe.turn - a.globe.turn) * (180 / Math.PI) / 3).toFixed(1)}° por segundo)`);
  check(a.counts[0.04] === 34 && a.counts[0.022] === 130, `hay ${a.counts[0.04]} luciérnagas (antes 14) y ${a.counts[0.022]} motas de polvo luminoso (antes ninguna)`);

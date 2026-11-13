@@ -20,11 +20,14 @@ const smooth = (a, b, x) => {
 // Material de un astro: su color (por vértice) con la luz de un sol fijo en el
 // mundo. La luz se calcula al dibujar, no va pintada en el modelo: así el astro
 // puede girar y su lado iluminado se queda donde está.
-//  · light: de dónde viene la luz; ambient: lo que se ve del lado en sombra.
-export function celestial(light, { ambient = 0.2, strength = 0.85 } = {}) {
+//  · light: de dónde viene la luz; ambient: lo que se ve del lado en sombra;
+//    contrast: por encima de 1, las caras inclinadas se oscurecen antes (hace
+//    que el relieve se lea también de cara a la luz).
+export function celestial(light, { ambient = 0.2, strength = 0.85, contrast = 1 } = {}) {
  const material = unlit({ transparent: true, fog: false, toneMapped: false });
  const towards = new THREE.Vector3(...light).normalize();
- const lit = normalWorld.dot(vec3(towards.x, towards.y, towards.z)).max(0);
+ const facing = normalWorld.dot(vec3(towards.x, towards.y, towards.z)).max(0);
+ const lit = contrast === 1 ? facing : facing.pow(contrast);
  material.colorNode = attribute("color", "vec3").mul(lit.mul(strength).add(ambient));
  return material;
 }
@@ -50,41 +53,58 @@ function paintFaces(geometry, colourOf) {
 }
 
 // La luna: facetada, con mares oscuros y dos docenas de cráteres de tamaños
-// distintos (fondo hundido y oscuro, labio que sobresale y brilla).
+// distintos (fondo llano y hundido, pared empinada, labio que sobresale y
+// brilla). El relieve es hondo a propósito: de cara a la luz solo se lee lo
+// que inclina mucho las caras.
 export function createMoon() {
  const random = randomFrom(0.61);
- const geometry = new THREE.IcosahedronGeometry(1, 9);
+ const geometry = new THREE.IcosahedronGeometry(1, 18);
  const points = geometry.attributes.position;
- const craters = Array.from({ length: 26 }, (_, i) => {
-  // Repartidos por toda la esfera (gira despacio): los tres primeros, grandes.
-  const z = random() * 2 - 1, angle = random() * Math.PI * 2, ring = Math.sqrt(1 - z * z);
-  return { centre: new THREE.Vector3(Math.cos(angle) * ring, z, Math.sin(angle) * ring), r: i < 3 ? 0.3 + random() * 0.08 : i < 10 ? 0.15 + random() * 0.08 : 0.06 + random() * 0.06 };
+ // Repartidos por igual por toda la esfera (gira despacio y no debe quedar
+ // ninguna cara lisa): espiral de Fibonacci con algo de desorden. Tres
+ // grandes, una docena de medianos y el resto pequeños, pero ninguno tan
+ // pequeño que no quepa en las caras.
+ const COUNT = 38;
+ const craters = Array.from({ length: COUNT }, (_, i) => {
+  const z = 1 - ((i + 0.5) / COUNT) * 2 + (random() - 0.5) * 0.05, angle = i * 2.39996 + (random() - 0.5) * 0.5, ring = Math.sqrt(1 - z * z);
+  const r = i % 13 === 6 ? 0.25 + random() * 0.06 : i % 3 === 0 ? 0.15 + random() * 0.06 : 0.085 + random() * 0.04;
+  // Hondura en radios de luna: la mitad de su radio, con tope (antes, 0,095 el mayor).
+  return { centre: new THREE.Vector3(Math.cos(angle) * ring, z, Math.sin(angle) * ring), r, depth: Math.min(0.12, r * 0.5) };
  });
  const point = new THREE.Vector3();
- // Cuánto hunde (positivo) o levanta (negativo) cada cráter en un punto.
- const dentAt = (p) => {
-  let dent = 0;
+ // Perfil de un cráter a una distancia d (en radios del cráter): fondo llano,
+ // pared empinada y, fuera, un labio que sobresale. De 1 (fondo) a −0,5 (labio).
+ const profile = (d) => (d < 1 ? 1 - smooth(0.42, 1, d) * 1.5 : -0.5 * (1 - smooth(1, 1.4, d)));
+ // Cuánto hunde (positivo) o levanta (negativo) el relieve en un punto, y
+ // cuánto de cráter hay ahí (para el color), de 1 a −0,5.
+ const dentAt = (p, out) => {
+  let dent = 0, shape = 0, nearest = Infinity;
   for (const crater of craters) {
    const d = p.distanceTo(crater.centre) / crater.r;
-   if (d < 1) dent = Math.max(dent, (1 - d * d) * Math.min(1, crater.r * 4.5));
-   else if (d < 1.28 && dent <= 0) dent = Math.min(dent, -0.4 * (1 - (d - 1) / 0.28));
+   if (d >= 1.4 || d >= nearest) continue;
+   nearest = d;
+   shape = profile(d);
+   dent = shape * crater.depth;
   }
+  if (out) out.shape = shape;
   return dent;
  };
  for (let i = 0; i < points.count; i++) {
   point.fromBufferAttribute(points, i).normalize();
-  const relief = wobble(point, 3.1, 2) * 0.012;
-  point.multiplyScalar(1 - dentAt(point) * 0.095 + relief);
+  const relief = wobble(point, 3.1, 2) * 0.014 + wobble(point, 9.5, 5) * 0.006;
+  point.multiplyScalar(1 - dentAt(point) + relief);
   points.setXYZ(i, point.x, point.y, point.z);
  }
- const high = new THREE.Color("#e6eaf7"), mare = new THREE.Color("#8d98bd"), floor = new THREE.Color("#6c779f"), lip = new THREE.Color("#ffffff");
- const unit = new THREE.Vector3();
+ // El llano no llega al blanco: así el labio de los cráteres destaca también
+ // en la cara iluminada.
+ const high = new THREE.Color("#ced5ea"), mare = new THREE.Color("#8792b8"), floor = new THREE.Color("#5b668f"), lip = new THREE.Color("#ffffff");
+ const unit = new THREE.Vector3(), at = { shape: 0 };
  return paintFaces(geometry, (centre, colour) => {
   unit.copy(centre).normalize();
-  const dent = dentAt(unit);
+  dentAt(unit, at);
   colour.copy(high).lerp(mare, smooth(0.0, 0.3, wobble(unit, 1.5, 7) + wobble(unit, 3.4, 3) * 0.35));
-  if (dent > 0) colour.lerp(floor, Math.min(1, dent * 1.5));
-  else if (dent < 0) colour.lerp(lip, Math.min(1, -dent * 2));
+  if (at.shape > 0) colour.lerp(floor, Math.min(1, at.shape * 0.85));
+  else if (at.shape < 0) colour.lerp(lip, Math.min(1, -at.shape * 2));
   colour.multiplyScalar(0.94 + random() * 0.12);
  });
 }

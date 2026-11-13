@@ -473,7 +473,7 @@ function Islet({ onMounted }) {
    flowers: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.flower, cap: 0.45 }),
   };
   Object.values(lit).forEach((one) => (one.lightsNode = lighting.node));
-  return { ...lit, moon: celestial(MOON_LIGHT, { ambient: 0.22, strength: 0.8 }) };
+  return { ...lit, moon: celestial(MOON_LIGHT, { ambient: 0.22, strength: 0.84, contrast: 1.9 }) };
  }, [lighting]);
  useEffect(() => () => lighting.points.forEach((light) => light.dispose()), [lighting]);
  useEffect(

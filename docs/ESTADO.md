@@ -2,8 +2,8 @@
 
 Actualizado: 13 de noviembre de 2026 · rama `estacion-espacial` (solo commits locales, sin push).
 
-Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git).
-**En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos) y 1 (pantalla de carga): **visto bueno** (13-11-2026). Hecho el **bloque 2 (pantalla previa al aterrizaje)**; **parado a la espera del visto bueno**. Siguiente: bloque 3 (errores de juego: colisiones, colina, Woody, aro de visión, carrera).
+Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
+**En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **Siguiente: bloque 3** (errores de juego: colisiones, colina, Woody, aro de visión, carrera).
 Decidido por David el 13-11-2026: los pesos reales de los modelos mandan sobre la ficha (reducir «Japan Lamp», puente, observatorio y cabaña hasta que no bajen los fps y dar el número final de triángulos de cada uno); los pasos fuera de la hierba y los sonidos de baloncesto se quedan sintetizados hasta que él avise.
 Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
 Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado.
@@ -15,7 +15,7 @@ Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Co
 |---|---|
 | 0. Inventario y sonidos | **Visto bueno.** `docs/RECURSOS.md`; grabación y lista en `capturas/18-sonidos/` |
 | 1. Pantalla de carga (astronauta y Woody caminando sobre un planeta) | **Visto bueno.** Capturas: `capturas/19-carga/serie-*.jpg` |
-| 2. Pantalla previa al aterrizaje (flecha, cero espera, luna, fugaces, planeta) | **Hecho, pendiente de visto bueno.** Capturas: `capturas/20-aterrizaje/` |
+| 2. Pantalla previa al aterrizaje (flecha, cero espera, luna, fugaces, planeta) | **Visto bueno**, con dos retoques pedidos y hechos: más relieve en los cráteres de la cara iluminada de la luna y planeta sin rótulo. Capturas: `capturas/20-aterrizaje/` (`luna-relieve-*.jpg`) |
 | 3. Errores de juego (colisiones, colina, Woody, aro de visión, carrera) | Sin empezar |
 | 4. Aspecto del mundo (farolas, caminos, rocas, pájaros, carteles, cascada) | Sin empezar |
 | 5. Edificios con los modelos descargados | Sin empezar |
@@ -27,7 +27,7 @@ Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Co
 - **Cero espera**: la pantalla de carga ya no se retira al estar lista la bienvenida, sino cuando el planeta está montado y compilado (etapas nuevas `built` y `world` en `loaderControl.js`, con avance real de la compilación). Cuando se ve la portada ya se puede entrar; «Preparando el planeta…» solo queda como respaldo si la carga se retirase antes. Al no tener que cuidar la fluidez de la bienvenida, la compilación del planeta usa 22 ms por fotograma (antes 8). Medido en desarrollo: se puede entrar a los ~2,9 s (antes ~3,1 s, con la portada visible desde los 0,8 s y el botón esperando).
 - **Del gesto al descenso: 9–12 ms** (clic en la indicación, clic en cualquier parte nada más retirarse la carga y tecla Enter; primer fotograma en que la cámara ya baja, sin ninguna tarea larga por medio). Lo mide `welcome.mjs`.
 - Fuera el botón naranja. La indicación es el texto «Haz clic para aterrizar» («Toca…» con el dedo) y, debajo, tres galones naranjas que caen en bucle y se desvanecen (uno cada 0,5 s, siempre dos a la vista), con halo suave. Sigue siendo un `<button class="overlay__enter">`: se pulsa entero, vale un clic en cualquier parte y la tecla Enter.
-- Luna nueva (`createMoon` en `skyModels.js`): radio 5 (antes 3,4), 2.000 caras, 26 cráteres con labio, mares oscuros, dos halos que respiran y giro muy lento. Su luz se calcula al dibujar (`celestial`), no va pintada: por eso puede girar.
+- Luna nueva (`createMoon` en `skyModels.js`): radio 5 (antes 3,4), 7.220 caras, 38 cráteres repartidos por igual (fondo llano y hundido, pared empinada, labio claro), mares oscuros, dos halos que respiran y giro muy lento. Su luz se calcula al dibujar (`celestial`), no va pintada: por eso puede girar; lleva una curva de contraste para que el relieve se lea también de cara a la luz. El planeta de destino va sin rótulo.
 - **The Living World a lo lejos** (`Destination`): un globo facetado con mar, costa, prados y bosque, nubes y halo de atmósfera, girando despacio sobre un eje inclinado. En horizontal va bajo el título, a la izquierda del islote; en vertical, junto al islote, encima de la indicación. Se apaga al emprender el descenso.
 - 34 luciérnagas (antes 14, ahora una sola malla con instancias) y 130 motas de polvo luminoso que suben despacio, más densas bajo la farola.
 - Estrellas fugaces cada 4–8 s, con cabeza brillante y cola que crece y se recoge; en horizontal cruzan por la izquierda, sobre el título (en el centro está la luna).
