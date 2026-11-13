@@ -40,3 +40,29 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Modelos y sonidos de Envato
+
+Descargados por David Llona con su licencia de Envato. Los archivos originales están en `assets-externos/`
+(carpeta ignorada en git: no se suben al repositorio). Al repo solo van las versiones optimizadas que usa la web.
+
+### En uso
+
+| Archivo del repo | Original | Autor | Qué se le ha hecho |
+|---|---|---|---|
+| `public/models/living/flora/frutal.glb` | «Low poly fruit tree asset» | slabdsgn | 27.048 → 2.900 triángulos, una malla, cuantizado + meshopt (`tools/assets/trees.mjs`); color de la paleta del planeta |
+| `public/models/living/flora/frondoso.glb` | «Low poly green tree asset» | slabdsgn | 25.056 → 2.720 triángulos; ídem. Es también la base del árbol de la bienvenida (con raíces, masas de copa, lianas y farolillos añadidos por código) |
+| `public/models/living/flora/redondo.glb` | «Low poly green tree object» | slabdsgn | 2.306 triángulos (sin reducir); ídem |
+| `public/models/living/flora/acacia.glb` | «Low poly umbrella thorn tree» | slabdsgn | 6.870 → 2.975 triángulos; ídem |
+| `public/models/living/flora/mata.glb` | «Low poly bush cluster» | slabdsgn | 400 triángulos (sin reducir); ídem |
+
+### Descargados, todavía sin usar en la web
+
+| Original | Autor | Para qué |
+|---|---|---|
+| «Basketball 3D Icons» (`05_Basketball`) | twinstd | Canasta de la pista (objetivo 15, bloque 3) |
+| «Court Net» (el archivo se llama `Pickleball Net`) | spacepixelcreative | Valla de la pista (bloque 3) |
+| «Small Country House with Green Roof and Fireplace», «Small House with Red Roof and Chimney», «Small House with Blue Roof», «Compact Residence with Dual Contemporary Balconies», «Island Cabin with Outdoor Seating» | stdgaris | Edificios de proyectos, Sobre mí y pabellón del jardín (bloques 4 y 5) |
+| «Torii Gate» | mrfauzi | Entrada del jardín japonés (bloque 5) |
+| Doce sonidos (mar, grillos, bosque, cascada, arroyo, dos de cohete, pasos en hierba, red, poste, salpicadura, pop) | varios (Envato) | Sonido del planeta: pendiente; el autor de cada uno se anotará al integrarlos |
+

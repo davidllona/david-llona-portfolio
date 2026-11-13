@@ -30,7 +30,8 @@ const MOBILE_UA =
 // `uncapped`: sin límite de 60 fps, para medir rendimiento real.
 // `tips`: con los consejos de Woody activados (bienvenida y frases de zona).
 // Por defecto van apagados: las demás pruebas no esperan a que termine de hablar.
-export async function open({ mobile = false, viewport, query = "", uncapped = false, tips = false } = {}) {
+// `early`: no espera a que el planeta esté listo (para ver la bienvenida mientras se prepara).
+export async function open({ mobile = false, viewport, query = "", uncapped = false, tips = false, early = false } = {}) {
  const browser = await puppeteer.launch({
   executablePath: CHROME,
   headless: "new",
@@ -69,7 +70,7 @@ export async function open({ mobile = false, viewport, query = "", uncapped = fa
  const startedAt = Date.now();
  await page.waitForFunction(() => !document.querySelector("#loader"), { timeout: 90000 });
  // La bienvenida ya se ve; se espera además a que el planeta esté listo para entrar (si lo hay).
- await page.waitForFunction(() => { const enter = document.querySelector(".overlay__enter"); return !enter || !enter.disabled; }, { timeout: 90000 });
+ if (!early) await page.waitForFunction(() => { const enter = document.querySelector(".overlay__enter"); return !enter || !enter.disabled; }, { timeout: 90000 });
  if (process.env.E2E_DEBUG) console.log(`carga: ${((Date.now() - startedAt) / 1000).toFixed(1)} s · backend: ${await page.evaluate(() => window.__world?.backend)}`);
  await wait(400);
 

@@ -43,9 +43,10 @@ function paint(shape, { bark, leaf, vary = 0.14 }) {
  return geometry;
 }
 
-// Devuelve `paint(nombre, gamas)`.
-export function useFlora() {
- const files = useGLTF(NAMES.map(url));
+// Devuelve `paint(nombre, gamas)`. `names`: los modelos que hacen falta (la
+// bienvenida solo pide su árbol; así no espera a los demás).
+export function useFlora(names = NAMES) {
+ const files = useGLTF(names.map(url));
  return useMemo(() => {
   const shapes = {};
   const point = new THREE.Vector3();
@@ -57,9 +58,9 @@ export function useFlora() {
     const source = node.geometry.attributes.position;
     const position = new THREE.BufferAttribute(new Float32Array(source.count * 3), 3);
     for (let i = 0; i < source.count; i++) position.setXYZ(i, ...point.fromBufferAttribute(source, i).applyMatrix4(node.matrixWorld).toArray());
-    shapes[NAMES[n]] = { position, index: node.geometry.index, mask: node.geometry.attributes.color };
+    shapes[names[n]] = { position, index: node.geometry.index, mask: node.geometry.attributes.color };
    });
   });
   return (name, palette) => paint(shapes[name], palette);
- }, [files]);
+ }, [files, names]);
 }

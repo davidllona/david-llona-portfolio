@@ -6,7 +6,7 @@ import { world } from "../worlds";
 import { moveAgent } from "../worlds/collision";
 import { dust, splash } from "./effects/pools";
 import { updateSeeThrough } from "./environment/seeThrough";
-import { WELCOME, emit, input, player, rig, ui } from "./state";
+import { WELCOME, emit, input, player, rig, ui, welcomePose } from "./state";
 
 const WALK_SPEED = 3.6; // m/s
 const RUN_SPEED = 6.2;
@@ -162,7 +162,7 @@ export function Player({ active }) {
   look.set(state.focus.x, state.focus.y + lookUp, state.focus.z);
   // Bienvenida: la cámara está en el islote y, al entrar, viaja hasta aquí.
   if (rig.intro > 0) {
-   const pose = aspect < 1 ? WELCOME.tall : WELCOME.wide;
+   const pose = welcomePose(aspect);
    const k = rig.intro * rig.intro * (3 - 2 * rig.intro);
    const [ox, oy, oz] = WELCOME.origin;
    camera.position.lerp(introPoint.set(ox + pose.camera[0], oy + pose.camera[1], oz + pose.camera[2]), k);

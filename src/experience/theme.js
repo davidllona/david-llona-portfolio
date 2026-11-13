@@ -68,6 +68,8 @@ export const current = Object.fromEntries([
 // miran a la cámara para las luces cálidas).
 const SUN_DAY = new THREE.Vector3(-0.42, 0.78, 0.46).normalize();
 const SUN_NIGHT = new THREE.Vector3(0.38, 0.7, -0.6).normalize();
+// En la bienvenida, la luna queda detrás del islote, a la izquierda.
+const SUN_WELCOME = new THREE.Vector3(-0.52, 0.5, -0.69).normalize();
 export const sunDirection = SUN_DAY.clone();
 
 // Uniformes compartidos por los materiales de nodos (agua, cielo, hierba…).
@@ -150,7 +152,10 @@ export function updateTheme(delta, elapsed) {
  current.skyTop.lerp(SPACE, space);
  current.skyHorizon.lerp(SPACE, space * 0.85);
  current.fogDensity *= 1 - space * 0.8;
- sunDirection.copy(SUN_DAY).lerp(SUN_NIGHT, t).normalize();
+ sunDirection.copy(SUN_DAY).lerp(SUN_NIGHT, t).lerp(SUN_WELCOME, rig.intro).normalize();
+ // En el islote la luna manda menos luz de ambiente: las siluetas se recortan.
+ current.hemiPower *= 1 - rig.intro * 0.5;
+ current.sunPower *= 1 + rig.intro * 1.1;
  uniforms.uNight.value = t;
 
  uniforms.uTime.value = elapsed;

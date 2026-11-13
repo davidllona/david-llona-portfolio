@@ -3,16 +3,42 @@
 Actualizado: 13 de noviembre de 2026 · rama `estacion-espacial` (solo commits locales, sin push).
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git).
-Último objetivo cerrado: **objetivo 8 — fútbol jugable** (13-11-2026, terminado en el Mac; ver su fila en «Terminado y verificado» y lo que queda en «Parcial»).
-**En curso: objetivo 5 — casas y proyectos.** Hecho el paso 1 (una casa de referencia, el taller del Configurador, modelada en Blender) y **parado a la espera del visto bueno** antes de seguir con los pasos 2–8 (ver «Objetivo 5» más abajo).
-Antes: **objetivo 7 — agua y partículas** (12-11-2026; ver su fila en «Terminado y verificado»). El objetivo 6 (árboles y hierba con modelos externos) no se empezó: la carpeta `assets-externos/` no existe.
-Anterior: **objetivo 4 — cohete y errores de terreno** (12-11-2026, terminado en Windows). El proyecto se trabaja ahora en Windows además de en Mac (ver «Windows» más abajo).
-Trabajo en curso: **revisión definitiva de The Living World** (fases A–F del plan del 12-11-2026: carga, estándar artístico, zonas, observatorio y naturaleza, fútbol, validación). Etiqueta de retorno: `antes-revision-definitiva`. Antes: **rediseño artístico de The Living World** (solo el Planeta 1): primero se valida un estándar en la bienvenida y la aldea de proyectos; después se extiende al resto. Modelos propios (kit de código; Blender si hace falta), nada de packs de terceros. Punto de retorno anterior: etiqueta `antes-rediseno-artistico`.
+**En curso: objetivo 15 — bienvenida, carga, baloncesto, proyectos, jardín japonés y pulido** (seis bloques, cada uno con captura y visto bueno). Hecho el **bloque 1 (bienvenida)** y **parado a la espera del visto bueno**; ver «Objetivo 15» más abajo. Siguiente: bloque 2 (pantalla de carga).
+Antes, el 13-11-2026: **árboles y arbusto de slabdsgn (Envato)** en todo el planeta (commit `4e53c5e`); los **sonidos de Envato** de ese mismo encargo siguen sin integrar (los 12 ZIP están en `assets-externos/sonidos/`).
+Objetivo 8 (fútbol jugable) cerrado el 13-11-2026. Objetivo 5 (casas y proyectos): solo el paso 1 (taller); lo retoma el bloque 4 del objetivo 15.
+Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Contents/MacOS/Blender -b` (5.0.1).
+
+## Objetivo 15
+
+| Bloque | Estado |
+|---|---|
+| 1. Bienvenida (islote nocturno) | **Hecho, pendiente de visto bueno.** Capturas en `capturas/16-bienvenida/` (`*-antes` y `*-v5`) |
+| 2. Pantalla de carga (SVG) | Sin empezar |
+| 3. Baloncesto (canasta, valla, puerta, pista, marcador, minijuego) | Sin empezar. Modelos copiados a `assets-externos/modelos/`. Ojo: «Court Net» es en realidad una red de pickleball (`Pickleball Net.glb`), no un panel de valla: hay que mirarlo antes de usarlo |
+| 4. Proyectos (fichas crema, tres casas de stdgaris) | Sin empezar. Las casas vienen solo en `.blend` |
+| 5. Jardín japonés | Sin empezar |
+| 6. Pulido (Woody, logros, trofeo, escalera, imágenes, cielo) | Sin empezar; del cielo ya está el parpadeo de las estrellas |
+
+**Bloque 1, lo que hay** (`src/experience/Welcome.jsx`, `src/experience/intro/isletModels.js`):
+- Islote de contorno irregular hecho con anillos (césped con borde que cuelga, tierra, tres estratos de roca con repisas y punta), raíces y lianas por debajo y cinco rocas flotando que suben y bajan.
+- Árbol: el «frondoso» de slabdsgn con raíces, doce masas pequeñas más en la copa, lianas y cuatro farolillos (armazón + cristal).
+- Luz: la luna es la luz direccional de la escena, que en la bienvenida viene de atrás a la izquierda y da las sombras (`SUN_WELCOME` en `theme.js`; la cámara de sombras se centra en el islote mientras `rig.intro === 1`, en `Lights.jsx`). Farola cálida de alcance corto, relleno azul desde abajo y un punto frío por delante: siguen siendo cuatro luces puntuales que nunca salen de la escena. La sombra «de la farola» es una mancha alargada en el suelo, no un mapa de sombras (una luz puntual con sombras encarecería todos los materiales del planeta).
+- Luna facetada con cráteres y la luz pintada en los vértices, siempre por debajo del blanco; el astro del cielo general se oculta durante la bienvenida.
+- Vida: luciérnagas en curvas lentas, hojas que caen de la copa, estrellas que parpadean (`Sky.jsx`, vale para todo el juego) y una estrella fugaz cada 6–13 s.
+- Astronauta (idle) y Woody sentado (clip `Woody_SitIdle` sin la cola + la cola de `Woody_TailWag_Slow`), un 10 % mayores que en el juego.
+- Encuadre: `welcomePose(aspect)` en `state.js` calcula cámara y punto de mira para que el islote entre siempre entero (mitad derecha en horizontal, centrado en vertical).
+- «Preparando el planeta…» / «Haz clic para aterrizar» van bajo el título (en vertical, al pie), más grandes.
+- Medidas (build de producción, este Mac): la bienvenida aparece a los 1,26–1,34 s (antes 1,20–1,26 s) y se puede entrar a los 3,6–3,7 s (antes 3,4–3,5 s). 0 pipelines compilados en caliente al entrar y al despegar.
+- Sin comprobar en captura: la estrella fugaz y el movimiento de la cola de Woody (queda detrás de su cuerpo desde la cámara).
 
 ## Cómo arrancarlo y probarlo
 
 ```
 npm run dev -- --port 5199     # http://localhost:5199
+node tests/e2e/welcome.mjs     # capturas de la bienvenida (escritorio, panorámico, móvil vertical); no comprueba nada
+node tests/e2e/trees.mjs       # capturas de los árboles; no comprueba nada
+node tests/perf/peso.mjs       # peso descargado en la primera visita (build de producción en el 5198)
+node tests/perf/fps.mjs        # fps en cinco puntos
 npm run e2e                    # 260 comprobaciones en Chrome sin ventana (con el servidor encendido)
 node tests/e2e/football.mjs    # fútbol de principio a fin, con fotogramas de cada tiro (incluida en e2e)
 node tests/e2e/woody.mjs       # bocadillos, ritmo, descanso, cuestas y ruta guiada (incluida en e2e)
@@ -169,7 +195,7 @@ Rendimiento medido en el Mac a 2880 × 1620 sobre WebGPU: 192–221 fps tras el 
 
 - **Windows, al entrar al planeta**: dos huecos de ~95 y ~125 ms justo tras el clic (en el Mac eran 0). No es compilación (0 pipelines en caliente) y ya ocurre con el commit anterior; causa sin identificar. Medido en desarrollo, no en la build de producción.
 - Los 113–117 fps que da `living.mjs fps` en este equipo Windows no son comparables con las cifras del Mac (otra máquina y otra GPU).
-- `life.mjs` falló una vez en el Mac en «y todo vuelve a la calma» (espera 9 s a que acabe la ráfaga) y pasó en las dos pasadas siguientes, también con el commit anterior: es intermitente, no viene del fútbol.
+- `life.mjs` fallaba a ratos en «y todo vuelve a la calma»: era la ráfaga floja (0,6) que el bosque lanza solo de vez en cuando, que coincidía con la comprobación. La prueba ya la distingue de la del carillón.
 - Una pasada de `progress.mjs` falló una vez en las caricias a Woody y no se ha vuelto a reproducir en cinco pasadas seguidas. Causa sin identificar.
 - El paquete principal pesa 1,36 MB (413 kB comprimido); Vite avisa. Trocearlo queda para la fase 12.
 - En el planeta antiguo (`cosmic`) los pasos suenan siempre a camino y no hay sonido de agua.

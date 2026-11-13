@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { mix, positionLocal, smoothstep } from "three/tsl";
+import { hash, instanceIndex, mix, positionLocal, sin, smoothstep, uniform, vec3 } from "three/tsl";
 import { unlit } from "./materials";
 import { createGlowTexture } from "./textures";
+import { rig } from "./state";
 import { current, registerGlow, sunDirection, uniforms } from "./theme";
 
 // Generador con semilla: las estrellas salen siempre en el mismo sitio.
@@ -12,10 +13,19 @@ function seeded(seed) {
  return () => ((state = (state * 16807) % 2147483647) / 2147483647);
 }
 
-// Estrellas: plaquitas repartidas por la cúpula, mirando al centro. Solo se ven de noche.
+// Estrellas: plaquitas repartidas por la cúpula, mirando al centro. Solo se
+// ven de noche. Cada una parpadea un poco, a su ritmo (lo calcula el sombreador).
 function Stars({ count }) {
  const mesh = useRef(null);
- const material = useMemo(() => new THREE.MeshBasicMaterial({ color: "#eaf2ff", transparent: true, opacity: 0, depthWrite: false, fog: false, toneMapped: false }), []);
+ const { material, shown } = useMemo(() => {
+  const shown = uniform(0);
+  const material = unlit({ transparent: true, depthWrite: false, fog: false });
+  const seed = hash(instanceIndex);
+  const twinkle = sin(uniforms.uTime.mul(seed.mul(1.7).add(0.5)).add(seed.mul(60))).mul(0.3).add(0.7);
+  material.colorNode = vec3(0.86, 0.9, 1.0);
+  material.opacityNode = shown.mul(twinkle);
+  return { material, shown };
+ }, []);
  useEffect(() => {
   const random = seeded(4242);
   const helper = new THREE.Object3D();
@@ -31,12 +41,12 @@ function Stars({ count }) {
    mesh.current.setMatrixAt(i, helper.matrix);
   }
   mesh.current.instanceMatrix.needsUpdate = true;
-  const stop = registerGlow(material, 0, 1, "opacity");
+  const stop = registerGlow(shown, 0, 1, "value");
   return () => {
    stop();
    material.dispose();
   };
- }, [count, material]);
+ }, [count, material, shown]);
  return (
   <instancedMesh ref={mesh} args={[undefined, material, count]} frustumCulled={false}>
    <planeGeometry args={[1, 1]} />
@@ -78,6 +88,8 @@ export function Sky({ stars = 3000 }) {
   halo.current.material.color.copy(current.sun);
   halo.current.material.opacity = 0.5 - night * 0.15;
   orb.current.scale.setScalar(30 - night * 8);
+  // En la bienvenida la luna es la del islote (Welcome.jsx): esta no se ve.
+  orb.current.visible = halo.current.visible = rig.intro < 1;
  });
 
  return (

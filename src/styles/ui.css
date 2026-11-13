@@ -1107,18 +1107,18 @@
  color: #d9dbe8;
 }
 
-/* Indicación de entrada: junto a los personajes, con trazo a mano. */
+/* Indicación de entrada: bajo el título, con trazo a mano. */
 .intro__hint {
- position: absolute;
- left: 37%;
- bottom: clamp(150px, 31vh, 300px);
- width: clamp(190px, 18vw, 270px);
- transform: rotate(-3deg);
+ position: relative;
+ width: max-content;
+ max-width: 100%;
+ margin-top: clamp(22px, 4.5vh, 44px);
 }
 
 .hint__scribble {
  display: block;
- width: 100%;
+ width: clamp(250px, 23vw, 350px);
+ margin-top: 6px;
  overflow: visible;
  fill: none;
  stroke: var(--color-primary);
@@ -1158,25 +1158,37 @@
 }
 
 .overlay__enter.intro__enter {
- position: absolute;
- left: 0;
- top: 0;
+ position: static;
+ display: block;
  margin: 0;
  padding: 0 4px;
  border-radius: 0;
  background: none;
  box-shadow: none;
- color: #f6ead6;
- font-size: clamp(1.05rem, 1.5vw, 1.4rem);
+ color: #fff4e0;
+ font-size: clamp(1.3rem, 1.95vw, 1.85rem);
  font-weight: 700;
  letter-spacing: 0.01em;
  white-space: nowrap;
+ text-shadow: 0 2px 14px rgba(4, 4, 20, 0.9);
  animation: hint-bob 2.3s ease-in-out infinite;
 }
 
+/* Mientras se prepara el planeta: mismo tamaño, algo más apagado y latiendo. */
 .overlay__enter.intro__enter:disabled {
- color: var(--color-text-muted);
- animation: none;
+ color: #e6e9f7;
+ opacity: 1;
+ animation: hint-wait 1.6s ease-in-out infinite;
+}
+
+.intro__hint--waiting .hint__scribble {
+ visibility: hidden;
+}
+
+@keyframes hint-wait {
+ 50% {
+  opacity: 0.68;
+ }
 }
 
 .overlay__enter.intro__enter:not(:disabled):hover {
@@ -1232,15 +1244,19 @@
  }
 
  .intro__hint {
+  position: fixed;
   left: 50%;
-  bottom: 64px;
-  width: 210px;
-  height: 56px;
-  transform: translateX(-50%) rotate(-3deg);
+  bottom: clamp(26px, 5.5vh, 60px);
+  margin: 0;
+  transform: translateX(-50%);
+ }
+
+ .overlay__enter.intro__enter {
+  font-size: clamp(1.35rem, 5.6vw, 1.8rem);
  }
 
  .hint__scribble {
-  height: 100%;
+  width: 100%;
  }
 
  .hint__arrow {

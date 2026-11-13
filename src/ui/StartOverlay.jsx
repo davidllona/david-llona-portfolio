@@ -56,12 +56,13 @@ const TOUCH_CONTROLS = [
  { action: "Correr", art: <StickIcon pushed /> },
 ];
 
-// Indicación de entrada dibujada a mano: una flecha y un subrayado que se trazan solos.
+// Indicación de entrada dibujada a mano: un subrayado y una flecha hacia el
+// islote que se trazan solos.
 const Scribble = () => (
- <svg className="hint__scribble" viewBox="0 0 260 130" aria-hidden="true">
-  <path className="hint__underline" d="M4 40c36-6 74-1 108-5 30-3 62 3 92-3" pathLength="1" />
-  <path className="hint__arrow" d="M150 52c30 2 54 14 70 34 6 8 10 17 12 27" pathLength="1" />
-  <path className="hint__arrow hint__arrow--head" d="M214 98c7 6 12 11 18 16 2-10 5-18 11-27" pathLength="1" />
+ <svg className="hint__scribble" viewBox="0 0 330 46" aria-hidden="true">
+  <path className="hint__underline" d="M4 9c38-6 80-1 116-5 32-3 66 3 98-3" pathLength="1" />
+  <path className="hint__arrow" d="M236 8c26-4 50 0 70 13" pathLength="1" />
+  <path className="hint__arrow hint__arrow--head" d="M290 7c7 5 12 9 18 15-9 3-17 7-24 13" pathLength="1" />
  </svg>
 );
 
@@ -82,14 +83,14 @@ export function StartOverlay({ visible, intro, ready, touch, onPointerDown, onEn
       David <span>Llona</span>
      </h1>
      <p className="overlay__lead">Un planeta para explorar con Woody. Dentro está mi trabajo.</p>
+     {/* La indicación de entrada va con el título (en vertical, al pie): nunca encima de la escena. */}
+     <div className={`intro__hint${ready ? "" : " intro__hint--waiting"}`}>
+      <button type="button" className="overlay__enter intro__enter" tabIndex={visible ? 0 : -1} disabled={!ready}>
+       {!ready ? "Preparando el planeta…" : touch ? "Toca para aterrizar" : "Haz clic para aterrizar"}
+      </button>
+      <Scribble />
+     </div>
     </header>
-
-    <div className="intro__hint">
-     <Scribble />
-     <button type="button" className="overlay__enter intro__enter" tabIndex={visible ? 0 : -1} disabled={!ready}>
-      {!ready ? "Preparando el planeta…" : touch ? "Toca para aterrizar" : "Haz clic para aterrizar"}
-     </button>
-    </div>
 
     <footer className="intro__foot">
      <ul className="intro__keys" aria-label="Controles">

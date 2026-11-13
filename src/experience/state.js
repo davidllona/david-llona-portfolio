@@ -46,13 +46,35 @@ export function zoomBy(factor) {
 // `intro`: 1 mientras se muestra la bienvenida (la cámara está en el islote, de
 // noche) y baja a 0 al entrar; `introTarget` es hacia dónde va.
 
-// Dónde está el islote de la bienvenida y desde dónde se mira (ver Welcome.jsx).
-export const WELCOME = {
- origin: [0, 150, 78],
- // Cámara y punto al que mira, relativos al islote; en vertical, más lejos y centrada.
- wide: { camera: [-2.9, 2.5, 13.4], look: [-2.8, 2.05, 0] },
- tall: { camera: [0.2, 3.6, 24], look: [0.2, 3.3, 0] },
-};
+// Dónde está el islote de la bienvenida y cómo se encuadra (ver Welcome.jsx).
+//  · centre: el punto medio del islote (del pico de roca a la copa);
+//  · span: lo que mide de alto y de ancho contando las rocas que flotan.
+export const WELCOME = { origin: [0, 150, 78], centre: 0.62, span: [9.0, 7.5], fov: 40 };
+const pose = { camera: [0, 0, 0], look: [0, 0, 0] };
+// Cámara y punto al que mira, relativos al islote, para una ventana de
+// proporción `aspect`. El islote entra siempre entero: en horizontal ocupa la
+// mitad derecha (el título va a la izquierda); en vertical va centrado, entre
+// el título y la indicación de entrada.
+export function welcomePose(aspect) {
+ const [tall, wide] = WELCOME.span;
+ const slope = 2 * Math.tan((WELCOME.fov * Math.PI) / 360);
+ let height, x, y;
+ if (aspect < 1) {
+  // Alto visible: el islote cabe a lo ancho y, a lo alto, en el 60 % central.
+  height = Math.max(wide / aspect, tall / 0.6);
+  x = 0;
+  y = WELCOME.centre + height * 0.05;
+ } else {
+  // El islote ocupa como mucho el 54 % derecho de la ventana.
+  height = Math.max(tall / 0.9, wide / 0.54 / aspect);
+  x = -height * aspect * 0.225;
+  y = WELCOME.centre + height * 0.01;
+ }
+ const distance = height / slope;
+ pose.camera = [x, y + distance * 0.085, distance];
+ pose.look = [x, y, 0];
+ return pose;
+}
 
 // Avisos puntuales de la escena a la interfaz: "hint", "toast", "open",
 // "score", "flash"…

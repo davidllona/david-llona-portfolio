@@ -2,13 +2,14 @@ import { useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { trailAt, updateTrail } from "./environment/trail";
 import { startGust, updateWind, windDebug } from "./environment/wind";
-import { player, rig, woody } from "./state";
+import { WELCOME, player, rig, woody } from "./state";
 import { current, sunDirection, updateTheme } from "./theme";
 
 // Para depurar en la consola y para las pruebas automáticas.
 if (import.meta.env.DEV) window.__world.env = { ...windDebug, startGust, trailAt };
 
 const SHADOW_REACH = 38; // m alrededor del jugador con sombras
+const islet = { x: WELCOME.origin[0], y: WELCOME.origin[1], z: WELCOME.origin[2] };
 
 // Dos luces para toda la escena: una ambiente (cielo/suelo) y el sol con
 // sombras, que sigue al jugador para concentrar ahí la resolución. Este
@@ -43,13 +44,16 @@ export function Lights({ shadowMapSize }) {
 
   // La cámara de sombras se centra en lo que sigue la cámara, a saltos del
   // tamaño de un píxel del mapa para que las sombras no tiemblen al andar.
-  const focus = rig.focus ?? player.position;
+  // (Mientras se ve la bienvenida, en el islote: allí las sombras son las de la luna.)
+  const welcome = rig.intro === 1;
+  const focus = welcome ? islet : (rig.focus ?? player.position);
   const texel = (SHADOW_REACH * 2) / shadowMapSize;
   const x = Math.round(focus.x / texel) * texel;
   const z = Math.round(focus.z / texel) * texel;
-  sun.current.position.set(x + sunDirection.x * 90, sunDirection.y * 90, z + sunDirection.z * 90);
+  const y = welcome ? focus.y : 0;
+  sun.current.position.set(x + sunDirection.x * 90, y + sunDirection.y * 90, z + sunDirection.z * 90);
   sun.current.shadow.intensity = current.shadow;
-  sun.current.target.position.set(x, 0, z);
+  sun.current.target.position.set(x, y, z);
   sun.current.target.updateMatrixWorld();
  });
 

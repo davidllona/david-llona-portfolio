@@ -114,6 +114,8 @@ check(Math.max(...flying) >= 3 && flying[0] < Math.max(...flying), `las aves des
 check(end.z > start.z + 4, `el jugador conserva el control durante el evento (avanza ${(end.z - start.z).toFixed(1)} m)`);
 await wait(9000);
 const calm = await t.evaluate(() => ({ front: window.__world.env.windGust.value.z, strength: window.__world.env.windGust.value.w }));
-check(calm.strength === 0, `y todo vuelve a la calma (frente a ${Math.round(calm.front)} m, fuerza ${calm.strength})`);
+// (El bosque lanza por su cuenta, de tarde en tarde, una ráfaga floja (0,6): si
+// coincide, no es que la del carillón (1) siga en marcha.)
+check(calm.strength < 1, `y la ráfaga del carillón termina (frente a ${Math.round(calm.front)} m, fuerza ${calm.strength})`);
 await t.shot("bosque-9-calma");
 await t.done();
