@@ -61,7 +61,7 @@ Descargados por David Llona con su licencia de Envato. Los archivos originales e
 | Original | Autor | Para qué |
 |---|---|---|
 | «Basketball 3D Icons» (`05_Basketball`) | twinstd | Canasta de la pista (objetivo 15, bloque 3) |
-| «Court Net» (el archivo se llama `Pickleball Net`) | spacepixelcreative | Valla de la pista (bloque 3) |
+| «Court Net» (el archivo se llama `Pickleball Net`) | spacepixelcreative | **No se usa**: es una red de pickleball, no una valla. La valla de la pista se hace a mano |
 | «Small Country House with Green Roof and Fireplace», «Small House with Red Roof and Chimney», «Small House with Blue Roof», «Compact Residence with Dual Contemporary Balconies», «Island Cabin with Outdoor Seating» | stdgaris | Edificios de proyectos, Sobre mí y pabellón del jardín (bloques 4 y 5) |
 | «Torii Gate» | mrfauzi | Entrada del jardín japonés (bloque 5) |
 | Doce sonidos (mar, grillos, bosque, cascada, arroyo, dos de cohete, pasos en hierba, red, poste, salpicadura, pop) | varios (Envato) | Sonido del planeta: pendiente; el autor de cada uno se anotará al integrarlos |

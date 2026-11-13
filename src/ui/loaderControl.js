@@ -34,8 +34,9 @@ export function stage(id) {
  if (id === "shaders") finished = true;
 }
 
-// Avanza el número hacia el objetivo, deprisa y sin saltos, y al llegar al
-// final se retira: el astronauta se incorpora y la escena se funde con la bienvenida.
+// Avanza el número hacia el objetivo, deprisa y sin saltos. Al llegar al final
+// no se queda parado en el 100 %: en ese mismo fotograma empieza a fundirse con
+// la bienvenida, que ya está dibujada detrás.
 function tick() {
  const root = element();
  if (!root) return;
@@ -43,13 +44,12 @@ function tick() {
  shown = finished ? 100 : Math.min(target, shown + Math.max(0.6, (target - shown) * 0.2));
  document.getElementById("loader-number").textContent = String(Math.round(shown));
  document.getElementById("loader-bar").style.transform = `scaleX(${shown / 100})`;
- if (finished && shown >= 100) {
-  root.classList.add("is-done");
-  window.setTimeout(() => {
-   root.classList.add("is-leaving");
-   onGone?.();
-   window.setTimeout(() => root.remove(), 800);
-  }, 520);
+ if (finished) {
+  const step = document.getElementById("loader-step");
+  if (step) step.textContent = "";
+  root.classList.add("is-leaving");
+  onGone?.();
+  window.setTimeout(() => root.remove(), 800);
   return;
  }
  requestAnimationFrame(tick);
