@@ -108,24 +108,6 @@ function fern(seed) {
  return merge(pieces);
 }
 
-// Arbusto: tres masas; con bayas o con flor según la variante.
-function bush(seed, dots) {
- const random = randomFrom(seed);
- const pieces = [
-  [0, 0.42, 0, 0.62],
-  [0.42, 0.3, 0.16, 0.42],
-  [-0.36, 0.28, -0.2, 0.44],
- ].map(([x, y, z, size], i) => piece(blob(1), { bottom: "#3a8a47", top: "#86c95e", jitter: 0.17, vary: 0.07, seed: seed * 9 + i, position: [x, y, z], rotation: [random() * 3, random() * 3, 0], scale: [size, size * 0.8, size] }));
- if (dots) {
-  for (let i = 0; i < 9; i++) {
-   const angle = random() * 6, up = 0.3 + random() * 0.55;
-   const radius = 0.55 * Math.sqrt(Math.max(0.05, 1 - ((up - 0.42) / 0.62) ** 2));
-   pieces.push(piece(new THREE.OctahedronGeometry(0.05, 0), { color: dots, position: [Math.cos(angle) * radius, up, Math.sin(angle) * radius] }));
-  }
- }
- return merge(pieces, { ground: 0.25, groundHeight: 0.5 });
-}
-
 // Juncos y espadañas.
 function reeds(seed) {
  const random = randomFrom(seed);
@@ -193,7 +175,6 @@ export function createPlantModels() {
   },
   clover: clover(),
   ferns: [fern(0.15), fern(0.6)],
-  bushes: [bush(0.2), bush(0.5, "#d8403a"), bush(0.8, "#fff1f6")],
   reeds: [reeds(0.3), reeds(0.7)],
   mushrooms: [mushrooms("#c9412f", "#f0603f"), mushrooms("#b9824f", "#e3bc85")],
   rocks: [rock(0.2), rock(0.62), rock(0.9)],

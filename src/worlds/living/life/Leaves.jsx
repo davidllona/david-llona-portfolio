@@ -4,6 +4,7 @@ import { attribute, cos, fract, length, mix, positionLocal, sin, smoothstep, ste
 import { windDirection, windGust, windStrength } from "../../../experience/environment/wind";
 import { unlit } from "../../../experience/materials";
 import { uniforms } from "../../../experience/theme";
+import { MODELS } from "../flora/species";
 import { ANCIENT_TREES, SCATTER, height } from "../layout";
 
 // Hojas y pétalos que caen de las copas, y motas de polen que flotan de día
@@ -23,14 +24,15 @@ function seeded(seed) {
  };
 }
 
-// Altura de copa (por metro de escala), colores de hoja y cuántas le tocan.
+// Colores de hoja y cuántas le tocan a cada especie (la altura y el ancho de la
+// copa salen del modelo; la del árbol viejo, de aquí).
 const CROWNS = {
- oak: { top: 3.5, colors: ["#8fcf62", "#a3d86a", "#d6c35a"], share: 1 },
- maple: { top: 3.5, colors: ["#f6b24a", "#f08a43", "#f8d25c"], share: 1.6 },
- poplar: { top: 4.6, colors: ["#a8dc70", "#b7e27a", "#e2d870"], share: 1 },
- birch: { top: 3.7, colors: ["#d6e676", "#e2ec84", "#f0dc6a"], share: 1.2 },
- cherry: { top: 3.1, colors: ["#ffc4dc", "#ffd9e8", "#ff9fc4"], share: 2.6, petal: true },
- willow: { top: 3.3, colors: ["#b9dc7a", "#9fcf68"], share: 1 },
+ oak: { colors: ["#8fcf62", "#a3d86a", "#d6c35a"], share: 1 },
+ maple: { colors: ["#f6b24a", "#f08a43", "#f8d25c"], share: 1.6 },
+ poplar: { colors: ["#a8dc70", "#b7e27a", "#e2d870"], share: 1 },
+ birch: { colors: ["#d6e676", "#e2ec84", "#f0dc6a"], share: 1.2 },
+ cherry: { colors: ["#ffc4dc", "#ffd9e8", "#ff9fc4"], share: 2.6, petal: true },
+ willow: { colors: ["#b9dc7a", "#9fcf68"], share: 1 },
  old: { top: 6.2, colors: ["#8fcf62", "#b9dc7a", "#d6c35a"], share: 3 },
 };
 
@@ -39,7 +41,8 @@ function leafyTrees() {
  const list = [];
  for (const tree of SCATTER.trees) {
   const crown = CROWNS[tree.kind];
-  if (crown) list.push({ x: tree.x, z: tree.z, top: crown.top * tree.scale, spread: 1.5 * tree.scale, crown });
+  const model = MODELS[tree.model];
+  if (crown) list.push({ x: tree.x, z: tree.z, top: model.height * 0.82 * tree.scale, spread: model.spread * 0.6 * tree.scale, crown });
  }
  for (const tree of ANCIENT_TREES) list.push({ x: tree.x, z: tree.z, top: CROWNS.old.top * tree.scale, spread: 3.2 * tree.scale, crown: CROWNS.old });
  return list;

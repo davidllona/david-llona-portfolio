@@ -6,6 +6,8 @@ import { withSeeThrough } from "../../../experience/environment/seeThrough";
 import { lambert } from "../../../experience/materials";
 import { POND, SCATTER, WATER_LEVEL, settle, surface } from "../layout";
 import { createPlantModels } from "./plantModels";
+import { BUSH_LEAF } from "./species";
+import { useFlora } from "./useFlora";
 
 // Matices por instancia: casi blancos, para que una pradera no sea un solo verde.
 const GRASS_TINTS = ["#ffffff", "#f2ffe6", "#fff8dc", "#e6f6ea", "#f6f0d2"];
@@ -18,6 +20,10 @@ const split = (list, variants, by = (item) => item.seed) => variants.map((_, i) 
 // plantas se mecen con el viento y se apartan al paso.
 export function Plants() {
  const models = useMemo(createPlantModels, []);
+ // El arbusto es un modelo (flora/species.js), con tres gamas de verde.
+ const paint = useFlora();
+ const bushes = useMemo(() => BUSH_LEAF.map((leaf) => paint("mata", { bark: leaf, leaf, vary: 0.2 })), [paint]);
+ useEffect(() => () => bushes.forEach((geometry) => geometry.dispose()), [bushes]);
  const material = useMemo(
   () => ({
    // Cada especie cede al viento a su manera (ver WIND.flex) y se aparta al paso.
@@ -25,7 +31,7 @@ export function Plants() {
    flowers: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.flower, cap: 0.45, trail: 1 }),
    ferns: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.fern, cap: 0.45, trail: 0.7 }),
    reeds: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.reed, cap: 1.4, trail: 0.5 }),
-   bushes: withWind(lambert(), { flex: WIND.flex.bush, power: 1.5, cap: 1.1 }),
+   bushes: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.bush, power: 1.5, cap: 1.1 }),
    still: lambert(),
    rocks: withSeeThrough(lambert()), // la roca que tape al astronauta se vuelve translúcida
   }),
@@ -71,7 +77,8 @@ export function Plants() {
    flowers,
    clover: SCATTER.clover.map((c) => plant(c, 0.9 + c.seed * 0.7)),
    ferns: split(SCATTER.ferns, models.ferns).map((list) => list.map((f) => plant(f, 0.75 + f.seed * 0.7))),
-   bushes: split(SCATTER.bushes, models.bushes).map((list) => list.map((b) => plant(b, b.scale * 1.25))),
+   // Matas: unas más anchas y otras más altas, cada una con su matiz.
+   bushes: split(SCATTER.bushes, BUSH_LEAF).map((list) => list.map((b) => ({ ...plant(b, [b.scale * (0.7 + ((b.seed * 53) % 1) * 0.3), b.scale * (0.75 + ((b.seed * 31) % 1) * 0.4), b.scale * (0.7 + ((b.seed * 17) % 1) * 0.3)], -0.04), color: pick(GRASS_TINTS, (b.seed * 13) % 1) }))),
    reeds: split(SCATTER.reeds, models.reeds).map((list) => list.map((r) => plant(r, 0.85 + r.seed * 0.5, -0.05))),
    mushrooms: split(SCATTER.mushrooms, models.mushrooms).map((list) => list.map((m) => plant(m, 0.9 + m.seed * 0.9))),
    rocks: split(stones.filter((r) => !r.mossy), models.rocks).map((list) => list.map(toRock)),
@@ -91,7 +98,7 @@ export function Plants() {
    {Object.entries(models.flowers).map(([kind, geometry]) => items.flowers[kind].length > 0 && <Instances key={kind} name="flor" rests={0} geometry={geometry} material={material.flowers} items={items.flowers[kind]} />)}
    <Instances name="trébol" rests={0} geometry={models.clover} material={material.still} items={items.clover} receiveShadow />
    {each("helecho", models.ferns, items.ferns, material.ferns)}
-   {each("arbusto", models.bushes, items.bushes, material.bushes, { castShadow: true, receiveShadow: true })}
+   {each("arbusto", bushes, items.bushes, material.bushes, { colored: true, castShadow: true, receiveShadow: true })}
    {each("junco", models.reeds, items.reeds, material.reeds, { rests: "water" })}
    {each("seta", models.mushrooms, items.mushrooms, material.still, { castShadow: true })}
    {/* Las rocas asoman del suelo: la mitad va enterrada a propósito (`sinks`). */}

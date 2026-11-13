@@ -9,6 +9,7 @@
 //   (cabañas)  ─────── COHETE ───── puente ────┼── CONTACTO
 //                         │                    ╰~~~~ mar
 //        FÚTBOL        BALONCESTO
+import { MODELS as TREE_MODELS, modelOf } from "./flora/species.js";
 
 export const WATER_LEVEL = -0.25;
 const MAX_WADE = -0.85; // hasta dónde se mete el astronauta en el agua
@@ -459,7 +460,8 @@ const trees = allTrees.map((tree) => {
  else if (CHERRY_GROVES.some((grove) => distance(x, z, grove.x, grove.z) < grove.r) && roll < 0.8) kind = "cherry";
  else if (north) kind = roll < 0.46 ? "pine" : roll < 0.66 ? "birch" : roll < 0.78 ? "poplar" : "oak";
  else kind = roll < 0.09 ? "pine" : roll < 0.2 ? "birch" : roll < 0.3 ? "maple" : roll < 0.42 ? "poplar" : roll < 0.48 ? "cherry" : "oak";
- return { ...tree, kind, scale: 0.84 + ((roll * 7919) % 1) * 0.5 };
+ // Cada especie se planta con uno de sus modelos (flora/species.js).
+ return { ...tree, kind, model: modelOf(kind, roll), scale: 0.84 + ((roll * 7919) % 1) * 0.5 };
 });
 // Huellas de los edificios y carteles: dentro no crece nada.
 const FOOTPRINTS = [
@@ -511,7 +513,7 @@ export function grassAmount(x, z, kind = surface(x, z)) {
 // ¿Queda a la sombra de un árbol?
 export const inShade = (x, z) => shadeSpots.some((spot) => (spot.x - x) ** 2 + (spot.z - z) ** 2 < spot.r2);
 
-shadeSpots = trees.map((t) => ({ x: t.x, z: t.z, r2: (t.kind === "willow" ? 2.3 : 1.7) ** 2 * t.scale ** 2 }));
+shadeSpots = trees.map((t) => ({ x: t.x, z: t.z, r2: (TREE_MODELS[t.model].spread * 0.7 * t.scale) ** 2 }));
 
 const rocks = scatter(40, { margin: -0.4, spacing: 2.4, others: trees, accept: (x, z, y) => y > -0.2 && pathDistance(x, z) > 2.9 }).map((r) => ({ ...r, scale: 0.4 + r.seed * 0.85 }));
 // Rocas al pie del acantilado, para que la pared no nazca del suelo a pelo.
@@ -711,7 +713,7 @@ export const SCATTER = { trees, ...seated, flowers: Object.values(seated.flowers
 // ── Colisiones ──────────────────────────────────────────────────────────────
 const shipCollider = { x: PAD.x, z: PAD.z, r: 2.3, active: true };
 const colliders = [
- ...trees.map((t) => ({ x: t.x, z: t.z, r: (t.kind === "willow" ? 0.55 : 0.42) * t.scale })),
+ ...trees.map((t) => ({ x: t.x, z: t.z, r: TREE_MODELS[t.model].trunk * t.scale })),
  ...ANCIENT_TREES.map((t) => ({ x: t.x, z: t.z, r: 1.35 * t.scale })),
  ...seated.rocks.filter((r) => r.scale > 0.75).map((r) => ({ x: r.x, z: r.z, r: 0.8 * r.scale })),
  ...seated.cliffRocks.map((r) => ({ x: r.x, z: r.z, r: 0.75 * r.scale })),

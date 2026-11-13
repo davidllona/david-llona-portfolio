@@ -52,3 +52,6 @@ folio-2025-main/
 # Python (scripts de Blender)
 __pycache__/
 *.pyc
+
+# Originales con licencia (Envato): se quedan en local, nunca al repositorio
+assets-externos/

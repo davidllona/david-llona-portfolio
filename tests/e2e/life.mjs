@@ -114,6 +114,6 @@ check(Math.max(...flying) >= 3 && flying[0] < Math.max(...flying), `las aves des
 check(end.z > start.z + 4, `el jugador conserva el control durante el evento (avanza ${(end.z - start.z).toFixed(1)} m)`);
 await wait(9000);
 const calm = await t.evaluate(() => ({ front: window.__world.env.windGust.value.z, strength: window.__world.env.windGust.value.w }));
-check(calm.strength === 0, "y todo vuelve a la calma");
+check(calm.strength === 0, `y todo vuelve a la calma (frente a ${Math.round(calm.front)} m, fuerza ${calm.strength})`);
 await t.shot("bosque-9-calma");
 await t.done();
