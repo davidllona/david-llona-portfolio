@@ -1,6 +1,7 @@
 // Planeta 1 · The Living World: que se puede llegar a todo andando, que cada
 // zona abre su contenido real y que los eventos del bosque funcionan.
 //   node tests/e2e/living.mjs [fps]
+import { distanceTo } from "../../src/worlds/collision.js";
 import { open, check, wait } from "./common.mjs";
 import { living } from "../../src/worlds/living/layout.js";
 import { PROJECTS } from "../../src/content/projects.js";
@@ -18,8 +19,8 @@ for (const [from, to] of links) {
   const x = ax + ((bx - ax) * i) / steps;
   const z = az + ((bz - az) * i) / steps;
   if (living.blocked(x, z, y)) problem = `pared o agua honda en (${x.toFixed(1)}, ${z.toFixed(1)})`;
-  const hit = living.colliders.find((c) => c.active !== false && Math.hypot(c.x - x, c.z - z) < c.r + 0.42);
-  if (hit) problem = `obstáculo en (${hit.x.toFixed(1)}, ${hit.z.toFixed(1)})`;
+  const hit = living.colliders.find((c) => c.active !== false && distanceTo(c, x, z) < c.r + 0.42);
+  if (hit) problem = `obstáculo en (${x.toFixed(1)}, ${z.toFixed(1)})`;
   y = living.height(x, z);
  }
  check(!problem, `camino ${from} → ${to}${problem ? ": " + problem : ""}`);

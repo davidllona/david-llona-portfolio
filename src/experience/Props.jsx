@@ -111,7 +111,7 @@ function Explosions({ pool }) {
 
 function Crate({ body, register }) {
  return (
-  <group ref={(node) => register(body.id, node)}>
+  <group name="caja" ref={(node) => register(body.id, node)}>
    <mesh position-y={0.5} castShadow receiveShadow>
     <boxGeometry args={[0.96, 0.96, 0.96]} />
     <meshLambertMaterial color="#f2b25c" flatShading />
@@ -140,7 +140,7 @@ function Barrel({ body, register, explode }) {
   action: () => explode(body),
  });
  return (
-  <group ref={(node) => register(body.id, node)} {...click}>
+  <group name="barril" ref={(node) => register(body.id, node)} {...click}>
    <mesh position-y={0.6} castShadow>
     <cylinderGeometry args={[0.44, 0.44, 1.2, 10]} />
     <meshLambertMaterial color="#ff3d2e" flatShading />

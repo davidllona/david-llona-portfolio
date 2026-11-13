@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { Instances } from "../../experience/Instances";
 import { groundColor } from "./groundColor";
 import { randomFrom } from "./kit/geometry";
-import { BRIDGES, PAD, PATHS, PLAZA, groundHeight, noise2, settle, surface } from "./layout";
+import { BRIDGES, PAD, PATHS, PLAZA, bridgeArc, bridgeSlope, groundHeight, noise2, settle, surface } from "./layout";
 import { cobble, createCobble } from "./props/cobbles";
 import { Water } from "./water/Water";
 import { Waterfall } from "./water/Waterfall";
@@ -70,8 +70,8 @@ function Bridges() {
    const count = Math.round(length / 0.62);
    for (let i = 0; i < count; i++) {
     const t = (i + 0.5) / count;
-    const y = 0.12 + Math.sin(t * Math.PI) * bridge.rise;
-    const slope = Math.atan((Math.cos(t * Math.PI) * Math.PI * bridge.rise) / length);
+    const y = bridgeArc(bridge, t);
+    const slope = Math.atan(bridgeSlope(bridge, t) / length);
     // Tablones a lo ancho, siguiendo el arco.
     list.push({ position: [ax + (bx - ax) * t, y - 0.07, az + (bz - az) * t], rotation: [0, yaw, slope], scale: [0.54, 1, bridge.width + 0.5], color: i % 2 ? "#b9824f" : "#a87343" });
     // Postes de la barandilla, uno de cada dos tablones.
@@ -89,14 +89,14 @@ function Bridges() {
      const t = (i + 0.5) / 6;
      const nx = (-(bz - az) / length) * side * (bridge.width / 2 + 0.2);
      const nz = ((bx - ax) / length) * side * (bridge.width / 2 + 0.2);
-     const slope = Math.atan((Math.cos(t * Math.PI) * Math.PI * bridge.rise) / length);
-     list.push({ position: [ax + (bx - ax) * t + nx, 0.12 + Math.sin(t * Math.PI) * bridge.rise + 0.95, az + (bz - az) * t + nz], rotation: [0, yaw, slope], scale: [length / 6 + 0.06, 1, 0.14], color: "#7d5233" });
+     const slope = Math.atan(bridgeSlope(bridge, t) / length);
+     list.push({ position: [ax + (bx - ax) * t + nx, bridgeArc(bridge, t) + 0.95, az + (bz - az) * t + nz], rotation: [0, yaw, slope], scale: [length / 6 + 0.06, 1, 0.14], color: "#7d5233" });
     }
    }
   }
   return list;
  }, []);
- return <Instances geometry={plank} material={wood} items={items} colored castShadow receiveShadow />; // (sigue el arco del puente, no el terreno)
+ return <Instances name="puente" geometry={plank} material={wood} items={items} colored castShadow receiveShadow />; // (sigue el arco del puente, no el terreno)
 }
 
 // Adoquines pequeños e irregulares a lo largo de los caminos, agrupados en

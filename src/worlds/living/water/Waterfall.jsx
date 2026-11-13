@@ -239,9 +239,9 @@ export function Waterfall() {
  return (
   <>
    {parts.map((part, i) => (
-    <mesh key={i} geometry={part.geometry} material={part.material} renderOrder={i} />
+    <mesh key={i} name="agua de la cascada" geometry={part.geometry} material={part.material} renderOrder={i} />
    ))}
-   <mesh geometry={rocks} material={rockMaterial} castShadow receiveShadow />
+   <mesh name="rocas de la cascada" geometry={rocks} material={rockMaterial} castShadow receiveShadow />
    <instancedMesh ref={pillowMesh} args={[pillows.geometry, pillows.material, PILLOWS]} frustumCulled={false} />
    <instancedMesh ref={drops} args={[undefined, undefined, DROPS]} frustumCulled={false}>
     <tetrahedronGeometry args={[1, 0]} />

@@ -10,6 +10,7 @@
 //                         │                    ╰~~~~ mar
 //        FÚTBOL        BALONCESTO
 import { MODELS as TREE_MODELS, modelOf } from "./flora/species.js";
+import { SOLIDS } from "./solids.js";
 
 export const WATER_LEVEL = -0.25;
 const MAX_WADE = -0.85; // hasta dónde se mete el astronauta en el agua
@@ -50,6 +51,16 @@ function plateauDistance(x, z) {
 }
 // Rampa de subida, en el extremo oeste de la meseta.
 export const RAMP = { from: [-14.5, -14], to: [-7.6, -22.5], width: 3.6 };
+// Perfil de la rampa (0–1 a lo largo, 0–1 de alto): recta en el centro y
+// redondeada al arrancar y al llegar, para que no haya quiebro en el pie ni en
+// la cima (un quiebro es un tirón para quien sube andando).
+const RAMP_EASE = 0.2;
+function rampProfile(t) {
+ const e = RAMP_EASE, top = 1 - e;
+ if (t < e) return (t * t) / (2 * e) / top;
+ if (t > 1 - e) return 1 - ((1 - t) * (1 - t)) / (2 * e) / top;
+ return (t - e / 2) / top;
+}
 
 const HILLS = [
  { x: -31, z: -19, height: 1.9, radius: 9 },
@@ -85,10 +96,22 @@ export const STREAM_LEVEL = PLATEAU.height - 0.17; // altura de su agua
 // sustituye a la del cauce.
 export const BRIDGES = [{ from: [19.3, -0.4], to: [26.9, 0.9], width: 2.8, rise: 0.75 }];
 
+// Altura del tablero en el punto t (0–1) de su largo, y su pendiente (por
+// unidad de t). Arranca y termina a ras de suelo y sin quiebro: se entra y se
+// sale del puente sin escalón.
+export const BRIDGE_LIP = 0.04;
+export const bridgeArc = (bridge, t) => BRIDGE_LIP + Math.sin(t * Math.PI) ** 2 * (bridge.rise + 0.08);
+export const bridgeSlope = (bridge, t) => Math.sin(2 * t * Math.PI) * Math.PI * (bridge.rise + 0.08);
+
 function bridgeHeight(x, z) {
  for (const bridge of BRIDGES) {
   const hit = toSegment(x, z, ...bridge.from, ...bridge.to);
-  if (hit.distance < bridge.width / 2 && hit.t > 0 && hit.t < 1) return 0.12 + Math.sin(hit.t * Math.PI) * bridge.rise;
+  if (hit.distance < bridge.width / 2 && hit.t > 0 && hit.t < 1) {
+   // En los dos extremos el paso se funde con el suelo de la orilla.
+   const ends = smooth(0, 0.07, hit.t) * smooth(0, 0.07, 1 - hit.t);
+   const arc = bridgeArc(bridge, hit.t);
+   return ends < 1 ? arc + (Math.max(groundHeight(x, z), 0) - arc) * (1 - ends) : arc;
+  }
  }
  return null;
 }
@@ -138,7 +161,7 @@ export function groundHeight(x, z) {
   const onPlateau = 1 - smooth(-1.5, 0.3, edge);
   const ramp = toSegment(x, z, ...RAMP.from, ...RAMP.to);
   const onRamp = 1 - smooth(RAMP.width / 2 - 0.5, RAMP.width / 2, ramp.distance);
-  const rampHeight = height + (Math.max(height, PLATEAU.height * ramp.t) - height) * onRamp;
+  const rampHeight = height + (Math.max(height, PLATEAU.height * rampProfile(ramp.t)) - height) * onRamp;
   height = Math.max(height + (PLATEAU.height - height) * onPlateau, rampHeight);
   lowland = edge > 0.3;
 
@@ -179,18 +202,19 @@ export function height(x, z) {
  return bridgeHeight(x, z) ?? groundHeight(x, z);
 }
 
-// ¿Está vedado este punto? Lo están el agua profunda y las paredes: un punto en
-// pendiente fuerte al que se llegaría subiendo. Bajar por un cortado sí se puede
-// (el astronauta salta); Woody no baja ni se mete en agua honda.
-function blocked(x, z, fromY, agent) {
+// ¿Está vedado este punto? Lo están el agua profunda y las paredes: cualquier
+// punto en pendiente fuerte, se llegue subiendo o bajando. El cortado de la
+// meseta no se salta (al pie hay rocas: quien caía quedaba encajado entre ellas
+// y la pared): se sube y se baja por la rampa. Woody, además, no se mete en
+// agua honda.
+function blocked(x, z, _fromY, agent) {
  const here = height(x, z);
- if (here <= (agent?.dog ? -0.42 : MAX_WADE)) return true;
+ if (here <= MAX_WADE) return true; // (Woody entra hasta donde entra el astronauta: nada)
  if (agent?.prop) return here < MAX_WADE - 0.2;
  if (bridgeHeight(x, z) !== null) return false;
  const e = 0.25;
  const slope = Math.hypot(height(x + e, z) - height(x - e, z), height(x, z + e) - height(x, z - e)) / (2 * e);
- if (slope < MAX_SLOPE) return false;
- return agent?.dog ? true : here > fromY + 0.05;
+ return slope >= MAX_SLOPE;
 }
 
 // ── Zonas ───────────────────────────────────────────────────────────────────
@@ -266,9 +290,9 @@ export const WIND_CHIME = { x: -27.5, z: -22.5 }; // despierta al bosque
 // Postes indicadores de madera, junto al camino que llega a cada sitio.
 export const SIGNPOSTS = [
  { text: "NAVE", x: -3.7, z: 8.7, turn: 0.22 },
- { text: "CV", x: 8.4, z: 7.4, turn: -0.28 },
+ { text: "CV", x: 9.3, z: 8.1, turn: -0.28 },
  { text: "BALONCESTO", x: -2.3, z: 18.5, turn: 0.18 },
- { text: "FÚTBOL", x: -14.6, z: 15.2, turn: -0.3 },
+ { text: "FÚTBOL", x: -13.7, z: 16.0, turn: -0.3 },
  { text: "OBSERVATORIO", x: 16.2, z: -21.8, turn: 0.2 },
 ];
 export const ANCIENT_TREES = [
@@ -711,54 +735,32 @@ for (const key of ["rocks", "cliffRocks", "shoreRocks"]) seated[key] = peek(seat
 export const SCATTER = { trees, ...seated, flowers: Object.values(seated.flowersByKind).flat(), lilies, lanterns };
 
 // ── Colisiones ──────────────────────────────────────────────────────────────
+// Lo sólido del planeta (árboles, rocas, edificios, la cascada, el pozo, los
+// carteles…) no se describe aquí a mano: su huella sale de la escena real y
+// está en solids.js (la rehace `node tests/e2e/collisions.mjs hornear`). Aquí
+// solo va lo que esa huella no puede dar: lo que es más fino que su rejilla
+// (postes), el puente (se pisa) y la nave (despega).
 const shipCollider = { x: PAD.x, z: PAD.z, r: 2.3, active: true };
 const colliders = [
- ...trees.map((t) => ({ x: t.x, z: t.z, r: TREE_MODELS[t.model].trunk * t.scale })),
- ...ANCIENT_TREES.map((t) => ({ x: t.x, z: t.z, r: 1.35 * t.scale })),
- ...seated.rocks.filter((r) => r.scale > 0.75).map((r) => ({ x: r.x, z: r.z, r: 0.8 * r.scale })),
- ...seated.cliffRocks.map((r) => ({ x: r.x, z: r.z, r: 0.75 * r.scale })),
- ...lanterns.map((l) => ({ x: l.x, z: l.z, r: 0.2 })),
- // Cabañas: tres círculos a lo ancho de cada una.
- // Casas de la aldea (tres círculos a lo ancho), su expositor y su cartel.
- ...PROJECT_CABINS.flatMap((c) => { const p = cabinParts(c); return p.solid ?? [...[-1.4, 0, 1.4].map((dx) => ({ x: p.house.x + dx, z: p.house.z, r: 1.5 })), { ...p.stand, r: 0.85 }]; }),
- { ...WELL, r: 1.0 },
- // Fútbol: postes de la portería, marcador y vitrina del trofeo.
- ...FOOTBALL_SOLIDS,
- ...BENCHES.map((b) => ({ x: b.x, z: b.z, r: 0.65 })),
- { x: PLAZA.x, z: PLAZA.z - 7.2, r: 0.5 },
- ...LAB_TOTEMS.map((t) => ({ ...t, r: 0.7 })),
- { ...CV_KIOSK, r: 0.85 },
- { x: TREEHOUSE.x + 0.3, z: TREEHOUSE.z - 3.3, r: 1.3 },
- { x: TREEHOUSE.x - 1.7, z: TREEHOUSE.z + 0.7, r: 0.3 },
- { x: TREEHOUSE.x + 1.7, z: TREEHOUSE.z + 0.7, r: 0.3 },
- { x: TREEHOUSE.x - 4.6, z: TREEHOUSE.z - 0.1, r: 0.7 },
- { x: TREEHOUSE.x - 3.4, z: TREEHOUSE.z - 0.3, r: 0.7 },
- { x: TREEHOUSE.x + 4.2, z: TREEHOUSE.z + 1.4, r: 0.22 },
- // Observatorio: su plataforma circular, el anexo y el atrezo de los lados.
- { x: OBSERVATORY.x, z: OBSERVATORY.z - 1.4, r: 3.05 },
- { x: OBSERVATORY.x - 3.5, z: OBSERVATORY.z - 1.2, r: 1.2 },
- { x: OBSERVATORY.x - 4.4, z: OBSERVATORY.z + 1.0, r: 0.55 },
- { x: OBSERVATORY.x + 3.75, z: OBSERVATORY.z + 0.7, r: 0.7 },
- { x: CONTACT.x, z: CONTACT.z - 2.6, r: 2 },
- { ...CONTACT.antenna, r: 1.2 },
- ...CONTACT.terminals.map((t) => ({ ...t, r: 0.5 })),
- { ...WIND_CHIME, r: 0.35 },
- ...SIGNPOSTS.map((s) => ({ x: s.x, z: s.z, r: 0.22 })),
- { x: BASKET.hoop.x + 0.6, z: BASKET.hoop.z, r: 0.35 },
- { ...BASKET.ballStand, r: 0.24 },
+ ...SOLIDS,
+ ...lanterns.map((l) => ({ x: l.x, z: l.z, r: 0.14 })),
+ ...SIGNPOSTS.map((s) => ({ x: s.x, z: s.z, r: 0.14 })),
+ // Farolas de la plaza y de Contacto (ver ProjectVillage.jsx y Contact.jsx).
+ { x: PLAZA.x + PLAZA.r + 0.9, z: 2.2, r: 0.14 },
+ { x: PLAZA.x - PLAZA.r - 0.2, z: 1.7, r: 0.14 },
+ { x: CONTACT.x - 4.3, z: CONTACT.z + 2.6, r: 0.14 },
+ // La cortina de agua de la cascada (es una lámina casi vertical: no deja huella).
+ { x: WATERFALL.x - 1.5, z: WATERFALL.z + 1.75, bx: WATERFALL.x + 1.5, bz: WATERFALL.z + 1.75, r: 0.55 },
+ // Postes de la portería.
+ ...FOOTBALL_SOLIDS.filter((one) => one.r < 0.2),
  // Barandillas del puente: solo se cruza por el tablero.
  ...BRIDGES.flatMap((bridge) => {
   const [ax, az] = bridge.from;
   const [bx, bz] = bridge.to;
   const length = distance(ax, az, bx, bz);
-  const nx = -(bz - az) / length;
-  const nz = (bx - ax) / length;
-  return [-1, 1].flatMap((side) =>
-   Array.from({ length: 9 }, (_, i) => {
-    const t = i / 8;
-    return { x: ax + (bx - ax) * t + nx * side * (bridge.width / 2 + 0.2), z: az + (bz - az) * t + nz * side * (bridge.width / 2 + 0.2), r: 0.42 };
-   }),
-  );
+  const nx = (-(bz - az) / length) * (bridge.width / 2 + 0.2);
+  const nz = ((bx - ax) / length) * (bridge.width / 2 + 0.2);
+  return [-1, 1].map((side) => ({ x: ax + nx * side, z: az + nz * side, bx: bx + nx * side, bz: bz + nz * side, r: 0.12 }));
  }),
  shipCollider,
 ];

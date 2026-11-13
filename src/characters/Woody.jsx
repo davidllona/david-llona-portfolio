@@ -167,7 +167,8 @@ export function Woody({ active }) {
   }
 
   if (!controller.busy || (idling && (brain.moving || brain.wantsUp))) {
-   const speed = brain.speed;
+   // El paso lo decide la velocidad neta (suavizada), no la de un fotograma.
+   const speed = Math.min(brain.speed, brain.pace.speed * 1.15);
    if (brain.wantsUp) {
     // Se levanta antes de echar a andar.
     const from = brain.posture;

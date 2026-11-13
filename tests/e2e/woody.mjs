@@ -3,6 +3,7 @@
 import { open, check, wait } from "./common.mjs";
 import { GUIDE, WELCOME, ZONE_LINES } from "../../src/content/woody.js";
 import { living } from "../../src/worlds/living/layout.js";
+import { distanceTo } from "../../src/worlds/collision.js";
 
 const t = await open({ tips: true });
 const { page } = t;
@@ -64,7 +65,7 @@ const stride = async () => {
 };
 await t.put(-6, 0.2, { settle: 600 });
 await page.keyboard.down("KeyA");
-await wait(2600);
+await wait(4200); // (si estaba sentado, primero se levanta y corre a alcanzarte)
 let s = await stride();
 check(s.clip === "Woody_Trot" && s.speed > 2.6 && s.speed < 4.6, `andando: Woody va al trote a ${s.speed.toFixed(1)} m/s`);
 check(s.slide < 0.12, `y sin patinar: el clip avanza lo que avanza él (desfase ${(s.slide * 100).toFixed(0)} %)`);
@@ -169,7 +170,8 @@ check(arrived && Math.hypot(p.x - cx, p.z - cz) < 7, `siguiéndole se llega a Co
 check((await t.speech()) === GUIDE.arrive.contacto, `y lo anuncia: "${await t.speech()}"`);
 await t.shot(`guia-${frame}-llegada`);
 // No atraviesa nada por el camino.
-const inside = await t.evaluate(() => { const { woody, world } = window.__world; return world().colliders.some((c) => c.active !== false && Math.hypot(c.x - woody.position.x, c.z - woody.position.z) < c.r + 0.3); });
+const at = await t.woody();
+const inside = living.colliders.some((c) => c.active !== false && distanceTo(c, at.x, at.z) < c.r + 0.3);
 check(!inside, "Woody no queda metido en ningún obstáculo");
 
 // ── Silenciar consejos ───────────────────────────────────────────────────────

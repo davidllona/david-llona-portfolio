@@ -1,4 +1,4 @@
-import { moveAgent } from "../worlds/collision";
+import { distanceTo, moveAgent } from "../worlds/collision";
 
 // El comportamiento de Woody, sin nada de dibujo: decide a dónde va y en qué
 // postura está. Woody.jsx lo ejecuta en cada fotograma y elige los clips.
@@ -21,7 +21,10 @@ const GUIDE_PAUSE = 3.6; // …y también si te paras estando ya a esta distanci
 const MAX_SPEED = 8.4;
 const SIT_AFTER = 3; // s quietos hasta sentarse
 const LIE_AFTER = 10; // s quietos hasta tumbarse
-const LOST_DISTANCE = 30; // tan lejos, reaparece cerca de ti (fuera de la vista)
+const LOST_DISTANCE = 16; // m; más lejos que esto y fuera de cámara, se recoloca cerca de ti sin que se vea
+const SWIM_DEPTH = 0.45; // m que se hunde, como mucho, bajo la superficie del agua
+const CRUMB_STEP = 0.7; // m entre migas del rastro del astronauta
+const CRUMBS = 70;
 const PAWS = 0.42; // m del centro a las patas delanteras y a las traseras
 const CLIMB = 7; // m/s que puede subir o bajar el cuerpo: sigue cualquier cuesta sin retraso
 
@@ -47,6 +50,12 @@ export function createBrain() {
   detour: null, // rodeo por la red de caminos cuando se atasca
   detourIndex: 0,
   detourTime: 0,
+  trail: [], // por dónde ha pasado el astronauta: si no puede ir recto, sigue sus pasos
+  sight: { timer: 0, clear: true, crumb: -1 },
+  jumps: 0, // veces que se ha recolocado (para las pruebas)
+  noWay: 0, // s sin camino hacia ti (ni recto ni por tus pasos)
+  detourFor: null, // dónde estabas cuando probó el último rodeo
+  pace: { x: 0, z: 0, speed: 0 }, // velocidad neta suavizada: la que decide el paso (no la de cada fotograma)
  };
 }
 
@@ -91,6 +100,23 @@ export function findRoute(guide, from, goal) {
  return path;
 }
 
+// ¿Puede Woody ir en línea recta de `a` a `b`? Ni terreno vedado para él (un
+// cortado, agua honda) ni obstáculos por medio.
+function clearLine(world, a, b) {
+ const length = Math.hypot(b.x - a.x, b.z - a.z);
+ const steps = Math.max(1, Math.ceil(length / 0.35));
+ let y = world.height(a.x, a.z);
+ for (let i = 1; i <= steps; i++) {
+  const x = a.x + ((b.x - a.x) * i) / steps, z = a.z + ((b.z - a.z) * i) / steps;
+  if (world.blocked(x, z, y, AGENT)) return false;
+  for (const c of world.colliders) {
+   if (c.active !== false && distanceTo(c, x, z) < c.r + WOODY_RADIUS * 0.8) return false;
+  }
+  y = world.height(x, z);
+ }
+ return true;
+}
+
 // Un sitio libre cerca del jugador pero fuera de la pantalla, para reaparecer.
 // `visible(x, z)` lo dice la cámara de verdad; sin ella no se reaparece.
 function findSpotNear(world, player, visible) {
@@ -102,7 +128,9 @@ function findSpotNear(world, player, visible) {
    const spot = { x: player.x + Math.cos(angle) * radius, y: 0, z: player.z + Math.sin(angle) * radius };
    if (visible(spot.x, spot.z)) continue;
    if (world.blocked(spot.x, spot.z, world.height(spot.x, spot.z), AGENT)) continue;
-   if (world.colliders.some((c) => c.active !== false && Math.hypot(c.x - spot.x, c.z - spot.z) < c.r + WOODY_RADIUS + 0.2)) continue;
+   if (world.colliders.some((c) => c.active !== false && distanceTo(c, spot.x, spot.z) < c.r + WOODY_RADIUS + 0.2)) continue;
+   // Tiene que poder llegar desde allí: si no, se recolocaría una y otra vez.
+   if (!clearLine(world, spot, player)) continue;
    return spot;
   }
  }
@@ -167,13 +195,16 @@ export function updateBrain(brain, dt, { world, player, woody, busy, attend = fa
    }
   }
   wantedSpeed = brain.waiting ? 0 : GUIDE_SPEED;
+  brain.trail.length = 0;
  } else if (brain.mode === "follow" && brain.detour) {
   // Rodeo por la red de caminos: hasta que te tenga cerca o se acabe la ruta.
   brain.detourTime += dt;
   target = brain.detour[brain.detourIndex];
   gap = 0.6;
   if (distance(position, target) < gap + 0.3) brain.detourIndex += 1;
-  if (brain.detourIndex >= brain.detour.length || toPlayer < FOLLOW_GAP + 1.2 || brain.detourTime > 14) {
+  if (brain.detourIndex >= brain.detour.length || toPlayer < FOLLOW_GAP + 1.2 || brain.detourTime > 20) {
+   brain.trail.length = 0;
+   brain.sight.timer = 0;
    brain.detour = null;
    target = feet;
    gap = FOLLOW_GAP;
@@ -195,11 +226,91 @@ export function updateBrain(brain, dt, { world, player, woody, busy, attend = fa
   }
  }
 
+ // Rastro del astronauta: una miga cada pocos pasos, mientras pisa suelo.
+ const trail = brain.trail;
+ const lastCrumb = trail[trail.length - 1];
+ if (player.grounded && (!lastCrumb || distance(lastCrumb, feet) > CRUMB_STEP)) {
+  trail.push({ x: feet.x, z: feet.z });
+  if (trail.length > CRUMBS) trail.shift();
+ }
+ let following = false; // va tras una miga, no recto hacia ti
+ let waitHere = false; // no hay por dónde ir: espera
+ const tracking = brain.mode === "follow" && !woody.post;
+ if (tracking) {
+  // Si puede ir recto hacia ti, va recto. Si no (un cortado, la barandilla, una
+  // casa por medio), sigue tus pasos: va a la miga más cercana a ti a la que
+  // llega en línea recta.
+  const sight = brain.sight;
+  sight.timer -= dt;
+  if (sight.timer <= 0) {
+   sight.timer = 0.12;
+   sight.clear = toPlayer < FOLLOW_GAP || clearLine(world, position, feet);
+   sight.crumb = -1;
+   if (!sight.clear) {
+    for (let i = trail.length - 1; i >= 0; i--) {
+     if (clearLine(world, position, trail[i])) {
+      sight.crumb = i;
+      break;
+     }
+    }
+   }
+  }
+  if (sight.clear) {
+   trail.length = 0;
+   brain.noWay = 0;
+   brain.detourFor = null;
+   // (Con el camino libre, el rodeo sobra.)
+   if (brain.detour && toPlayer < 9) {
+    brain.detour = null;
+    target = feet;
+    gap = FOLLOW_GAP;
+    wantedSpeed = 0;
+   }
+  } else if (brain.detour) {
+   // Sigue su rodeo.
+  } else if (sight.crumb < 0) {
+   // Ni recto ni por tus pasos (has vadeado agua honda, o lo han dejado al
+   // otro lado de algo): rodea por la red de caminos, una vez; si tampoco así
+   // llega, te espera quieto en vez de empujar contra lo que le corta el paso.
+   brain.noWay += dt;
+   if (brain.detourFor && distance(brain.detourFor, feet) > 6) brain.detourFor = null;
+   const route = !brain.detourFor && world.guide ? findRoute(world.guide, position, nearestNode(world.guide, feet)) : null;
+   if (route?.length) {
+    Object.assign(brain, { detour: route, detourIndex: 0, detourTime: 0, stuck: 0, detourFor: { x: feet.x, z: feet.z } });
+    target = route[0];
+    gap = 0.6;
+    wantedSpeed = 5;
+   } else waitHere = true;
+  } else {
+   brain.noWay = 0;
+   let index = Math.min(sight.crumb, trail.length - 1);
+   // Las migas ya alcanzadas se sueltan.
+   while (index < trail.length - 1 && distance(position, trail[index]) < 0.45) index += 1;
+   if (index > 0) {
+    trail.splice(0, index);
+    sight.crumb = Math.max(-1, sight.crumb - index);
+    index = 0;
+   }
+   target = trail[index];
+   gap = 0.2;
+   following = true;
+  }
+ }
+ if (waitHere) wantedSpeed = 0;
+
  const toTarget = distance(position, target);
- if (brain.mode === "follow" && !brain.detour) {
-  // Histéresis: echa a andar cuando te alejas un poco más de lo que para.
-  const start = gap + (brain.moving ? 0.1 : 1.1);
-  if (toTarget > start) wantedSpeed = Math.min(MAX_SPEED, Math.max(1.1, (toTarget - gap) * 1.9));
+ if (brain.mode === "follow" && !brain.detour && !waitHere) {
+  if (target === feet || following) {
+   // A tu paso: tu velocidad, más lo que haga falta para recuperar la distancia.
+   // Histéresis: echa a andar cuando te alejas un poco más de lo que para.
+   const start = FOLLOW_GAP + (brain.moving ? 0.1 : 1.1);
+   if (toPlayer > start || (following && brain.moving)) wantedSpeed = Math.min(MAX_SPEED, Math.max(1.1, playerSpeed * 0.9 + (toPlayer - FOLLOW_GAP) * 1.2));
+   if (following && toPlayer > start) wantedSpeed = Math.max(wantedSpeed, 2.2);
+  } else {
+   // Hacia su puesto (junto al campo de fútbol).
+   const start = gap + (brain.moving ? 0.1 : 1.1);
+   if (toTarget > start) wantedSpeed = Math.min(MAX_SPEED, Math.max(1.1, (toTarget - gap) * 1.9));
+  }
  }
  if (busy) wantedSpeed = 0;
 
@@ -234,6 +345,14 @@ export function updateBrain(brain, dt, { world, player, woody, busy, attend = fa
  moveAgent(world, position, brain.velocity.x * dt, brain.velocity.z * dt, WOODY_RADIUS, AGENT);
  const travelled = Math.hypot(position.x - fromX, position.z - fromZ);
  brain.speed = dt > 0 ? travelled / dt : 0;
+ // Velocidad neta de los últimos ~0,2 s: si rebota contra algo sin avanzar,
+ // se anula, y Woody no «corre en el sitio».
+ if (dt > 0) {
+  const k = 1 - Math.exp(-dt / 0.18), pace = brain.pace;
+  pace.x += ((position.x - fromX) / dt - pace.x) * k;
+  pace.z += ((position.z - fromZ) / dt - pace.z) * k;
+  pace.speed = Math.hypot(pace.x, pace.z);
+ }
  brain.moving = wantedSpeed > 0.2;
 
  // Pegado al terreno: se mira el suelo bajo las patas delanteras y traseras.
@@ -242,7 +361,8 @@ export function updateBrain(brain, dt, { world, player, woody, busy, attend = fa
  const aheadX = -Math.sin(woody.facing), aheadZ = -Math.cos(woody.facing);
  const front = world.height(position.x + aheadX * PAWS, position.z + aheadZ * PAWS);
  const rear = world.height(position.x - aheadX * PAWS, position.z - aheadZ * PAWS);
- const ground = Math.max((front + rear) / 2, world.height(position.x, position.z));
+ // (Donde no hace pie, nada: va a flote, con el lomo fuera.)
+ const ground = Math.max((front + rear) / 2, world.height(position.x, position.z), world.waterLevel - SWIM_DEPTH);
  position.y += Math.max(-CLIMB * dt, Math.min(CLIMB * dt, ground - position.y));
  const slope = Math.max(-0.55, Math.min(0.55, Math.atan2(front - rear, PAWS * 2)));
  brain.pitch += (slope - brain.pitch) * (1 - Math.exp(-10 * dt));
@@ -255,17 +375,29 @@ export function updateBrain(brain, dt, { world, player, woody, busy, attend = fa
   brain.sidestep = 0.9;
   brain.sideSign = -brain.sideSign;
  }
- if (brain.mode === "follow" && !brain.detour && brain.stuck > 1.8 && world.guide) {
+ if (brain.mode === "follow" && brain.detour && brain.stuck > 1.6) {
+  // Ni el rodeo sale: lo deja y espera.
+  brain.detour = null;
+  brain.stuck = 0;
+ } else if (tracking && !brain.detour && !brain.detourFor && brain.stuck > 1.4 && world.guide) {
   const route = findRoute(world.guide, position, nearestNode(world.guide, feet));
-  if (route?.length) Object.assign(brain, { detour: route, detourIndex: 0, detourTime: 0, stuck: 0 });
+  if (route?.length) Object.assign(brain, { detour: route, detourIndex: 0, detourTime: 0, stuck: 0, detourFor: { x: feet.x, z: feet.z } });
  }
- if (brain.mode !== "guide" && (brain.stuck > 6 || toPlayer > LOST_DISTANCE)) {
+ // Recolocación: si se ha quedado lejos, o lleva un rato sin poder llegar, y
+ // ni él ni el sitio nuevo se ven, aparece cerca de ti (entrará andando en pantalla).
+ if (brain.mode !== "guide" && !woody.post && (brain.stuck > 6 || brain.noWay > 3 || toPlayer > LOST_DISTANCE)) {
   const unseen = visible && !visible(position.x, position.z);
   const spot = unseen ? findSpotNear(world, feet, visible) : null;
   if (spot) {
    position.set(spot.x, world.height(spot.x, spot.z), spot.z);
    brain.velocity.x = brain.velocity.z = 0;
    brain.detour = null;
+   brain.trail.length = 0;
+   brain.sight.timer = 0;
+   brain.stuck = 0;
+   brain.noWay = 0;
+   brain.detourFor = null;
+   brain.jumps += 1;
   }
   brain.stuck = Math.min(brain.stuck, 4);
  }

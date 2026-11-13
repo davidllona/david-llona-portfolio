@@ -264,7 +264,7 @@ function Ball() {
 
  return (
   <>
-   <mesh ref={mesh} castShadow>
+   <mesh ref={mesh} name="balón" castShadow>
     <sphereGeometry args={[BALL_RADIUS, 24, 16]} />
     <meshLambertMaterial map={texture} />
     {/* Zona de clic bastante mayor que el balón: en pantalla es pequeño. */}

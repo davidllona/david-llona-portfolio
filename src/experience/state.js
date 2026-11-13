@@ -130,4 +130,7 @@ export function releaseMovement() {
 }
 
 // Ayuda para depurar desde la consola del navegador; no se incluye en producción.
-if (import.meta.env.DEV) window.__world = { input, player, woody, rig, game, interactables, ui3d };
+if (import.meta.env.DEV) {
+ window.__world = { input, player, woody, rig, game, interactables, ui3d };
+ import("../dev/probe.js"); // rayos contra la escena, para las pruebas
+}
