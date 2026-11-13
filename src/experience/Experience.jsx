@@ -6,7 +6,7 @@ import { fxaa } from "three/addons/tsl/display/FXAANode.js";
 import { pass, renderOutput } from "three/tsl";
 import { RenderPipeline, WebGPURenderer } from "three/webgpu";
 import { Woody } from "../characters/Woody";
-import { stage, whenLoaderLeaves } from "../ui/loaderControl";
+import { progress, stage } from "../ui/loaderControl";
 import { SCENES, world } from "../worlds";
 import { Interactions } from "./Interactions";
 import { Lights } from "./Lights";
@@ -60,7 +60,9 @@ function createRenderer(canvas, onReady) {
 // descartar por encuadre (ver `drawOnce`).
 const live = { scenePass: null, depth: null, uncull: null };
 const WARM_GROUP = 3; // objetos que se compilan de una vez
-const WARM_BUDGET = 8; // ms por fotograma dedicados a compilar el planeta
+// ms por fotograma dedicados a compilar el planeta. Ocurre detrás de la pantalla
+// de carga, cuyas animaciones no dependen de este hilo: se puede apretar.
+const WARM_BUDGET = 22;
 const isDrawn = (object) => object.isMesh || object.isLine || object.isPoints || object.isSprite;
 
 // Compila por adelantado lo que hay en la escena (o solo la tanda `slice`), tal
@@ -132,7 +134,7 @@ const drawOnce = (objects) => new Promise((resolve) => (live.uncull = { objects,
 // Precalentamiento completo. Con `spread` se reparte entre fotogramas para no
 // congelar la bienvenida mientras se prepara el planeta: se compila de pocos
 // en pocos objetos y, agotado el presupuesto del fotograma, se cede el turno.
-async function warmUp(gl, scene, camera, spread = false) {
+async function warmUp(gl, scene, camera, spread = false, onProgress) {
  if (!spread) return compileNow(gl, scene, camera);
  const drawn = [];
  scene.traverse((object) => isDrawn(object) && drawn.push(object));
@@ -147,6 +149,7 @@ async function warmUp(gl, scene, camera, spread = false) {
   }
   await Promise.all(pending);
   await drawOnce(drawn.slice(first, next).filter((object) => object.castShadow));
+  onProgress?.(Math.min(1, next / drawn.length));
  }
  // Una pasada final con todo: lo que ya está compilado no cuesta, y recoge lo
  // que se haya montado mientras tanto.
@@ -157,7 +160,7 @@ async function warmUp(gl, scene, camera, spread = false) {
 // cuantas veces, y entonces avisa. Se usa dos veces: primero para la
 // bienvenida (y ahí se retira la pantalla de carga) y luego para el planeta
 // (y ahí se puede entrar). Así nada aparece a medio hacer.
-function Ready({ spread, onCompiling, onReady }) {
+function Ready({ spread, onCompiling, onProgress, onReady }) {
  const frames = useRef(0);
  const compiled = useRef(false);
  const { gl, scene, camera } = useThree();
@@ -165,7 +168,7 @@ function Ready({ spread, onCompiling, onReady }) {
   if (frames.current === 1 && !compiled.current) {
    compiled.current = "pending";
    onCompiling?.();
-   warmUp(gl, scene, camera, spread)
+   warmUp(gl, scene, camera, spread, onProgress)
     .catch((error) => console.error("No se pudo precompilar la escena", error)) // se entra igualmente
     .then(() => (compiled.current = true));
   }
@@ -260,28 +263,34 @@ export function Experience({ active, lowPower, onReady }) {
    <WarmLights count={quality.warmLights} />
    <Sky stars={quality.stars} />
 
-   {/* Primer nivel: la bienvenida. Es lo único que hace falta para retirar la pantalla de carga. */}
+   {/* Primer nivel: la bienvenida, que es lo que se verá al retirarse la pantalla de carga. */}
    <Suspense fallback={null}>
     <Welcome onMounted={() => stage("models")} />
     <Ready
      onCompiling={() => stage("scene")}
      onReady={() => {
       stage("shaders");
-      // El planeta empieza a montarse cuando la pantalla de carga ya se ha
-      // fundido: así su construcción no entrecorta esa transición.
-      whenLoaderLeaves(() => window.setTimeout(() => setTier(1), 380));
+      // El planeta se monta ya, detrás de la pantalla de carga, que no se
+      // retira hasta que esté listo para entrar.
+      setTier(1);
      }}
     />
    </Suspense>
 
-   {/* Segundo nivel: el planeta, que se monta por partes mientras se ve la
-       bienvenida. Lo propio de cada mundo se descarga aparte; lo común
+   {/* Segundo nivel: el planeta, que se monta y se compila por partes con la
+       pantalla de carga todavía puesta. Lo propio de cada mundo se descarga aparte; lo común
        (personajes, nave, objetos) es igual en todos. La clave reinicia todo al
        cambiar de mundo. */}
    {tier > 0 && (
     <Suspense fallback={null}>
      <group key={world.id}>
-      <Scene quality={lowPower ? "low" : "high"} onBuilt={() => setBuilt(true)} />
+      <Scene
+       quality={lowPower ? "low" : "high"}
+       onBuilt={() => {
+        stage("built");
+        setBuilt(true);
+       }}
+      />
       <Props />
       <Ship />
       <Player active={active} />
@@ -289,7 +298,17 @@ export function Experience({ active, lowPower, onReady }) {
       <Bursts />
       <WorldUi />
      </group>
-     {built && <Ready spread onReady={onReady} />}
+     {built && (
+      <Ready
+       spread
+       onProgress={progress}
+       onReady={() => {
+        // Primero se habilita la entrada y después se retira la pantalla: nunca al revés.
+        onReady();
+        stage("world");
+       }}
+      />
+     )}
     </Suspense>
    )}
    <Interactions active={active} />

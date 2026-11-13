@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 // Pequeñas ilustraciones de cada control, dibujadas con HTML y SVG.
 
@@ -126,6 +126,18 @@ export function StartOverlay({ visible, intro, ready, touch, onPointerDown, onEn
  // bienvenida se funde como bienvenida (y no cambia a la pausa a medio fundido).
  const shown = useRef(intro);
  if (visible) shown.current = intro;
+ // Enter también entra (y sigue, en la pausa). El espacio y Enter sobre el propio
+ // botón ya lo hacen por ser un botón; esto vale con el foco en cualquier parte.
+ useEffect(() => {
+  if (!visible) return undefined;
+  const onKey = (event) => {
+   if (event.key !== "Enter" || event.repeat || event.target.closest?.("button, a")) return;
+   event.preventDefault();
+   onEnter();
+  };
+  window.addEventListener("keydown", onKey);
+  return () => window.removeEventListener("keydown", onKey);
+ }, [visible, onEnter]);
  if (shown.current) {
   return (
    <div className={`overlay overlay--intro${visible ? "" : " overlay--hidden"}`} aria-hidden={!visible} onPointerDown={onPointerDown} onClick={onEnter}>
@@ -135,15 +147,20 @@ export function StartOverlay({ visible, intro, ready, touch, onPointerDown, onEn
       David <span>Llona</span>
      </h1>
      <p className="overlay__lead">Un planeta para explorar con Woody. Dentro está mi trabajo.</p>
-     {/* La indicación de entrada va con el título (en vertical, al pie): nunca encima de la escena. */}
-     {/* El botón principal de la pantalla; en vertical va al pie. */}
+     {/* La indicación de entrada: el texto y, debajo, tres galones que bajan en
+         bucle (se aterriza). Va con el título; en vertical, al pie. Todo el
+         bloque se pulsa, igual que cualquier punto de la pantalla y la tecla Enter. */}
      <div className="intro__hint">
-      <button type="button" className={`overlay__enter intro__enter${ready ? "" : " intro__enter--waiting"}`} tabIndex={visible ? 0 : -1} disabled={!ready}>
-       <span className="intro__enter-text">{!ready ? "Preparando el planeta…" : touch ? "Toca para aterrizar" : "Haz clic para aterrizar"}</span>
+      <button type="button" className={`overlay__enter landing${ready ? "" : " landing--waiting"}`} tabIndex={visible ? 0 : -1} disabled={!ready}>
+       <span className="landing__text">{!ready ? "Preparando el planeta…" : touch ? "Toca para aterrizar" : "Haz clic para aterrizar"}</span>
        {ready && (
-        <svg className="intro__enter-arrow" viewBox="0 0 24 24" aria-hidden="true">
-         <path d="M12 4v15m-6.5-6 6.5 6.5 6.5-6.5" />
-        </svg>
+        <span className="landing__arrow" aria-hidden="true">
+         {[0, 1, 2].map((i) => (
+          <svg key={i} className="landing__chevron" viewBox="0 0 36 16" style={{ animationDelay: `${i * -0.5}s` }}>
+           <path d="M4 3l14 10L32 3" />
+          </svg>
+         ))}
+        </span>
        )}
       </button>
      </div>

@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Tracker } from "./achievements/Tracker";
 import { Sounds } from "./audio/Sounds";
+import { unlock } from "./audio/engine";
 import { Experience } from "./experience/Experience";
 import { useDesktopControls } from "./experience/useDesktopControls";
 import { events, rig, ui } from "./experience/state";
@@ -102,6 +103,10 @@ function App() {
      touch={touch}
      onPointerDown={(event) => {
       lastPointerType.current = event.pointerType;
+      // El contexto de audio se crea ya, al pulsar: la primera vez cuesta unos
+      // 80 ms y, si se dejara para el clic (que llega al soltar), retrasaría
+      // ese tanto el inicio del descenso.
+      if (ready) unlock();
      }}
      onEnter={enter}
     />

@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { events, player } from "../experience/state";
 import { theme } from "../experience/theme";
 import { world } from "../worlds";
-import { loadSamples, play, setAmbience, setRunning, startAmbience, stats, unlock } from "./engine";
+import { isReady, loadSamples, play, setAmbience, setRunning, startAmbience, stats, unlock } from "./engine";
 
 // Qué pisa el astronauta ahora mismo.
 function surfaceUnderPlayer() {
@@ -16,16 +16,28 @@ function surfaceUnderPlayer() {
 export function Sounds({ active }) {
  // El audio arranca con el primer gesto y se detiene en pausa.
  useEffect(() => {
-  if (active) {
+  let frame = 0;
+  const start = () => {
    unlock();
    startAmbience();
    // Las muestras grabadas se piden ahora, ya dentro: la carga no las espera.
    loadSamples();
-  }
-  setRunning(active && !document.hidden);
+   setRunning(!document.hidden);
+  };
+  if (active) {
+   // Normalmente el contexto ya existe (se crea al pulsar, antes del clic; ver
+   // App.jsx). Si se entra con el teclado no ha habido ocasión: crearlo cuesta
+   // unos 80 ms, así que se deja para dos fotogramas después, con el descenso
+   // ya en marcha, en vez de retrasar su inicio.
+   if (isReady()) start();
+   else frame = requestAnimationFrame(() => (frame = requestAnimationFrame(start)));
+  } else setRunning(false);
   const onVisibility = () => setRunning(active && !document.hidden);
   document.addEventListener("visibilitychange", onVisibility);
-  return () => document.removeEventListener("visibilitychange", onVisibility);
+  return () => {
+   cancelAnimationFrame(frame);
+   document.removeEventListener("visibilitychange", onVisibility);
+  };
  }, [active]);
 
  useEffect(() => {

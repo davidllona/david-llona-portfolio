@@ -14,7 +14,8 @@ import { BARK, LEAF } from "../worlds/living/kit/palette";
 import { createLamp, LAMP_GLASS } from "../worlds/living/props/lampModel";
 import { WIND, withWind } from "./environment/wind";
 import { Instances } from "./Instances";
-import { ISLET, TREE_LANTERNS, createFloater, createIslet, createLanternFrame, createMoon, createTreeExtras, isletEdge } from "./intro/isletModels";
+import { ISLET, TREE_LANTERNS, createFloater, createIslet, createLanternFrame, createTreeExtras, isletEdge } from "./intro/isletModels";
+import { celestial, createClouds, createGlobe, createMoon, createStreak } from "./intro/skyModels";
 import { sceneLights } from "./lightSources";
 import { lambert } from "./materials";
 import { WELCOME, emit, rig, welcomePose } from "./state";
@@ -33,6 +34,10 @@ import { createGlowTexture } from "./textures";
 // propio (`lightsNode`) que llevan los materiales de aquí. Los materiales del
 // planeta ni las ven ni pagan por ellas. Nada supera el blanco salvo los
 // cristales encendidos y las luciérnagas: solo ahí hay resplandor.
+//
+// En el cielo: la luna (grande, con cráteres, girando muy despacio), estrellas
+// fugaces cada pocos segundos y, abajo, The Living World visto desde lejos,
+// girando: es a donde se aterriza.
 
 const DESCENT = 2.8; // segundos que dura el viaje al planeta
 const TREE = { position: [-0.55, 0, -0.9], turn: 0.35, scale: 0.9 };
@@ -42,6 +47,15 @@ const DOG = [1.4, 0, 1.6];
 const STAGE = 1.1; // los protagonistas, algo mayores que en el juego: son el centro de la portada
 const ONLY_TREE = ["frondoso"];
 const MOON_DEPTH = -44;
+const MOON_SIZE = 5.0; // radio (antes 3,4)
+const MOON_LIGHT = [-0.55, 0.6, 0.58];
+// El planeta de destino: dónde cae en pantalla (−1…1 desde el centro), lo que
+// mide (radio, en fracción de media altura) y a qué distancia de la cámara se
+// pone. En horizontal va bajo el título, a la izquierda del islote; en vertical,
+// abajo a la izquierda, asomando tras él.
+const GLOBE = { wide: { at: [-0.3, -0.5], size: 0.21 }, tall: { at: [-0.66, -0.415], size: 0.085 }, depth: 70, light: [-0.45, 0.62, 0.64] };
+// Estrellas fugaces: cada cuánto (s), cuánto duran y por dónde cruzan (en pantalla).
+const SHOOTING = { every: [4, 8], lasts: 1.15, depth: 90 };
 // Dónde queda un punto del árbol (a escala 1) dentro del islote.
 const onTree = ([x, y, z]) => {
  const cos = Math.cos(TREE.turn), sin = Math.sin(TREE.turn);
@@ -49,8 +63,23 @@ const onTree = ([x, y, z]) => {
 };
 const lampGlass = [LAMP.position[0] + LAMP_GLASS[0] * LAMP.scale, LAMP_GLASS[1] * LAMP.scale, LAMP.position[2]];
 // El punto del árbol tras el que asoma la luna: arriba, a la izquierda de la copa.
-const MOON_BEHIND = onTree([-2.95, 4.75, -0.6]);
-const MOON_BEHIND_TALL = onTree([-1.75, 4.9, -0.6]);
+const MOON_BEHIND = onTree([-3.7, 4.35, -0.6]);
+const MOON_BEHIND_TALL = onTree([-1.75, 5.2, -0.6]);
+
+// Punto del espacio que cae en la posición de pantalla `at` (−1…1 desde el
+// centro), a `depth` metros de la cámara de la bienvenida; y lo que mide ahí
+// media altura de pantalla. Relativo al islote.
+const basis = { forward: new THREE.Vector3(), right: new THREE.Vector3(), up: new THREE.Vector3(), eye: new THREE.Vector3(), world: new THREE.Vector3(0, 1, 0) };
+function onScreen(aspect, at, depth, target) {
+ const pose = welcomePose(aspect);
+ basis.eye.set(...pose.camera);
+ basis.forward.set(...pose.look).sub(basis.eye).normalize();
+ basis.right.crossVectors(basis.forward, basis.world).normalize();
+ basis.up.crossVectors(basis.right, basis.forward);
+ const half = Math.tan((WELCOME.fov * Math.PI) / 360) * depth;
+ target.copy(basis.eye).addScaledVector(basis.forward, depth).addScaledVector(basis.right, at[0] * half * aspect).addScaledVector(basis.up, at[1] * half);
+ return half;
+}
 
 // Las luces del islote (posiciones relativas a él). La de la farola da sombra.
 // (Con una luz puntual con sombras, three r183 falla al dibujar dentro del
@@ -152,32 +181,87 @@ function Shade({ position, size, turn = 0, opacity = 0.4, texture }) {
   </mesh>
  );
 }
-// Luciérnagas: rondan el claro en curvas lentas y se encienden y apagan.
-function Fireflies({ count = 14 }) {
- const group = useRef(null);
+// Escribe posición y tamaño de la copia `i` de una malla con instancias (sin giro).
+function place(mesh, i, x, y, z, size) {
+ const m = mesh.instanceMatrix.array, o = i * 16;
+ m[o] = m[o + 5] = m[o + 10] = size;
+ m[o + 12] = x;
+ m[o + 13] = y;
+ m[o + 14] = z;
+ m[o + 15] = 1;
+}
+
+// Luciérnagas: rondan el claro en curvas lentas y se encienden y apagan. Una
+// sola malla con instancias.
+function Fireflies({ count = 34 }) {
+ const mesh = useRef(null);
  const flies = useMemo(() => {
   const random = randomFrom(0.27);
-  return Array.from({ length: count }, () => ({ x: (random() - 0.5) * 6.2, y: 0.5 + random() * 3.2, z: (random() - 0.2) * 4.2, phase: random() * 20, speed: 0.16 + random() * 0.2, reach: 0.5 + random() * 0.7 }));
+  return Array.from({ length: count }, (_, i) => {
+   // Dos de cada tres, en el claro; el resto, más abiertas: alrededor y por debajo del islote.
+   const wide = i % 3 === 2;
+   return { x: (random() - 0.5) * (wide ? 11 : 6.2), y: wide ? -1.6 + random() * 6.4 : 0.5 + random() * 3.2, z: (random() - 0.2) * (wide ? 6.5 : 4.2), phase: random() * 20, speed: 0.16 + random() * 0.2, reach: 0.5 + random() * 0.7, size: 0.75 + random() * 0.5 };
+  });
  }, [count]);
  useFrame(({ clock }) => {
   const time = clock.elapsedTime;
-  group.current.children.forEach((fly, i) => {
-   const f = flies[i];
+  flies.forEach((f, i) => {
    const t = time * f.speed + f.phase;
    // Dos senos de distinto ritmo por eje: una curva que no se repite a la vista.
-   fly.position.set(f.x + (Math.sin(t) + Math.sin(t * 0.43 + 1.7) * 0.6) * f.reach, f.y + (Math.sin(t * 0.71 + 2.1) + Math.sin(t * 1.9) * 0.25) * 0.3, f.z + (Math.cos(t * 0.83) + Math.sin(t * 0.37 + 0.6) * 0.6) * f.reach);
-   fly.scale.setScalar(Math.max(0.05, 0.55 + 0.45 * Math.sin(time * 1.3 + f.phase * 3)));
+   place(
+    mesh.current,
+    i,
+    f.x + (Math.sin(t) + Math.sin(t * 0.43 + 1.7) * 0.6) * f.reach,
+    f.y + (Math.sin(t * 0.71 + 2.1) + Math.sin(t * 1.9) * 0.25) * 0.3,
+    f.z + (Math.cos(t * 0.83) + Math.sin(t * 0.37 + 0.6) * 0.6) * f.reach,
+    f.size * Math.max(0.05, 0.55 + 0.45 * Math.sin(time * 1.3 + f.phase * 3)),
+   );
   });
+  mesh.current.instanceMatrix.needsUpdate = true;
  });
  return (
-  <group ref={group}>
-   {flies.map((_, i) => (
-    <mesh key={i}>
-     <octahedronGeometry args={[0.04, 0]} />
-     <meshBasicMaterial color={[2.4, 2.1, 0.7]} toneMapped={false} fog={false} />
-    </mesh>
-   ))}
-  </group>
+  <instancedMesh ref={mesh} args={[null, null, count]} frustumCulled={false}>
+   <octahedronGeometry args={[0.04, 0]} />
+   <meshBasicMaterial color={[2.4, 2.1, 0.7]} toneMapped={false} fog={false} />
+  </instancedMesh>
+ );
+}
+
+// Polvo luminoso: motas diminutas que suben muy despacio por todo el islote,
+// meciéndose, y titilan. Más densas bajo la farola y en la copa.
+function Dust({ count = 130 }) {
+ const mesh = useRef(null);
+ const motes = useMemo(() => {
+  const random = randomFrom(0.44);
+  return Array.from({ length: count }, (_, i) => {
+   const near = i % 4 === 0; // una de cada cuatro, en la luz de la farola
+   return {
+    x: near ? LAMP.position[0] - 0.4 + (random() - 0.5) * 2.6 : (random() - 0.5) * 12,
+    z: near ? LAMP.position[2] + (random() - 0.5) * 2.2 : -3 + random() * 7.5,
+    from: near ? 0.1 : -3.2,
+    rise: near ? 3.2 : 9.2,
+    speed: 0.035 + random() * 0.05,
+    phase: random(),
+    sway: 0.12 + random() * 0.3,
+    blink: 0.7 + random() * 1.6,
+    size: 0.35 + random() * 0.65,
+   };
+  });
+ }, [count]);
+ useFrame(({ clock }) => {
+  const time = clock.elapsedTime;
+  motes.forEach((d, i) => {
+   const t = (time * d.speed + d.phase) % 1; // 0–1: sube y vuelve a empezar
+   const fade = Math.min(1, t * 6, (1 - t) * 6);
+   place(mesh.current, i, d.x + Math.sin(time * 0.4 + d.phase * 30) * d.sway, d.from + t * d.rise, d.z + Math.cos(time * 0.31 + d.phase * 17) * d.sway, d.size * fade * (0.55 + 0.45 * Math.sin(time * d.blink + d.phase * 40)));
+  });
+  mesh.current.instanceMatrix.needsUpdate = true;
+ });
+ return (
+  <instancedMesh ref={mesh} args={[null, null, count]} frustumCulled={false}>
+   <octahedronGeometry args={[0.022, 0]} />
+   <meshBasicMaterial color={[1.9, 1.75, 1.25]} toneMapped={false} fog={false} />
+  </instancedMesh>
  );
 }
 
@@ -224,39 +308,126 @@ function FallingLeaves({ count = 7, lightsNode }) {
  );
 }
 
-// Estrella fugaz: de tarde en tarde, un trazo cruza el cielo detrás del islote.
-function ShootingStar() {
- const mesh = useRef(null);
- const state = useRef({ next: 3.5, from: [0, 0], to: [0, 0], start: -1 });
- useFrame(({ clock }) => {
+// Estrellas fugaces: cada pocos segundos una cruza el cielo, con la cabeza
+// brillante y una cola que se alarga y se apaga. Hay dos trazos por si una
+// sale antes de que termine la anterior.
+function ShootingStars({ glow }) {
+ const group = useRef(null);
+ const streak = useMemo(createStreak, []);
+ useEffect(() => () => streak.dispose(), [streak]);
+ const state = useRef({ next: 1.2, live: [{ start: -1 }, { start: -1 }], count: 0 });
+ const from = useMemo(() => new THREE.Vector3(), []);
+ const to = useMemo(() => new THREE.Vector3(), []);
+ useEffect(() => {
+  if (import.meta.env.DEV) window.__world.shooting = state.current; // para las pruebas automáticas
+ }, []);
+ useFrame(({ clock, size }) => {
   const s = state.current;
   const time = clock.elapsedTime;
-  if (s.start < 0 && time > s.next) {
-   const x = -16 + Math.random() * 26, y = 9 + Math.random() * 7;
-   const way = Math.random() < 0.5 ? -1 : 1;
-   s.from = [x, y];
-   s.to = [x + way * (9 + Math.random() * 5), y - 3.5 - Math.random() * 3];
-   s.start = time;
-  }
-  const t = s.start < 0 ? 2 : (time - s.start) / 0.85;
-  if (t > 1) {
-   mesh.current.visible = false;
-   if (s.start >= 0) {
-    s.start = -1;
-    s.next = time + 6 + Math.random() * 7;
+  const aspect = size.width / size.height;
+  if (time > s.next) {
+   const free = s.live.find((one) => one.start < 0);
+   if (free) {
+    // Sale de lo alto del cielo y cae en diagonal. En horizontal, por la
+    // izquierda (sobre el título): en el centro está la luna y a la derecha el
+    // árbol. En vertical, por cualquier parte de arriba.
+    const tall = aspect < 1;
+    const x = tall ? -0.8 + Math.random() * 1.5 : -0.95 + Math.random() * 0.55;
+    const y = (tall ? 0.6 : 0.5) + Math.random() * 0.4;
+    const way = tall ? (x > 0 ? -1 : 1) : x < -0.7 ? 1 : -1;
+    const run = 0.34 + Math.random() * 0.16;
+    const half = onScreen(aspect, [x, y], SHOOTING.depth, from);
+    onScreen(aspect, [x + (way * run) / aspect, y - run * (0.6 + Math.random() * 0.3)], SHOOTING.depth, to);
+    Object.assign(free, { start: time, from: from.clone(), to: to.clone(), size: half * (0.02 + Math.random() * 0.006) });
+    s.count += 1;
    }
-   return;
+   s.next = time + SHOOTING.every[0] + Math.random() * (SHOOTING.every[1] - SHOOTING.every[0]);
   }
-  mesh.current.visible = rig.intro === 1;
-  mesh.current.position.set(s.from[0] + (s.to[0] - s.from[0]) * t, s.from[1] + (s.to[1] - s.from[1]) * t, -52);
-  mesh.current.rotation.z = Math.atan2(s.to[1] - s.from[1], s.to[0] - s.from[0]);
-  mesh.current.material.opacity = Math.sin(t * Math.PI) * 0.85;
+  s.active = 0;
+  s.live.forEach((one, i) => {
+   const star = group.current.children[i];
+   const t = one.start < 0 ? 2 : (time - one.start) / SHOOTING.lasts;
+   if (t > 1) {
+    star.visible = false;
+    one.start = -1;
+    return;
+   }
+   s.active += 1;
+   star.visible = true;
+   // Arranca deprisa y se frena un poco; la cola crece al principio y se recoge al final.
+   const travelled = t * (1.35 - 0.35 * t);
+   star.position.lerpVectors(one.from, one.to, travelled);
+   star.rotation.z = Math.atan2(one.to.y - one.from.y, one.to.x - one.from.x);
+   const bright = Math.min(1, t * 10) * Math.min(1, (1 - t) * 3) * Math.min(1, rig.intro * 1.6);
+   const [trail, head] = star.children;
+   trail.scale.set(one.size * Math.min(1, 0.15 + t * 2.2) * Math.min(1, (1 - t) * 2.4 + 0.2), one.size, 1);
+   trail.material.color.setScalar(bright * 3.6);
+   head.scale.setScalar(one.size * 3.2);
+   head.material.opacity = bright;
+  });
  });
  return (
-  <mesh ref={mesh} visible={false}>
-   <planeGeometry args={[3.4, 0.05]} />
-   <meshBasicMaterial color="#dfe8ff" transparent opacity={0} depthWrite={false} fog={false} toneMapped={false} />
-  </mesh>
+  <group ref={group}>
+   {[0, 1].map((i) => (
+    <group key={i} visible={false}>
+     <mesh geometry={streak} frustumCulled={false}>
+      <meshBasicMaterial vertexColors transparent depthWrite={false} fog={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+     </mesh>
+     <mesh frustumCulled={false}>
+      <planeGeometry />
+      <meshBasicMaterial map={glow} color="#dfe9ff" transparent opacity={0} depthWrite={false} fog={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+     </mesh>
+    </group>
+   ))}
+  </group>
+ );
+}
+
+// The Living World, a lo lejos: el planeta al que se va a aterrizar. Gira
+// despacio sobre un eje inclinado, con sus nubes un poco más deprisa y un halo
+// de atmósfera. Se apaga al emprender el descenso (el de verdad queda debajo).
+function Destination({ glow }) {
+ const group = useRef(null);
+ const globe = useRef(null);
+ const clouds = useRef(null);
+ const air = useRef(null);
+ const models = useMemo(() => ({ globe: createGlobe(), clouds: createClouds() }), []);
+ const material = useMemo(() => ({ globe: celestial(GLOBE.light, { ambient: 0.13, strength: 1.0 }), clouds: celestial(GLOBE.light, { ambient: 0.16, strength: 1.05 }) }), []);
+ useEffect(
+  () => () => {
+   Object.values(models).forEach((one) => one.dispose());
+   Object.values(material).forEach((one) => one.dispose());
+  },
+  [models, material],
+ );
+ useEffect(() => {
+  if (import.meta.env.DEV) window.__world.destination = { globe: globe.current, group: group.current }; // para las pruebas automáticas
+ }, []);
+ useFrame(({ clock, size }) => {
+  const aspect = size.width / size.height;
+  const spot = aspect < 1 ? GLOBE.tall : GLOBE.wide;
+  const half = onScreen(aspect, spot.at, GLOBE.depth, group.current.position);
+  group.current.scale.setScalar(half * spot.size);
+  const time = clock.elapsedTime;
+  globe.current.rotation.y = time * 0.06;
+  clouds.current.rotation.y = time * 0.085;
+  const shown = Math.min(1, rig.intro * 1.6);
+  material.globe.opacity = shown;
+  material.clouds.opacity = shown * 0.92;
+  air.current.material.opacity = shown * 0.5;
+ });
+ return (
+  <group ref={group}>
+   {/* Eje inclinado, como un planeta de verdad. */}
+   <group rotation={[0.32, 0, -0.38]}>
+    <mesh ref={globe} geometry={models.globe} material={material.globe} />
+    <mesh ref={clouds} geometry={models.clouds} material={material.clouds} />
+   </group>
+   <mesh ref={air} scale={3.3} position={[0, 0, -1.2]}>
+    <planeGeometry />
+    <meshBasicMaterial map={glow} color="#4fa8ff" transparent opacity={0.5} depthWrite={false} fog={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+   </mesh>
+  </group>
  );
 }
 
@@ -287,6 +458,7 @@ function Islet({ onMounted }) {
  useEffect(() => onMounted?.(), [onMounted]);
  const moon = useRef(null);
  const halo = useRef(null);
+ const corona = useRef(null);
  const glow = useMemo(() => createGlowTexture(), []);
  const paint = useFlora(ONLY_TREE);
  const models = useMemo(() => ({ islet: createIslet(), extras: createTreeExtras(), lamp: createLamp(), lanterns: TREE_LANTERNS.map(([, , , thread]) => createLanternFrame(thread)), moon: createMoon(), plants: createPlantModels() }), []);
@@ -301,7 +473,7 @@ function Islet({ onMounted }) {
    flowers: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.flower, cap: 0.45 }),
   };
   Object.values(lit).forEach((one) => (one.lightsNode = lighting.node));
-  return { ...lit, moon: new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, fog: false, toneMapped: false }) };
+  return { ...lit, moon: celestial(MOON_LIGHT, { ambient: 0.22, strength: 0.8 }) };
  }, [lighting]);
  useEffect(() => () => lighting.points.forEach((light) => light.dispose()), [lighting]);
  useEffect(
@@ -352,7 +524,10 @@ function Islet({ onMounted }) {
   // La luna y las luces del islote se apagan al marcharse.
   const shown = Math.min(1, rig.intro * 1.6);
   material.moon.opacity = shown;
-  halo.current.material.opacity = shown * 0.34;
+  // El halo respira muy despacio.
+  const breathing = 1 + 0.05 * Math.sin(clock.elapsedTime * 0.7);
+  halo.current.material.opacity = shown * 0.34 * breathing;
+  corona.current.material.opacity = shown * 0.5 * breathing;
   const time = clock.elapsedTime;
   lighting.points.forEach((light, i) => {
    const breath = LIGHTS[i].flicker ? 1 + 0.05 * Math.sin(time * 7.3) + 0.04 * Math.sin(time * 13.1) : 1;
@@ -367,8 +542,14 @@ function Islet({ onMounted }) {
   const far = (MOON_DEPTH - camera[2]) / (behind[2] - camera[2]);
   const x = camera[0] + (behind[0] - camera[0]) * far, y = camera[1] + (behind[1] - camera[1]) * far;
   moon.current.position.set(x, y, MOON_DEPTH);
+  // Gira muy despacio sobre un eje algo inclinado (su luz no gira con ella).
+  moon.current.rotation.set(0.18, time * 0.022, 0.1);
   halo.current.position.set(x, y, MOON_DEPTH - 1);
+  corona.current.position.set(x, y, MOON_DEPTH - 0.6);
  });
+ useEffect(() => {
+  if (import.meta.env.DEV) window.__world.moon = moon.current; // para las pruebas automáticas
+ }, []);
 
  const plants = models.plants;
  return (
@@ -412,12 +593,19 @@ function Islet({ onMounted }) {
    <Shade texture={glow} position={[ASTRONAUT[0], 0.04, ASTRONAUT[2]]} size={[0.9, 0.9]} opacity={0.3} />
    <Shade texture={glow} position={[DOG[0], 0.04, DOG[2]]} size={[0.9, 0.9]} opacity={0.3} />
    <Fireflies />
+   <Dust />
    <FallingLeaves lightsNode={lighting.node} />
-   <ShootingStar />
+   <ShootingStars glow={glow} />
+   <Destination glow={glow} />
 
-   {/* Luna detrás de la copa: de ahí viene la luz que recorta las siluetas. */}
-   <mesh ref={moon} geometry={models.moon} material={material.moon} scale={3.4} />
-   <mesh ref={halo} scale={17}>
+   {/* Luna detrás de la copa: de ahí viene la luz que recorta las siluetas.
+       Dos halos: uno ceñido y claro, otro amplio y azul. */}
+   <mesh ref={moon} geometry={models.moon} material={material.moon} scale={MOON_SIZE} />
+   <mesh ref={corona} scale={MOON_SIZE * 3.1}>
+    <planeGeometry />
+    <meshBasicMaterial map={glow} color="#a9bcff" transparent opacity={0.5} depthWrite={false} fog={false} blending={THREE.AdditiveBlending} />
+   </mesh>
+   <mesh ref={halo} scale={MOON_SIZE * 6.4}>
     <planeGeometry />
     <meshBasicMaterial map={glow} color="#5672d6" transparent opacity={0.34} depthWrite={false} fog={false} blending={THREE.AdditiveBlending} />
    </mesh>
