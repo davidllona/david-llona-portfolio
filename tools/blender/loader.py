@@ -1,34 +1,47 @@
-"""Pantalla de carga: renderiza los modelos reales del juego (el astronauta
-sentado en una roca con las piernas colgando, Woody tumbado a su lado y un
-farol) con la luz de la bienvenida: luna fría desde atrás a la izquierda y
-farol cálido. Fondo transparente.
+"""Pantalla de carga: el astronauta y Woody caminando de perfil sobre un planeta
+pequeño que gira bajo sus pies. Se renderizan los modelos reales del juego con
+sus clips (`Astro_Walk`, `Woody_Trot`) y salen estas capas en public/loader/
+(WebP con transparencia), que index.html compone y anima con CSS:
+
+  astronauta.webp  tira de fotogramas del ciclo de andar, de perfil;
+  woody.webp       tira de fotogramas del trote, de perfil;
+  mundo.webp       el planeta visto de frente, con su senda, árboles, matas y
+                   rocas en el borde. La página lo gira alrededor de su centro:
+                   como la cámara es ortográfica y el giro es sobre el eje de la
+                   vista, girar la imagen equivale a girar el planeta. Por eso
+                   su luz no puede venir de un lado: cada cara se aclara según
+                   mire hacia fuera del planeta (la luz «cae del cielo» en todo
+                   el contorno) y el sol del atardecer lo pone la página encima;
+  planeta.webp     un planeta pequeño con anillo, para el fondo.
 
     /Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/loader.py
-    … -- prueba        (solo una vista previa pequeña, en /tmp o en $LOADER_PRUEBA)
+    … -- prueba      (deja además los fotogramas sueltos en $LOADER_PRUEBA o /tmp)
+    … -- solo=mundo  (solo esa capa: astronauta, woody, mundo o planeta)
 
-Salen tres capas en public/loader/ (WebP con transparencia):
-  escena.webp   roca y personajes con la luz de la luna (el farol, apagado);
-  farol.webp    lo mismo con el farol encendido: se superpone y su opacidad
-                tiembla, así la luz parpadea de verdad sobre ellos;
-  planeta.webp  un planeta pequeño para el fondo.
+Al acabar imprime las medidas (en metros) que usa el CSS de index.html.
+Los árboles salen de los originales de slabdsgn (assets-externos/, fuera de git).
 """
 import math
 import os
 import random
 import sys
+import tempfile
 
 import bpy
-from mathutils import Vector
+import numpy as np
+from mathutils import Quaternion, Vector
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT = os.path.join(ROOT, "public", "loader")
 ARGS = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
 PREVIEW = "prueba" in ARGS
-POSE = next((a.split("=")[1] for a in ARGS if a.startswith("pose=")), "Astro_SofaIdle")
-DOG_POSE = next((a.split("=")[1] for a in ARGS if a.startswith("perro=")), "Woody_LieDown")
-DOG_AT = float(next((a.split("=")[1] for a in ARGS if a.startswith("perro_t=")), 1.0))
-DOG_TURN = float(next((a.split("=")[1] for a in ARGS if a.startswith("perro_giro=")), 25))
-SIZE = (720, 534) if PREVIEW else (1080, 800)
+ONLY = next((a.split("=")[1] for a in ARGS if a.startswith("solo=")), None)
+TMP = os.environ.get("LOADER_PRUEBA") or tempfile.mkdtemp(prefix="loader-")
+
+R = 3.6  # radio del planeta, en metros (el astronauta mide algo más de uno)
+PPM = 250  # píxeles por metro en las tiras de los personajes
+WORLD_PPM = 150  # y en la imagen del planeta (es grande y se ve más suave)
+RIM = 2.15  # lo que sobresale del planeta el árbol más alto, con margen
 
 # Colores del juego (src/characters/looks.js); el resto viene del GLB.
 PALETTE = {
@@ -55,7 +68,7 @@ def principled(material):
     return bsdf
 
 
-def flat_material(name, color, emission=None, strength=0.0):
+def flat_material(name, color):
     material = bpy.data.materials.new(name)
     bsdf = principled(material)
     bsdf.inputs["Base Color"].default_value = color
@@ -63,9 +76,6 @@ def flat_material(name, color, emission=None, strength=0.0):
     for key in ("Specular IOR Level", "Specular"):
         if key in bsdf.inputs:
             bsdf.inputs[key].default_value = 0
-    if emission:
-        bsdf.inputs["Emission Color"].default_value = emission
-        bsdf.inputs["Emission Strength"].default_value = strength
     return material
 
 
@@ -96,126 +106,7 @@ def tidy_materials(objects):
                 bsdf.inputs["Emission Strength"].default_value = 0.3
 
 
-def load_character(path, clip, frame_at=0.5):
-    """Importa un GLB riggeado y lo deja en la pose de `clip`."""
-    before = set(bpy.data.objects)
-    bpy.ops.import_scene.gltf(filepath=path)
-    objects = [o for o in bpy.data.objects if o not in before]
-    armature = next(o for o in objects if o.type == "ARMATURE")
-    action = bpy.data.actions.get(clip)
-    if action is None:
-        raise SystemExit(f"No está el clip {clip}. Hay: {sorted(a.name for a in bpy.data.actions)[:80]}")
-    armature.animation_data_create()
-    armature.animation_data.action = action
-    if hasattr(armature.animation_data, "action_slot") and getattr(action, "slots", None):
-        armature.animation_data.action_slot = action.slots[0]
-    start, end = action.frame_range
-    bpy.context.scene.frame_set(int(start + (end - start) * frame_at))
-    tidy_materials(objects)
-    roots = [o for o in objects if o.parent is None]
-    holder = bpy.data.objects.new(clip + "_sitio", None)
-    bpy.context.scene.collection.objects.link(holder)
-    for root in roots:
-        root.parent = holder
-    return holder, objects
-
-
-def rock(seed=7):
-    """Roca facetada: ancha y llana por arriba, que se afila hacia abajo."""
-    random.seed(seed)
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=3, radius=1)
-    obj = bpy.context.object
-    mesh = obj.data
-    for vertex in mesh.vertices:
-        x, y, z = vertex.co
-        jitter = 1 + (random.random() - 0.5) * 0.22
-        # Estratos: la roca baja a escalones, con repisas.
-        step = 1 - 0.16 * math.floor(max(0, -z) * 3.2)
-        if z > 0.12:  # tapa: casi plana, con algo de relieve
-            vertex.co = Vector((x * 1.55 * jitter, y * 1.1 * jitter, 0.12 + (z - 0.12) * 0.1 + (random.random() - 0.5) * 0.04))
-        else:  # cuerpo: se estrecha y baja
-            taper = max(0.12, (1 + z * 0.5) * step)
-            vertex.co = Vector((x * 1.55 * taper * jitter, y * 1.1 * taper * jitter, z * 1.45 + (random.random() - 0.5) * 0.12))
-    for polygon in mesh.polygons:
-        polygon.use_smooth = False
-    # Color por cara: clara arriba, oscura abajo, con un matiz por faceta.
-    layer = mesh.color_attributes.new("Col", "FLOAT_COLOR", "CORNER")
-    top, low = srgb("#c9c2b4"), srgb("#6b6562")
-    for polygon in mesh.polygons:
-        t = max(0, min(1, (polygon.center.z + 1.4) / 1.5))
-        shade = 0.82 + random.random() * 0.36
-        for index in polygon.loop_indices:
-            layer.data[index].color = [(low[i] + (top[i] - low[i]) * t) * shade for i in range(3)] + [1]
-    material = bpy.data.materials.new("Roca")
-    bsdf = principled(material)
-    nodes = material.node_tree.nodes
-    bsdf.inputs["Roughness"].default_value = 1
-    attribute = nodes.new("ShaderNodeVertexColor")
-    attribute.layer_name = "Col"
-    material.node_tree.links.new(attribute.outputs["Color"], bsdf.inputs["Base Color"])
-    mesh.materials.append(material)
-    return obj
-
-
-def planet():
-    """Planeta facetado con anillo, para el fondo."""
-    random.seed(11)
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=1)
-    globe = bpy.context.object
-    layer = globe.data.color_attributes.new("Col", "FLOAT_COLOR", "CORNER")
-    sea, land = srgb("#2f7fb5"), srgb("#58a64d")
-    for polygon in globe.data.polygons:
-        polygon.use_smooth = False
-        base = land if math.sin(polygon.center.x * 3.1 + polygon.center.z * 4.3) + math.cos(polygon.center.y * 3.7) > 0.5 else sea
-        shade = 0.85 + random.random() * 0.3
-        for index in polygon.loop_indices:
-            layer.data[index].color = [base[i] * shade for i in range(3)] + [1]
-    material = bpy.data.materials.new("Planeta")
-    bsdf = principled(material)
-    bsdf.inputs["Roughness"].default_value = 1
-    attribute = material.node_tree.nodes.new("ShaderNodeVertexColor")
-    attribute.layer_name = "Col"
-    material.node_tree.links.new(attribute.outputs["Color"], bsdf.inputs["Base Color"])
-    globe.data.materials.append(material)
-    bpy.ops.mesh.primitive_torus_add(major_radius=1.6, minor_radius=0.13, major_segments=28, minor_segments=4, rotation=(math.radians(20), math.radians(16), 0))
-    ring = bpy.context.object
-    ring.scale = (1, 1, 0.12)
-    for polygon in ring.data.polygons:
-        polygon.use_smooth = False
-    # Su propia luz, de frente a la izquierda: la luna de la escena lo dejaría a oscuras.
-    light("SUN", "Sol_planeta", (-4, -6, 3), "#fff1dc", 3.0, aim=(0, 0, 0))
-    ring.data.materials.append(flat_material("Anillo", srgb("#f6ead6")))
-
-
-def box(name, size, location, material):
-    bpy.ops.mesh.primitive_cube_add(size=1, location=location)
-    obj = bpy.context.object
-    obj.name = name
-    obj.scale = size
-    obj.data.materials.append(material)
-    return obj
-
-
-def lantern(at):
-    """Farol de pie: base, cuatro varillas, cristal encendido, tapa y asa."""
-    x, y, z = at
-    wood = flat_material("Farol_madera", srgb("#6b4630"))
-    dark = flat_material("Farol_hierro", srgb("#2e2620"))
-    glass = flat_material("Farol_cristal", srgb("#000000"), srgb("#ffc878"), 2.2)
-    box("farol_base", (0.3, 0.3, 0.05), (x, y, z + 0.025), wood)
-    for dx in (-1, 1):
-        for dy in (-1, 1):
-            box("farol_varilla", (0.03, 0.03, 0.4), (x + dx * 0.115, y + dy * 0.115, z + 0.25), dark).visible_shadow = False
-    box("farol_cristal", (0.2, 0.2, 0.36), (x, y, z + 0.25), glass).visible_shadow = False
-    bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.25, depth=0.16, location=(x, y, z + 0.53), rotation=(0, 0, math.pi / 4))
-    bpy.context.object.data.materials.append(wood)
-    bpy.ops.mesh.primitive_torus_add(major_radius=0.07, minor_radius=0.012, major_segments=8, minor_segments=4, location=(x, y, z + 0.66), rotation=(math.pi / 2, 0, 0))
-    bpy.context.object.data.materials.append(dark)
-    return (x, y, z + 0.27)
-
-
 def light(kind, name, location, color, energy, aim=None, **extra):
-    """`aim`: punto al que mira (soles y focos de área)."""
     data = bpy.data.lights.new(name, kind)
     data.color = srgb(color)[:3]
     data.energy = energy
@@ -229,102 +120,454 @@ def light(kind, name, location, color, energy, aim=None, **extra):
     return obj
 
 
-def setup_render(scene):
+def new_scene(ambient="#2a3270", strength=0.18):
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    scene = bpy.context.scene
     engines = [item.identifier for item in bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items]
     scene.render.engine = "BLENDER_EEVEE_NEXT" if "BLENDER_EEVEE_NEXT" in engines else "BLENDER_EEVEE"
     scene.render.film_transparent = True
-    scene.render.resolution_x, scene.render.resolution_y = SIZE
     scene.render.resolution_percentage = 100
+    scene.render.fps = 30  # los clips están hechos a 30
     scene.view_settings.view_transform = "Standard"
     scene.view_settings.look = "None"
-    scene.render.image_settings.file_format = "WEBP"
+    scene.render.image_settings.file_format = "PNG"
     scene.render.image_settings.color_mode = "RGBA"
-    scene.render.image_settings.quality = 82
-    world = bpy.data.worlds.new("Noche")
+    world = bpy.data.worlds.new("Cielo")
     world.use_nodes = True
     nodes = world.node_tree.nodes
     background = next((n for n in nodes if n.type == "BACKGROUND"), None) or nodes.new("ShaderNodeBackground")
     output = next((n for n in nodes if n.type == "OUTPUT_WORLD"), None) or nodes.new("ShaderNodeOutputWorld")
     world.node_tree.links.new(background.outputs["Background"], output.inputs["Surface"])
-    background.inputs["Color"].default_value = srgb("#2a3270")
-    background.inputs["Strength"].default_value = 0.18
+    background.inputs["Color"].default_value = srgb(ambient)
+    background.inputs["Strength"].default_value = strength
     scene.world = world
     if hasattr(scene, "eevee"):
-        for key, value in (("taa_render_samples", 64), ("use_shadows", True), ("use_gtao", True)):
+        for key, value in (("taa_render_samples", 48), ("use_shadows", True), ("use_gtao", True)):
             if hasattr(scene.eevee, key):
                 setattr(scene.eevee, key, value)
+    return scene
+
+
+def ortho_camera(scene, centre, width, height, pixels_per_metre):
+    """Cámara ortográfica de perfil (mira hacia +Y) que encuadra width × height metros."""
+    data = bpy.data.cameras.new("Camara")
+    data.type = "ORTHO"
+    scene.render.resolution_x = round(width * pixels_per_metre)
+    scene.render.resolution_y = round(height * pixels_per_metre)
+    data.sensor_fit = "HORIZONTAL"
+    data.ortho_scale = width
+    data.clip_end = 200
+    camera = bpy.data.objects.new("Camara", data)
+    camera.location = (centre[0], -40, centre[1])
+    camera.rotation_euler = (math.radians(90), 0, 0)
+    scene.collection.objects.link(camera)
+    scene.camera = camera
+    return camera
 
 
 def render(path):
     bpy.context.scene.render.filepath = path
     bpy.ops.render.render(write_still=True)
-    print("render:", path, os.path.getsize(path), "bytes")
+
+
+def read_pixels(path):
+    image = bpy.data.images.load(path)
+    w, h = image.size
+    data = np.empty(w * h * 4, dtype=np.float32)
+    image.pixels.foreach_get(data)
+    bpy.data.images.remove(image)
+    return data.reshape(h, w, 4)
+
+
+def save_webp(name, pixels, quality):
+    h, w, _ = pixels.shape
+    image = bpy.data.images.new(name, w, h, alpha=True)
+    image.pixels.foreach_set(np.ascontiguousarray(pixels, dtype=np.float32).ravel())
+    path = os.path.join(OUT, name + ".webp")
+    image.filepath_raw = path
+    image.file_format = "WEBP"
+    image.save(quality=quality)
+    bpy.data.images.remove(image)
+    print(f"capa: {name}.webp {w}×{h} px, {os.path.getsize(path) / 1000:.1f} kB")
+    return os.path.getsize(path)
+
+
+# ── Personajes: tira de fotogramas de un clip, de perfil ─────────────────────
+def walker(name, glb, clip, frames, quality, fill=1.0, rim=1.0):
+    scene = new_scene("#5a4a8c", 0.55)
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=os.path.join(ROOT, "public/models/characters", glb))
+    objects = [o for o in bpy.data.objects if o not in before]
+    armature = next(o for o in objects if o.type == "ARMATURE")
+    action = bpy.data.actions.get(clip)
+    if action is None:
+        raise SystemExit(f"No está el clip {clip}")
+    armature.animation_data_create()
+    armature.animation_data.action = action
+    if hasattr(armature.animation_data, "action_slot") and getattr(action, "slots", None):
+        armature.animation_data.action_slot = action.slots[0]
+    tidy_materials(objects)
+    holder = bpy.data.objects.new("sitio", None)
+    scene.collection.objects.link(holder)
+    for obj in objects:
+        if obj.parent is None:
+            obj.parent = holder
+    holder.rotation_euler = (0, 0, math.radians(90))  # de perfil, andando hacia la derecha (+X)
+
+    start, end = action.frame_range
+    times = [start + (end - start) * i / frames for i in range(frames)]
+
+    def pose(time):
+        scene.frame_set(int(time), subframe=time - int(time))
+        bpy.context.view_layer.update()
+
+    # Encuadre holgado y fijo; después se recorta a lo que ocupa el personaje en todo el ciclo.
+    width, height, bottom = 2.4, 1.9, -0.15
+    ortho_camera(scene, (0, bottom + height / 2), width, height, PPM)
+
+    # Atardecer: el sol, cálido, viene de delante (hacia donde andan) y de detrás
+    # de la escena, y les perfila el contorno; por el lado de la cámara, un relleno frío.
+    light("SUN", "Sol", (6, 5, 3.2), "#ffb46e", 5.5, aim=(0, 0, 0.6), angle=math.radians(4))
+    light("SUN", "Borde", (-2, 6, 5), "#ff9a6a", 1.6 * rim, aim=(0, 0, 0.6))
+    light("SUN", "Filo", (1.5, 7, 7), "#ffc890", 2.4 * rim, aim=(0, 0, 0.5))
+    light("SUN", "Relleno", (-3, -6, 2.5), "#93a6ff", 1.5 * fill, aim=(0, 0, 0.6))
+    light("SUN", "Frente", (3, -6, 1.5), "#ffd2b0", 0.9 * fill, aim=(0, 0, 0.6))
+
+    cells = []
+    for index, time in enumerate(times):
+        pose(time)
+        path = os.path.join(TMP, f"{name}-{index:02d}.png")
+        render(path)
+        cells.append(read_pixels(path))
+    # Recorte común a todos los fotogramas (las filas van de abajo arriba), con un
+    # margen transparente para que una casilla no se manche con la vecina.
+    solid = np.max(np.stack([cell[:, :, 3] for cell in cells]), axis=0) > 0.02
+    rows, columns = np.nonzero(solid.any(axis=1))[0], np.nonzero(solid.any(axis=0))[0]
+    margin = 8
+    y0, y1 = max(0, rows[0] - margin), min(solid.shape[0], rows[-1] + 1 + margin)
+    x0, x1 = max(0, columns[0] - margin), min(solid.shape[1], columns[-1] + 1 + margin)
+    size = save_webp(name, np.concatenate([cell[y0:y1, x0:x1] for cell in cells], axis=1), quality)
+    return {
+        "frames": frames,
+        "cell_px": (int(x1 - x0), int(y1 - y0)),
+        "cell_m": (round((x1 - x0) / PPM, 3), round((y1 - y0) / PPM, 3)),
+        "feet_m": round((-bottom * PPM - y0) / PPM, 3),  # altura del suelo sobre el borde inferior de la casilla
+        "middle_m": round((width / 2 * PPM - x0) / PPM, 3),  # dónde cae el origen del personaje, desde la izquierda
+        "cycle_s": round((end - start) / scene.render.fps, 3),
+        "bytes": size,
+    }
+
+
+# ── El planeta ───────────────────────────────────────────────────────────────
+DUSK = (0.2, 0.2, 0.44)  # penumbra azulada del atardecer (el sol está detrás del planeta)
+
+
+def sky_lit(name, base=None, attribute=None, low=0.42, high=1.0, grade=DUSK):
+    """Material sin luces: el color se aclara en las caras que miran hacia fuera
+    del planeta y se oscurece en las que miran hacia él. `grade` lo tiñe (por
+    defecto, la penumbra del atardecer; None deja el color tal cual)."""
+    material = bpy.data.materials.new(name)
+    material.use_nodes = True
+    nodes, links = material.node_tree.nodes, material.node_tree.links
+    nodes.clear()
+    geometry = nodes.new("ShaderNodeNewGeometry")
+    outward = nodes.new("ShaderNodeVectorMath")
+    outward.operation = "NORMALIZE"
+    links.new(geometry.outputs["Position"], outward.inputs[0])
+    facing = nodes.new("ShaderNodeVectorMath")
+    facing.operation = "DOT_PRODUCT"
+    links.new(geometry.outputs["True Normal"], facing.inputs[0])
+    links.new(outward.outputs["Vector"], facing.inputs[1])
+    ramp = nodes.new("ShaderNodeMapRange")
+    ramp.inputs["From Min"].default_value = -0.55
+    ramp.inputs["From Max"].default_value = 1
+    ramp.inputs["To Min"].default_value = low
+    ramp.inputs["To Max"].default_value = high
+    links.new(facing.outputs["Value"], ramp.inputs["Value"])
+    shade = nodes.new("ShaderNodeVectorMath")
+    shade.operation = "SCALE"
+    if attribute:
+        colour = nodes.new("ShaderNodeVertexColor")
+        colour.layer_name = attribute
+        links.new(colour.outputs["Color"], shade.inputs[0])
+    else:
+        shade.inputs[0].default_value = base[:3]
+    links.new(ramp.outputs["Result"], shade.inputs["Scale"])
+    tinted = nodes.new("ShaderNodeVectorMath")
+    tinted.operation = "MULTIPLY"
+    links.new(shade.outputs["Vector"], tinted.inputs[0])
+    tinted.inputs[1].default_value = grade or (1, 1, 1)
+    emission = nodes.new("ShaderNodeEmission")
+    links.new(tinted.outputs["Vector"], emission.inputs["Color"])
+    output = nodes.new("ShaderNodeOutputMaterial")
+    links.new(emission.outputs["Emission"], output.inputs["Surface"])
+    return material
+
+
+def wobble(p, scale, seed=0.0):
+    """Ruido suave y repetible (sumas de senos), de −1 a 1."""
+    x, y, z = p.x * scale + seed, p.y * scale + seed * 1.7, p.z * scale - seed
+    return (math.sin(x * 1.3 + y * 0.7) + math.sin(y * 1.9 - z * 1.1 + 1.3) + math.sin(z * 1.6 + x * 0.9 + 2.1) + math.sin((x + y + z) * 0.8)) / 4
+
+
+def mix(a, b, t):
+    return [a[i] + (b[i] - a[i]) * t for i in range(3)]
+
+
+def smooth(a, b, x):
+    t = max(0, min(1, (x - a) / (b - a)))
+    return t * t * (3 - 2 * t)
+
+
+def globe():
+    """Esfera facetada con prados de dos verdes y una senda de tierra por donde caminan."""
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=5, radius=R)
+    obj = bpy.context.object
+    mesh = obj.data
+    for vertex in mesh.vertices:
+        p = vertex.co
+        # Relieve suave, pero ninguno en la franja de la senda (y ≈ 0): ahí pisan.
+        relief = smooth(0.45, 1.5, abs(p.y)) * (wobble(p, 1.1) * 0.13 + wobble(p, 2.6, 4) * 0.05)
+        vertex.co = p.normalized() * (R + relief)
+    layer = mesh.color_attributes.new("Col", "FLOAT_COLOR", "CORNER")
+    meadow, lush, dry = srgb("#4f9a52"), srgb("#3b8250"), srgb("#86a64e")
+    trail, edge = srgb("#c8a878"), srgb("#8d9a58")
+    random.seed(3)
+    for polygon in mesh.polygons:
+        c = polygon.center
+        colour = mix(meadow, lush, smooth(-0.2, 0.5, wobble(c, 0.9, 2)))
+        colour = mix(colour, dry, smooth(0.35, 0.8, wobble(c, 0.55, 9)))
+        # Senda de borde irregular a lo largo del círculo por el que caminan.
+        half = 0.3 + wobble(c, 2.2, 6) * 0.09
+        side = abs(c.y + wobble(c, 1.4, 11) * 0.08)
+        colour = mix(colour, edge, 1 - smooth(half, half + 0.22, side))
+        colour = mix(colour, trail, 1 - smooth(half - 0.1, half, side))
+        tint = 0.84 + random.random() * 0.32
+        for index in polygon.loop_indices:
+            layer.data[index].color = [v * tint for v in colour] + [1]
+        polygon.use_smooth = False
+    mesh.materials.append(sky_lit("Suelo", attribute="Col", low=0.9, high=1.0))
+    return obj
+
+
+def stand(obj, angle, y, spin=0.0, sink=0.0, scale=1.0):
+    """Planta `obj` (con su base en el origen) sobre el planeta: `angle` es por
+    dónde del contorno (0 = arriba, positivo hacia la derecha) e `y` cuánto se
+    separa de la senda (positivo: detrás; negativo: delante)."""
+    ring = math.sqrt(R * R - y * y)
+    up = Vector((math.sin(angle) * ring, y, math.cos(angle) * ring)).normalized()
+    obj.rotation_mode = "QUATERNION"
+    obj.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(up) @ Quaternion((0, 0, 1), spin)
+    obj.location = up * (R - sink)
+    obj.scale = (scale, scale, scale)
+
+
+def copy_of(obj):
+    copy = obj.copy()
+    bpy.context.scene.collection.objects.link(copy)
+    return copy
+
+
+def tree(folder, number, materials):
+    """Un árbol de slabdsgn, unido en una malla, con la base en el origen y los materiales del planeta."""
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=os.path.join(ROOT, "assets-externos/modelos", folder, f"{number}.gltf"))
+    meshes = [o for o in bpy.data.objects if o not in before and o.type == "MESH"]
+    bpy.ops.object.select_all(action="DESELECT")
+    for obj in meshes:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = meshes[0]
+    bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
+    if len(meshes) > 1:
+        bpy.ops.object.join()
+    obj = bpy.context.view_layer.objects.active
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    xs = [v.co.x for v in obj.data.vertices]
+    ys = [v.co.y for v in obj.data.vertices]
+    zs = [v.co.z for v in obj.data.vertices]
+    low = min(zs)
+    # El pie del tronco: el centro de los vértices más bajos.
+    foot = [v.co for v in obj.data.vertices if v.co.z < low + (max(zs) - low) * 0.06]
+    cx, cy = sum(p.x for p in foot) / len(foot), sum(p.y for p in foot) / len(foot)
+    height = max(zs) - low
+    for vertex in obj.data.vertices:
+        vertex.co = Vector(((vertex.co.x - cx) / height, (vertex.co.y - cy) / height, (vertex.co.z - low) / height))  # 1 m de alto
+    for polygon in obj.data.polygons:
+        polygon.use_smooth = False
+    for slot in obj.material_slots:
+        key = next((k for k in materials if slot.material.name.startswith(k)), None)
+        slot.material = materials[key] if key else materials["hijau"]
+    for other in [o for o in bpy.data.objects if o not in before and o is not obj]:
+        bpy.data.objects.remove(other)
+    del xs, ys
+    return obj
+
+
+def boulder(seed, material):
+    random.seed(seed)
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=1)
+    obj = bpy.context.object
+    for vertex in obj.data.vertices:
+        x, y, z = vertex.co
+        j = 0.75 + random.random() * 0.5
+        vertex.co = Vector((x * j * 1.2, y * j, max(-0.25, z * j * 0.75) + 0.25))
+    for polygon in obj.data.polygons:
+        polygon.use_smooth = False
+    obj.data.materials.append(material)
+    return obj
+
+
+def tuft(material):
+    """Mata de hierba: tres briznas en abanico."""
+    verts, faces = [], []
+    for i, (lean, turn) in enumerate(((-0.35, 0.0), (0.05, 2.1), (0.4, 4.2))):
+        dx, dy = math.cos(turn) * 0.05, math.sin(turn) * 0.05
+        verts += [(-dx, -dy, 0), (dx, dy, 0), (lean * 0.5 + dy, lean * 0.3 - dx, 1)]
+        faces.append((i * 3, i * 3 + 1, i * 3 + 2))
+    mesh = bpy.data.meshes.new("mata")
+    mesh.from_pydata(verts, [], faces)
+    mesh.materials.append(material)
+    obj = bpy.data.objects.new("mata", mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    return obj
+
+
+def flower(stem, petal):
+    bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.02, radius2=0.012, depth=0.8, location=(0, 0, 0.4))
+    obj = bpy.context.object
+    obj.data.materials.append(stem)
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=0.2, location=(0, 0, 0.86))
+    head = bpy.context.object
+    head.scale = (1, 1, 0.6)
+    head.data.materials.append(petal)
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    head.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.join()
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    for polygon in obj.data.polygons:
+        polygon.use_smooth = False
+    return obj
+
+
+def world():
+    scene = new_scene()
+    span = (R + RIM) * 2
+    ortho_camera(scene, (0, 0), span, span, WORLD_PPM)
+    globe()
+
+    # Los árboles pasan por detrás de los caminantes: van en un verde salvia de
+    # valor medio (ya con la luz del atardecer, sin la penumbra del suelo) para que
+    # Woody, que es negro, y el astronauta, que es claro, se recorten siempre.
+    leaf = sky_lit("Hoja", base=srgb("#5f9482"), low=0.62, high=1.06, grade=None)
+    leaf_dark = sky_lit("Hoja_oscura", base=srgb("#528676"), low=0.62, high=1.06, grade=None)
+    bark = sky_lit("Tronco", base=srgb("#7a6270"), low=0.7, high=1.0, grade=None)
+    leaf_warm = sky_lit("Hoja_clara", base=srgb("#6aa650"), low=0.5, high=1.08)
+    stone = sky_lit("Piedra", base=srgb("#9a968f"), low=0.55, high=1.1)
+    blade = sky_lit("Brizna", base=srgb("#5aa856"), low=0.8, high=1.05)
+    stem = sky_lit("Tallo", base=srgb("#4c8f4e"), low=0.8, high=1.0)
+    petals = [sky_lit(f"Petalo_{i}", base=srgb(c), low=0.75, high=1.05) for i, c in enumerate(("#ffd166", "#ff8fa3", "#f4f1e8", "#ff9f5a"))]
+
+    # Árboles: detrás de la senda (y > 0), repartidos por todo el contorno y de
+    # tamaños distintos, con hueco de cielo entre ellos. Ninguno a menos de 0,9 m
+    # de la senda: no se cruzan con los caminantes más que por detrás.
+    leafy = tree("low-poly-green-tree-asset", 15, {"hijau": leaf, "coklat": bark})
+    round_tree = tree("low-poly-green-tree-object", 13, {"hijau": leaf_dark, "coklat": bark})
+    bush = tree("low-poly-bush-cluster", 10, {"hijau_4": leaf_warm, "hijau_3": sky_lit("Mata", base=srgb("#3f8f58"), low=0.5, high=1.08)})
+    random.seed(21)
+    trees = [  # (ángulo en grados, separación, altura en m, modelo)
+        (30, 1.45, 1.7, leafy), (84, 1.2, 1.2, round_tree), (133, 1.5, 1.85, round_tree), (187, 1.25, 1.35, leafy),
+        (238, 1.5, 1.75, leafy), (289, 1.2, 1.25, round_tree), (338, 1.45, 1.6, round_tree),
+    ]
+    for degrees, y, height, model in trees:
+        stand(copy_of(model), math.radians(degrees + random.uniform(-4, 4)), y, spin=random.uniform(0, 6.28), sink=0.05, scale=height)
+    for i in range(16):  # matas bajas, detrás y delante
+        behind = i % 3 != 0
+        y = random.uniform(0.75, 1.5) if behind else -random.uniform(1.0, 1.9)
+        stand(copy_of(bush), math.radians(i * 22.5 + random.uniform(-7, 7)), y, spin=random.uniform(0, 6.28), sink=0.03, scale=random.uniform(0.3, 0.5) if behind else random.uniform(0.2, 0.3))
+    for i in range(18):  # rocas
+        behind = i % 2 == 0
+        rock = boulder(40 + i, stone)
+        y = random.uniform(0.6, 1.3) if behind else -random.uniform(0.7, 2.2)
+        stand(rock, math.radians(i * 20 + random.uniform(-8, 8)), y, spin=random.uniform(0, 6.28), sink=0.02, scale=random.uniform(0.1, 0.24) if behind else random.uniform(0.08, 0.16))
+    grass = tuft(blade)
+    for i in range(150):  # briznas a los lados de la senda
+        y = random.choice((1, -1)) * random.uniform(0.42, 1.7)
+        stand(copy_of(grass), random.uniform(0, 6.283), y, spin=random.uniform(0, 6.28), scale=random.uniform(0.1, 0.2) if y > 0 else random.uniform(0.07, 0.12))
+    for i in range(44):  # flores
+        y = random.choice((1, -1, -1)) * random.uniform(0.5, 2.0)
+        bloom = flower(stem, petals[i % len(petals)])
+        stand(bloom, random.uniform(0, 6.283), y, spin=random.uniform(0, 6.28), scale=random.uniform(0.2, 0.3) if y > 0 else random.uniform(0.1, 0.16))
+    for model in (leafy, round_tree, bush, grass):
+        model.hide_render = True
+
+    path = os.path.join(TMP, "mundo.png")
+    render(path)
+    size = save_webp("mundo", read_pixels(path), 78)
+    return {"radius_m": R, "span_m": round(span, 3), "bytes": size}
+
+
+def planet():
+    """Planeta facetado con anillo, para el fondo."""
+    scene = new_scene()
+    random.seed(11)
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=1)
+    globe_obj = bpy.context.object
+    layer = globe_obj.data.color_attributes.new("Col", "FLOAT_COLOR", "CORNER")
+    sea, land = srgb("#b56a8f"), srgb("#e8a26a")
+    for polygon in globe_obj.data.polygons:
+        polygon.use_smooth = False
+        base = land if math.sin(polygon.center.x * 3.1 + polygon.center.z * 4.3) + math.cos(polygon.center.y * 3.7) > 0.5 else sea
+        shade = 0.85 + random.random() * 0.3
+        for index in polygon.loop_indices:
+            layer.data[index].color = [base[i] * shade for i in range(3)] + [1]
+    material = bpy.data.materials.new("Planeta")
+    bsdf = principled(material)
+    bsdf.inputs["Roughness"].default_value = 1
+    attribute = material.node_tree.nodes.new("ShaderNodeVertexColor")
+    attribute.layer_name = "Col"
+    material.node_tree.links.new(attribute.outputs["Color"], bsdf.inputs["Base Color"])
+    globe_obj.data.materials.append(material)
+    bpy.ops.mesh.primitive_torus_add(major_radius=1.6, minor_radius=0.13, major_segments=28, minor_segments=4, rotation=(math.radians(20), math.radians(16), 0))
+    ring = bpy.context.object
+    ring.scale = (1, 1, 0.12)
+    for polygon in ring.data.polygons:
+        polygon.use_smooth = False
+    ring.data.materials.append(flat_material("Anillo", srgb("#f6dcc0")))
+    # El sol del atardecer le da desde abajo a la derecha, como en la página.
+    light("SUN", "Sol_planeta", (5, -5, -2.5), "#ffd9a8", 3.4, aim=(0, 0, 0))
+    scene.render.resolution_x = scene.render.resolution_y = 240
+    data = bpy.data.cameras.new("Camara")
+    data.lens_unit = "FOV"
+    data.angle = math.radians(24)
+    camera = bpy.data.objects.new("Camara", data)
+    scene.collection.objects.link(camera)
+    camera.location = (0, -9, 0.6)
+    camera.rotation_euler = (Vector((0, 0, 0)) - camera.location).to_track_quat("-Z", "Y").to_euler()
+    scene.camera = camera
+    path = os.path.join(TMP, "planeta.png")
+    render(path)
+    return {"bytes": save_webp("planeta", read_pixels(path), 80)}
 
 
 def main():
-    bpy.ops.wm.read_factory_settings(use_empty=True)
-    scene = bpy.context.scene
-    setup_render(scene)
     os.makedirs(OUT, exist_ok=True)
-
-    stone = rock()
-    stone.location = (0, 0, 0)
-    top = 0.14  # altura de la tapa de la roca
-
-    # (En Blender: +X derecha, -Y hacia la cámara, +Z arriba.)
-    astro, _ = load_character(os.path.join(ROOT, "public/models/characters/astronauta.glb"), POSE)
-    astro.scale = (1.4, 1.4, 1.4)
-    astro.location = (-0.62, -1.06, top - 0.62)
-    astro.rotation_euler = (0, 0, math.radians(14))
-    dog, _ = load_character(os.path.join(ROOT, "public/models/characters/woody.glb"), DOG_POSE, DOG_AT)
-    dog.scale = (1.25, 1.25, 1.25)
-    dog.location = (0.78, -0.5, top)
-    dog.rotation_euler = (0, 0, math.radians(DOG_TURN))
-    lamp_at = lantern((0.1, -0.72, top))
-    # Dos piedras sueltas que flotan cerca.
-    for (x, y, z, size, seed) in ((-1.5, -0.2, -0.95, 0.17, 3), (1.6, 0.1, -0.6, 0.13, 5)):
-        pebble = rock(seed)
-        pebble.location = (x, y, z)
-        pebble.scale = (size, size, size)
-
-    # Luna: fría, desde atrás a la izquierda y arriba; recorta las siluetas.
-    light("SUN", "Luna", (-4.5, 5.5, 7), "#dbe8ff", 4.2, aim=(0, 0, 0), angle=math.radians(3))
-    # Relleno azul desde abajo y por delante: dibuja la roca.
-    light("AREA", "Relleno", (0.4, -4.5, -3.0), "#a3b8ff", 95, aim=(0, 0, -0.6), size=4)
-    # Luz fría suave por delante a la izquierda: el lado de la luna no queda negro.
-    light("AREA", "Frente", (-4.0, -5.0, 2.2), "#9db8ff", 85, aim=(0, -0.5, 0.5), size=3)
-    warm = light("POINT", "Farol", (lamp_at[0], lamp_at[1], lamp_at[2] + 0.12), "#ffa24e", 125, shadow_soft_size=0.1)
-
-    camera_data = bpy.data.cameras.new("Camara")
-    camera_data.lens_unit = "FOV"
-    camera_data.sensor_fit = "HORIZONTAL"
-    camera_data.angle = math.radians(28)
-    camera = bpy.data.objects.new("Camara", camera_data)
-    scene.collection.objects.link(camera)
-    camera.location = (0.2, -8.2, 1.5)
-    target = Vector((0.12, 0, -0.2))
-    camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
-    scene.camera = camera
-
+    layers = {
+        "astronauta": lambda: walker("astronauta", "astronauta.glb", "Astro_Walk", 12, 78),
+        "woody": lambda: walker("woody", "woody.glb", "Woody_Trot", 12, 78, fill=2.0, rim=2.6),
+        "mundo": world,
+        "planeta": planet,
+    }
+    measures = {}
+    for name, make in layers.items():
+        if ONLY and ONLY != name:
+            continue
+        measures[name] = make()
+    print("MEDIDAS", measures)
+    print("TOTAL kB", round(sum(m["bytes"] for m in measures.values()) / 1000, 1))
     if PREVIEW:
-        scene.render.image_settings.file_format = "PNG"
-        render(os.path.join(os.environ.get("LOADER_PRUEBA", "/tmp"), f"loader-prueba-{POSE}.png"))
-        return
-    render(os.path.join(OUT, "farol.webp"))
-    warm.data.energy = 0
-    principled(bpy.data.materials["Farol_cristal"]).inputs["Emission Strength"].default_value = 0.25
-    render(os.path.join(OUT, "escena.webp"))
-
-    # El planeta del fondo: se esconde todo lo demás y se saca aparte, pequeño.
-    for obj in scene.objects:
-        if obj.type in ("MESH", "ARMATURE"):
-            obj.hide_render = True
-    planet()
-    scene.render.resolution_x = scene.render.resolution_y = 300
-    camera.location = (0, -9, 0.6)
-    camera.rotation_euler = (Vector((0, 0, 0)) - camera.location).to_track_quat("-Z", "Y").to_euler()
-    camera_data.angle = math.radians(24)
-    render(os.path.join(OUT, "planeta.webp"))
+        print("fotogramas sueltos en", TMP)
 
 
 main()

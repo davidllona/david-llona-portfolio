@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { fontReady } from "../ui/fonts";
 
 // Texturas generadas en canvas: no se descarga ningún archivo.
 
@@ -104,7 +105,7 @@ export function createLabelTexture(text, color, { plate = false, title = false }
 
  draw();
  // La fuente web puede llegar después del primer dibujado.
- document.fonts?.load(`800 120px ${LABEL_FONT}`).then(draw, () => {});
+ fontReady(`800 120px ${LABEL_FONT}`).then(draw);
  return texture;
 }
 
@@ -166,7 +167,7 @@ export function createTextPanelTexture({ eyebrow, headline, paragraphs, color })
  };
 
  draw();
- document.fonts?.load(`800 104px ${LABEL_FONT}`).then(draw, () => {});
+ fontReady(`800 104px ${LABEL_FONT}`).then(draw);
  return texture;
 }
 

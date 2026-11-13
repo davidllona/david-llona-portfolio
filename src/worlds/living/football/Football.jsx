@@ -13,6 +13,7 @@ import { CREAM, STONE, WOOD } from "../kit/palette";
 import { PITCH } from "../layout";
 import { BALL_RADIUS, GOAL, MODES, SWEET, TARGET_PLANE, TURF, createMatch, enter, leave, netBulge, preview, release, setAim, setKeeper, startCharge, startMode, strike, toggleWall, update } from "./match";
 import { football } from "./shared";
+import { fontReady } from "../../../ui/fonts";
 
 // Fútbol jugable: lo que se ve y se toca del partido que lleva match.js.
 // Acercarse y pulsar E entra en el juego: el astronauta se coloca tras el
@@ -207,7 +208,7 @@ function createScoreboard() {
   texture.needsUpdate = true;
  };
  const board = { shown: null };
- document.fonts?.load(`800 104px ${FONT}`).then(() => last && draw(...last), () => {});
+ fontReady(`800 104px ${FONT}`).then(() => last && draw(...last));
  return { texture, draw, board };
 }
 

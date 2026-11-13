@@ -3,7 +3,8 @@
 Actualizado: 13 de noviembre de 2026 · rama `estacion-espacial` (solo commits locales, sin push).
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git).
-**En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Hecho el **bloque 0 (inventario y sonidos)**; **parado a la espera del visto bueno**. Siguiente: bloque 1 (pantalla de carga, rehacer: astronauta y Woody caminando sobre un planeta pequeño).
+**En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloque 0 (inventario y sonidos): **visto bueno** (13-11-2026). Hecho el **bloque 1 (pantalla de carga nueva)**; **parado a la espera del visto bueno**. Siguiente: bloque 2 (pantalla previa al aterrizaje: flecha, cero espera, luna, fugaces, planeta).
+Decidido por David el 13-11-2026: los pesos reales de los modelos mandan sobre la ficha (reducir «Japan Lamp», puente, observatorio y cabaña hasta que no bajen los fps y dar el número final de triángulos de cada uno); los pasos fuera de la hierba y los sonidos de baloncesto se quedan sintetizados hasta que él avise.
 Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
 Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado.
 Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Contents/MacOS/Blender -b` (5.0.1). No hay ffmpeg: el audio también se convierte con Blender.
@@ -12,8 +13,8 @@ Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Co
 
 | Bloque | Estado |
 |---|---|
-| 0. Inventario y sonidos | **Hecho, pendiente de visto bueno.** `docs/RECURSOS.md`; grabación y lista en `capturas/18-sonidos/` |
-| 1. Pantalla de carga (astronauta y Woody caminando sobre un planeta) | Sin empezar |
+| 0. Inventario y sonidos | **Visto bueno.** `docs/RECURSOS.md`; grabación y lista en `capturas/18-sonidos/` |
+| 1. Pantalla de carga (astronauta y Woody caminando sobre un planeta) | **Hecho, pendiente de visto bueno.** Capturas: `capturas/19-carga/serie-*.jpg` |
 | 2. Pantalla previa al aterrizaje (flecha, cero espera, luna, fugaces, planeta) | Sin empezar |
 | 3. Errores de juego (colisiones, colina, Woody, aro de visión, carrera) | Sin empezar |
 | 4. Aspecto del mundo (farolas, caminos, rocas, pájaros, carteles, cascada) | Sin empezar |
@@ -21,6 +22,15 @@ Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Co
 | 6. Fútbol y baloncesto | Sin empezar. **Faltan recursos**: no hay sonido de bote, aro ni red de baloncesto |
 | 7. Jardín japonés | Sin empezar |
 | 8. Cierre | Sin empezar |
+
+**Bloque 1, lo que hay** (`index.html`, `tools/blender/loader.py`, `tests/e2e/loader.mjs`, `src/ui/fonts.js`):
+- El astronauta (clip `Astro_Walk`) y Woody (clip `Woody_Trot`) caminan de perfil, de izquierda a derecha, sobre un planeta de 3,6 m de radio que gira bajo sus pies; Woody va delante. Atardecer: cielo azul noche arriba y cálido abajo, sol grande medio escondido tras el planeta, estrellas que parpadean, y tres capas que pasan a velocidades distintas (planeta con anillo y nube lejana; luna y nube media; nube cercana).
+- `…/Blender -b -P tools/blender/loader.py` renderiza los modelos reales con cámara ortográfica y saca cuatro WebP en `public/loader/` (212 kB): `astronauta.webp` y `woody.webp` (tiras de 12 fotogramas del ciclo), `mundo.webp` (el planeta con su senda, siete árboles de slabdsgn, matas, rocas, briznas y flores) y `planeta.webp`. Imprime las medidas en metros que usa el CSS. `-- solo=mundo` rehace una sola capa. Los árboles salen de los originales de `assets-externos/`.
+- Todo lo demás es CSS en línea en `index.html`, en una unidad `--m` (píxeles por metro). El planeta es una imagen que gira (cámara ortográfica + giro sobre el eje de la vista = giro real), así que su luz no puede venir de un lado: cada cara se aclara según mire hacia fuera y el borde cálido lo pone una capa fija encima. Solo se animan `transform` y `opacity`: no depende del hilo principal, ocupado cargando el juego.
+- **Los pies no patinan**: una sola variable (`--v`, segundos por metro de suelo) fija el giro del planeta y los dos ciclos. Con la velocidad real de cada clip medida en Blender (astronauta 0,52 m/s, trote de Woody 1,33 m/s) sale un suelo a 0,78 m/s: el astronauta anda a 1,5× su clip (ciclo de 0,44 s) y **Woody trota a 0,59× el suyo** (ciclo de 0,91 s), porque su trote es 2,6 veces más rápido que el paso del astronauta.
+- La hoja de la tipografía ya no bloquea el primer pintado (antes lo retrasaba a ~560 ms): la escena se pinta a los ~64 ms y los textos aparecen al llegar la letra, nunca con otra. Por eso los rótulos 3D esperan a la letra con `fontReady` (`src/ui/fonts.js`) en vez de `document.fonts.load` a secas.
+- En móvil vertical la escena ocupa el 66 % del alto; el astronauta mide el 14 % (18 % en escritorio).
+- Sin comprobar: que el trote lento de Woody se vea natural en movimiento (solo lo he visto en fotogramas); Safari y un teléfono real.
 
 **Bloque 0, lo que hay** (`src/audio/engine.js`, `src/audio/Sounds.jsx`, `tools/assets/sounds.py`, `tests/e2e/sounds.mjs`):
 - Los 12 sonidos de Envato, convertidos a 14 MP3 en `public/sounds/` (1,47 MB). `…/Blender -b -P tools/assets/sounds.py` los regenera y escribe `src/audio/sampleData.json` (duraciones, puntos de bucle, casillas de los pasos). Los bucles llevan su periodo dentro del archivo con margen repetido a los lados, así no dependen del silencio que mete el MP3.
@@ -68,7 +78,8 @@ Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Co
 npm run dev -- --port 5199     # http://localhost:5199
 node tests/e2e/welcome.mjs     # capturas de la bienvenida (escritorio, panorámico, móvil vertical); no comprueba nada
 node tests/e2e/descent.mjs     # el descenso tras el clic, una captura cada 200 ms
-node tests/e2e/loader.mjs      # la pantalla de carga al 0, 50 y 100 % y su fundido
+node tests/e2e/loader.mjs      # pantalla de carga: peso, primer pintado, pies sin patinar, móvil; fotogramas del bucle y del fundido
+node tests/e2e/sheet.mjs       # monta varias capturas en una hoja: salida.jpg columnas ancho img1 img2 …
 node tests/e2e/trees.mjs       # capturas de los árboles; no comprueba nada
 node tests/perf/peso.mjs       # peso descargado en la primera visita (build de producción en el 5198)
 node tests/perf/fps.mjs        # fps en cinco puntos

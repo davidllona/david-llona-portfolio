@@ -5,6 +5,7 @@ import { BY_ID } from "../../achievements/list";
 import { skipSpeech, speechPaused, updateSpeech } from "../speech";
 import { ZOOM, events, player, rig, ui3d, woody } from "../state";
 import { createCard, drawAchievement, drawPill, drawSpeech } from "./cards";
+import { fontReady } from "../../ui/fonts";
 
 // La interfaz del juego, dentro del mundo: la indicación de la tecla E sobre el
 // objeto, los mensajes junto a lo que los provoca, el logro recién conseguido
@@ -69,7 +70,7 @@ export function WorldUi() {
  useEffect(() => {
   // La letra del título puede llegar después del primer dibujado.
   const redraw = () => [hint, ...toasts, achievement, speech].forEach((one) => (one.card.text = null));
-  document.fonts?.load('700 64px "Bricolage Grotesque"').then(redraw, () => {});
+  fontReady('700 64px "Bricolage Grotesque"').then(redraw);
   const onToast = (event) => {
    const { text, at = null } = event.detail ?? {};
    if (!text) return;

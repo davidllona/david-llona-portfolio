@@ -6,6 +6,7 @@ import { emit, events, game, player } from "../../experience/state";
 import { createBackboardTexture, createBasketballTexture } from "../../experience/textures";
 import { PLAYER_RADIUS } from "../collision";
 import { BASKET, COLORS, COURT, WATER_LEVEL, height as terrainHeight } from "./layout";
+import { fontReady } from "../../ui/fonts";
 
 // Pista de baloncesto: un balón que se coge y se tira a canasta, con marcador.
 // (El minijuego completo —apuntado, triples, defensores— llega en su fase.)
@@ -305,7 +306,7 @@ function createScoreTexture() {
   texture.needsUpdate = true;
  };
  draw(game.score);
- document.fonts?.load('800 112px "Bricolage Grotesque"').then(() => draw(game.score), () => {});
+ fontReady('800 112px "Bricolage Grotesque"').then(() => draw(game.score));
  return { texture, draw };
 }
 

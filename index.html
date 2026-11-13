@@ -17,77 +17,135 @@
   <meta property="og:url" content="https://davidllona.com/" />
   <meta property="og:image" content="https://davidllona.com/images/projects/portfolio.png" />
 
-  <!-- La imagen de la pantalla de carga se pide antes que nada: se pinta de inmediato. -->
-  <link rel="preload" as="image" href="/loader/farol.webp" type="image/webp" fetchpriority="high" />
-  <link rel="preload" as="image" href="/loader/escena.webp" type="image/webp" fetchpriority="high" />
+  <!-- Las capas de la pantalla de carga se piden antes que nada: se pintan de inmediato. -->
+  <link rel="preload" as="image" href="/loader/astronauta.webp" type="image/webp" fetchpriority="high" />
+  <link rel="preload" as="image" href="/loader/woody.webp" type="image/webp" fetchpriority="high" />
+  <link rel="preload" as="image" href="/loader/mundo.webp" type="image/webp" fetchpriority="high" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <!-- display=block: el texto espera a la tipografía en vez de aparecer primero con otra. -->
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&display=block" rel="stylesheet">
+  <!-- La tipografía no bloquea el primer pintado: la escena de carga sale de inmediato y sus
+       textos aparecen en cuanto llega la letra (nunca con otra). display=block: en el resto de
+       la página el texto también espera a la tipografía. -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&display=block" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&display=block" rel="stylesheet"></noscript>
+  <script>
+    // Los textos de la carga se enseñan cuando la letra está lista (o a los 2 s, si no llega).
+    (function () {
+      var show = function () { document.documentElement.classList.add("has-font"); };
+      var wait = function () { document.fonts.load('800 1em "Bricolage Grotesque"').then(function (found) { found.length ? show() : setTimeout(wait, 60); }, show); };
+      if (document.fonts && document.fonts.load) wait(); else show();
+      setTimeout(show, 2000);
+    })();
+  </script>
 </head>
 
 <body>
   <!-- Pantalla de carga. Va aquí, con su estilo en línea, para que se pinte antes de que
-       llegue el JavaScript. La imagen es un render de Blender de los modelos reales del juego
-       (tools/blender/loader.py) en dos capas: la escena con luz de luna y, encima, la misma con
-       el farol encendido, cuya opacidad tiembla. La controla src/ui/loaderControl.js. -->
+       llegue el JavaScript: el astronauta y Woody caminan de perfil sobre un planeta pequeño
+       que gira bajo sus pies, al atardecer. El cielo, el sol, las estrellas, las nubes y la
+       luz son CSS; los personajes y el planeta son renders de Blender de los modelos reales
+       del juego (tools/blender/loader.py, que imprime las medidas en metros que se usan aquí).
+       Todo se mueve con transform y opacity: sigue fluido aunque el hilo principal esté
+       ocupado cargando el juego. La controla src/ui/loaderControl.js. -->
   <style>
-    #loader { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; overflow: hidden;
-      background: radial-gradient(120% 90% at 50% 58%, #121c4a 0%, #080b26 55%, #04041a 100%);
-      color: #ededed; font-family: "Bricolage Grotesque", system-ui, sans-serif; transition: opacity .7s ease, visibility .7s; }
+    /* --m: píxeles por metro de la escena. --h: altura del horizonte (donde pisan).
+       --v: lo que tarda el suelo en avanzar un metro; de ahí salen el giro del planeta y los
+       dos ciclos de paso, para que los pies no patinen:
+         planeta     2π · 3,6 m de contorno → 22,62 m
+         astronauta  0,347 m por ciclo de Astro_Walk (0,52 m/s × 0,667 s)
+         Woody       0,709 m por ciclo de Woody_Trot (1,33 m/s × 0,533 s) */
+    #loader { --m: min(14.5vh, 25vw); --h: 57vh; --v: 1.28s; --sun-x: 2.05;
+      position: fixed; inset: 0; z-index: 100; overflow: hidden;
+      background:
+        radial-gradient(ellipse calc(var(--m) * 9) calc(var(--m) * 5.2) at calc(50% + var(--m) * var(--sun-x)) calc(var(--h) + var(--m) * .5),
+          rgba(255, 214, 150, .95) 0%, rgba(255, 160, 96, .8) 22%, rgba(232, 96, 96, .5) 46%, rgba(150, 62, 122, .22) 70%, transparent 100%),
+        linear-gradient(to bottom, #060a2a 0%, #0d1444 20%, #262363 38%, #5a2f74 50%, #a3486f 60%, #e0705a 72%, #f79a58 86%, #ffb86a 100%);
+      color: #fff; font-family: "Bricolage Grotesque", system-ui, sans-serif; transition: opacity .7s ease, visibility .7s; }
     #loader.is-leaving { opacity: 0; visibility: hidden; pointer-events: none; }
+    #loader *, #loader *::before, #loader *::after { box-sizing: border-box; }
     .ld-brand { position: absolute; top: clamp(18px, 4vh, 40px); left: clamp(20px, 5vw, 64px); margin: 0;
       font-size: clamp(1.3rem, 2.4vw, 1.9rem); font-weight: 800; font-stretch: 75%; font-variation-settings: "wdth" 75; text-transform: uppercase; }
     .ld-brand span { color: #ff6b2c; }
-    /* Fondo: nebulosa muy tenue, estrellas de tres tamaños que parpadean y un planeta a lo lejos. */
-    .ld-nebula { position: absolute; inset: -10%; background:
-      radial-gradient(38% 30% at 24% 30%, rgba(108, 92, 231, .2), transparent 70%),
-      radial-gradient(34% 28% at 78% 64%, rgba(255, 107, 44, .09), transparent 70%),
-      radial-gradient(30% 24% at 66% 18%, rgba(64, 160, 255, .13), transparent 70%); animation: ld-nebula 26s ease-in-out infinite alternate; }
+    .ld-brand, .ld-info { opacity: 0; transition: opacity .3s ease; }
+    .has-font .ld-brand, .has-font .ld-info { opacity: 1; }
+    /* Estrellas de tres tamaños que parpadean; se apagan hacia el horizonte. */
+    .ld-night { position: absolute; inset: 0; -webkit-mask-image: linear-gradient(to bottom, #000 22%, transparent 54%); mask-image: linear-gradient(to bottom, #000 22%, transparent 54%); }
     .ld-stars { position: absolute; left: 0; top: 0; width: 1px; height: 1px; border-radius: 50%; animation: ld-twinkle 3.4s ease-in-out infinite; }
     .ld-stars--a { box-shadow: 62.3vw 68.2vh 0 0px #ffe9c9, 94.2vw 68.1vh 0 0px #ffe9c9, 2.9vw 42.8vh 0 0px #ffffff, 64.9vw 82.9vh 0 0px #ffffff, 37.2vw 79.9vh 0 0px #dfe8ff, 54.4vw 52.8vh 0 0px #ffffff, 73.1vw 37.5vh 0 0px #ffffff, 91.6vw 70.4vh 0 0px #ffffff, 76.2vw 6.6vh 0 0px #ffe9c9, 61.7vw 11.7vh 0 0px #ffffff, 97.2vw 0.5vh 0 0px #ffffff, 96.0vw 15.3vh 0 0px #ffffff, 28.9vw 88.5vh 0 0px #ffe9c9, 87.6vw 57.6vh 0 0px #ffffff, 94.1vw 63.5vh 0 0px #dfe8ff, 29.9vw 33.2vh 0 0px #ffffff, 93.6vw 24.3vh 0 0px #dfe8ff, 30.1vw 55.5vh 0 0px #ffffff, 59.6vw 65.1vh 0 0px #ffffff, 31.0vw 75.3vh 0 0px #dfe8ff, 69.6vw 17.0vh 0 0px #dfe8ff, 70.5vw 5.2vh 0 0px #ffffff, 94.9vw 32.9vh 0 0px #dfe8ff, 1.8vw 72.5vh 0 0px #dfe8ff, 37.6vw 77.4vh 0 0px #dfe8ff, 4.7vw 16.6vh 0 0px #ffffff, 11.9vw 22.6vh 0 0px #dfe8ff, 34.4vw 32.6vh 0 0px #ffe9c9, 25.1vw 42.6vh 0 0px #ffe9c9, 74.8vw 73.3vh 0 0px #dfe8ff, 3.7vw 87.0vh 0 0px #ffffff, 20.8vw 47.2vh 0 0px #dfe8ff, 91.8vw 31.3vh 0 0px #ffe9c9, 54.5vw 28.7vh 0 0px #dfe8ff, 30.6vw 73.5vh 0 0px #ffe9c9, 14.9vw 63.4vh 0 0px #dfe8ff, 16.2vw 4.5vh 0 0px #ffe9c9, 53.4vw 37.3vh 0 0px #ffffff, 74.1vw 31.6vh 0 0px #dfe8ff, 45.6vw 38.8vh 0 0px #ffffff, 97.9vw 58.7vh 0 0px #dfe8ff, 33.4vw 19.0vh 0 0px #ffe9c9, 56.4vw 12.2vh 0 0px #dfe8ff, 10.7vw 40.0vh 0 0px #ffffff, 5.9vw 38.7vh 0 0px #ffffff, 45.3vw 91.9vh 0 0px #ffffff; opacity: .8; }
     .ld-stars--b { box-shadow: 97.6vw 41.7vh 0 0.6px #dfe8ff, 68.9vw 29.2vh 0 0.6px #dfe8ff, 29.1vw 37.1vh 0 0.6px #ffffff, 11.3vw 75.6vh 0 0.6px #ffe9c9, 96.0vw 57.7vh 0 0.6px #dfe8ff, 86.8vw 16.6vh 0 0.6px #dfe8ff, 27.2vw 71.9vh 0 0.6px #ffe9c9, 36.1vw 72.3vh 0 0.6px #dfe8ff, 69.5vw 61.1vh 0 0.6px #dfe8ff, 36.3vw 64.8vh 0 0.6px #dfe8ff, 83.5vw 24.4vh 0 0.6px #ffe9c9, 71.6vw 88.0vh 0 0.6px #dfe8ff, 65.0vw 53.4vh 0 0.6px #ffffff, 47.4vw 71.2vh 0 0.6px #dfe8ff, 67.2vw 42.6vh 0 0.6px #ffe9c9, 64.7vw 73.4vh 0 0.6px #dfe8ff, 27.4vw 31.8vh 0 0.6px #dfe8ff, 35.0vw 77.5vh 0 0.6px #ffe9c9, 45.0vw 33.5vh 0 0.6px #dfe8ff, 51.8vw 48.7vh 0 0.6px #ffffff, 19.9vw 33.3vh 0 0.6px #dfe8ff, 28.3vw 7.3vh 0 0.6px #ffe9c9; animation-duration: 4.6s; animation-delay: -1.7s; }
     .ld-stars--c { box-shadow: 73.0vw 15.8vh 0 1.1px #ffe9c9, 51.6vw 86.2vh 0 1.1px #dfe8ff, 62.4vw 71.3vh 0 1.1px #ffe9c9, 27.1vw 91.6vh 0 1.1px #ffffff, 16.0vw 40.6vh 0 1.1px #ffe9c9, 18.1vw 69.8vh 0 1.1px #ffffff, 63.1vw 3.9vh 0 1.1px #dfe8ff, 98.0vw 15.2vh 0 1.1px #ffffff, 11.1vw 89.1vh 0 1.1px #dfe8ff; animation-duration: 2.7s; animation-delay: -.9s; }
-    .ld-planet { position: absolute; left: 12vw; top: 17vh; width: clamp(54px, 9vh, 96px); height: auto; opacity: .85; animation: ld-planet 16s ease-in-out infinite; }
-    /* La escena: cerca del 45 % del alto (la imagen trae algo de margen transparente). */
-    .ld-stage { position: relative; height: min(54vh, 76vw); aspect-ratio: 1080 / 800; margin-top: -9vh; animation: ld-float 6.5s ease-in-out infinite; }
-    .ld-stage img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-    .ld-light { animation: ld-flicker 3.1s linear infinite; }
-    .ld-halo { position: absolute; left: 49.5%; top: 40%; width: 62%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%;
-      background: radial-gradient(closest-side, rgba(255, 168, 82, .34), rgba(255, 150, 60, .1) 46%, transparent 72%); animation: ld-flicker 3.1s linear infinite; }
-    /* Motas de luz que suben desde el farol. */
-    .ld-mote { position: absolute; left: 49.5%; top: 34%; width: 4px; height: 4px; border-radius: 50%; background: #ffd08a;
-      box-shadow: 0 0 8px 2px rgba(255, 176, 96, .7); opacity: 0; animation: ld-rise 5.5s linear infinite; }
-    .ld-mote:nth-child(2) { --dx: -34px; animation-delay: -1.2s; animation-duration: 6.4s; }
-    .ld-mote:nth-child(3) { --dx: 26px; animation-delay: -2.6s; }
-    .ld-mote:nth-child(4) { --dx: 52px; animation-delay: -3.9s; animation-duration: 7s; }
-    .ld-mote:nth-child(5) { --dx: -12px; animation-delay: -4.6s; animation-duration: 4.8s; }
-    .ld-info { position: absolute; left: 0; right: 0; bottom: clamp(22px, 6.5vh, 70px); text-align: center; }
+    /* Lo que pasa despacio por el cielo, en tres capas: cuanto más lejos, más pequeño y más lento. */
+    .ld-drift { position: absolute; left: 0; top: 0; width: 100%; animation: ld-drift linear infinite; }
+    .ld-drift > * { position: absolute; }
+    .ld-drift--far { animation-duration: 190s; animation-delay: -118s; }
+    .ld-drift--mid { animation-duration: 120s; animation-delay: -62s; }
+    .ld-drift--near { animation-duration: 70s; animation-delay: -21s; }
+    .ld-ringed { left: 0; top: 13vh; width: calc(var(--m) * .62); height: auto; }
+    .ld-moon { left: 0; top: 25vh; width: calc(var(--m) * .3); aspect-ratio: 1; border-radius: 50%;
+      background: radial-gradient(circle at 68% 72%, #ffe3c2 0%, #e7a7a0 46%, #7d4f8f 82%);
+      box-shadow: 0 0 calc(var(--m) * .12) rgba(255, 190, 160, .35); }
+    .ld-moon::after { content: ""; position: absolute; left: 24%; top: 30%; width: 22%; aspect-ratio: 1; border-radius: 50%; background: rgba(90, 50, 110, .35);
+      box-shadow: calc(var(--m) * .09) calc(var(--m) * .06) 0 calc(var(--m) * -.012) rgba(90, 50, 110, .3); }
+    /* Nube: tres píldoras, encendida por debajo por el sol. */
+    .ld-cloud { left: 0; width: calc(var(--m) * var(--w, 2.2)); height: calc(var(--m) * var(--w, 2.2) * .11); border-radius: 999px; opacity: var(--o, .8);
+      background: linear-gradient(to bottom, #b0628f 0%, #f08f78 70%, #ffc38a 100%); }
+    .ld-cloud::before, .ld-cloud::after { content: ""; position: absolute; border-radius: 999px; background: inherit; }
+    .ld-cloud::before { left: 14%; bottom: 70%; width: 44%; height: 100%; }
+    .ld-cloud::after { left: 40%; bottom: 150%; width: 26%; height: 80%; }
+    /* El sol, grande, medio escondido tras el planeta. */
+    .ld-sun { position: absolute; left: calc(50% + var(--m) * var(--sun-x)); top: calc(var(--h) + var(--m) * .5); width: calc(var(--m) * 4.3); aspect-ratio: 1;
+      transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(circle, #fff6d2 0%, #ffe09a 34%, #ffb765 68%, #ff8f4a 100%); }
+    .ld-sun::before { content: ""; position: absolute; inset: -34%; border-radius: 50%;
+      background: radial-gradient(closest-side, rgba(255, 200, 124, .6) 56%, rgba(255, 168, 100, .3) 66%, rgba(255, 140, 90, .1) 82%, transparent 100%); animation: ld-glow 5s ease-in-out infinite; }
+    /* El planeta. Todo lo de dentro se coloca respecto a su centro. */
+    .ld-world { position: absolute; left: 50%; top: calc(var(--h) + var(--m) * 3.6); width: 0; height: 0; }
+    .ld-globe { position: absolute; left: calc(var(--m) * -5.75); top: calc(var(--m) * -5.75); width: calc(var(--m) * 11.5); height: calc(var(--m) * 11.5); max-width: none;
+      animation: ld-spin calc(var(--v) * 22.62) linear infinite; will-change: transform; }
+    /* La luz, que no gira: borde cálido hacia el sol y penumbra hacia abajo (donde va el texto). */
+    .ld-shade { position: absolute; left: calc(var(--m) * -3.6); top: calc(var(--m) * -3.6); width: calc(var(--m) * 7.2); height: calc(var(--m) * 7.2); border-radius: 50%;
+      background:
+        radial-gradient(circle at calc(50% + var(--m) * var(--sun-x) * .8) 1%, rgba(255, 190, 120, .5) 0%, rgba(255, 150, 100, .2) 16%, transparent 34%),
+        linear-gradient(to bottom, transparent 3%, rgba(16, 10, 48, .34) 15%, rgba(10, 7, 38, .8) 36%);
+      box-shadow: inset 0 calc(var(--m) * .05) calc(var(--m) * .1) rgba(255, 214, 160, .4); }
+    /* Caminantes: se llevan al punto del contorno que les toca (rotate) y ahí se apoyan. */
+    .ld-walker { position: absolute; left: 0; top: 0; width: 0; height: 0; transform: rotate(var(--at)) translateY(calc(var(--m) * -3.6)); }
+    .ld-walker::before { content: ""; position: absolute; left: calc(var(--m) * var(--sw) / -2); top: calc(var(--m) * -.05); width: calc(var(--m) * var(--sw)); height: calc(var(--m) * .12);
+      border-radius: 50%; background: radial-gradient(closest-side, rgba(12, 6, 36, .55), transparent); }
+    .ld-cell { position: absolute; overflow: hidden; }
+    .ld-cell img { display: block; width: 1200%; height: 100%; max-width: none; animation: ld-frames var(--cycle) steps(12) infinite; will-change: transform; }
+    .ld-astro { --at: -9deg; --sw: .62; }
+    /* (El astronauta se endereza un poco: del todo perpendicular parecía caerse de espaldas.) */
+    .ld-astro .ld-cell { transform: rotate(3deg); transform-origin: 48% 96%; left: calc(var(--m) * -.324); bottom: calc(var(--m) * -.054); width: calc(var(--m) * .68); height: calc(var(--m) * 1.324); --cycle: calc(var(--v) * .347); }
+    .ld-woody { --at: 12.5deg; --sw: .95; }
+    .ld-woody .ld-cell { left: calc(var(--m) * -.78); bottom: calc(var(--m) * -.05); width: calc(var(--m) * 1.404); height: calc(var(--m) * .88); --cycle: calc(var(--v) * .709); }
+    .ld-info { position: absolute; left: 0; right: 0; bottom: clamp(22px, 6.5vh, 70px); text-align: center; text-shadow: 0 1px 14px rgba(8, 5, 32, .7); }
     .ld-number { margin: 0; font-size: clamp(2.6rem, 7vw, 4.4rem); font-weight: 800; font-stretch: 75%;
       font-variation-settings: "wdth" 75; line-height: 1; font-variant-numeric: tabular-nums; }
     .ld-number small { margin-left: 4px; font-size: .4em; color: #ff6b2c; }
-    .ld-track { width: min(60vw, 300px); height: 3px; margin: 14px auto 12px; border-radius: 2px; background: rgba(255,255,255,.14); overflow: hidden; }
+    .ld-track { width: min(60vw, 300px); height: 3px; margin: 14px auto 12px; border-radius: 2px; background: rgba(255,255,255,.2); overflow: hidden; }
     .ld-bar { height: 100%; background: #ff6b2c; transform: scaleX(0); transform-origin: left; }
-    .ld-step { margin: 0; min-height: 1.4em; font-size: 14px; font-weight: 600; letter-spacing: .04em; color: #b9bdd2; }
-    @keyframes ld-float { 50% { transform: translateY(-9px) rotate(-.5deg); } }
-    @keyframes ld-flicker { 0%, 100% { opacity: 1; } 8% { opacity: .86; } 13% { opacity: .97; } 31% { opacity: .9; } 36% { opacity: 1; } 58% { opacity: .8; } 63% { opacity: .95; } 82% { opacity: .88; } }
+    .ld-step { margin: 0; min-height: 1.4em; font-size: 14px; font-weight: 600; letter-spacing: .04em; color: #d6d2ea; }
+    @keyframes ld-spin { to { transform: rotate(-360deg); } }
+    @keyframes ld-frames { to { transform: translateX(-100%); } }
+    @keyframes ld-drift { from { transform: translateX(104%); } to { transform: translateX(-34%); } }
     @keyframes ld-twinkle { 50% { opacity: .3; } }
-    @keyframes ld-nebula { to { transform: translate(2%, -1.5%) scale(1.06); } }
-    @keyframes ld-planet { 50% { transform: translateY(-6px) rotate(4deg); } }
-    @keyframes ld-rise { 0% { transform: translate(0, 0) scale(.6); opacity: 0; } 12% { opacity: .9; } 70% { opacity: .5; } 100% { transform: translate(var(--dx, 14px), -21vh) scale(.2); opacity: 0; } }
-    @media (max-aspect-ratio: 1/1) { .ld-planet { left: 9vw; top: 13vh; } .ld-stage { margin-top: -12vh; } }
+    @keyframes ld-glow { 50% { opacity: .72; transform: scale(1.04); } }
+    /* Vertical: el sol se acerca al centro para que no se salga, y el horizonte sube un poco. */
+    @media (max-aspect-ratio: 1/1) { #loader { --h: 53vh; --sun-x: 1.25; } .ld-astro { --at: -8deg; } .ld-woody { --at: 11deg; } }
     @media (prefers-reduced-motion: reduce) { #loader * { animation: none !important; } }
   </style>
   <div id="loader" role="status" aria-label="Cargando el planeta">
-    <div class="ld-nebula"></div>
-    <i class="ld-stars ld-stars--a"></i><i class="ld-stars ld-stars--b"></i><i class="ld-stars ld-stars--c"></i>
-    <img class="ld-planet" src="/loader/planeta.webp" width="300" height="300" alt="" decoding="async" />
+    <div class="ld-night"><i class="ld-stars ld-stars--a"></i><i class="ld-stars ld-stars--b"></i><i class="ld-stars ld-stars--c"></i></div>
+    <div class="ld-drift ld-drift--far"><img class="ld-ringed" src="/loader/planeta.webp" width="240" height="240" alt="" decoding="async" /><i class="ld-cloud" style="top: 22vh; left: 30%; --w: 1.3; --o: .4"></i></div>
+    <div class="ld-sun"></div>
+    <div class="ld-drift ld-drift--mid"><i class="ld-moon"></i><i class="ld-cloud" style="top: 31vh; left: -24%; --w: 1.9; --o: .62"></i></div>
+    <div class="ld-drift ld-drift--near"><i class="ld-cloud" style="top: calc(var(--h) - var(--m) * 1.95); --w: 2.6; --o: .85"></i></div>
     <p class="ld-brand">David <span>Llona</span></p>
-    <div class="ld-stage">
-      <div class="ld-halo"></div>
-      <img src="/loader/escena.webp" width="1080" height="800" alt="" fetchpriority="high" />
-      <img class="ld-light" src="/loader/farol.webp" width="1080" height="800" alt="El astronauta sentado en una roca junto a Woody y un farol" fetchpriority="high" />
-      <span class="ld-mote"></span><span class="ld-mote"></span><span class="ld-mote"></span><span class="ld-mote"></span><span class="ld-mote"></span>
+    <div class="ld-world">
+      <img class="ld-globe" src="/loader/mundo.webp" width="1725" height="1725" alt="" fetchpriority="high" />
+      <div class="ld-shade"></div>
+      <div class="ld-walker ld-astro"><div class="ld-cell"><img src="/loader/astronauta.webp" width="2040" height="331" alt="El astronauta caminando sobre un planeta pequeño" fetchpriority="high" /></div></div>
+      <div class="ld-walker ld-woody"><div class="ld-cell"><img src="/loader/woody.webp" width="4212" height="220" alt="Woody trotando delante de él" fetchpriority="high" /></div></div>
     </div>
     <div class="ld-info">
       <p class="ld-number"><span id="loader-number">0</span><small>%</small></p>

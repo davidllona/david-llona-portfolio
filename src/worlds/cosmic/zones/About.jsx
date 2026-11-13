@@ -8,6 +8,7 @@ import { clickable, useInteractable } from "../../../experience/interact";
 import { emit, events, game, player } from "../../../experience/state";
 import { createBackboardTexture, createBasketballTexture, createTextPanelTexture } from "../../../experience/textures";
 import { ABOUT, COLORS, PLAYER_RADIUS, WATER_LEVEL, terrainHeight } from "../layout";
+import { fontReady } from "../../../ui/fonts";
 
 // Zona "Sobre mí": media pista de baloncesto con un balón que se coge y se
 // tira, Woody en holograma y un cartel con el texto.
@@ -296,7 +297,7 @@ function createScoreTexture() {
   texture.needsUpdate = true;
  };
  draw(game.score);
- document.fonts?.load('800 112px "Bricolage Grotesque"').then(() => draw(game.score), () => {});
+ fontReady('800 112px "Bricolage Grotesque"').then(() => draw(game.score));
  return { texture, draw };
 }
 
