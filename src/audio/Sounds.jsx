@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { events, player } from "../experience/state";
 import { theme } from "../experience/theme";
 import { world } from "../worlds";
-import { play, setAmbience, setRunning, startAmbience, stats, unlock } from "./engine";
+import { loadSamples, play, setAmbience, setRunning, startAmbience, stats, unlock } from "./engine";
 
 // Qué pisa el astronauta ahora mismo.
 function surfaceUnderPlayer() {
@@ -19,6 +19,8 @@ export function Sounds({ active }) {
   if (active) {
    unlock();
    startAmbience();
+   // Las muestras grabadas se piden ahora, ya dentro: la carga no las espera.
+   loadSamples();
   }
   setRunning(active && !document.hidden);
   const onVisibility = () => setRunning(active && !document.hidden);
@@ -29,13 +31,22 @@ export function Sounds({ active }) {
  useEffect(() => {
   if (import.meta.env.DEV) window.__world.audio = stats; // para las pruebas automáticas
   const at = (event) => event.detail ?? {};
+  let lastStep = 0;
   const handlers = {
    // Marcas de los clips de animación: pasos, despegue del salto y caída.
    anim: (event) => {
     const { who, name } = at(event);
     if (who !== "astro") return;
-    if (name.startsWith("footstep")) play(`step-${surfaceUnderPlayer()}`);
-    else if (name === "jump_takeoff") play("jump");
+    if (name.startsWith("footstep")) {
+     // Corriendo, el paso suena más fuerte y algo más agudo. Los clips de andar y
+     // correr marcan hoy más pisadas de las que se dan de verdad (hasta 7–9 por
+     // segundo): se deja pasar una cadencia natural, no una ráfaga.
+     const running = Math.hypot(player.velocity.x, player.velocity.z) > 4.4;
+     const time = performance.now();
+     if (time - lastStep < (running ? 200 : 290)) return;
+     lastStep = time;
+     play(`step-${surfaceUnderPlayer()}`, { strength: running ? 1 : 0.55 });
+    } else if (name === "jump_takeoff") play("jump");
     else if (name === "land" || name === "land_hard") play(surfaceUnderPlayer() === "water" ? "splash" : "land", { strength: name === "land_hard" ? 1 : 0.6 });
    },
    // Golpes físicos: los emite quien los calcula, con su posición y su fuerza.
@@ -60,21 +71,36 @@ export function Sounds({ active }) {
    achievement: () => play("achievement"),
   };
   for (const [type, handler] of Object.entries(handlers)) events.addEventListener(type, handler);
+  // Interfaz: cualquier botón o enlace de la página hace «pop» al pulsarlo.
+  const onClick = (event) => event.target.closest?.("button, a, [role='button']") && play("ui-pop");
+  document.addEventListener("click", onClick, true);
 
-  // Ambiente: brisa de fondo, agua según lo cerca que esté, pájaros de día y grillos de noche.
+  // Ambiente: brisa de fondo; pájaros de día y grillos de noche, que se funden
+  // con el cielo; y el agua (cascada, arroyo, mar) según dónde quede.
+  let ticks = 0;
   const timer = window.setInterval(() => {
    const { x, z } = player.position;
    const hidden = player.hidden; // dentro del cohete
-   setAmbience({ wind: hidden ? 0.2 : 0.6 + theme.mix * 0.3, water: hidden ? 0 : (world.waterNear?.(x, z) ?? 0) });
-   if (hidden) return;
+   const night = theme.mix;
+   // Desde la nave, el planeta se oye apagado y sin agua.
+   const outside = hidden ? 0.25 : 1;
+   setAmbience({
+    wind: hidden ? 0.2 : 0.6 + night * 0.3,
+    birds: (1 - night) * outside,
+    crickets: night * outside,
+    sources: hidden ? {} : (world.soundSources?.(x, z) ?? {}),
+   });
+   // Mientras no llegan los bucles grabados (o en un mundo sin ellos), trinos y grillos sintetizados.
+   if (hidden || (ticks++ % 3) || stats.loopsReady?.()) return;
    const angle = Math.random() * Math.PI * 2;
    const spot = { x: x + Math.cos(angle) * 9, z: z + Math.sin(angle) * 9 };
-   if (theme.mix < 0.4 && Math.random() < 0.09) play("chirp", spot);
-   if (theme.mix > 0.6 && Math.random() < 0.3) play("cricket", spot);
-  }, 400);
+   if (night < 0.4 && Math.random() < 0.09) play("chirp", spot);
+   if (night > 0.6 && Math.random() < 0.3) play("cricket", spot);
+  }, 140);
 
   return () => {
    for (const [type, handler] of Object.entries(handlers)) events.removeEventListener(type, handler);
+   document.removeEventListener("click", onClick, true);
    window.clearInterval(timer);
   };
  }, []);

@@ -3,11 +3,36 @@
 Actualizado: 13 de noviembre de 2026 · rama `estacion-espacial` (solo commits locales, sin push).
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git).
-**En curso: objetivo 15 — bienvenida, carga, baloncesto, proyectos, jardín japonés y pulido** (seis bloques, cada uno con captura y visto bueno). Hechos el **bloque 1 (bienvenida, segunda vuelta)** y el **bloque 2 (pantalla de carga renderizada)**; **parado a la espera del visto bueno de los dos**. Siguiente: bloque 3 (baloncesto) y, después de él y antes de los proyectos, los **sonidos de Envato** (los 12 ZIP están en `assets-externos/sonidos/`).
-Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado. Objetivo 5 (casas y proyectos): solo el paso 1 (taller); lo retoma el bloque 4.
-Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Contents/MacOS/Blender -b` (5.0.1).
+**En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Hecho el **bloque 0 (inventario y sonidos)**; **parado a la espera del visto bueno**. Siguiente: bloque 1 (pantalla de carga, rehacer: astronauta y Woody caminando sobre un planeta pequeño).
+Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
+Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado.
+Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Contents/MacOS/Blender -b` (5.0.1). No hay ffmpeg: el audio también se convierte con Blender.
 
-## Objetivo 15
+## Objetivo 16
+
+| Bloque | Estado |
+|---|---|
+| 0. Inventario y sonidos | **Hecho, pendiente de visto bueno.** `docs/RECURSOS.md`; grabación y lista en `capturas/18-sonidos/` |
+| 1. Pantalla de carga (astronauta y Woody caminando sobre un planeta) | Sin empezar |
+| 2. Pantalla previa al aterrizaje (flecha, cero espera, luna, fugaces, planeta) | Sin empezar |
+| 3. Errores de juego (colisiones, colina, Woody, aro de visión, carrera) | Sin empezar |
+| 4. Aspecto del mundo (farolas, caminos, rocas, pájaros, carteles, cascada) | Sin empezar |
+| 5. Edificios con los modelos descargados | Sin empezar |
+| 6. Fútbol y baloncesto | Sin empezar. **Faltan recursos**: no hay sonido de bote, aro ni red de baloncesto |
+| 7. Jardín japonés | Sin empezar |
+| 8. Cierre | Sin empezar |
+
+**Bloque 0, lo que hay** (`src/audio/engine.js`, `src/audio/Sounds.jsx`, `tools/assets/sounds.py`, `tests/e2e/sounds.mjs`):
+- Los 12 sonidos de Envato, convertidos a 14 MP3 en `public/sounds/` (1,47 MB). `…/Blender -b -P tools/assets/sounds.py` los regenera y escribe `src/audio/sampleData.json` (duraciones, puntos de bucle, casillas de los pasos). Los bucles llevan su periodo dentro del archivo con margen repetido a los lados, así no dependen del silencio que mete el MP3.
+- Se piden **después de entrar** (`loadSamples()` al activarse el juego), uno tras otro; hasta que llega cada uno suena su versión sintetizada. Ninguno cuenta para el peso de entrada.
+- Con posición (`world.soundSources(x, z)` en `layout.js`): cascada (un punto), arroyo (tramo más cercano del río o del arroyo de la meseta) y mar (la orilla de enfrente). Se atenúan con la distancia y se desplazan a izquierda o derecha según la cámara.
+- Ambiente: pájaros de día y grillos de noche, con fundido que sigue al cielo. Desde la nave se oyen apagados y sin agua.
+- Pasos sobre hierba: 16 muestras, nunca la misma dos veces seguidas, más fuertes y agudas al correr. **Cadencia limitada a mano** (un paso cada 0,29 s andando, 0,2 s corriendo) porque los clips marcan 7–9 pisadas por segundo; se sincronizará con el pie al rehacer la carrera (bloque 3). Sobre camino, piedra, madera, arena y agua siguen los sintetizados (no hay recurso).
+- Chapuzón al entrar en el agua (astronauta y Woody) y al caer en ella; poste/larguero y red en el fútbol; «pop» en cualquier botón o enlace y al abrir o cerrar fichas; rugido desde el encendido y silbido al levantarse el cohete; final del rugido al aterrizar.
+- El botón de sonido (y la tecla M) actúa sobre la salida general: calla y devuelve todo.
+- **No escuchado por una persona**: la prueba mide la señal real de cada bucle y de la salida y graba el recorrido (`capturas/18-sonidos/recorrido-sonido.webm`, 78 s, con su guion en `recorrido-sonido.txt`), pero volúmenes y mezcla están sin juzgar de oído.
+
+## Objetivo 15 (bloques 1 y 2 hechos; los bloques 3–6 quedan sustituidos por el objetivo 16)
 
 | Bloque | Estado |
 |---|---|
@@ -47,7 +72,8 @@ node tests/e2e/loader.mjs      # la pantalla de carga al 0, 50 y 100 % y su fund
 node tests/e2e/trees.mjs       # capturas de los árboles; no comprueba nada
 node tests/perf/peso.mjs       # peso descargado en la primera visita (build de producción en el 5198)
 node tests/perf/fps.mjs        # fps en cinco puntos
-npm run e2e                    # 260 comprobaciones en Chrome sin ventana (con el servidor encendido)
+npm run e2e                    # 290 comprobaciones en Chrome sin ventana (con el servidor encendido)
+node tests/e2e/sounds.mjs      # sonido uno por uno: señal medida de cada bucle, golpes, silencio; graba el recorrido (incluida en e2e)
 node tests/e2e/football.mjs    # fútbol de principio a fin, con fotogramas de cada tiro (incluida en e2e)
 node tests/e2e/woody.mjs       # bocadillos, ritmo, descanso, cuestas y ruta guiada (incluida en e2e)
 node tests/e2e/camera.mjs      # cámara, zoom, tarjeta «E», postes y oclusión, cohete incluido (incluida en e2e)
@@ -176,7 +202,7 @@ Rendimiento medido en el Mac a 2880 × 1620 sobre WebGPU: 192–221 fps tras el 
 - **Variación espacial del viento**: está en el sombreador (ruido por posición) y se ve en las capturas, pero la prueba automática solo demuestra que hay movimiento y que la ráfaga avanza; no mide que dos zonas se muevan distinto.
 - **Ondas al vadear**: salen también bajo el puente cuando se cruza por encima.
 - **Agua y partículas, lo que queda**: los peces y las mariposas son de código (no había GLB en `assets-externos/`); las salpicaduras de la cascada siguen moviéndose por CPU (46 gotas); el arroyo de la meseta comparte material con la cascada y no tiene espuma propia en las orillas; las ondas del agua se ven algo quebradas muy de cerca (la textura de ruido es de 128 px).
-- **Sonido**: comprobado que cada acción pide su sonido y que el contexto arranca; **no se ha escuchado** (las pruebas son sin altavoces). Volúmenes y timbres pendientes de oído humano.
+- **Sonido**: muestras grabadas integradas (objetivo 16, bloque 0) y señal medida en la prueba; **no se ha escuchado** por una persona. Volúmenes y mezcla pendientes de oído humano. Siguen sintetizados: pasos fuera de la hierba, salto, baloncesto (bote, aro, red), chut, ladrido, logros.
 - **Móvil**: probado con emulación táctil (horizontal y vertical). **No probado en un teléfono real.**
 
 ## Pendiente
@@ -200,6 +226,8 @@ Rendimiento medido en el Mac a 2880 × 1620 sobre WebGPU: 192–221 fps tras el 
 | Permiso para borrar `public/modelos` (200 MB), el kit Sci-Fi y su `.zip` | — | Solo ignorados en git |
 
 ## Incidencias conocidas
+
+- `woody.mjs` falló una vez de tres en «y la baja contigo» (Woody se quedó arriba de la rampa, y=0,8, con el astronauta ya abajo). Sin tocar a Woody en ese commit. Para el bloque 3 del objetivo 16.
 
 - **Windows, al entrar al planeta**: dos huecos de ~95 y ~125 ms justo tras el clic (en el Mac eran 0). No es compilación (0 pipelines en caliente) y ya ocurre con el commit anterior; causa sin identificar. Medido en desarrollo, no en la build de producción.
 - Los 113–117 fps que da `living.mjs fps` en este equipo Windows no son comparables con las cifras del Mac (otra máquina y otra GPU).

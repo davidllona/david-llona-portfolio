@@ -791,6 +791,33 @@ function waterNear(x, z) {
  return Math.min(1, Math.max(fall, river, sea));
 }
 
+// Punto más cercano de una línea quebrada.
+function nearestOn(x, z, points) {
+ let best = { d: Infinity, x: 0, z: 0 };
+ for (let i = 0; i < points.length - 1; i++) {
+  const [ax, az] = points[i], [bx, bz] = points[i + 1];
+  const { distance: d, t } = toSegment(x, z, ax, az, bx, bz);
+  if (d < best.d) best = { d, x: ax + (bx - ax) * t, z: az + (bz - az) * t };
+ }
+ return best;
+}
+// De dónde viene el sonido del agua para quien está en (x, z): la cascada (un
+// punto), el arroyo (el tramo más cercano del río o del arroyo de la meseta) y
+// el mar (la orilla que queda enfrente). `d`: distancia; `dx`, `dz`: hacia
+// dónde; `reach`: distancia a la que suena a la mitad; `far`: donde se apaga.
+function soundSources(x, z) {
+ const fall = { x: WATERFALL.x, z: WATERFALL.z + 1.2 };
+ const river = nearestOn(x, z, RIVER), stream = nearestOn(x, z, STREAM);
+ const brook = river.d < stream.d ? river : stream;
+ const angle = Math.atan2(z, x), shore = shoreRadius(angle), r = Math.hypot(x, z);
+ return {
+  cascada: { d: distance(x, z, fall.x, fall.z), dx: fall.x - x, dz: fall.z - z, reach: 6.5, far: 34 },
+  // (Junto al estanque manda la cascada: el arroyo se retira.)
+  arroyo: { d: brook.d, dx: brook.x - x, dz: brook.z - z, reach: 3.2, far: 15, gain: smooth(2, 7, distance(brook.x, brook.z, POND.x, POND.z) - POND.r + 3) },
+  mar: { d: Math.max(0, shore - 1.5 - r), dx: Math.cos(angle) * shore - x, dz: Math.sin(angle) * shore - z, reach: 5.5, far: 24 },
+ };
+}
+
 export const living = {
  id: "living",
  name: "The Living World",
@@ -801,6 +828,7 @@ export const living = {
  blocked,
  surface: footing,
  waterNear,
+ soundSources,
  // Zonas que cuentan para el logro «Explorador».
  areas: [
   { id: "proyectos", x: -24, z: -1, r: 9 },

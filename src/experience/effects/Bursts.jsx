@@ -4,7 +4,7 @@ import { useFrame } from "@react-three/fiber";
 import { attribute, mix, normalLocal, positionLocal, smoothstep, step, vec3 } from "three/tsl";
 import { world } from "../../worlds";
 import { unlit } from "../materials";
-import { player, woody } from "../state";
+import { emit, player, woody } from "../state";
 import { uniforms } from "../theme";
 import { GRAVITY, POOLS, dust, pools, ring, splash } from "./pools";
 
@@ -97,7 +97,11 @@ export function Bursts() {
    const wet = shown && level !== undefined && position.y < level - 0.08;
    if (track.known && shown && !jumped) {
     track.timer -= dt;
-    if (wet && !track.wet) splash(position.x, level, position.z, { count: Math.round(12 * weight), speed: 1.6 + Math.min(speed, 6) * 0.25 });
+    if (wet && !track.wet) {
+     splash(position.x, level, position.z, { count: Math.round(12 * weight), speed: 1.6 + Math.min(speed, 6) * 0.25 });
+     // Chapuzón: más fuerte cuanto más deprisa se entra; el de Woody, más flojo.
+     emit("sound", { id: "splash", x: position.x, z: position.z, strength: weight * (0.45 + Math.min(speed, 7) * 0.08) });
+    }
     else if (wet && speed > 0.6 && track.timer <= 0) {
      // Vadeando: un aro a cada paso y alguna gota por delante.
      track.timer = 0.34;

@@ -1,0 +1,96 @@
+{
+ "cascada": {
+  "file": "sounds/cascada.mp3",
+  "bytes": 118118,
+  "duration": 11.75,
+  "loop": [
+   0.25,
+   11.25
+  ]
+ },
+ "arroyo": {
+  "file": "sounds/arroyo.mp3",
+  "bytes": 138232,
+  "duration": 13.75,
+  "loop": [
+   0.25,
+   13.25
+  ]
+ },
+ "mar": {
+  "file": "sounds/mar.mp3",
+  "bytes": 278612,
+  "duration": 34.75,
+  "loop": [
+   0.25,
+   34.25
+  ]
+ },
+ "pajaros": {
+  "file": "sounds/pajaros.mp3",
+  "bytes": 441722,
+  "duration": 36.75,
+  "loop": [
+   0.25,
+   36.25
+  ]
+ },
+ "grillos": {
+  "file": "sounds/grillos.mp3",
+  "bytes": 126475,
+  "duration": 15.75,
+  "loop": [
+   0.25,
+   15.25
+  ]
+ },
+ "pasos-hierba": {
+  "file": "sounds/pasos-hierba.mp3",
+  "bytes": 135149,
+  "duration": 11.2,
+  "slots": 16,
+  "slot": 0.7,
+  "lead": 0.06,
+  "length": 0.56
+ },
+ "chapuzon": {
+  "file": "sounds/chapuzon.mp3",
+  "bytes": 8664,
+  "duration": 0.795
+ },
+ "poste": {
+  "file": "sounds/poste.mp3",
+  "bytes": 12583,
+  "duration": 1.2
+ },
+ "red-1": {
+  "file": "sounds/red-1.mp3",
+  "bytes": 9448,
+  "duration": 0.876
+ },
+ "red-2": {
+  "file": "sounds/red-2.mp3",
+  "bytes": 9709,
+  "duration": 0.9
+ },
+ "red-3": {
+  "file": "sounds/red-3.mp3",
+  "bytes": 9709,
+  "duration": 0.9
+ },
+ "pop": {
+  "file": "sounds/pop.mp3",
+  "bytes": 4746,
+  "duration": 0.4
+ },
+ "cohete-rugido": {
+  "file": "sounds/cohete-rugido.mp3",
+  "bytes": 130656,
+  "duration": 13.0
+ },
+ "cohete-silbido": {
+  "file": "sounds/cohete-silbido.mp3",
+  "bytes": 42624,
+  "duration": 4.2
+ }
+}

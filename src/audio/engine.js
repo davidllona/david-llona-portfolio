@@ -1,8 +1,13 @@
-import { player } from "../experience/state";
+import { player, rig } from "../experience/state";
+import sampleData from "./sampleData.json";
 
-// Motor de sonido. Todo se sintetiza con Web Audio (osciladores y ruido
-// filtrado): no hay archivos, ni licencias, ni descargas. El contexto se crea
-// con el primer gesto del visitante, como exigen los navegadores.
+// Motor de sonido. Dos fuentes:
+//  · Sonidos sintetizados con Web Audio (osciladores y ruido filtrado), que
+//    están siempre disponibles.
+//  · Muestras grabadas (public/sounds, de Envato; ver docs/CREDITOS.md), que se
+//    descargan después de entrar al planeta y sustituyen a su versión
+//    sintetizada en cuanto están decodificadas.
+// El contexto se crea con el primer gesto del visitante, como exigen los navegadores.
 
 const STORAGE_KEY = "planeta-audio";
 function stored() {
@@ -26,7 +31,7 @@ let master = null;
 let noise = null; // 2 s de ruido blanco, compartido
 const lastPlayed = new Map(); // id → instante, para no repetir el mismo golpe en ráfaga
 // Cuántas veces se ha pedido cada sonido y en qué estado está el contexto (lo leen las pruebas).
-export const stats = { played: {}, state: () => context?.state ?? "sin crear" };
+export const stats = { played: {}, sampled: {}, steps: {}, state: () => context?.state ?? "sin crear", loopsReady: () => Boolean(loops.pajaros && loops.grillos) };
 
 export const isReady = () => Boolean(context);
 export const now = () => context?.currentTime ?? 0;
@@ -47,6 +52,7 @@ export function unlock() {
  limiter.threshold.value = -14;
  limiter.ratio.value = 6;
  master.connect(limiter).connect(context.destination);
+ if (import.meta.env.DEV) instrument(limiter);
 
  noise = context.createBuffer(1, context.sampleRate * 2, context.sampleRate);
  const data = noise.getChannelData(0);
@@ -101,6 +107,92 @@ function hiss(out, time, { filter = "lowpass", from = 800, to = from, q = 0.8, p
  source.start(time, Math.random());
  source.stop(time + attack + decay + 0.05);
 }
+
+// ── Muestras grabadas ───────────────────────────────────────────────────────
+const buffers = new Map(); // nombre → AudioBuffer
+let loading = null;
+// Orden de descarga: primero lo que se oye nada más aterrizar.
+const ORDER = ["pasos-hierba", "pajaros", "pop", "grillos", "cascada", "arroyo", "mar", "chapuzon", "cohete-rugido", "cohete-silbido", "poste", "red-1", "red-2", "red-3"];
+
+// Descarga y decodifica las muestras, una tras otra. Se llama después de
+// entrar (nunca durante la carga): no retrasa el momento de poder jugar.
+export function loadSamples() {
+ if (!context || loading) return loading;
+ loading = (async () => {
+  for (const name of ORDER) {
+   try {
+    const response = await fetch(import.meta.env.BASE_URL + sampleData[name].file);
+    if (!response.ok) throw new Error(String(response.status));
+    buffers.set(name, await context.decodeAudioData(await response.arrayBuffer()));
+    if (LOOPS[name]) startLoop(name);
+   } catch (error) {
+    // Sin esa muestra se sigue con el sonido sintetizado.
+    console.warn(`Sonido «${name}» no disponible:`, error);
+   }
+  }
+ })();
+ return loading;
+}
+
+// Dispara una muestra (o un trozo de ella) una vez. Devuelve si pudo.
+function sample(out, time, name, { gain = 1, rate = 1, offset = 0, duration, attack = 0, release = 0 } = {}) {
+ const buffer = buffers.get(name);
+ if (!buffer) return false;
+ stats.sampled[name] = (stats.sampled[name] ?? 0) + 1;
+ const source = context.createBufferSource();
+ source.buffer = buffer;
+ source.playbackRate.value = rate;
+ const level = context.createGain();
+ const length = (duration ?? buffer.duration - offset) / rate;
+ if (attack) {
+  level.gain.setValueAtTime(0.0001, time);
+  level.gain.exponentialRampToValueAtTime(gain, time + attack);
+ } else level.gain.setValueAtTime(gain, time);
+ if (release) {
+  level.gain.setValueAtTime(gain, time + Math.max(attack, length - release));
+  level.gain.exponentialRampToValueAtTime(0.0001, time + length);
+ }
+ source.connect(level).connect(out);
+ source.start(time, offset, duration);
+ return true;
+}
+
+let lastStep = -1;
+// Un paso sobre hierba: una de las 16 muestras, nunca la misma dos veces seguidas.
+function grassStep(out, time, strength) {
+ const { slots, slot, length } = sampleData["pasos-hierba"];
+ let index = Math.floor(Math.random() * (slots - 1));
+ if (index >= lastStep) index += 1;
+ lastStep = index;
+ stats.steps[index] = (stats.steps[index] ?? 0) + 1;
+ return sample(out, time, "pasos-hierba", { offset: index * slot, duration: length + 0.08, gain: 0.3 + 0.5 * strength, rate: vary(strength > 0.8 ? 1.08 : 1, 0.05) });
+}
+const net = (out, time, strength) => sample(out, time, `red-${1 + Math.floor(Math.random() * 3)}`, { gain: 0.5 + 0.5 * strength, rate: vary(1, 0.04) });
+
+// Sonidos que tienen muestra grabada. Si aún no ha llegado, devuelven false y
+// suena el sintetizado del catálogo.
+const SAMPLED = {
+ "step-grass": grassStep,
+ // Chapuzón: al entrar andando en el agua y al caer en ella de un salto.
+ splash: (out, t, s) => sample(out, t, "chapuzon", { gain: 0.35 + 0.55 * s, rate: vary(1, 0.06) }),
+ // Fútbol: poste (seco) y larguero (lo mismo, más grave); red.
+ "ball-woodwork": (out, t, s) => sample(out, t, "poste", { gain: 0.45 + 0.55 * s, rate: vary(1.04, 0.03) }),
+ "ball-crossbar": (out, t, s) => sample(out, t, "poste", { gain: 0.45 + 0.55 * s, rate: vary(0.86, 0.03) }),
+ "ball-goalnet": net,
+ // Interfaz: el mismo «pop», más agudo al abrir y más grave al cerrar.
+ "ui-open": (out, t) => sample(out, t, "pop", { gain: 0.5, rate: 1 }),
+ "ui-close": (out, t) => sample(out, t, "pop", { gain: 0.4, rate: 0.8 }),
+ "ui-toggle": (out, t) => sample(out, t, "pop", { gain: 0.45, rate: 1.2 }),
+ "ui-pop": (out, t) => sample(out, t, "pop", { gain: 0.4, rate: vary(1.05, 0.04) }),
+ // Despegue: el rugido desde el encendido y el silbido cuando se levanta (1,6 s después).
+ "rocket-launch": (out, t) => {
+  const rumble = sample(out, t, "cohete-rugido", { gain: 0.85, attack: 0.5 });
+  const whoosh = sample(out, t + 1.6, "cohete-silbido", { gain: 0.75 });
+  return rumble && whoosh;
+ },
+ // Aterrizaje: el final del rugido, que se apaga al posarse.
+ "rocket-land": (out, t) => sample(out, t, "cohete-rugido", { gain: 0.6, offset: 6.5, duration: 5, attack: 0.6, release: 2.5 }),
+};
 
 // ── Catálogo ────────────────────────────────────────────────────────────────
 // Cada sonido recibe (salida, instante, fuerza 0–1).
@@ -238,17 +330,21 @@ const SOUNDS = {
 };
 
 // Mínimo entre dos repeticiones del mismo sonido, en segundos.
-const COOLDOWN = { default: 0.05, "ball-grass": 0.12, "ball-woodwork": 0.15, "ball-crossbar": 0.15, "ball-wall": 0.15, "ball-save": 0.15, "ball-goalnet": 0.8, "football-goal": 1.5, "ball-floor": 0.07, "ball-rim": 0.06, crate: 0.12, chirp: 0.5, flutter: 1.5, gust: 3 };
+// Los cuatro sonidos de interfaz comparten turno: un botón que abre una ficha no suena dos veces.
+const GROUP = { "ui-open": "ui", "ui-close": "ui", "ui-toggle": "ui", "ui-pop": "ui" };
+const COOLDOWN = { default: 0.05, ui: 0.09, splash: 0.4, "ball-grass": 0.12, "ball-woodwork": 0.15, "ball-crossbar": 0.15, "ball-wall": 0.15, "ball-save": 0.15, "ball-goalnet": 0.8, "football-goal": 1.5, "ball-floor": 0.07, "ball-rim": 0.06, crate: 0.12, chirp: 0.5, flutter: 1.5, gust: 3 };
 
 // Reproduce un sonido. Con `x, z` suena desde ese punto del mundo: más flojo
 // cuanto más lejos del astronauta y desplazado a izquierda o derecha.
 export function play(id, { x, z, strength = 1 } = {}) {
  stats.played[id] = (stats.played[id] ?? 0) + 1;
  const make = SOUNDS[id];
- if (!context || !make || context.state !== "running" || settings.muted) return;
+ const recorded = SAMPLED[id];
+ if (!context || !(make || recorded) || context.state !== "running" || settings.muted) return;
  const time = context.currentTime;
- if (time - (lastPlayed.get(id) ?? -10) < (COOLDOWN[id] ?? COOLDOWN.default)) return;
- lastPlayed.set(id, time);
+ const turn = GROUP[id] ?? id;
+ if (time - (lastPlayed.get(turn) ?? -10) < (COOLDOWN[turn] ?? COOLDOWN.default)) return;
+ lastPlayed.set(turn, time);
 
  let out = master;
  if (x !== undefined) {
@@ -260,38 +356,118 @@ export function play(id, { x, z, strength = 1 } = {}) {
   gain.gain.value = 1 / (1 + (distance / 9) ** 2);
   const pan = context.createStereoPanner?.();
   if (pan) {
-   pan.pan.value = Math.max(-0.8, Math.min(0.8, dx / 14));
+   pan.pan.value = panTowards(dx, dz);
    gain.connect(pan).connect(master);
   } else gain.connect(master);
   out = gain;
  }
- make(out, time, Math.max(0.05, Math.min(1, strength)));
+ const force = Math.max(0.05, Math.min(1, strength));
+ if (!recorded?.(out, time, force)) make?.(out, time, force);
+}
+
+// Hacia qué lado de la pantalla queda un punto (−0,8 izquierda … 0,8 derecha),
+// teniendo en cuenta el giro de la cámara.
+function panTowards(dx, dz) {
+ const yaw = rig.focus ? (rig.yaw ?? 0) : 0;
+ return Math.max(-0.8, Math.min(0.8, (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / 14));
 }
 
 // ── Ambiente ────────────────────────────────────────────────────────────────
-// Dos capas continuas (brisa y agua) cuyo volumen se va ajustando.
-let ambience = null;
+// Una capa de brisa sintetizada y cinco bucles grabados: dos de fondo (pájaros
+// de día, grillos de noche) y tres con posición en el mundo (cascada, arroyo y
+// mar), que se atenúan con la distancia y se oyen del lado en que quedan.
+const LOOPS = { pajaros: 0.5, grillos: 0.42, cascada: 0.8, arroyo: 0.6, mar: 0.7 }; // volumen a tope de cada uno
+const loops = {}; // nombre → { gain, pan, level, side }
+let wind = null;
+
 export function startAmbience() {
- if (!context || ambience) return;
- const layer = (filterType, frequency, q) => {
-  const source = context.createBufferSource();
-  source.buffer = noise;
-  source.loop = true;
-  const filter = context.createBiquadFilter();
-  filter.type = filterType;
-  filter.frequency.value = frequency;
-  filter.Q.value = q;
-  const gain = context.createGain();
-  gain.gain.value = 0;
-  source.connect(filter).connect(gain).connect(master);
-  source.start(0, Math.random());
-  return gain;
- };
- ambience = { wind: layer("lowpass", 420, 0.5), water: layer("bandpass", 1500, 0.5) };
+ if (!context || wind) return;
+ const source = context.createBufferSource();
+ source.buffer = noise;
+ source.loop = true;
+ const filter = context.createBiquadFilter();
+ filter.type = "lowpass";
+ filter.frequency.value = 420;
+ filter.Q.value = 0.5;
+ wind = context.createGain();
+ wind.gain.value = 0;
+ source.connect(filter).connect(wind).connect(master);
+ source.start(0, Math.random());
 }
-// `wind` y `water`: de 0 a 1.
-export function setAmbience({ wind = 0, water = 0 }) {
- if (!ambience) return;
- ambience.wind.gain.setTargetAtTime(wind * 0.05, context.currentTime, 0.6);
- ambience.water.gain.setTargetAtTime(water * 0.085, context.currentTime, 0.35);
+
+function startLoop(name) {
+ if (loops[name]) return;
+ const source = context.createBufferSource();
+ source.buffer = buffers.get(name);
+ source.loop = true;
+ // El periodo que se repite va dentro del archivo, lejos de sus bordes (tools/assets/sounds.py).
+ [source.loopStart, source.loopEnd] = sampleData[name].loop;
+ const gain = context.createGain();
+ gain.gain.value = 0;
+ const pan = context.createStereoPanner?.();
+ if (pan) source.connect(gain).connect(pan).connect(master);
+ else source.connect(gain).connect(master);
+ source.start(0, source.loopStart);
+ loops[name] = { gain, pan, level: 0, side: 0 };
+ if (import.meta.env.DEV) loops[name].meter = meter(pan ?? gain);
+}
+
+// Ajusta el ambiente. `wind`, `birds` y `crickets`: de 0 a 1. `sources`: los
+// bucles con posición, cada uno con la distancia `d` al astronauta, hacia
+// dónde queda (`dx`, `dz`) y su alcance `reach` (distancia a la que baja a la mitad…).
+export function setAmbience({ wind: breeze = 0, birds = 0, crickets = 0, sources = {} }) {
+ if (!wind) return;
+ const time = context.currentTime;
+ wind.gain.setTargetAtTime(breeze * 0.05, time, 0.6);
+ const set = (name, level, side = 0, ease = 0.5) => {
+  const loop = loops[name];
+  if (!loop) return;
+  loop.level = level * LOOPS[name];
+  loop.side = side;
+  loop.gain.gain.setTargetAtTime(loop.level, time, ease);
+  loop.pan?.pan.setTargetAtTime(side, time, 0.25);
+ };
+ set("pajaros", birds, 0, 0.9);
+ set("grillos", crickets, 0, 0.9);
+ for (const name of ["cascada", "arroyo", "mar"]) {
+  const source = sources[name];
+  if (!source) {
+   set(name, 0);
+   continue;
+  }
+  // Cae con el cuadrado de la distancia y se apaga del todo al llegar a `far`.
+  const fade = Math.max(0, 1 - source.d / source.far);
+  // Pegado a la fuente el sonido envuelve; el lado se nota al separarse.
+  set(name, (source.gain ?? 1) * fade * fade / (1 + (source.d / source.reach) ** 2), panTowards(source.dx, source.dz) * Math.min(1, source.d / 4), 0.3);
+ }
+}
+
+// ── Para las pruebas (solo en desarrollo) ───────────────────────────────────
+// Medidores de señal real: lo que de verdad sale por cada bucle y por la salida.
+function meter(node) {
+ const analyser = context.createAnalyser();
+ analyser.fftSize = 2048;
+ node.connect(analyser);
+ const data = new Float32Array(analyser.fftSize);
+ return () => {
+  analyser.getFloatTimeDomainData(data);
+  let sum = 0;
+  for (const value of data) sum += value * value;
+  return Math.sqrt(sum / data.length);
+ };
+}
+function instrument(output) {
+ const level = meter(output);
+ Object.assign(stats, {
+  level, // señal en la salida (RMS de los últimos 46 ms)
+  loaded: () => Object.fromEntries([...buffers].map(([name, buffer]) => [name, +buffer.duration.toFixed(2)])),
+  loops: () => Object.fromEntries(Object.entries(loops).map(([name, loop]) => [name, { set: +loop.level.toFixed(3), side: +loop.side.toFixed(2), heard: +loop.meter().toFixed(4) }])),
+  master: () => master.gain.value,
+  // La salida como flujo, para grabarla.
+  tap: () => {
+   const destination = context.createMediaStreamDestination();
+   output.connect(destination);
+   return destination.stream;
+  },
+ });
 }

@@ -56,13 +56,39 @@ Descargados por David Llona con su licencia de Envato. Los archivos originales e
 | `public/models/living/flora/acacia.glb` | «Low poly umbrella thorn tree» | slabdsgn | 6.870 → 2.975 triángulos; ídem |
 | `public/models/living/flora/mata.glb` | «Low poly bush cluster» | slabdsgn | 400 triángulos (sin reducir); ídem |
 
+### Sonidos (en uso desde el objetivo 16, bloque 0)
+
+Convertidos con `tools/assets/sounds.py` a MP3 recortados en `public/sounds/`. El ZIP de Envato no trae el
+nombre del autor salvo donde se indica; la licencia es la de la cuenta de Envato de David Llona.
+
+| Archivo del repo | Original (título en Envato) | Autor | Qué se le ha hecho |
+|---|---|---|---|
+| `cascada.mp3` | «Small waterfall loop» | no figura en el ZIP | Tramo de 11 s en bucle sin corte, mono |
+| `arroyo.mp3` | «Stream water gentle flowing loop» | no figura en el ZIP | Tramo de 13 s en bucle, mono |
+| `mar.mp3` | «Calm sea waves loop» | no figura en el ZIP | Tramo de 34 s en bucle, mono |
+| `pajaros.mp3` | «Forest spring birds ambience loop» | no figura en el ZIP | Tramo de 36 s en bucle, estéreo |
+| `grillos.mp3` | «Crickets at night loop» | OhmLab | Tramo de 15 s en bucle, mono |
+| `chapuzon.mp3` | «Small water splash» | no figura en el ZIP | Mono, normalizado |
+| `cohete-rugido.mp3` | «Huge rocket launch ignition rumble» (AudioJungle) | no figura en el ZIP | Primeros 13 s con entrada y salida suaves, mono |
+| `cohete-silbido.mp3` | «Rocket launch whoosh» | no figura en el ZIP | 4,2 s, mono |
+| `pasos-hierba.mp3` | «Footsteps grass» (12 pasos sueltos y 4 pistas continuas) | no figura en el ZIP | Las 16 muestras en un solo archivo; de cada pista continua se recorta un paso |
+| `poste.mp3` | «Soccer ball hits goal post» | no figura en el ZIP | 1,2 s, mono |
+| `red-1.mp3`, `red-2.mp3`, `red-3.mp3` | «Football ball hit net» | no figura en el ZIP | Mono, normalizados |
+| `pop.mp3` | «Puzzle game UI pop 04» | no figura en el ZIP | 0,4 s, mono |
+
 ### Descargados, todavía sin usar en la web
+
+El estado de cada uno, al día, está en `docs/RECURSOS.md`.
 
 | Original | Autor | Para qué |
 |---|---|---|
-| «Basketball 3D Icons» (`05_Basketball`) | twinstd | Canasta de la pista (objetivo 15, bloque 3) |
+| «Basketball 3D Icons» (`05_Basketball`) | twinstd | Canasta de la pista |
 | «Court Net» (el archivo se llama `Pickleball Net`) | spacepixelcreative | **No se usa**: es una red de pickleball, no una valla. La valla de la pista se hace a mano |
-| «Small Country House with Green Roof and Fireplace», «Small House with Red Roof and Chimney», «Small House with Blue Roof», «Compact Residence with Dual Contemporary Balconies», «Island Cabin with Outdoor Seating» | stdgaris | Edificios de proyectos, Sobre mí y pabellón del jardín (bloques 4 y 5) |
-| «Torii Gate» | mrfauzi | Entrada del jardín japonés (bloque 5) |
-| Doce sonidos (mar, grillos, bosque, cascada, arroyo, dos de cohete, pasos en hierba, red, poste, salpicadura, pop) | varios (Envato) | Sonido del planeta: pendiente; el autor de cada uno se anotará al integrarlos |
-
+| «Small Country House with Green Roof and Fireplace», «Small House with Red Roof and Chimney», «Small House with Blue Roof», «Compact Residence with Dual Contemporary Balconies», «Island Cabin with Outdoor Seating» | stdgaris | Casas de los proyectos y casa de té del jardín |
+| «Torii Gate» | mrfauzi | Entrada del jardín japonés |
+| «World Cup Trophy Football» | adimaskur48 | Trofeo del templete del campo de fútbol |
+| «Cartoon treehouse with ladder access» | permadicreative | Casa del árbol (Sobre mí) |
+| «Small observatory with telescope dome» | kerismaker | Base del observatorio |
+| «Orange and White Koi» | TurboSquid (licencia de TurboSquid) | Kois del jardín: solo la forma, simplificada y con colores planos |
+| «Stylized Arched Road Bridge with Railings» | TurboSquid (licencia de TurboSquid) | Puente rojo del jardín |
+| «Japan Lamp» | nixxdsgn | Faroles del jardín |
