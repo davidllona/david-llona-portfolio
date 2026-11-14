@@ -108,6 +108,7 @@ export function Plants() {
    ferns: split(SCATTER.ferns, models.ferns).map((list) => list.map((f) => plant(f, 0.75 + f.seed * 0.7))),
    // Matas: unas más anchas y otras más altas, cada una con su matiz.
    bushes: split(SCATTER.bushes, BUSH_LEAF).map((list) => list.map((b) => ({ ...plant(b, [b.scale * (0.7 + ((b.seed * 53) % 1) * 0.3), b.scale * (0.75 + ((b.seed * 31) % 1) * 0.4), b.scale * (0.7 + ((b.seed * 17) % 1) * 0.3)], -0.04), color: pick(GRASS_TINTS, (b.seed * 13) % 1) }))),
+   shrubs: models.shrubs.map((_, tone) => SCATTER.shrubs.filter((s) => s.tone === tone).map((s) => ({ ...plant(s, [s.scale * (0.9 + ((s.seed * 53) % 1) * 0.25), s.scale * (0.85 + ((s.seed * 31) % 1) * 0.3), s.scale * (0.9 + ((s.seed * 17) % 1) * 0.25)], -0.03), color: pick(GRASS_TINTS, (s.seed * 13) % 1) }))),
    reeds: split(SCATTER.reeds, models.reeds).map((list) => list.map((r) => plant(r, 0.85 + r.seed * 0.5, -0.05))),
    mushrooms: split(SCATTER.mushrooms, models.mushrooms).map((list) => list.map((m) => plant(m, 0.9 + m.seed * 0.9))),
    rocks: split(grouped.filter((r) => !r.mossy), models.rocks).map((list) => list.map(toRock)),
@@ -128,6 +129,7 @@ export function Plants() {
    <Instances name="trébol" rests={0} geometry={models.clover} material={material.still} items={items.clover} receiveShadow />
    {each("helecho", models.ferns, items.ferns, material.ferns)}
    {each("arbusto", bushes, items.bushes, material.bushes, { colored: true, castShadow: true, receiveShadow: true })}
+   {each("arbusto", models.shrubs, items.shrubs, material.bushes, { colored: true, castShadow: true, receiveShadow: true })}
    {each("junco", models.reeds, items.reeds, material.reeds, { rests: "water" })}
    {each("seta", models.mushrooms, items.mushrooms, material.still, { castShadow: true })}
    {/* Las rocas asoman del suelo: la mitad va enterrada a propósito (`sinks`). */}

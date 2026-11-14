@@ -150,8 +150,28 @@ function lily(flower) {
  return merge(pieces);
 }
 
+// Arbusto redondo: tres o cuatro bolas facetadas arrimadas, más oscuras abajo.
+// Con `bloom`, salpicado de flores de ese color.
+function shrub(seed, [bottom, top], bloom) {
+ const random = randomFrom(seed);
+ const pieces = [];
+ const balls = [[0, 0.42, 0, 0.56], [0.42, 0.3, 0.1, 0.4], [-0.36, 0.28, 0.22, 0.36], [0.05, 0.26, -0.4, 0.34]];
+ balls.forEach(([x, y, z, size], i) => {
+  pieces.push(piece(new THREE.IcosahedronGeometry(1, 1), { bottom, top, jitter: 0.1, vary: 0.08, seed: seed * 40 + i, position: [x, y, z], scale: [size, size * 0.86, size], rotation: [random() * 3, random() * 3, 0] }));
+  if (!bloom) return;
+  for (let k = 0; k < 5; k++) {
+   const angle = random() * Math.PI * 2, up = 0.25 + random() * 0.7;
+   const out = Math.sqrt(1 - up * up) * size * 1.0;
+   pieces.push(piece(new THREE.OctahedronGeometry(0.055, 0), { color: bloom, position: [x + Math.cos(angle) * out, y + up * size * 0.86, z + Math.sin(angle) * out] }));
+  }
+ });
+ return merge(pieces, { ground: 0.28, groundHeight: 0.5 });
+}
+
 export function createPlantModels() {
  return {
+  // Arbustos redondos: verde, lima, verde hondo y dos en flor (rosa y amarillo).
+  shrubs: [shrub(0.31, ["#3d8f49", "#8ccf62"]), shrub(0.52, ["#74b83c", "#c6e866"]), shrub(0.73, ["#2f7a48", "#6fbb5a"]), shrub(0.44, ["#3d8f49", "#86c95e"], "#ff9ec4"), shrub(0.66, ["#4a9a4f", "#9ad466"], "#ffe07a")],
   tufts: {
    short: tuft(0.21, { blades: 8, height: 0.24, width: 0.075, spread: 0.2 }),
    tall: tuft(0.47, { blades: 6, height: 0.6, width: 0.085, spread: 0.3 }),

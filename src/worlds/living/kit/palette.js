@@ -2,9 +2,11 @@
 // comparta familia: verdes cálidos, maderas miel, piedra tibia.
 export const LEAF = {
  oak: [["#3f8f4a", "#8fcf62"], ["#4a9a4f", "#a3d86a"], ["#357f4b", "#7cc25c"]],
- maple: [["#c9662f", "#f6b24a"], ["#d98a2e", "#f8d25c"], ["#b9482f", "#f08a43"]],
- poplar: [["#4a9c52", "#a8dc70"], ["#57a955", "#b7e27a"]],
- birch: [["#7fb54a", "#d6e676"], ["#8fbf4c", "#e2ec84"]],
+ // Naranja suave (arce), lima (álamo) y amarillo (abedul): con el verde del
+ // roble y el rosa del cerezo son los cinco colores del bosque.
+ maple: [["#dd8f4e", "#f6c488"], ["#e59f5c", "#f9d39a"], ["#d98248", "#f3b97c"]],
+ poplar: [["#74b83c", "#c6e866"], ["#82c446", "#d2ee76"]],
+ birch: [["#d2b032", "#f3de72"], ["#dcbd42", "#f6e688"]],
  pine: [["#1f5f4a", "#3f9a66"], ["#236a50", "#4aa56c"], ["#1b5546", "#37895d"]],
  cherry: [["#e77fa6", "#ffd0e0"], ["#ee8fb3", "#ffdbe8"]],
  willow: [["#5f9f4f", "#b9dc7a"]],

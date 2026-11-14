@@ -46,6 +46,8 @@ Se convierten con `tools/assets/sounds.py` (Blender, porque en el Mac no hay ffm
 | «Stylized Arched Road Bridge with Railings» (TurboSquid) | `stylized-arched-road-bridge-…/[BLEND] road_bridge/road_bridge.blend` (+ fbx, obj) | 160.272 | — | Puente rojo del jardín (bloque 7) | **no usado** |
 | «Japan Lamp» (nixxdsgn) | `japan-lamp/Lamp.glb` (+ obj) | 148.248 | — | Faroles del camino del jardín (bloque 7) | **no usado** |
 
+Añadido el 14-11-2026 (objetivo 18): «Animated Bluebird with Feathery Wings», `animated-bluebird-with-feathery-wings/` (ZIP de 123 MB: `.blend`, FBX por animación, OBJ y texturas de 4K). 3.642 caras, esqueleto de 354 huesos, 11 animaciones. **En uso**: los pájaros del planeta (`public/models/living/fauna/pajaro.glb`, 720 triángulos, 74 kB; `tools/assets/bird.py`).
+
 Ya en uso desde antes (no están en la lista de este objetivo): los cinco árboles y arbustos de slabdsgn
 (`public/models/living/flora/*.glb`).
 

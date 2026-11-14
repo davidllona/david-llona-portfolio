@@ -36,4 +36,4 @@ export const modelOf = (kind, seed) => {
 };
 
 // Gamas del arbusto: [abajo, arriba].
-export const BUSH_LEAF = [["#3a8a47", "#86c95e"], ["#4a9a4f", "#a3d86a"], ["#357f4b", "#7cc25c"]];
+export const BUSH_LEAF = [["#3a8a47", "#86c95e"], ["#4a9a4f", "#a3d86a"], ["#357f4b", "#7cc25c"], ["#74b83c", "#c6e866"], ["#d98f4e", "#f6c488"]];

@@ -5,12 +5,13 @@ import { useFrame } from "@react-three/fiber";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { attribute, cos, float, instanceIndex, positionLocal, pow, sin, vec3 } from "three/tsl";
 import { unlit } from "../../experience/materials";
-import { emit, events, player } from "../../experience/state";
+import { emit, events } from "../../experience/state";
 import { startGust, uniforms } from "../../experience/theme";
 import { WIND } from "../../experience/environment/wind";
 import { ring, splash } from "../../experience/effects/pools";
 import { merge, piece } from "./kit/geometry";
 import { POND, SCATTER, WATER_LEVEL, height } from "./layout";
+import { Birds } from "./life/Birds";
 import { Leaves, Pollen } from "./life/Leaves";
 
 // Generador con semilla: la fauna sale siempre en los mismos sitios.
@@ -107,120 +108,6 @@ function Butterflies({ count = 26 }) {
  });
 
  return <instancedMesh ref={mesh} args={[geometry, material, count]} frustumCulled={false} />;
-}
-
-// ── Pájaros ─────────────────────────────────────────────────────────────────
-// Picotean en el suelo. Si te acercas (o pasa una ráfaga) echan a volar, dan
-// una vuelta y se posan en otro sitio.
-const BIRD_COLORS = ["#ff7a59", "#4fb6ff", "#ffd24a", "#f4f1ea"];
-const SCARE_DISTANCE = 3.6;
-const FLIGHT_TIME = 9;
-
-function Birds({ count = 12 }) {
- const body = useRef(null);
- const wings = useRef(null);
- const bodyGeometry = useMemo(() => new THREE.ConeGeometry(0.13, 0.42, 5).rotateX(Math.PI / 2).translate(0, 0.13, 0), []);
- const wingGeometry = useMemo(() => new THREE.BoxGeometry(0.62, 0.025, 0.2).translate(0, 0.17, -0.02), []);
- const material = useMemo(() => new THREE.MeshLambertMaterial({ flatShading: true }), []);
- const spots = useMemo(() => {
-  const random = seeded(909);
-  return SCATTER.bushes.filter(() => random() < 0.5).map((bush) => ({ x: bush.x + 1.4, z: bush.z + 1.1 }));
- }, []);
- const birds = useMemo(() => {
-  const random = seeded(31);
-  return Array.from({ length: count }, (_, i) => {
-   const spot = spots[Math.floor(random() * spots.length)];
-   return { x: spot.x, z: spot.z, y: 0, turn: random() * 6, flying: -1, from: null, to: null, phase: random() * 10, color: BIRD_COLORS[i % BIRD_COLORS.length] };
-  });
- }, [count, spots]);
- const random = useMemo(() => seeded(5), []);
-
- useEffect(() => {
-  birds.forEach((bird, i) => {
-   body.current.setColorAt(i, tint.set(bird.color));
-   wings.current.setColorAt(i, tint.set(bird.color).multiplyScalar(0.8));
-  });
-  body.current.instanceColor.needsUpdate = true;
-  wings.current.instanceColor.needsUpdate = true;
-  // Con una ráfaga despegan en cadena: cada una cuando le llega el frente.
-  const scareAll = (event) => {
-   const { x = 0, z = 0 } = event.detail ?? {};
-   birds.forEach((bird) => !bird.started && takeOff(bird, Math.hypot(bird.x - x, bird.z - z) / WIND.gustSpeed + random() * 0.5));
-  };
-  events.addEventListener("gust", scareAll);
-  if (import.meta.env.DEV) window.__world.birds = birds; // para las pruebas automáticas
-  return () => {
-   events.removeEventListener("gust", scareAll);
-   bodyGeometry.dispose();
-   wingGeometry.dispose();
-   material.dispose();
-  };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
- }, [birds]);
-
- function takeOff(bird, delay = 0) {
-  const spot = spots[Math.floor(random() * spots.length)];
-  bird.flying = -delay; // negativo: aún espera
-  bird.from = { x: bird.x, z: bird.z };
-  bird.to = spot;
-  bird.started = true;
- }
-
- useFrame(({ clock }, delta) => {
-  const time = clock.elapsedTime;
-  birds.forEach((bird, i) => {
-   let flap = 0;
-   if (!bird.started) {
-    // En el suelo: saltitos y picoteo.
-    bird.y = height(bird.x, bird.z) + Math.max(0, Math.sin(time * 5 + bird.phase)) * 0.04;
-    const dx = player.position.x - bird.x;
-    const dz = player.position.z - bird.z;
-    if (dx * dx + dz * dz < SCARE_DISTANCE * SCARE_DISTANCE) {
-     takeOff(bird);
-     emit("birds");
-    }
-    dummy.rotation.set(Math.max(0, Math.sin(time * 2.2 + bird.phase)) * 0.5, bird.turn, 0, "YXZ");
-   } else {
-    bird.flying += delta;
-    const t = Math.min(1, Math.max(0, bird.flying) / FLIGHT_TIME);
-    // Sube, da una vuelta amplia y baja al nuevo sitio.
-    const ease = t * t * (3 - 2 * t);
-    const loop = Math.sin(t * Math.PI);
-    const angle = bird.phase + t * Math.PI * 2;
-    const x = bird.from.x + (bird.to.x - bird.from.x) * ease + Math.cos(angle) * loop * 9;
-    const z = bird.from.z + (bird.to.z - bird.from.z) * ease + Math.sin(angle) * loop * 9;
-    const ground = height(bird.from.x, bird.from.z) + (height(bird.to.x, bird.to.z) - height(bird.from.x, bird.from.z)) * ease;
-    bird.turn = Math.atan2(x - bird.x, z - bird.z);
-    bird.x = x;
-    bird.z = z;
-    bird.y = ground + loop * 8.5;
-    flap = Math.sin(time * 22 + bird.phase) * 0.9;
-    dummy.rotation.set(-loop * 0.25, bird.turn, 0, "YXZ");
-    if (t >= 1) {
-     bird.started = false;
-     bird.x = bird.to.x;
-     bird.z = bird.to.z;
-    }
-   }
-   dummy.position.set(bird.x, bird.y, bird.z);
-   dummy.scale.setScalar(1);
-   dummy.updateMatrix();
-   body.current.setMatrixAt(i, dummy.matrix);
-   // Alas: plegadas en el suelo, batiendo en el aire.
-   dummy.scale.set(bird.started ? 1 : 0.42, 1 + Math.abs(flap) * 6, 1);
-   dummy.updateMatrix();
-   wings.current.setMatrixAt(i, dummy.matrix);
-  });
-  body.current.instanceMatrix.needsUpdate = true;
-  wings.current.instanceMatrix.needsUpdate = true;
- });
-
- return (
-  <>
-   <instancedMesh ref={body} args={[bodyGeometry, material, count]} frustumCulled={false} castShadow />
-   <instancedMesh ref={wings} args={[wingGeometry, material, count]} frustumCulled={false} />
-  </>
- );
 }
 
 // ── Peces ───────────────────────────────────────────────────────────────────

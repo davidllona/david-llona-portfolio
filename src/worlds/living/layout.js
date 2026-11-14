@@ -494,18 +494,34 @@ const CHERRY_GROVES = [
  { x: 15, z: 15, r: 7.5 },
  { x: -9, z: -13, r: 5 },
 ];
+// El color del bosque va por zonas, no al azar: cada arboleda es de un color
+// (rosa cerezo, naranja suave, amarillo o lima) y el verde las separa.
+const COLOR_GROVES = [
+ ...CHERRY_GROVES.map((grove) => ({ ...grove, kind: "cherry" })),
+ { x: -31, z: 20, r: 10, kind: "maple" }, // naranja suave, tras el campo de fútbol
+ { x: 31, z: 15, r: 9, kind: "maple" }, // y en la punta del este
+ { x: -30, z: -13, r: 9, kind: "maple" },
+ { x: 14, z: -29, r: 11, kind: "birch" }, // amarillo, en la meseta, hacia el observatorio
+ { x: -12, z: -30, r: 8, kind: "birch" },
+ { x: 2, z: 36, r: 11, kind: "poplar" }, // lima, hacia la playa del sur
+ { x: 36, z: -14, r: 9, kind: "poplar" },
+ { x: -37, z: -1, r: 8, kind: "poplar" },
+];
 const trees = allTrees.map((tree) => {
  const roll = tree.seed;
  const { x, z, y } = tree;
  const toWater = Math.min(toPolyline(x, z, RIVER), Math.abs(distance(x, z, POND.x, POND.z) - POND.r));
  const north = z < -8 || y > 3;
+ const grove = COLOR_GROVES.find((one) => distance(x, z, one.x, one.z) < one.r);
  let kind;
  if (toWater < 5.5 && y < 1 && roll < 0.62) kind = "willow"; // sauces junto al río y el estanque
- else if (CHERRY_GROVES.some((grove) => distance(x, z, grove.x, grove.z) < grove.r) && roll < 0.8) kind = "cherry";
- else if (north) kind = roll < 0.46 ? "pine" : roll < 0.66 ? "birch" : roll < 0.78 ? "poplar" : "oak";
- else kind = roll < 0.09 ? "pine" : roll < 0.2 ? "birch" : roll < 0.3 ? "maple" : roll < 0.42 ? "poplar" : roll < 0.48 ? "cherry" : "oak";
+ else if (grove && roll < 0.82) kind = grove.kind;
+ else if (north) kind = roll < 0.5 ? "pine" : "oak";
+ else kind = roll < 0.1 ? "pine" : "oak";
+ // De tamaño, casi todos medianos, bastantes pequeños y algún ejemplar grande.
+ const size = (roll * 7919) % 1;
  // Cada especie se planta con uno de sus modelos (flora/species.js).
- return { ...tree, kind, model: modelOf(kind, roll), scale: 0.84 + ((roll * 7919) % 1) * 0.5 };
+ return { ...tree, kind, model: modelOf(kind, roll), scale: 0.72 + size * 0.42 + (size > 0.8 ? (size - 0.8) * 1.5 : 0) };
 });
 // Huellas de los edificios y carteles: dentro no crece nada.
 const FOOTPRINTS = [
@@ -569,7 +585,20 @@ const rocks = scatter(40, { margin: -0.4, spacing: 2.4, others: trees, accept: (
 const cliffRocks = scatter(60, { margin: -100, spacing: 1.7, accept: (x, z) => { const e = plateauDistance(x, z); return e > 0.6 && e < 2.2 && distance(x, z, WATERFALL.x, WATERFALL.z) > 3 && toSegment(x, z, ...RAMP.from, ...RAMP.to).distance > 3; } }).map((r) => ({ ...r, scale: 0.6 + r.seed * 0.9 }));
 // Arbustos: en macizos al borde de los bosquetes, nunca en el corredor de los caminos.
 const bushes = scatter(96, { margin: -0.5, spacing: 1.5, others: [...trees, ...rocks], accept: (x, z, y) => dryLand(x, z, y) && !built(x, z) && pathDistance(x, z) > 3.2 && forest(x, z) > 0.36 }).map((b) => ({ ...b, scale: 0.5 + b.seed * 0.5 }));
-const mushrooms = scatter(50, { margin: -0.6, spacing: 1.4, accept: (x, z, y) => dryLand(x, z, y) && ["shade", "moss"].includes(surface(x, z)) });
+// La capa baja va siempre en grupos: se reparten centros y, alrededor de cada
+// uno, varios pies (con su propio azar, para no mover el resto del reparto).
+const lowRandom = createRandom(977);
+const grouped = (centres, count, spread, accept, each = () => ({})) =>
+ centres.flatMap((centre) => {
+  const shared = each(centre);
+  return Array.from({ length: count(centre) }, (_, i) => {
+   const angle = lowRandom() * Math.PI * 2, reach = i === 0 ? 0 : (0.35 + 0.65 * Math.sqrt(lowRandom())) * spread;
+   const x = centre.x + Math.cos(angle) * reach, z = centre.z + Math.sin(angle) * reach;
+   return { x, y: groundHeight(x, z), z, seed: lowRandom(), turn: lowRandom() * Math.PI * 2, first: i === 0, ...shared };
+  }).filter((p) => accept(p.x, p.z, p.y));
+ });
+const mushroomSite = (x, z, y) => dryLand(x, z, y) && ["shade", "moss"].includes(surface(x, z));
+const mushrooms = grouped(scatter(17, { margin: -0.6, spacing: 3.2, accept: mushroomSite }), (c) => 3 + Math.floor(c.seed * 4), 0.55, mushroomSite);
 // Espigas: acentos altos en las praderas (el césped en sí lo pinta
 // flora/Grass.jsx en la GPU). Se recorre la isla en una rejilla descolocada.
 const tufts = { seed: [] };
@@ -619,7 +648,18 @@ for (const path of PATHS) {
 
 const clover = scatter(70, { margin: -1.4, spacing: 2.2, accept: (x, z, y) => dryLand(x, z, y) && !built(x, z) });
 // Helechos: a la sombra de los árboles y en lo húmedo.
-const ferns = scatter(170, { margin: -0.9, spacing: 1.0, accept: (x, z, y) => dryLand(x, z, y) && ["shade", "moss"].includes(surface(x, z)) && !built(x, z) });
+const fernSite = (x, z, y) => dryLand(x, z, y) && ["shade", "moss"].includes(surface(x, z)) && !built(x, z);
+const ferns = grouped(scatter(46, { margin: -0.9, spacing: 2.4, accept: fernSite }), (c) => 3 + Math.floor(c.seed * 3), 0.85, fernSite);
+// Arbustos redondos, hechos a mano: en corros de dos a cuatro, cada corro de
+// un color, a la vista del camino pero sin pisarlo.
+const shrubSite = (x, z, y) => dryLand(x, z, y) && !built(x, z) && pathDistance(x, z) > 2.5 && isGrassy(x, z);
+const shrubs = grouped(
+ scatter(30, { margin: -0.3, spacing: 4.2, others: trees, accept: (x, z, y) => shrubSite(x, z, y) && pathDistance(x, z) < 11 }),
+ (c) => 2 + Math.floor(c.seed * 3),
+ 1.15,
+ shrubSite,
+ (c) => ({ tone: Math.floor(c.seed * 997) % 5 }),
+).map((s) => ({ ...s, scale: s.first ? 0.85 + s.seed * 0.35 : 0.45 + s.seed * 0.4 }));
 // Juncos y espadañas en las orillas del estanque y del río.
 const reeds = [];
 for (let angle = 0; angle < Math.PI * 2; angle += 0.17) {
@@ -762,6 +802,7 @@ const seated = {
  pebbles: seat(pebbles, (p) => p.scale * 0.8, () => 0.09, { embed: 0, sink: 0.04 }),
  bushes: seat(bushes, (b) => 0.4 * b.scale, () => 0.2, { sink: 0.2 }),
  ferns: seat(ferns, ...plantFoot(0.42), { sink: 0.18 }),
+ shrubs: seat(shrubs, (s) => 0.4 * s.scale, () => 0.2, { sink: 0.2 }),
  mushrooms: seat(mushrooms, ...plantFoot(0.16), { sink: 0.06 }),
  clover: seat(clover, ...plantFoot(0.55, 0.08), { sink: 0.05 }),
  reeds: seat(reeds, ...plantFoot(0.22, 0.35), { sink: 0.25 }), // nacen en el talud de la orilla, con el pie en el agua

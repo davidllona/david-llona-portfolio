@@ -18,7 +18,7 @@ import { open, check } from "./common.mjs";
 // Lo que se pisa o se roza a propósito (plantas bajas, adoquines, agua, luz).
 const SOFT = /^(adoquín|espiga|flor|trébol|helecho|arbusto|junco|seta|guijarro|nenúfar|Scene\/|\()/;
 // Lo que se mueve (lleva su propio obstáculo o su propia física) o va a mano en layout.js.
-const MOVING = /^(cohete|caja|barril|balón)/;
+const MOVING = /^(cohete|caja|barril|balón|pájaros)/;
 const BY_HAND = /^(puente)/;
 const mode = process.argv[2];
 const FILE = new URL("../../src/worlds/living/solids.js", import.meta.url);

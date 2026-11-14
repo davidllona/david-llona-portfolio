@@ -18,7 +18,7 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 |---|---|
 | 1. Césped | **Hecho.** Fps después: 74 · 82 · 77 · 83 · 85. Capturas: `capturas/23-pulido/1-cesped/` (antes: `0-antes/`) |
 | 2. Rocas, caminos, farolas y carteles | **Hecho.** Fps después: 85 · 87 · 82 · 87 · 88. Capturas: `capturas/23-pulido/2-rocas/`, `2-caminos/`, `2-farolas/` |
-| 3. Color y vegetación (variantes de árbol, capa baja, pájaros) | Sin empezar |
+| 3. Color y vegetación (variantes de árbol, capa baja, pájaros) | **Hecho.** Fps después: 74 · 77 · 79 · 78 · 81. Capturas: `capturas/23-pulido/3-color/`, `3-pajaros/` |
 | 4. Agua y luz | Sin empezar. **Parada** al terminar |
 | 5. Baloncesto | Sin empezar |
 | 6. Fútbol | Sin empezar |
@@ -44,6 +44,15 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 - **Carteles**: tablón claro de 2,36 × 0,8 m sobre dos postes (antes 1,62 × 0,46 sobre uno), letra oscura y gruesa, icono de la zona en un disco naranja (cohete, CV, balón de baloncesto, balón de fútbol, cúpula, casa, persona, sobre) y flexo de hierro: de noche la cara se enciende y la lámpara lleva halo. Ocho: los cinco de antes más PROYECTOS, SOBRE MÍ y CONTACTO. Colisión de poste a poste.
 - Colisiones rehorneadas (834 obstáculos). Pruebas: `collisions` (0 puntos dentro de algo sólido), `terrain` (2.176 objetos, ninguno flota ni se hunde; 116 rocas con el pie en el agua asoman), `camera`, `motion`, `errors`, `entrada.mjs` (0 pipelines en caliente al entrar y al despegar), consola sin errores.
 - **Queda igual, a propósito o por tiempo**: los rótulos propios de cada zona (PROYECTOS sobre la plaza, SOBRE MÍ en la casa del árbol, CONTACTO en la estación, las placas de los tótems y el atril del CV) siguen en madera oscura con letra crema; junto a Contacto se ven a la vez el cartel nuevo y el antiguo.
+
+**Apartado 3, lo que hay** (`layout.js`, `kit/palette.js`, `flora/species.js`, `flora/plantModels.js`, `flora/Plants.jsx`, `life/Birds.jsx`, `tools/assets/bird.py`, `public/models/living/fauna/pajaro.glb`, `tests/e2e/birds.mjs`):
+- **Árboles**: los cinco modelos de slabdsgn en cinco colores —verde, lima, amarillo, naranja suave y rosa cerezo— repartidos por arboledas (`COLOR_GROVES` en `layout.js`), no al azar: cerezos donde ya estaban, naranja tras el campo de fútbol y en las puntas este y noroeste, amarillo en la meseta, lima hacia la playa del sur y en los extremos este y oeste; el verde (y el pino en el norte) las separa. Tamaños de 0,72 a 1,44 (antes 0,84–1,34): muchos medianos, bastantes pequeños y algún ejemplar grande. El arbusto de slabdsgn gana dos gamas (lima y naranja suave).
+- **Capa baja en grupos**, hecha a mano e instanciada: helechos (46 corros de 3 a 5), setas (17 de 3 a 6) y **arbustos redondos nuevos** (30 corros de 2 a 4, cada corro de un color: verde, lima, verde hondo y dos en flor, rosa y amarilla). Las flores ya iban en manchas. Las mariposas, como estaban.
+- **Pájaros**: fuera los conos con alas. Modelo «Animated Bluebird with Feathery Wings», copiado a `assets-externos/modelos/` y anotado en RECURSOS y CREDITOS. **Sirve**: `tools/assets/bird.py` (Blender, sin ventana) lo reduce de 7.190 a 720 triángulos, le pone color plano por cara sacado de su textura (paleta de 7 tonos; no se distribuye ninguna textura) y **conserva su aleteo**: cuatro posturas de `anim_Flight` y una de `anim_Idle`, guardadas como shape keys (74 kB). El juego las mezcla en la GPU, así que los 17 pájaros son una sola malla con instancias. 10 sueltos (7 picotean en el suelo, 3 posados en lo alto de un cartel o una farola; se espantan al acercarse o con la ráfaga del carillón, dan una vuelta y se posan en otro sitio libre) y dos bandadas de 4 y 3 que rondan en cuña y a ratos planean.
+- Ojo: una malla no puede llevar más de 8 atributos de vértice en WebGPU; con 9 su pipeline no se crea nunca y no se dibuja, sin error en consola (se ve en `window.__world.skipped`).
+- Los FBX del paquete del pájaro solo traen el esqueleto al importarlos en Blender 5; se parte del `.blend`.
+- Colisiones rehorneadas (804 obstáculos). Pruebas: `birds` 3 de 3, `life` (las aves despegan en cadena: 1, 1, 3, 4, 7, 8, 10, 10), `collisions`, `terrain`, `errors`, `entrada.mjs` (0 pipelines en caliente al entrar y al despegar).
+- Sin comprobar: el aleteo visto en movimiento por una persona (solo en fotogramas sueltos); los pájaros de noche.
 
 ## Objetivo 16
 
@@ -144,6 +153,8 @@ node tests/e2e/descent.mjs     # el descenso tras el clic, una captura cada 200 
 node tests/e2e/loader.mjs      # pantalla de carga: peso, primer pintado, pies sin patinar, móvil; fotogramas del bucle y del fundido
 node tests/e2e/sheet.mjs       # monta varias capturas en una hoja: salida.jpg columnas ancho img1 img2 …
 node tests/e2e/trees.mjs       # capturas de los árboles; no comprueba nada
+node tests/e2e/birds.mjs       # pájaros: posados en suelo y en alto, despegue al acercarse, bandada; capturas
+node tests/e2e/pulido.mjs      # objetivo 18: capturas de cada punto (juego, a ras, desde arriba; día y noche)
 node tests/perf/carga.mjs      # pantalla de carga: tiempo hasta poder entrar, tareas largas y parones VISIBLES (traza de Chrome); [url] [pasadas=N] [perfil]
 node tests/perf/peso.mjs       # peso descargado en la primera visita (build de producción en el 5198)
 node tests/perf/fps.mjs        # fps en cinco puntos
