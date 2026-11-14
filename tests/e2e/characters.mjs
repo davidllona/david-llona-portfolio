@@ -12,7 +12,7 @@ await t.enter();
 await t.put(0, 7);
 check((await astro()) === "Astro_Idle_Breathe" || (await astro()) === "Astro_Idle_LookAround", `parado: ${await astro()}`);
 await page.keyboard.down("KeyW"); await wait(500);
-check((await astro()) === "Astro_Run", `andando a paso normal: ${await astro()}`);
+check((await astro()) === "Astro_Jog", `andando a paso normal: ${await astro()}`);
 await page.keyboard.up("KeyW"); await wait(500);
 await page.keyboard.press("Space"); await wait(120);
 check(/Jump|Fall/.test(await astro()), `saltando: ${await astro()}`);

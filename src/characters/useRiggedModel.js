@@ -27,7 +27,8 @@ function createGlass(color) {
  return material;
 }
 
-export function useRiggedModel(url, { palette = {}, aliases, events, onEvent, sockets = [] }) {
+//  · `clips`: clips hechos por código; el que se llame como uno del GLB lo sustituye.
+export function useRiggedModel(url, { palette = {}, aliases, events, onEvent, sockets = [], clips = [] }) {
  const { scene, animations } = useGLTF(url);
 
  // Los materiales se convierten una sola vez por modelo: la escena que devuelve
@@ -61,7 +62,7 @@ export function useRiggedModel(url, { palette = {}, aliases, events, onEvent, so
   }
 
   const found = Object.fromEntries(sockets.map((name) => [name, scene.getObjectByName(name)]));
-  const controller = new AnimationController(scene, animations, { aliases, events, onEvent });
+  const controller = new AnimationController(scene, [...animations.filter((one) => !clips.some((own) => own.name === one.name)), ...clips], { aliases, events, onEvent });
   return { scene, controller, sockets: found };
   // La paleta y los eventos son constantes de cada personaje.
   // eslint-disable-next-line react-hooks/exhaustive-deps

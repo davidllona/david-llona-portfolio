@@ -50,12 +50,12 @@ export function Sounds({ active }) {
     const { who, name } = at(event);
     if (who !== "astro") return;
     if (name.startsWith("footstep")) {
-     // Corriendo, el paso suena más fuerte y algo más agudo. Los clips de andar y
-     // correr marcan hoy más pisadas de las que se dan de verdad (hasta 7–9 por
-     // segundo): se deja pasar una cadencia natural, no una ráfaga.
+     // Corriendo, el paso suena más fuerte y algo más agudo. Cada marca es un pie
+     // que llega al suelo (trote y carrera: gait.js); el tope solo evita que dos
+     // marcas pegadas —un cambio de clip— suenen como un redoble.
      const running = Math.hypot(player.velocity.x, player.velocity.z) > 4.4;
      const time = performance.now();
-     if (time - lastStep < (running ? 200 : 290)) return;
+     if (time - lastStep < (running ? 110 : 140)) return;
      lastStep = time;
      play(`step-${surfaceUnderPlayer()}`, { strength: running ? 1 : 0.55 });
     } else if (name === "jump_takeoff") play("jump");

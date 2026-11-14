@@ -45,9 +45,16 @@ export class AnimationController {
   return this.actions.get(real);
  }
 
+ // En qué punto de su ciclo va el clip en curso (0–1).
+ get phase() {
+  return this.current ? this.current.action.time / this.current.action.getClip().duration : 0;
+ }
+
  // Pasa al clip `name` con un fundido. Si ya suena ese mismo en bucle, solo
  // ajusta la velocidad. `hold`: al acabar (sin bucle) se queda en la última pose.
- play(name, { fade = 0.2, loop = true, speed = 1, hold = true, onDone } = {}) {
+ // `phase` (0–1): en qué punto de su ciclo arranca (para pasar de un paso a
+ // otro sin cambiar de pie).
+ play(name, { fade = 0.2, loop = true, speed = 1, hold = true, phase = 0, onDone } = {}) {
   const action = this.action(name);
   if (!action) {
    if (import.meta.env.DEV) console.warn(`[animación] clip inexistente: ${name}`);
@@ -59,6 +66,7 @@ export class AnimationController {
    return true;
   }
   action.reset();
+  action.time = phase * action.getClip().duration;
   action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Infinity : 1);
   action.clampWhenFinished = hold;
   action.timeScale = speed;
@@ -67,7 +75,7 @@ export class AnimationController {
   if (this.current && this.current.action !== action) action.crossFadeFrom(this.current.action, fade, false);
   else action.fadeIn(fade);
   action.play();
-  this.current = { name, real: this.aliases[name] ?? name, action, loop, onDone, lastTime: -1e-6, finished: false };
+  this.current = { name, real: this.aliases[name] ?? name, action, loop, onDone, lastTime: action.time - 1e-6, finished: false };
   return true;
  }
 

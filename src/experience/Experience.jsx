@@ -19,7 +19,7 @@ import { current } from "./theme";
 import { WarmLights } from "./WarmLights";
 import { WorldUi } from "./ui3d/WorldUi";
 import { Bursts } from "./effects/Bursts";
-import { seeThroughFirst } from "./environment/seeThrough";
+import { seeThroughOrder } from "./environment/seeThrough";
 import { Welcome } from "./Welcome";
 
 // Dos niveles de calidad. El planeta es el mismo; en móvil se recorta lo que
@@ -148,7 +148,7 @@ function createRenderer(canvas, onReady) {
   })
   .then(() => {
    asyncPipelines(renderer);
-   renderer.setTransparentSort(seeThroughFirst);
+   renderer.setOpaqueSort(seeThroughOrder);
    if (import.meta.env.DEV) Object.assign(window.__world, { renderer, backend: renderer.backend.isWebGPUBackend ? "webgpu" : "webgl2" }); // para las pruebas automáticas
    stage("gpu");
    onReady();

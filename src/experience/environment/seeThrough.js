@@ -8,10 +8,12 @@ import { player } from "../state";
 // nada de lo que tapa y el borde se funde con mezcla de verdad (sin tramado).
 // En profundidad también es gradual: lo que está justo delante de él apenas cede.
 //
-// Para que la mezcla salga bien sin ordenar miles de copias, estos materiales
-// se dibujan justo después de todo lo opaco y antes del resto de lo
-// translúcido (agua, halos, humo, rótulos): ver `seeThroughFirst`. Siguen
-// escribiendo profundidad, así que para todo lo demás se portan como opacos.
+// Estos materiales siguen siendo opacos para el renderer (escriben profundidad y
+// van en su lista de opacos, que es la que ahorra píxeles): solo llevan la
+// mezcla activada. Para que el borde se funda con lo que hay detrás, se dibujan
+// después del resto de lo opaco (`seeThroughOrder`); y el césped, que es lo más
+// caro de pintar, después de ellos, para que una copa o una casa le sigan
+// ahorrando lo que tapan. (Sacarlos a la lista de lo translúcido costaba 6 fps.)
 
 // Radio del recorte, en fracciones del alto de la pantalla: limpio hasta
 // `CLEAR`, y de ahí a `EDGE` se va cerrando.
@@ -26,25 +28,29 @@ export function withSeeThrough(material) {
  const inFront = smoothstep(view.depth.add(0.35), view.depth.add(1.5), positionView.z);
  const hole = smoothstep(EDGE, CLEAR, fromPlayer).mul(inFront);
  material.opacityNode = float(1).sub(hole);
- material.transparent = true;
- material.depthWrite = true;
- // Lo translúcido de dos caras se dibuja, por defecto, en dos pasadas (caras de
- // atrás y caras de delante): aquí no hace falta —escribe profundidad— y serían
- // el doble de dibujados y otros tantos pipelines sin precalentar.
- material.forceSinglePass = true;
+ // Mezcla por alfa sin declararse translúcido (three solo la activa en lo opaco si es «a medida»).
+ material.blending = THREE.CustomBlending;
+ material.blendSrc = THREE.SrcAlphaFactor;
+ material.blendDst = THREE.OneMinusSrcAlphaFactor;
  material.alphaTest = 0.02; // dentro del círculo no queda nada: ni color ni profundidad
  material.userData.seeThrough = true;
  return material;
 }
 
-// Orden de lo translúcido: primero lo que lleva hueco de visión (de lejos a
-// cerca) y después lo demás, como siempre.
-export function seeThroughFirst(a, b) {
+// Lo que debe dibujarse después de lo recortable (el césped): ver arriba.
+export function drawAfterSeeThrough(material) {
+ material.userData.afterSeeThrough = true;
+ return material;
+}
+
+// Orden de lo opaco: lo de siempre (de cerca a lejos), luego lo recortable y, al final, el césped.
+const turn = (item) => (item.material.userData.afterSeeThrough ? 2 : item.material.userData.seeThrough ? 1 : 0);
+export function seeThroughOrder(a, b) {
  if (a.groupOrder !== b.groupOrder) return a.groupOrder - b.groupOrder;
- const first = (b.material.userData.seeThrough ? 1 : 0) - (a.material.userData.seeThrough ? 1 : 0);
+ const first = turn(a) - turn(b);
  if (first !== 0) return first;
  if (a.renderOrder !== b.renderOrder) return a.renderOrder - b.renderOrder;
- if (a.z !== b.z) return b.z - a.z;
+ if (a.z !== b.z) return a.z - b.z;
  return a.id - b.id;
 }
 

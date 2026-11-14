@@ -4,6 +4,7 @@ import { useFrame } from "@react-three/fiber";
 import { atan, attribute, cameraPosition, cos, float, fract, mix, mod, positionGeometry, sin, smoothstep, step, texture, transformNormalToView, uniform, vec2, vec3 } from "three/tsl";
 import { MeshLambertNodeMaterial } from "three/webgpu";
 import { noiseTexture } from "../../../experience/environment/noise";
+import { drawAfterSeeThrough } from "../../../experience/environment/seeThrough";
 import { trailPush } from "../../../experience/environment/trail";
 import { WIND, windOffset } from "../../../experience/environment/wind";
 import { player, rig } from "../../../experience/state";
@@ -149,7 +150,8 @@ function createMaterial(centre, size, rise) {
  material.colorNode = mix(base, soil.mul(green), along.pow(1.15)).mul(shaded);
  // Normal hacia arriba: toda la pradera recibe la misma luz que el suelo.
  material.normalNode = transformNormalToView(vec3(0, 1, 0));
- return material;
+ // Se pinta lo último de lo opaco: lo que tape una copa o una casa, que no se pinte.
+ return drawAfterSeeThrough(material);
 }
 
 export function Grass({ quality = "high" }) {

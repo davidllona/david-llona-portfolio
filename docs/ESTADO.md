@@ -4,11 +4,74 @@ Actualizado: 14 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
 **En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **En curso: bloque 3** (errores de juego), a medias: ver su fila y «Bloque 3, lo que queda».
-**En curso: objetivo 18 — pulido del mundo 1** (`docs/OBJETIVO-18.md`, 14-11-2026). **Sustituye a los bloques 4 a 7 del objetivo 16.** Ocho apartados, commit y push por apartado; paradas solo tras el 4 y tras el 8. **Los ocho están hechos: parada del apartado 8, pendiente del visto bueno de David** (batería completa y capturas en «Parada del apartado 8»). Ver «Objetivo 18».
+**En curso: objetivo 19 — pulido final del mundo 1** (`docs/OBJETIVO-19.md`): bloques A y B hechos, **parada del bloque B pendiente de visto bueno**; quedan C y D. Ver «Objetivo 19».
+**Objetivo 18 — pulido del mundo 1** (`docs/OBJETIVO-18.md`, 14-11-2026). **Sustituye a los bloques 4 a 7 del objetivo 16.** Ocho apartados, commit y push por apartado; paradas solo tras el 4 y tras el 8. **Los ocho están hechos: parada del apartado 8, pendiente del visto bueno de David** (batería completa y capturas en «Parada del apartado 8»). Ver «Objetivo 18».
 Decidido por David el 13-11-2026: los pesos reales de los modelos mandan sobre la ficha (reducir «Japan Lamp», puente, observatorio y cabaña hasta que no bajen los fps y dar el número final de triángulos de cada uno); los pasos fuera de la hierba y los sonidos de baloncesto se quedan sintetizados hasta que él avise.
 Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
 Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado.
 Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Contents/MacOS/Blender -b` (5.0.1). No hay ffmpeg: el audio también se convierte con Blender.
+
+## Objetivo 19
+
+Pulido final del mundo 1 (`docs/OBJETIVO-19.md`, 14-11-2026). Cuatro bloques, commit y push por bloque; paradas tras el B y tras el D. El porfolio tendrá tres mundos; este es el primero. Del segundo (estilo Tim Burton) y del tercero (alienígena) no se construye nada todavía.
+
+| Bloque | Estado |
+|---|---|
+| A. Errores visibles (ocho puntos) | **Hecho** (commit `519149f`; el orden de dibujado del recorte, afinado en el commit del bloque B) |
+| B. Animación de correr | **Hecho. Parada: pendiente de visto bueno.** Capturas: `capturas/24-final/parada-B/` (`hoja-A-dia.jpg`, `hoja-A-noche.jpg`, `hoja-carrera.jpg`) |
+| C. «Sobre mí» sale de este mundo | Sin empezar |
+| D. Despegue: que se vea un planeta | Sin empezar. **Parada** al terminar |
+
+**Bloque A, lo que hay:**
+1. **Aro de visibilidad** (`experience/environment/seeThrough.js`): recorte circular limpio alrededor del astronauta, con el borde fundido por mezcla de verdad; sin tramado. Igual en casas, árboles, rocas, pozo, cohete, torii, casa de té, observatorio y casa del árbol. Los materiales siguen en la lista de opacos del renderer (mezcla «a medida» sin declararse translúcidos) y se dibujan después del resto de lo opaco; el césped, después de ellos (`seeThroughOrder`, `drawAfterSeeThrough`). Sacarlos a la lista de translúcidos costaba 6 fps y dejaba 27 pipelines sin precalentar. En el borde fundido lo que se ve detrás es el suelo, no el césped ni otro árbol: no se nota.
+2. **Puente rojo** (`zones/Garden.jsx`, `createArchBridge`): hecho a mano con el kit: tablero de 18 tablas, largueros, cinco postes por lado con remate oscuro (los de los extremos, más altos y con perilla) y dos barandillas, en bermellón. El tablero es la misma curva que se pisa (`bridgeArc`, ahora una sola para todos los puentes, sin quiebro en los extremos). **El modelo «Stylized Arched Road Bridge» no sirve**: es un puente de carretera de 35 m con bolardos y sin barandillas (comprobado en Blender, también con 7.000 triángulos); se retira del repositorio.
+3. **Musgo** (`props/rockModel.js`): rejilla de 5 × 5 sobre la coronación, abombada, con una esquina calva y un fleco que cae por los cuatro lados un trecho distinto en cada tramo; tres verdes por cara.
+4. **Torii**: tejadillo bermellón con la cara de arriba en granate oscuro (`FACING_PAINT` en `buildings.py`).
+5. **Casa de té**: los paneles de papel (`Material.052`) se marcan como ventanas: crema de día, encendidos de noche.
+6. **Pista**: dos focos en postes de 5,6 m por fuera de la valla norte (`Floodlights` en `Court.jsx`): lente encendida con halo, luz de verdad y una mancha de claridad en el suelo.
+7. **Pozo** (`createWell` en `ProjectVillage.jsx`): brocal de sillares en dos hiladas con albardilla clara y agua dentro, postes, torno con manivela, cuerda, cubo y tejadillo a dos aguas. Las losas de la plaza ya no llevan recorte (se borraban bajo el astronauta).
+8. **Cohete de noche**: devuelve su color en cálido también visto desde arriba, cinco ventanillas encendidas bajo el morro y focos de plataforma más fuertes, con halo mayor.
+- Colisiones rehorneadas (850 obstáculos de 204 mallas).
+
+**Bloque B, lo que hay** (`characters/gait.js`, `Astronaut.jsx`, `AnimationController.js`, `useRiggedModel.js`, `audio/Sounds.jsx`, `tests/e2e/run.mjs`):
+- **Por qué patinaba**: el clip `Astro_Run` del modelo avanza 2,9 m/s y el astronauta anda a 3,6 y corre a 6,2; se reproducía al tope de velocidad y aun así se quedaba corto. Además, andar a paso normal ya usaba ese mismo clip.
+- **Dos pasos generados por código**, que sustituyen al clip del modelo: **trote** (`Astro_Jog`, 3,6 m/s, 4,3 pisadas por segundo) y **carrera** (`Astro_Run`, 6,2 m/s, 5 por segundo). Se decide primero por dónde va cada pie —apoyado, la planta no se mueve respecto al suelo; en el aire, vuelve por arriba— y de ahí salen cadera, rodilla y tobillo por cinemática inversa. Lo que avanza el pie apoyado es exactamente lo que avanza el personaje, a cualquier velocidad.
+- Cada zancada tiene **contacto** (el pie llega por delante con la punta algo levantada), **paso** (la cadera baja y la rodilla cede) y **vuelo** (los dos pies en el aire). **Brazos en oposición** y pecho girando contra la cadera; **tronco inclinado** (9° al trote, 17° corriendo); **rebote** de la cadera (3,6 y 5,9 cm). Al pasar del trote a la carrera se conserva el pie.
+- **Sonido**: cada marca de pisada cae cuando su pie llega al suelo y suena un paso por pisada. Fuera el tope de cadencia que había que poner a mano.
+- `node tests/e2e/run.mjs` (19 comprobaciones; con `capturas`, los 12 fotogramas de perfil): el pie apoyado se mueve 0,4 cm al trote y 0,7 corriendo.
+- Sin comprobar: la carrera vista en movimiento por una persona (solo en fotogramas y por medida); andar despacio (menos de 1,7 m/s, con el joystick a medias) sigue con el clip `Astro_Walk` del modelo, sin tocar.
+
+**Parada del bloque B — batería completa** (14-11-2026, en primer plano, de dos en dos, Chrome sin ventana):
+
+| Prueba | Bien | Fallos |
+|---|---|---|
+| `errors` | 8 | 0 |
+| `living` | 44 | 0 |
+| `characters` | 20 | 0 |
+| `portfolio` | 25 | 0 |
+| `progress` | 26 | 0 |
+| `motion` | 10 | 0 |
+| `camera` | 30 | 0 |
+| `woody` | 37 | 0 |
+| `rocket` | 9 | 0 |
+| `terrain` | 3 | 0 |
+| `life` | 11 | 0 |
+| `football` | 63 | 0 |
+| `sounds` | 27 | 0 |
+| **`npm run e2e` (las trece)** | **313** | **0** |
+| `basket` | 20 | 0 |
+| `garden` | 6 | 0 |
+| `birds` | 4 | 0 |
+| `run` (nueva) | 19 | 0 |
+| `hill` | 29 | 0 |
+| `collisions` | 4 | 0 |
+| `welcome` | 21 | 0 |
+| `loader` | 13 | **1** (la de siempre: primer pintado a 200 ms; la pantalla de carga no se toca) |
+| `tests/perf/entrada.mjs` | 0 pipelines en caliente al entrar y al despegar | — |
+
+- Comprobaciones cambiadas porque medían lo de antes: `camera` (las piezas del cohete se reconocen por llevar recorte, no por «no ser transparentes»), `basket` (suelta el tiro a su hora contando desde la pulsación, no después de una captura), `sounds` (9–13 pasos en 2,6 s: la cadencia real del trote), `characters` (a paso normal, `Astro_Jog`).
+- **Fps**: en la misma tanda, 71–76 antes del objetivo 19 y 65–69 con el recorte en la lista de translúcidos; con el orden definitivo, 68–70 y 82–84 en dos pasadas seguidas, y 102–116 tras reiniciarse el servidor. El equipo varía mucho de una tanda a otra; siempre por encima de 60.
+- Una orden se cortó a media batería y se llevó el servidor de desarrollo; se volvió a arrancar en el 5199 y se repitieron las pruebas que quedaban.
 
 ## Objetivo 18
 
@@ -173,7 +236,7 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 | 0. Inventario y sonidos | **Visto bueno.** `docs/RECURSOS.md`; grabación y lista en `capturas/18-sonidos/` |
 | 1. Pantalla de carga (astronauta y Woody caminando sobre un planeta) | **Visto bueno.** Capturas: `capturas/19-carga/serie-*.jpg` |
 | 2. Pantalla previa al aterrizaje (flecha, cero espera, luna, fugaces, planeta) | **Visto bueno**, con dos retoques pedidos y hechos: más relieve en los cráteres de la cara iluminada de la luna y planeta sin rótulo. Capturas: `capturas/20-aterrizaje/` (`luna-relieve-*.jpg`) |
-| 3. Errores de juego (colisiones, colina, Woody, aro de visión, carrera) | **A medias.** Hechas colisiones y colina (commit `4f0e380`, `collisions.mjs` y `hill.mjs`). **Quedan dos cosas**: aro de visibilidad sobre el árbol de la cascada y animación de correr (los tirones de la rampa, arreglados el 14-11-2026: ver «Parada del apartado 8»). Woody: hecho (recorrido de 180 s, 87 tramos, cero fallos) |
+| 3. Errores de juego (colisiones, colina, Woody, aro de visión, carrera) | **A medias.** Hechas colisiones y colina (commit `4f0e380`, `collisions.mjs` y `hill.mjs`). Las tres cosas que quedaban están hechas: tirones de la rampa (objetivo 18, «Parada del apartado 8»), aro de visibilidad y animación de correr (objetivo 19, bloques A y B). Woody: hecho (recorrido de 180 s, 87 tramos, cero fallos) |
 | 4. Aspecto del mundo (farolas, caminos, rocas, pájaros, carteles, cascada) | Sin empezar |
 | 5. Edificios con los modelos descargados | Sin empezar |
 | 6. Fútbol y baloncesto | Sin empezar. **Faltan recursos**: no hay sonido de bote, aro ni red de baloncesto |
@@ -267,6 +330,7 @@ node tests/e2e/sheet.mjs       # monta varias capturas en una hoja: salida.jpg c
 node tests/e2e/trees.mjs       # capturas de los árboles; no comprueba nada
 node tests/e2e/basket.mjs      # baloncesto: tiro con carga, racha, barrera, valla y puerta; capturas
 node tests/e2e/garden.mjs      # jardín japonés: torii, casa de té, puente (se cruza andando), faroles, kois, cartel
+node tests/e2e/run.mjs         # trote y carrera: pies sin patinar, vuelo, brazos en oposición, pisadas con su sonido; «capturas» saca 12 fotogramas de perfil
 node tests/e2e/hill.mjs        # cuestas: rampa, colinas y puente, andando y corriendo; pies pegados, sin atascos ni tirones
 node tests/e2e/collisions.mjs  # nada atraviesa nada; «hornear» rehace solids.js
 node tests/e2e/birds.mjs       # pájaros: posados en suelo y en alto, despegue al acercarse, bandada; capturas

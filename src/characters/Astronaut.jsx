@@ -1,16 +1,23 @@
 import { useEffect, useRef } from "react";
+import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { emit, player } from "../experience/state";
 import eventData from "./data/anim_events.json";
 import clipData from "./data/astronauta_clips.json";
+import { GAITS, createGaitClip, gaitEvents } from "./gait";
 import { ASTRONAUT_PALETTE, ASTRONAUT_SCALE } from "./looks";
 import { useRiggedModel } from "./useRiggedModel";
 
 const URL = "/models/characters/astronauta.glb";
 const WALK_CLIP_SPEED = 0.55 * ASTRONAUT_SCALE; // m/s a los que avanza cada clip a velocidad 1
-const RUN_CLIP_SPEED = 2.08 * ASTRONAUT_SCALE;
-const RUN_FROM = 1.7; // m/s a partir de los cuales corre en vez de andar
+// El trote y la carrera se generan (gait.js): sus pies no patinan a ninguna velocidad.
+const JOG_CLIP_SPEED = GAITS.jog.speed * ASTRONAUT_SCALE;
+const RUN_CLIP_SPEED = GAITS.run.speed * ASTRONAUT_SCALE;
+const JOG_FROM = 1.7; // m/s a partir de los cuales trota en vez de andar
+const RUN_FROM = 4.9; // y a partir de los cuales corre
+const GAIT_CLIPS = [createGaitClip(GAITS.jog), createGaitClip(GAITS.run)];
+const GAIT_EVENTS = [...eventData.events.filter((event) => event.clip !== GAITS.run.name), ...gaitEvents(GAITS.jog), ...gaitEvents(GAITS.run)];
 
 
 // El astronauta riggeado. No decide a dónde va (eso es Player.jsx): mira el
@@ -24,8 +31,12 @@ export function Astronaut() {
  const { scene, controller, sockets } = useRiggedModel(URL, {
   palette: ASTRONAUT_PALETTE,
   aliases: clipData.aliases,
-  events: eventData.events,
-  onEvent: (name) => emit("anim", { who: "astro", name }),
+  events: GAIT_EVENTS,
+  clips: GAIT_CLIPS,
+  onEvent: (name) => {
+   emit("anim", { who: "astro", name });
+   if (import.meta.env.DEV) window.__world.onAstroEvent?.(name); // para las pruebas automáticas
+  },
   sockets: ["RightHand_PropSocket", "LeftHand_PropSocket", "Head_LookSocket"],
  });
 
@@ -39,17 +50,32 @@ export function Astronaut() {
    });
   };
   player.sockets = sockets;
-  if (import.meta.env.DEV) window.__world.astroClip = () => controller.name; // para las pruebas automáticas
+  if (import.meta.env.DEV) {
+   // Para las pruebas automáticas: el clip en curso y dónde están pies, manos, cadera y cabeza.
+   window.__world.astroClip = () => controller.name;
+   const at = new THREE.Vector3();
+   const where = (name) => at.setFromMatrixPosition(scene.getObjectByName(name).matrixWorld).toArray();
+   window.__world.astroFeet = () => ({ clip: controller.name, phase: controller.phase, L: where("Toe_L"), R: where("Toe_R"), handL: where("Hand_L"), handR: where("Hand_R"), hips: where("Hips"), head: where("Head") });
+  }
   return () => {
    player.act = null;
    player.sockets = null;
    player.gesture = false;
   };
- }, [controller, sockets]);
+ }, [controller, sockets, scene]);
 
  useFrame((_, rawDelta) => {
   const delta = Math.min(rawDelta, 0.05);
   group.current.visible = !player.hidden;
+  // (Pruebas: congela la carrera en un punto de su ciclo, para fotografiarla.)
+  const frozenAt = import.meta.env.DEV ? window.__world.runFreeze : null;
+  if (typeof frozenAt === "number") {
+   // (El clip no avanza —velocidad 0— pero el reloj del mezclador sí: así el fundido desde el clip anterior termina.)
+   controller.play(GAITS.run.name, { fade: 0.05, speed: 0 });
+   controller.current.action.time = frozenAt * GAITS.run.duration;
+   controller.update(delta);
+   return;
+  }
   const speed = Math.hypot(player.velocity.x, player.velocity.z);
   if (landing.current && (!controller.busy || speed > 0.6 || !player.grounded)) landing.current = false;
 
@@ -60,8 +86,11 @@ export function Astronaut() {
     // Acaba de aterrizar casi parado: se agacha para absorber la caída.
     landing.current = true;
     controller.play("Astro_Land", { fade: 0.06, loop: false });
-   } else if (speed > RUN_FROM) {
-    controller.play("Astro_Run", { fade: 0.18, speed: Math.min(speed / RUN_CLIP_SPEED, 1.9) });
+   } else if (speed > JOG_FROM) {
+    // Trote o carrera, al compás de lo que se avanza. Al pasar de uno a otro se conserva el pie.
+    const run = speed > RUN_FROM;
+    const moving = controller.name === GAITS.jog.name || controller.name === GAITS.run.name;
+    controller.play(run ? GAITS.run.name : GAITS.jog.name, { fade: 0.16, speed: speed / (run ? RUN_CLIP_SPEED : JOG_CLIP_SPEED), phase: moving ? controller.phase : 0 });
    } else if (speed > 0.25) {
     controller.play("Astro_Walk", { fade: 0.18, speed: Math.min(Math.max(speed / WALK_CLIP_SPEED, 0.7), 2.2) });
    } else {

@@ -76,7 +76,8 @@ await mark("andando sobre hierba");
 await t.hold("KeyS", 2600);
 let after = await sampled();
 const walked = (after["pasos-hierba"] ?? 0) - (before["pasos-hierba"] ?? 0);
-check(walked >= 4 && walked <= 10, `al andar por la hierba suena un paso grabado por pisada (${walked} en 2,6 s)`);
+// (El trote da 4,3 pisadas por segundo: unas 11 en 2,6 s.)
+check(walked >= 9 && walked <= 13, `al andar por la hierba suena un paso grabado por pisada (${walked} en 2,6 s)`);
 await t.put(meadow[0], meadow[1], { settle: 600 });
 await mark("corriendo sobre hierba");
 await page.keyboard.down("ShiftLeft");
