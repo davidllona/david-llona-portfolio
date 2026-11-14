@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import { Staged } from "../Staged";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { clickable, useInteractable } from "../../experience/interact";
@@ -458,11 +459,11 @@ function BallStand() {
 
 export function Court() {
  return (
-  <>
+  <Staged>
    <CourtFloor />
    <Hoop />
    <BallStand />
    <Ball />
-  </>
+  </Staged>
  );
 }

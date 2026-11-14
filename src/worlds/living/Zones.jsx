@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Staged } from "../Staged";
 import * as THREE from "three";
 import { useTexture } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
@@ -254,7 +255,7 @@ function Pitch() {
 
 export function Zones() {
  return (
-  <>
+  <Staged>
    <ProjectVillage />
    {LAB_PROJECTS.slice(0, 3).map((experiment, i) => (
     <LabTotem key={experiment.id} experiment={experiment} index={i} {...LAB_TOTEMS[i]} />
@@ -267,6 +268,6 @@ export function Zones() {
    <Pitch />
    <Football />
    <Signposts />
-  </>
+  </Staged>
  );
 }

@@ -1,37 +1,33 @@
-import { Children, useEffect, useState } from "react";
 import { Court } from "./Court";
 import { Fauna } from "./Fauna";
 import { Flora } from "./Flora";
 import { Grass } from "./flora/Grass";
 import { Terrain } from "./Terrain";
 import { Zones } from "./Zones";
-
-// Monta a sus hijos de uno en uno, dejando pasar un par de fotogramas entre
-// cada cual: construir el planeta de golpe congelaría la bienvenida, que ya
-// se está viendo. Avisa con `onDone` cuando están todos.
-function Staged({ children, onDone }) {
- const parts = Children.toArray(children);
- const [count, setCount] = useState(1);
- useEffect(() => {
-  if (count >= parts.length) {
-   onDone?.();
-   return undefined;
-  }
-  let second;
-  const first = requestAnimationFrame(() => (second = requestAnimationFrame(() => setCount((value) => value + 1))));
-  return () => {
-   cancelAnimationFrame(first);
-   cancelAnimationFrame(second);
-  };
-  // `onDone` y el número de partes no cambian durante la vida del componente.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
- }, [count]);
- return parts.slice(0, count);
-}
+import { useEffect, useRef, useState } from "react";
+import { breathe, busy, Staged } from "../Staged";
+import { prepareTerrain } from "./terrainData";
 
 // Planeta 1 · The Living World. Lo común (jugador, Woody, cohete y objetos
 // sueltos) lo monta Experience.jsx.
 export default function LivingScene({ quality, onBuilt }) {
+ // Los datos del terreno (256 × 256 muestras) se hornean antes, en tramos cortos.
+ const [terrain, setTerrain] = useState(false);
+ const working = useRef(null);
+ useEffect(() => {
+  let live = true;
+  working.current = busy();
+  prepareTerrain(breathe).then(() => live && setTerrain(true));
+  return () => {
+   live = false;
+   working.current();
+  };
+ }, []);
+ // (Cuando esto corre, lo de dentro ya se ha apuntado como pendiente.)
+ useEffect(() => {
+  if (terrain) working.current?.();
+ }, [terrain]);
+ if (!terrain) return null;
  return (
   <Staged onDone={onBuilt}>
    <Terrain />

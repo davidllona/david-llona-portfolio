@@ -1,9 +1,9 @@
 # Estado del universo de tres planetas
 
-Actualizado: 13 de noviembre de 2026 · rama `estacion-espacial` (solo commits locales, sin push).
+Actualizado: 14 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
-**En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **Siguiente: bloque 3** (errores de juego: colisiones, colina, Woody, aro de visión, carrera).
+**En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **En curso: bloque 3** (errores de juego), a medias: ver su fila y «Bloque 3, lo que queda».
 Decidido por David el 13-11-2026: los pesos reales de los modelos mandan sobre la ficha (reducir «Japan Lamp», puente, observatorio y cabaña hasta que no bajen los fps y dar el número final de triángulos de cada uno); los pasos fuera de la hierba y los sonidos de baloncesto se quedan sintetizados hasta que él avise.
 Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
 Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado.
@@ -16,12 +16,29 @@ Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Co
 | 0. Inventario y sonidos | **Visto bueno.** `docs/RECURSOS.md`; grabación y lista en `capturas/18-sonidos/` |
 | 1. Pantalla de carga (astronauta y Woody caminando sobre un planeta) | **Visto bueno.** Capturas: `capturas/19-carga/serie-*.jpg` |
 | 2. Pantalla previa al aterrizaje (flecha, cero espera, luna, fugaces, planeta) | **Visto bueno**, con dos retoques pedidos y hechos: más relieve en los cráteres de la cara iluminada de la luna y planeta sin rótulo. Capturas: `capturas/20-aterrizaje/` (`luna-relieve-*.jpg`) |
-| 3. Errores de juego (colisiones, colina, Woody, aro de visión, carrera) | Sin empezar |
+| 3. Errores de juego (colisiones, colina, Woody, aro de visión, carrera) | **A medias.** Hechas colisiones y colina (commit `4f0e380`, `collisions.mjs` y `hill.mjs`); Woody en curso (`woody-tour.mjs`). Faltan: tirón al subir la rampa corriendo, aro de visibilidad y animación de correr |
 | 4. Aspecto del mundo (farolas, caminos, rocas, pájaros, carteles, cascada) | Sin empezar |
 | 5. Edificios con los modelos descargados | Sin empezar |
 | 6. Fútbol y baloncesto | Sin empezar. **Faltan recursos**: no hay sonido de bote, aro ni red de baloncesto |
 | 7. Jardín japonés | Sin empezar |
 | 8. Cierre | Sin empezar |
+
+**Bloque 3, lo que queda** (14-11-2026; no se ha tocado nada de esto todavía):
+- **Tirón al subir la rampa corriendo**: `hill.mjs` falla en «rampa-subir-corriendo: sin tirones» (cambio de velocidad vertical de 2,00 m/s entre fotogramas, en (−7,0, −21,4)). El resto de la colina pasa (27 de 28).
+- **Aro de visibilidad**: sigue dejando una mancha de puntos sobre el árbol junto a la cascada (lo ha visto David); también fallaba al subirse al cohete y en el pozo. Arreglarlo o cambiarlo por un recorte circular limpio (`experience/environment/seeThrough.js`).
+- **Animación de correr del astronauta**: rehacerla (contacto, paso y vuelo; brazos en oposición; tronco inclinado; rebote; sin patinar) y sincronizar con ella los pasos sobre hierba.
+- **Woody**: el recorrido de 3 minutos (`woody-tour.mjs`) no se ha llegado a pasar entero en Windows; falta contar sus fallos.
+- Otras pruebas que fallaron el 14-11 con el lienzo en blanco y hay que volver a mirar con el render ya arreglado: `football.mjs` «el efecto curva el vuelo de verdad» (0,29 m; puede ser real).
+
+**Carga sin tirones (14-11-2026, aplicada)** (`index.html`, `src/experience/Experience.jsx`, `src/worlds/Staged.jsx`, `src/worlds/living/terrainData.js`, `tests/perf/carga.mjs`):
+- Los tirones de la pantalla de carga no eran del hilo principal: eran del proceso de GPU de Chrome, que es también el que presenta la página (animación CSS incluida). Lo paraban los pipelines creados «en el acto» (three r183 al dibujar algo por primera vez; DXC en Direct3D), la creación del dispositivo, el pipeline interno de la primera copia de imagen a textura, los de mipmaps y el compositor esperando al lienzo del juego.
+- **Todos los pipelines se crean en asíncrono** (`asyncPipelines`): los de dibujado y los de mipmaps de three. Lo que aún no tiene el suyo se salta y entra solo cuando llega. Lo compilado no se tira (three lo descartaba al quedarse un instante sin usuarios).
+- **Detrás de la carga la escena no se dibuja** (`live.loading`, lienzo con `visibility: hidden`): todo lo dibujable queda tapado (`hold`) y se destapa de objeto en objeto para compilarlo (`exposed` + `compileNow`), en tramos de 12 ms. Las sombras se compilan dibujando 3 objetos por fotograma real **junto a un receptor de sombra**: three solo rehace el mapa de sombras si en ese fotograma se dibuja algo que la recibe (sin eso, las sombras de tótems, cohete, farolas y setas se compilaban al entrar).
+- El dispositivo de GPU se pide desde `index.html` (`window.__gpuDevice`) antes del primer pintado, y la animación de la carga arranca (`html.is-live`, marca `carga:animada`) cuando eso ha pasado; antes se ve su primer fotograma, quieto.
+- El mundo se monta pieza a pieza con un turno único (`Staged`, anidable) y el terreno se hornea por filas (`prepareTerrain`).
+- **Medido** (Chrome sin ventana, sin caché, 3 pasadas seguidas, este equipo Windows): producción **4,45–4,63 s** hasta poder entrar, **0 parones visibles** de más de 50 ms; desarrollo 4,78–5,04 s, 0 parones. 0 pipelines en caliente al entrar y al despegar; 0 dibujados aplazados tras la carga. Antes: 15,3 s y 35 parones visibles (el peor, 1,1 s).
+- **No cumplido**: quedan 7–9 tareas de más de 50 ms en el hilo principal (la peor ~170–260 ms): evaluación de `layout.js`, geometría del agua, islote, rótulos, terreno y el primer render del posproceso. No se ven (la animación no depende de ese hilo).
+- Sin comprobar: Chrome con ventana tras los últimos cambios (solo al principio), el Mac y el respaldo WebGL2 (`?backend=webgl`).
 
 **Bloque 2, lo que hay** (`src/ui/StartOverlay.jsx`, `src/styles/ui.css`, `src/ui/loaderControl.js`, `src/experience/Experience.jsx`, `src/experience/Welcome.jsx`, `src/experience/intro/skyModels.js`, `tests/e2e/welcome.mjs`):
 - **Cero espera**: la pantalla de carga ya no se retira al estar lista la bienvenida, sino cuando el planeta está montado y compilado (etapas nuevas `built` y `world` en `loaderControl.js`, con avance real de la compilación). Cuando se ve la portada ya se puede entrar; «Preparando el planeta…» solo queda como respaldo si la carga se retirase antes. Al no tener que cuidar la fluidez de la bienvenida, la compilación del planeta usa 22 ms por fotograma (antes 8). Medido en desarrollo: se puede entrar a los ~2,9 s (antes ~3,1 s, con la portada visible desde los 0,8 s y el botón esperando).
@@ -91,6 +108,7 @@ node tests/e2e/descent.mjs     # el descenso tras el clic, una captura cada 200 
 node tests/e2e/loader.mjs      # pantalla de carga: peso, primer pintado, pies sin patinar, móvil; fotogramas del bucle y del fundido
 node tests/e2e/sheet.mjs       # monta varias capturas en una hoja: salida.jpg columnas ancho img1 img2 …
 node tests/e2e/trees.mjs       # capturas de los árboles; no comprueba nada
+node tests/perf/carga.mjs      # pantalla de carga: tiempo hasta poder entrar, tareas largas y parones VISIBLES (traza de Chrome); [url] [pasadas=N] [perfil]
 node tests/perf/peso.mjs       # peso descargado en la primera visita (build de producción en el 5198)
 node tests/perf/fps.mjs        # fps en cinco puntos
 node tests/e2e/errors.mjs      # ninguna excepción de página y el lienzo dibujado: carga, bienvenida, estrella fugaz y mundo, sin ventana y con ventana (incluida en e2e)
@@ -249,7 +267,7 @@ Rendimiento medido en el Mac a 2880 × 1620 sobre WebGPU: 192–221 fps tras el 
 
 ## Incidencias conocidas
 
-- **Resuelto el 14-11-2026 — en Windows no se dibujaba el 3D** (solo texto y flecha en la bienvenida; `setPipeline … is not of type GPURenderPipeline`). Causa: el precalentamiento crea los pipelines en asíncrono (`compileAsync`) y three r183 los apunta en caché antes de que existan en la GPU; la estela de la estrella fugaz (oculta al compilar, visible ~1,2 s después) se dibujaba con el suyo aún pendiente, la excepción cortaba el dibujado a medias y el renderer quedaba con `_callDepth` descolocado para siempre. En Metal el pipeline llega antes del siguiente fotograma; en Direct3D, no. Arreglo: `skipUnbuiltPipelines` en `Experience.jsx` (un objeto no se dibuja mientras su pipeline no exista; entra solo cuando llega). Prueba: `node tests/e2e/errors.mjs` (con y sin ventana; la primera de `npm run e2e`), y toda prueba de `common.mjs` da FALLO ante cualquier excepción de página. Capturas: `capturas/21-windows-pipeline/`.
+- **Resuelto el 14-11-2026 — en Windows no se dibujaba el 3D** (solo texto y flecha en la bienvenida; `setPipeline … is not of type GPURenderPipeline`). Causa: el precalentamiento crea los pipelines en asíncrono (`compileAsync`) y three r183 los apunta en caché antes de que existan en la GPU; la estela de la estrella fugaz (oculta al compilar, visible ~1,2 s después) se dibujaba con el suyo aún pendiente, la excepción cortaba el dibujado a medias y el renderer quedaba con `_callDepth` descolocado para siempre. En Metal el pipeline llega antes del siguiente fotograma; en Direct3D, no. Arreglo: `skipUnbuiltPipelines` en `Experience.jsx` (un objeto no se dibuja mientras su pipeline no exista; entra solo cuando llega). Prueba: `node tests/e2e/errors.mjs` (sin ventana; `con-ventana` como argumento abre una; la primera de `npm run e2e`), y toda prueba de `common.mjs` da FALLO ante cualquier excepción de página. Capturas: `capturas/21-windows-pipeline/`.
 
 - `woody.mjs` falló una vez de tres en «y la baja contigo» (Woody se quedó arriba de la rampa, y=0,8, con el astronauta ya abajo). Sin tocar a Woody en ese commit. Para el bloque 3 del objetivo 16.
 

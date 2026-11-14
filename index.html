@@ -29,6 +29,31 @@
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&display=block" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&display=block" rel="stylesheet"></noscript>
   <script>
+    // El dispositivo de GPU se pide ya, antes de que se pinte nada: crearlo deja parado el
+    // proceso de gráficos del navegador unos 150 ms (en Direct3D), y si eso ocurre con la
+    // pantalla de carga ya a la vista, su animación da un tirón. Lo recoge Experience.jsx.
+    // (Mismas opciones que usaría three: nivel «compatibility» y todo lo que ofrezca el adaptador.)
+    window.__gpuDevice = (function () {
+      if (!navigator.gpu || /[?&](webgl=0|backend=webgl)/.test(location.search)) return Promise.resolve(null);
+      return navigator.gpu.requestAdapter({ powerPreference: "high-performance", featureLevel: "compatibility" })
+        .then(function (adapter) { return adapter ? adapter.requestDevice({ requiredFeatures: Array.from(adapter.features) }) : null; })
+        .then(function (device) {
+          // Y la primera copia de una imagen a una textura, que compila por dentro otro
+          // programa (uno por formato): se hace ahora con un lienzo de 1 px.
+          if (device) try {
+            var dot = document.createElement("canvas"); dot.width = dot.height = 1; dot.getContext("2d").fillRect(0, 0, 1, 1);
+            ["rgba8unorm", "rgba8unorm-srgb"].forEach(function (format) {
+              var texture = device.createTexture({ size: [1, 1], format: format, usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
+              [false, true].forEach(function (flipY) { device.queue.copyExternalImageToTexture({ source: dot, flipY: flipY }, { texture: texture, premultipliedAlpha: false }, [1, 1]); });
+            });
+            return device.queue.onSubmittedWorkDone().then(function () { return device; }, function () { return device; });
+          } catch (error) { /* se hará más tarde, al subir la primera textura */ }
+          return device;
+        })
+        .catch(function () { return null; });
+    })();
+  </script>
+  <script>
     // Los textos de la carga se enseñan cuando la letra está lista (o a los 2 s, si no llega).
     (function () {
       var show = function () { document.documentElement.classList.add("has-font"); };
@@ -132,6 +157,8 @@
     @keyframes ld-glow { 50% { opacity: .72; transform: scale(1.04); } }
     /* Vertical: el sol se acerca al centro para que no se salga, y el horizonte sube un poco. */
     @media (max-aspect-ratio: 1/1) { #loader { --h: 53vh; --sun-x: 1.25; } .ld-astro { --at: -8deg; } .ld-woody { --at: 11deg; } }
+    /* Quieta hasta que el arranque de la GPU ha pasado (ver el script de <head>). */
+    html:not(.is-live) #loader *, html:not(.is-live) #loader *::before { animation-play-state: paused; }
     @media (prefers-reduced-motion: reduce) { #loader * { animation: none !important; } }
   </style>
   <div id="loader" role="status" aria-label="Cargando el planeta">
@@ -153,6 +180,22 @@
       <p class="ld-step" id="loader-step">Preparando el universo…</p>
     </div>
   </div>
+  <script>
+    // La animación de la carga arranca cuando el arranque de la GPU ha pasado (ver <head>) y sus imágenes están
+    // decodificadas (o a los 1,5 s): hasta entonces se ve su primer fotograma, quieto.
+    (function () {
+      var live = function () {
+        if (live.done) return; live.done = true;
+        requestAnimationFrame(function () { requestAnimationFrame(function () {
+          document.documentElement.classList.add("is-live");
+          performance.mark("carga:animada");
+        }); });
+      };
+      var images = function () { return Promise.all(Array.prototype.map.call(document.querySelectorAll("#loader img"), function (image) { return image.decode ? image.decode().catch(function () {}) : null; })); };
+      Promise.all([window.__gpuDevice, images()]).then(live, live);
+      setTimeout(live, 1500);
+    })();
+  </script>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>

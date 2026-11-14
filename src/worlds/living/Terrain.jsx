@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { Staged } from "../Staged";
 import * as THREE from "three";
 import { Instances } from "../../experience/Instances";
 import { groundColor } from "./groundColor";
@@ -153,7 +154,7 @@ export function Terrain() {
  const ground = useMemo(createGround, []);
  useEffect(() => () => ground.dispose(), [ground]);
  return (
-  <>
+  <Staged>
    <mesh geometry={ground} receiveShadow castShadow>
     <meshLambertMaterial vertexColors flatShading />
    </mesh>
@@ -161,6 +162,6 @@ export function Terrain() {
    <Waterfall />
    <Bridges />
    <PathCobbles />
-  </>
+  </Staged>
  );
 }

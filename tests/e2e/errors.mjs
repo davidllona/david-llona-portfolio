@@ -1,6 +1,6 @@
 // Nada revienta y el 3D se ve. Recorre carga → bienvenida → estrella fugaz →
-// aterrizaje → mundo, en Chrome sin ventana y con ventana (como un visitante), y
-// falla si hay CUALQUIER excepción de página o si el lienzo se queda sin dibujar.
+// aterrizaje → mundo, en Chrome sin ventana (o, pidiéndolo, con ventana: abre
+// una en el escritorio), y falla si hay CUALQUIER excepción de página o si el lienzo se queda sin dibujar.
 // (El 14-11-2026, en Windows, una excepción al dibujar la estela de la estrella
 // fugaz dejaba el lienzo vacío y las pruebas seguían diciendo OK.)
 //   node tests/e2e/errors.mjs [sin-ventana | con-ventana]
@@ -10,7 +10,7 @@ const only = process.argv[2];
 const modes = [
  { headful: false, tag: "sin-ventana" },
  { headful: true, tag: "con-ventana" },
-].filter((mode) => !only || mode.tag === only);
+].filter((mode) => mode.tag === (only ?? "sin-ventana"));
 
 // Cuánto varía la imagen del lienzo 3D: tonos de gris distintos en una rejilla
 // de 64 × 40 y diferencia entre el más claro y el más oscuro. Un lienzo sin
@@ -46,6 +46,7 @@ for (const { headful, tag } of modes) {
  });
  console.log(`     backend ${info.backend} · GPU ${info.gpu}`);
 
+ const loaded = await t.evaluate(() => window.__world.skipped?.length ?? 0);
  check(t.pageErrors.length === 0, `la carga termina sin excepciones (${t.pageErrors.length})`);
  const welcome = await drawn(t);
  check(seen(welcome), `la bienvenida se dibuja (${say(welcome)})`);
@@ -69,8 +70,21 @@ for (const { headful, tag } of modes) {
  const b = await t.pos();
  check(Math.hypot(b.x - a.x, b.z - a.z) > 0.5 && seen(await drawn(t)), `y sigue dibujándose al andar (${Math.hypot(b.x - a.x, b.z - a.z).toFixed(1)} m)`);
  await t.shot(`errores-mundo-${tag}`);
- const skipped = await t.evaluate(() => window.__world.skippedDraws ?? 0);
- console.log(`     dibujados aplazados por pipeline aún sin crear: ${skipped}`);
+ // Dibujados aplazados (su pipeline aún se estaba creando): durante la carga
+ // son normales, con el lienzo oculto. Después, cada uno es algo que apareció
+ // tarde en pantalla: se listan, y no puede quedar ninguno saltándose siempre.
+ await wait(1500);
+ const late = await t.evaluate((from) => {
+  const w = window.__world;
+  const frame = w.renderer.info.frame;
+  const name = (object) => { const path = []; for (let o = object; o && path.length < 3; o = o.parent) path.push(o.name || o.type); return path.join(" < "); };
+  const after = (w.skipped ?? []).slice(from);
+  return { during: from, after: after.map((one) => `${name(one.object)} (${one.material.type}${one.target ? `, ${one.target}` : ""}), fotograma ${one.frame}`), still: after.filter((one) => frame - one.frame < 30).length, sync: w.syncPipelines ?? [] };
+ }, loaded);
+ console.log(`     dibujados aplazados durante la carga (lienzo oculto): ${late.during}`);
+ check(late.still === 0, `tras entrar, nada se queda sin dibujar (aplazados después de la carga: ${late.after.length}; en el último medio segundo: ${late.still})`);
+ for (const one of [...new Set(late.after)].slice(0, 20)) console.log(`       · ${one}`);
+ check(late.sync.length === 0, `ningún pipeline creado en síncrono (${late.sync.length}${late.sync.length ? `: ${[...new Set(late.sync)].join(", ")}` : ""})`);
  await t.done();
 }
 console.log(`     capturas en ${out}errores-*.jpg`);

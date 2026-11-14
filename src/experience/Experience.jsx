@@ -8,6 +8,7 @@ import { RenderPipeline, WebGPURenderer } from "three/webgpu";
 import { Woody } from "../characters/Woody";
 import { progress, stage } from "../ui/loaderControl";
 import { SCENES, world } from "../worlds";
+import { Staged } from "../worlds/Staged";
 import { Interactions } from "./Interactions";
 import { Lights } from "./Lights";
 import { Player } from "./Player";
@@ -32,25 +33,90 @@ const QUALITY = {
 const debug = import.meta.env.DEV ? new URLSearchParams(window.location.search) : null;
 const flag = (name, fallback) => (debug?.has(name) ? Number(debug.get(name)) : fallback);
 
-// Nada se dibuja hasta que su pipeline existe en la GPU.
-// El precalentamiento (`compileAsync`) crea los pipelines en asíncrono: three
-// r183 los apunta en su caché en el acto, pero el objeto de la GPU no llega
-// hasta que el controlador termina de compilar. Si entretanto un fotograma
-// real dibuja algo que comparte ese pipeline (lo que estaba oculto y aparece:
-// la estela de la estrella fugaz, por ejemplo), `setPipeline` recibe
-// `undefined`, lanza una excepción a mitad del dibujado y el renderer se queda
-// con su estado interno a medias (`_callDepth`, destino): no vuelve a pintar
-// nada. En Metal el pipeline llega antes del siguiente fotograma; en Direct3D
-// tarda varios. No se espera un tiempo: el objeto se salta mientras su
-// pipeline esté pendiente y entra solo en el primer fotograma en que existe.
-// (three ya hace lo mismo con los pipelines que fallan: `pipelineData.error`.)
-function skipUnbuiltPipelines(renderer) {
+// Los pipelines se crean SIEMPRE en asíncrono y nada se dibuja hasta que el
+// suyo existe en la GPU.
+//  · Crear un pipeline «en el acto» (lo que hace three r183 al dibujar algo por
+//    primera vez) compila sus sombreadores dentro del proceso de GPU del
+//    navegador y lo deja parado mientras dura: en Direct3D, decenas o cientos
+//    de ms cada vez. Ese proceso es también el que presenta la página, así que
+//    se congelaba hasta la animación CSS de la pantalla de carga. En asíncrono
+//    la compilación va a otros hilos y la pantalla sigue viva.
+//  · Mientras un pipeline está pendiente, three ya lo tiene apuntado en su
+//    caché, pero sin objeto de GPU: dibujar con él lanzaba una excepción a
+//    mitad del fotograma y dejaba al renderer con su estado interno a medias
+//    (no volvía a pintar nada; pasaba en Windows con la estela de la estrella
+//    fugaz). El objeto se salta mientras tanto y entra solo en el primer
+//    fotograma en que su pipeline existe. No se espera ningún tiempo.
+//    (three hace lo mismo con los pipelines que fallan: `pipelineData.error`.)
+// `pipelinesSettled()` avisa cuando no queda ninguno por llegar: es lo que
+// espera el precalentamiento antes de dar la escena por lista.
+const pipelines = { pending: 0, waiting: [] };
+const pipelinesSettled = () => (pipelines.pending === 0 ? Promise.resolve() : new Promise((resolve) => pipelines.waiting.push(resolve)));
+function asyncPipelines(renderer) {
  const backend = renderer.backend;
+ // Lo compilado no se tira. three descarta un pipeline (y su programa) cuando
+ // se queda sin usuarios, aunque sea un instante; al recrearse el objeto de
+ // dibujado de su único usuario (pasa al entrar con las sombras de farolas,
+ // setas y cohete) lo volvía a compilar en caliente. Son pocos cientos y no
+ // pesan: se conservan.
+ renderer._pipelines._releasePipeline = () => {};
+ renderer._pipelines._releaseProgram = () => {};
  if (!backend.isWebGPUBackend) return; // WebGL2 enlaza sus programas al usarlos
+ const create = backend.createRenderPipeline;
+ backend.createRenderPipeline = function (renderObject, promises) {
+  const list = promises ?? [];
+  const from = list.length;
+  create.call(this, renderObject, list);
+  for (const promise of list.slice(from)) {
+   pipelines.pending += 1;
+   promise.finally(() => {
+    pipelines.pending -= 1;
+    if (pipelines.pending === 0) pipelines.waiting.splice(0).forEach((resolve) => resolve());
+   });
+  }
+ };
+ // Lo mismo con los pipelines con que three genera los mipmaps (uno por
+ // formato de textura), que crea en síncrono: se piden en asíncrono y los
+ // mipmaps de esa textura se generan cuando llega.
+ const device = backend.device;
+ const passes = backend.textureUtils._getPassUtils();
+ const asked = new Map();
+ const transfer = (format, dimension = "2d-array") => {
+  const key = `${format}-${dimension}`;
+  if (passes.transferPipelines[key]) return null;
+  if (!asked.has(key)) {
+   // Se le deja a three escribir el descriptor y se intercepta la creación.
+   let descriptor;
+   device.createRenderPipeline = (given) => ((descriptor = given), null);
+   try {
+    passes.getTransferPipeline(format, dimension);
+   } finally {
+    delete device.createRenderPipeline;
+    delete passes.transferPipelines[key];
+   }
+   asked.set(key, device.createRenderPipelineAsync(descriptor).then((pipeline) => (passes.transferPipelines[key] = pipeline)));
+  }
+  return asked.get(key);
+ };
+ const mipmaps = passes.generateMipmaps;
+ passes.generateMipmaps = function (textureGPU, encoder = null) {
+  const pending = transfer(textureGPU.format, textureGPU.textureBindingViewDimension || "2d-array");
+  if (!pending) return mipmaps.call(this, textureGPU, encoder);
+  pending.then(() => mipmaps.call(this, textureGPU, null)).catch(() => {}); // (la textura pudo destruirse entretanto)
+ };
+ if (import.meta.env.DEV) {
+  // Para las pruebas: cualquier pipeline creado en síncrono queda anotado.
+  const createSync = device.createRenderPipeline;
+  window.__world.syncPipelines = [];
+  Object.getPrototypeOf(device).createRenderPipeline = function (descriptor) {
+   if (this === device) window.__world.syncPipelines.push(descriptor.label ?? "?");
+   return createSync.call(this, descriptor);
+  };
+ }
  const draw = backend.draw;
  backend.draw = function (renderObject, info) {
   if (this.get(renderObject.pipeline).pipeline === undefined) {
-   if (import.meta.env.DEV) window.__world.skippedDraws = (window.__world.skippedDraws ?? 0) + 1; // para las pruebas automáticas
+   if (import.meta.env.DEV) ((window.__world.skipped ??= []).length < 4000) && window.__world.skipped.push({ frame: renderer.info.frame, object: renderObject.object, material: renderObject.material, target: renderObject.context?.textures?.[0]?.name ?? "", key: renderObject.pipeline.cacheKey, context: renderObject.context?.id }); // para las pruebas automáticas
    return;
   }
   return draw.call(this, renderObject, info);
@@ -68,12 +134,23 @@ function createRenderer(canvas, onReady) {
  });
  // La inicialización es asíncrona (pide el adaptador y el dispositivo de GPU):
  // hasta que termina no se dibuja nada.
- renderer.init().then(() => {
-  skipUnbuiltPipelines(renderer);
-  if (import.meta.env.DEV) Object.assign(window.__world, { renderer, backend: renderer.backend.isWebGPUBackend ? "webgpu" : "webgl2" }); // para las pruebas automáticas
-  stage("gpu");
-  onReady();
- });
+ // Detrás de la pantalla de carga el lienzo no se compone: así el navegador no
+ // tiene que esperar a la GPU del juego para presentar cada fotograma de la carga.
+ canvas.style.visibility = "hidden";
+ live.canvas = canvas;
+ // El dispositivo ya se pidió desde index.html (ver allí por qué).
+ const device = debug?.get("backend") === "webgl" ? null : window.__gpuDevice;
+ Promise.resolve(device)
+  .then((found) => {
+   if (found && renderer.backend.isWebGPUBackend) renderer.backend.parameters.device = found;
+   return renderer.init();
+  })
+  .then(() => {
+   asyncPipelines(renderer);
+   if (import.meta.env.DEV) Object.assign(window.__world, { renderer, backend: renderer.backend.isWebGPUBackend ? "webgpu" : "webgl2" }); // para las pruebas automáticas
+   stage("gpu");
+   onReady();
+  });
  return renderer;
 }
 
@@ -82,17 +159,80 @@ function createRenderer(canvas, onReady) {
 // escena: el posproceso dibuja su rectángulo final y, dentro de esa llamada,
 // los pases intermedios y por fin la escena (1 o 2 según haya suavizado de
 // bordes; las sombras, una más). Se anota al dibujar, no se supone.
-// `uncull` es una tanda de objetos que el siguiente fotograma dibuja sin
-// descartar por encuadre (ver `drawOnce`).
-const live = { scenePass: null, depth: null, uncull: null };
-const WARM_GROUP = 3; // objetos que se compilan de una vez
-// ms por fotograma dedicados a compilar el planeta. Ocurre detrás de la pantalla
-// de carga, cuyas animaciones no dependen de este hilo: se puede apretar.
-const WARM_BUDGET = 22;
+// `draw` dibuja solo los objetos dados; `queue` son los que esperan a que un
+// fotograma real los dibuje una vez (ver `drawOnce`) y `drained` avisa al vaciarse.
+// `loading`: la pantalla de carga tapa el lienzo. Mientras dura, la escena no
+// se dibuja: todo lo dibujable se guarda en `held` con su máscara de capas
+// puesta a cero y solo se destapa, de pocos en pocos objetos, para compilarlo.
+// Dibujarla entera la primera vez construía todos los sombreadores en un solo
+// fotograma (0,8 s de hilo principal bloqueado y un lote enorme para la GPU).
+const live = { scenePass: null, depth: null, draw: null, queue: [], drained: null, loading: true, held: new Map(), warmed: new WeakSet(), canvas: null, receiver: null };
+// ms seguidos dedicados a compilar antes de ceder el turno: ningún tramo del
+// hilo principal debe pasar de 50 ms.
+const WARM_BUDGET = 12;
+const SHADOW_GROUP = 3; // objetos con sombra que se dibujan en un fotograma para compilar la suya
 const isDrawn = (object) => object.isMesh || object.isLine || object.isPoints || object.isSprite;
 
-// Compila por adelantado lo que hay en la escena (o solo la tanda `slice`), tal
-// y como se va a dibujar de verdad. Para que sirva hacen falta cuatro cosas:
+// ¿Recibe sombra? (malla con material iluminado y `receiveShadow`).
+const receives = (object) => object.isMesh && object.receiveShadow && [].concat(object.material).some((material) => /Lambert|Standard|Physical|Phong|Toon/.test(material.type));
+// Un receptor de sombra cualquiera de la escena (se recuerda mientras siga montado).
+function shadowReceiver(scene) {
+ if (live.receiver?.parent) return live.receiver;
+ live.receiver = null;
+ scene.traverse((object) => {
+  if (!live.receiver && receives(object)) live.receiver = object;
+ });
+ return live.receiver;
+}
+
+// Tapa lo dibujable que aún no lo esté (lo que se haya montado desde la última vez).
+function hold(scene) {
+ scene.traverse((object) => {
+  if (!isDrawn(object) || live.held.has(object)) return;
+  live.held.set(object, object.layers.mask);
+  object.layers.mask = 0;
+ });
+}
+
+// Fin de la carga: todo recupera su capa y la escena se dibuja con normalidad.
+function release() {
+ for (const [object, mask] of live.held) object.layers.mask = mask;
+ live.held.clear();
+ live.loading = false;
+ if (live.canvas) live.canvas.style.visibility = "";
+}
+
+// Ejecuta `work` con los objetos dados a la vista: con su capa, sin descartar
+// por encuadre y con sus antepasados visibles (césped, polvo, llama y humo de la
+// nave, destellos… están ocultos de momento, y la cámara de la bienvenida no ve
+// el planeta). Se deshace antes de volver: ningún fotograma real lo llega a ver.
+function exposed(objects, work) {
+ const undo = [];
+ for (const object of objects) {
+  undo.push([object, object.visible, object.frustumCulled, object.layers.mask]);
+  object.visible = true;
+  object.frustumCulled = false;
+  if (live.held.has(object)) object.layers.mask = live.held.get(object);
+  for (let parent = object.parent; parent; parent = parent.parent) {
+   if (parent.visible) continue;
+   undo.push([parent, false, parent.frustumCulled, parent.layers.mask]);
+   parent.visible = true;
+  }
+ }
+ try {
+  return work();
+ } finally {
+  for (let i = undo.length - 1; i >= 0; i--) {
+   const [object, visible, frustumCulled, mask] = undo[i];
+   object.visible = visible;
+   object.frustumCulled = frustumCulled;
+   object.layers.mask = mask;
+  }
+ }
+}
+
+// Compila por adelantado lo que la escena tenga a la vista, tal y como se va a
+// dibujar de verdad. Para que sirva hacen falta:
 //  · el mismo destino: el búfer del posproceso, no el lienzo (el formato de
 //    color forma parte de cada pipeline);
 //  · el mismo contexto de dibujado: `compileAsync` usa siempre el de
@@ -100,23 +240,11 @@ const isDrawn = (object) => object.isMesh || object.isLine || object.isPoints ||
 //    dibujado distintos y, en las mallas instanciadas, sombreadores distintos,
 //    así que lo compilado no se aprovecharía. three r183 no ofrece otra forma
 //    de pedirlo: se le indica la profundidad mientras dura la llamada;
-//  · todo lo que la cámara no ve ahora (el renderer descarta con el encuadre
-//    del último fotograma, el de la bienvenida) y lo que está oculto de
-//    momento: césped, polvo, llama y humo de la nave, destellos;
 //  · las luces definitivas (las del islote no salen nunca de la escena; ver
 //    IsletLights en Welcome.jsx).
-// La lista de lo que hay que compilar se arma en el acto, así que el estado
-// forzado se deshace antes de volver: ningún fotograma real lo llega a ver. Lo
-// que se espera después es solo a la GPU.
-function compileNow(gl, scene, camera, slice = null) {
- const forced = [];
- scene.traverse((object) => {
-  forced.push([object, object.visible, object.frustumCulled, object.layers.mask]);
-  object.visible = true;
-  object.frustumCulled = false;
-  // Lo que no toca en esta tanda se salta sin ocultar a sus hijos.
-  if (slice && isDrawn(object) && !slice.has(object)) object.layers.mask = 0;
- });
+// La parte que ocupa el hilo principal (construir los sombreadores) termina al
+// volver; lo que queda pendiente es solo de la GPU (ver `pipelinesSettled`).
+function compileNow(gl, scene, camera) {
  const pass = live.scenePass;
  const target = gl.getRenderTarget();
  const mrt = gl.getMRT();
@@ -131,9 +259,8 @@ function compileNow(gl, scene, camera, slice = null) {
   contexts.get = (renderTarget, renderMrt, callDepth) => Object.getPrototypeOf(contexts).get.call(contexts, renderTarget, renderMrt, callDepth ?? live.depth);
   gl._callDepth = live.depth;
  }
- let done;
  try {
-  done = gl.compileAsync(scene, camera);
+  gl.compileAsync(scene, camera);
  } finally {
   if (aligned) {
    delete contexts.get;
@@ -141,52 +268,75 @@ function compileNow(gl, scene, camera, slice = null) {
   }
   gl.setRenderTarget(target);
   gl.setMRT(mrt);
-  for (const [object, visible, frustumCulled, mask] of forced) {
-   object.visible = visible;
-   object.frustumCulled = frustumCulled;
-   object.layers.mask = mask;
-  }
  }
- return done;
 }
 
-// Dibuja de verdad, una vez, los objetos dados aunque queden fuera de cuadro.
-// Es lo que compila sus sombras: el mapa de sombras solo se redibuja en un
-// fotograma real, y en la bienvenida no cae nada del planeta dentro de él, así
-// que sin esto se compilarían todas a la vez en el instante de entrar. Fuera
-// de cuadro no se ve nada distinto. Lo ejecuta Pipeline al dibujar.
-const drawOnce = (objects) => new Promise((resolve) => (live.uncull = { objects, resolve }));
+// Pide dibujar de verdad, una vez, los objetos dados (y solo esos) aunque
+// queden fuera de cuadro. Es lo que compila sus sombras: el mapa de sombras
+// solo se redibuja al dibujar la escena, y solo una vez por fotograma. Por eso
+// no se hace en el acto: se apuntan en `live.queue` y Pipeline dibuja unos pocos
+// en cada fotograma real, mientras la compilación sigue por su lado.
+const drawOnce = (objects) => live.queue.push(...objects);
+// Se cumple cuando la cola se ha dibujado entera.
+const queueDrained = () => (live.queue.length === 0 ? Promise.resolve() : new Promise((resolve) => (live.drained = resolve)));
 
-// Precalentamiento completo. Con `spread` se reparte entre fotogramas para no
-// congelar la bienvenida mientras se prepara el planeta: se compila de pocos
-// en pocos objetos y, agotado el presupuesto del fotograma, se cede el turno.
-async function warmUp(gl, scene, camera, spread = false, onProgress) {
- if (!spread) return compileNow(gl, scene, camera);
- const drawn = [];
- scene.traverse((object) => isDrawn(object) && drawn.push(object));
- let next = 0;
- while (next < drawn.length) {
-  const started = performance.now();
-  const first = next;
-  const pending = [];
-  while (next < drawn.length && performance.now() - started < WARM_BUDGET) {
-   pending.push(compileNow(gl, scene, camera, new Set(drawn.slice(next, next + WARM_GROUP))));
-   next += WARM_GROUP;
+// Cede el turno al navegador sin esperar al siguiente fotograma.
+const breathe = () =>
+ new Promise((resolve) => {
+  const channel = new MessageChannel();
+  channel.port1.onmessage = () => resolve();
+  channel.port2.postMessage(0);
+ });
+
+// Precalentamiento, detrás de la pantalla de carga: compila lo que haya montado
+// en la escena de objeto en objeto y, agotado el presupuesto del tramo, cede el
+// turno. No espera a la GPU entre tramos (los pipelines se crean en asíncrono,
+// en otros hilos): la espera una sola vez, al final. Las sombras de cada tanda
+// se compilan dibujándola una vez. Lo que se monte mientras tanto entra en la
+// vuelta siguiente.
+async function warmUp(gl, scene, camera, onProgress) {
+ const seen = live.warmed;
+ const spent = { objetos: 0, compilar: 0, sombras: 0, tandas: 0, gpu: 0 }; // ms; para medir (desarrollo)
+ for (;;) {
+  hold(scene);
+  const drawn = [...live.held.keys()].filter((object) => !seen.has(object) && object.parent);
+  if (!drawn.length) break;
+  spent.objetos += drawn.length;
+  let next = 0;
+  let casters = [];
+  while (next < drawn.length) {
+   const started = performance.now();
+   while (next < drawn.length && performance.now() - started < WARM_BUDGET) {
+    const object = drawn[next++];
+    seen.add(object);
+    exposed([object], () => compileNow(gl, scene, camera));
+    if (object.castShadow) casters.push(object);
+   }
+   spent.compilar += performance.now() - started;
+   onProgress?.((next / drawn.length) * 0.95);
+   if (casters.length) {
+    drawOnce(casters);
+    spent.tandas += 1;
+    casters = [];
+   }
+   await breathe();
   }
-  await Promise.all(pending);
-  await drawOnce(drawn.slice(first, next).filter((object) => object.castShadow));
-  onProgress?.(Math.min(1, next / drawn.length));
  }
- // Una pasada final con todo: lo que ya está compilado no cuesta, y recoge lo
- // que se haya montado mientras tanto.
- return compileNow(gl, scene, camera);
+ let from = performance.now();
+ await queueDrained();
+ spent.sombras = performance.now() - from;
+ from = performance.now();
+ await pipelinesSettled();
+ spent.gpu = performance.now() - from;
+ if (import.meta.env.DEV) (window.__world.warm ??= []).push(Object.fromEntries(Object.entries(spent).map(([key, value]) => [key, Math.round(value)])));
+ onProgress?.(1);
 }
 
-// Espera a que lo que hay montado en la escena esté compilado y dibujado unas
-// cuantas veces, y entonces avisa. Se usa dos veces: primero para la
-// bienvenida (y ahí se retira la pantalla de carga) y luego para el planeta
-// (y ahí se puede entrar). Así nada aparece a medio hacer.
-function Ready({ spread, onCompiling, onProgress, onReady }) {
+// Espera a que lo que hay montado en la escena esté compilado, y entonces
+// avisa. Se usa dos veces: primero para la bienvenida y luego (`last`) para el
+// planeta; ahí la escena vuelve a dibujarse, se deja correr unos fotogramas y se
+// retira la pantalla de carga. Así nada aparece a medio hacer.
+function Ready({ last, onCompiling, onProgress, onReady }) {
  const frames = useRef(0);
  const compiled = useRef(false);
  const { gl, scene, camera } = useThree();
@@ -194,9 +344,12 @@ function Ready({ spread, onCompiling, onProgress, onReady }) {
   if (frames.current === 1 && !compiled.current) {
    compiled.current = "pending";
    onCompiling?.();
-   warmUp(gl, scene, camera, spread, onProgress)
+   warmUp(gl, scene, camera, onProgress)
     .catch((error) => console.error("No se pudo precompilar la escena", error)) // se entra igualmente
-    .then(() => (compiled.current = true));
+    .then(() => {
+     if (last) release();
+     compiled.current = true;
+    });
   }
   if (frames.current > 5) return;
   if (frames.current < 2 || compiled.current === true) frames.current += 1;
@@ -231,6 +384,15 @@ function Pipeline({ quality, effects }) {
  useEffect(() => {
   live.scenePass = pipeline.scenePass;
   live.depth = null;
+  live.draw = (objects) => {
+   hold(scene);
+   // three solo rehace el mapa de sombras si en ese fotograma se dibuja algo
+   // que RECIBE sombra. Una tanda de objetos que solo la proyectan (tótems,
+   // cohete, farolas, setas) no lo disparaba y su sombra acababa compilándose
+   // al entrar: se dibuja siempre con un receptor al lado (el suelo, por ejemplo).
+   const receiver = objects.length && !objects.some(receives) ? shadowReceiver(scene) : null;
+   exposed(receiver ? [...objects, receiver] : objects, () => pipeline.render());
+  };
   if (import.meta.env.DEV) window.__world.scene = scene; // para las pruebas automáticas
   // Anota a qué profundidad se dibuja la escena (ver `live`).
   scene.onBeforeRender = (renderer, _scene, _camera, target) => {
@@ -238,6 +400,7 @@ function Pipeline({ quality, effects }) {
   };
   return () => {
    live.scenePass = null;
+   live.draw = null;
    scene.onBeforeRender = () => {};
    pipeline.dispose();
   };
@@ -246,14 +409,15 @@ function Pipeline({ quality, effects }) {
  useFrame(() => {
   scene.fog.density = current.fogDensity;
   if (pipeline.glow) pipeline.glow.strength.value = current.bloom;
-  const once = live.uncull;
-  if (!once) return pipeline.render();
-  live.uncull = null;
-  const culled = once.objects.filter((object) => object.frustumCulled);
-  culled.forEach((object) => (object.frustumCulled = false));
-  pipeline.render();
-  culled.forEach((object) => (object.frustumCulled = true));
-  once.resolve();
+  if (!live.loading) return pipeline.render();
+  // Detrás de la pantalla de carga no se dibuja: solo lo que pide el
+  // precalentamiento (`live.draw`) y una primera vez, vacía, para anotar la
+  // profundidad a la que se dibuja la escena.
+  if (live.queue.length || live.depth === null) live.draw(live.queue.splice(0, SHADOW_GROUP));
+  if (!live.queue.length && live.drained) {
+   live.drained();
+   live.drained = null;
+  }
  }, 1);
  return null;
 }
@@ -310,23 +474,25 @@ export function Experience({ active, lowPower, onReady }) {
    {tier > 0 && (
     <Suspense fallback={null}>
      <group key={world.id}>
-      <Scene
-       quality={lowPower ? "low" : "high"}
-       onBuilt={() => {
+      {/* De uno en uno, cediendo el turno entre cada cual (ver Staged). */}
+      <Staged
+       onDone={() => {
         stage("built");
         setBuilt(true);
        }}
-      />
-      <Props />
-      <Ship />
-      <Player active={active} />
-      <Woody active={active} />
-      <Bursts />
-      <WorldUi />
+      >
+       <Scene quality={lowPower ? "low" : "high"} />
+       <Props />
+       <Ship />
+       <Player active={active} />
+       <Woody active={active} />
+       <Bursts />
+       <WorldUi />
+      </Staged>
      </group>
      {built && (
       <Ready
-       spread
+       last
        onProgress={progress}
        onReady={() => {
         // Primero se habilita la entrada y después se retira la pantalla: nunca al revés.

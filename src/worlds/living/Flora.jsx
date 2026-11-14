@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { Staged } from "../Staged";
 import * as THREE from "three";
 import { Instances } from "../../experience/Instances";
 import { lambert } from "../../experience/materials";
@@ -64,10 +65,10 @@ function Lanterns() {
 
 export function Flora() {
  return (
-  <>
+  <Staged>
    <Trees />
    <Plants />
    <Lanterns />
-  </>
+  </Staged>
  );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import { Staged } from "../Staged";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -355,7 +356,7 @@ function Wind() {
 
 export function Fauna() {
  return (
-  <>
+  <Staged>
    <Wind />
    <Butterflies />
    <Birds />
@@ -363,6 +364,6 @@ export function Fauna() {
    <Fireflies />
    <Leaves />
    <Pollen />
-  </>
+  </Staged>
  );
 }
