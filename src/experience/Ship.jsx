@@ -59,12 +59,13 @@ const METAL = "#5a4a44";
 // Material del cohete: facetado y, como árboles y casas, translúcido (tramado)
 // alrededor del astronauta cuando lo tapa.
 // De noche tiene luz propia: como si lo bañaran los focos de la plataforma,
-// cada pieza devuelve su color en cálido, más lo que mira al sur (a la cámara).
+// cada pieza devuelve su color en cálido —también vista desde arriba, que es
+// como se ve desde lejos—, y algo más lo que mira al sur (a la cámara).
 // Va en el material, así que se ve desde cualquier punto de la isla y no gasta
 // ninguna de las luces de verdad.
 const paint = (color, options) => {
  const material = withSeeThrough(lambert({ vertexColors: false, color, ...options }));
- material.emissiveNode = materialColor.mul(vec3(1, 0.8, 0.56)).mul(uniforms.uGlow).mul(normalWorld.z.max(0).mul(0.15).add(normalWorld.y.negate().max(0).mul(0.1)).add(0.1));
+ material.emissiveNode = materialColor.mul(vec3(1, 0.8, 0.56)).mul(uniforms.uGlow).mul(normalWorld.z.max(0).mul(0.22).add(normalWorld.y.negate().max(0).mul(0.12)).add(normalWorld.y.max(0).mul(0.14)).add(0.34));
  return material;
 };
 // Focos de la plataforma: tres, al borde de la losa, mirando al cohete.
@@ -81,6 +82,8 @@ function Rocket({ flame }) {
    tip: paint("#ffd98a"),
    // Ventanilla: de día, cristal azulado; de noche, encendida en cálido.
    glass: withSeeThrough(lambert({ vertexColors: false, color: "#8fe9f2", emissive: new THREE.Color("#ffd28a") })),
+   // Ventanillas pequeñas en redondo, bajo el morro: son las que se ven encendidas desde arriba y desde los lados.
+   port: withSeeThrough(lambert({ vertexColors: false, color: "#bfeff2", emissive: new THREE.Color("#ffc46a") })),
   }),
   [],
  );
@@ -88,8 +91,10 @@ function Rocket({ flame }) {
  const geometry = useMemo(() => ({ hull: new THREE.LatheGeometry(profile(HULL), SIDES), nose: new THREE.LatheGeometry(profile(NOSE), SIDES), fin: createFin() }), []);
  useEffect(() => {
   const stop = registerGlow(glass, 0.22, 1.3);
+  const stopPorts = registerGlow(material.port, 0.15, 1.3);
   return () => {
    stop();
+   stopPorts();
    Object.values(geometry).forEach((one) => one.dispose());
    Object.values(material).forEach((one) => one.dispose());
   };
@@ -128,6 +133,15 @@ function Rocket({ flame }) {
    <mesh position={[0, 4.3, hullRadius(4.3) + 0.02]} rotation-x={Math.PI / 2} material={glass}>
     <cylinderGeometry args={[0.44, 0.44, 0.1, 16]} />
    </mesh>
+   {[1, 2, 3, 4, 5].map((i) => {
+    return (
+     <group key={i} rotation-y={(i * Math.PI * 2) / 6}>
+      <mesh position={[0, 4.95, hullRadius(4.95) + 0.01]} rotation-x={Math.PI / 2 - 0.14} material={material.port}>
+       <cylinderGeometry args={[0.2, 0.2, 0.08, 10]} />
+      </mesh>
+     </group>
+    );
+   })}
    <mesh position={[0, 2.72, hullRadius(2.72) - 0.02]} rotation-x={-0.08} material={material.door}>
     <boxGeometry args={[0.78, 1.2, 0.1]} />
    </mesh>
@@ -167,7 +181,7 @@ export function Ship() {
  const lens = useMemo(() => new THREE.MeshLambertMaterial({ color: "#000000", emissive: "#ffc878" }), []);
  const lensPoints = useMemo(() => spots.map((spot) => [spot.x - Math.cos(spot.angle) * 0.1, 0.42, spot.z - Math.sin(spot.angle) * 0.1]), [spots]);
  useEffect(() => {
-  const stop = [registerGlow(lens, 0.3, 1.3), ...spots.map((spot) => addWarmSource({ x: spot.x - Math.cos(spot.angle) * 1.1, y: 1.3, z: spot.z - Math.sin(spot.angle) * 1.1, reach: 8, power: 0.75, flicker: 0.01 }))];
+  const stop = [registerGlow(lens, 0.3, 1.3), ...spots.map((spot) => addWarmSource({ x: spot.x - Math.cos(spot.angle) * 1.1, y: 1.3, z: spot.z - Math.sin(spot.angle) * 1.1, reach: 10, power: 1.15, flicker: 0.01 }))];
   return () => {
    stop.forEach((off) => off());
    lens.dispose();
@@ -347,7 +361,7 @@ export function Ship() {
      </mesh>
     </group>
    ))}
-   <Halos points={lensPoints} size={1.1} night={0.5} />
+   <Halos points={lensPoints} size={1.7} night={0.6} />
    {/* Llamarada sobre la losa (fuera del grupo medido: no es un objeto apoyado). */}
    <group ref={flare} position={[SHIP.x, 0.21, SHIP.z]} visible={false}>
     <mesh position-y={0.16}>

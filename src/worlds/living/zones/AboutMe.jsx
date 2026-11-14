@@ -26,7 +26,7 @@ export function AboutMe() {
  const { x, z } = TREEHOUSE;
  const tree = useModel("casa-arbol");
  // (Sin hueco de visión: el astronauta no pasa por detrás.)
- const material = useMemo(() => createModelMaterial({ seeThrough: false }), []);
+ const material = useMemo(() => createModelMaterial(), []);
  useEffect(() => () => material.dispose(), [material]);
 
  const click = useInteractable({

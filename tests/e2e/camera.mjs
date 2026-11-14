@@ -127,13 +127,13 @@ for (const [name, x, z] of [["arbol", tree.x, tree.z - 1.5], ["roca", rock.x, ro
  const solid = await t.evaluate(() => {
   let total = 0, through = 0;
   window.__world.scene.getObjectByName("cohete").traverse((mesh) => {
-   if (!mesh.isMesh || mesh.material.transparent) return; // (la llama y la zona de clic no tapan)
+   if (!mesh.isMesh || !mesh.material.depthWrite) return; // (la llama y la zona de clic no tapan: no escriben profundidad)
    total += 1;
-   if (mesh.material.opacityNode) through += 1;
+   if (mesh.material.userData.seeThrough) through += 1;
   });
   return { total, through };
  });
- check(solid.total >= 10 && solid.through === solid.total, `las ${solid.total} piezas del cohete se vuelven translúcidas ante el astronauta`);
+ check(solid.total >= 10 && solid.through === solid.total, `las ${solid.total} piezas del cohete se recortan alrededor del astronauta`);
  // El astronauta cambia lo que se ve en su sitio: con él y sin él no sale la misma imagen.
  const p = await t.pos();
  const [sx, sy] = await t.screen(p.x, p.y + 1.1, p.z);

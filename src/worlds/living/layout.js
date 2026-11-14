@@ -100,16 +100,16 @@ export const STREAM_LEVEL = PLATEAU.height - 0.17; // altura de su agua
 
 // Puente sobre el río, en el camino a Contacto. El tablero se pisa: su altura
 // sustituye a la del cauce.
-// (`model`: el puente es un modelo —el rojo del jardín—; Terrain.jsx no le pone tablones.)
+// (`own`: el puente lo dibuja su zona —el rojo del jardín, en Garden.jsx—; Terrain.jsx no le pone tablones.)
 export const BRIDGES = [{ from: [19.3, -0.4], to: [26.9, 0.9], width: 2.8, rise: 0.75 }];
 
 // Altura del tablero en el punto t (0–1) de su largo, y su pendiente (por
 // unidad de t). Arranca y termina a ras de suelo y sin quiebro: se entra y se
 // sale del puente sin escalón.
 export const BRIDGE_LIP = 0.04;
-// (El puente del jardín es un modelo y su tablero es una parábola: se pisa esa.)
-export const bridgeArc = (bridge, t) => (bridge.model ? BRIDGE_LIP + 4 * t * (1 - t) * bridge.rise : BRIDGE_LIP + Math.sin(t * Math.PI) ** 2 * (bridge.rise + 0.08));
-export const bridgeSlope = (bridge, t) => (bridge.model ? 4 * (1 - 2 * t) * bridge.rise : Math.sin(2 * t * Math.PI) * Math.PI * (bridge.rise + 0.08));
+// (Quien dibuja un puente pone su tablero en esta curva: lo que se ve es lo que se pisa.)
+export const bridgeArc = (bridge, t) => BRIDGE_LIP + Math.sin(t * Math.PI) ** 2 * (bridge.rise + 0.08);
+export const bridgeSlope = (bridge, t) => Math.sin(2 * t * Math.PI) * Math.PI * (bridge.rise + 0.08);
 
 function bridgeHeight(x, z) {
  for (const bridge of BRIDGES) {
@@ -299,7 +299,7 @@ export const GARDEN = {
  // Cerezos: detrás y a los lados del estanque, nunca al sur (taparían el jardín a la cámara).
  cherries: [[20.6, 10.4, 1.0], [27.5, 17.8, 0.9], [17.4, 10.9, 0.9]],
 };
-BRIDGES.push({ from: GARDEN.bridge.from, to: GARDEN.bridge.to, width: 1.25, rise: 0.5, model: true });
+BRIDGES.push({ from: GARDEN.bridge.from, to: GARDEN.bridge.to, width: 1.3, rise: 0.6, own: true });
 export const PITCH = { x0: -33, x1: -14, z0: 17, z1: 29 }; // fútbol
 // Lo que hay plantado en el campo y a su lado (ver football/Football.jsx).
 const FOOTBALL_SOLIDS = [

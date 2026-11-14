@@ -1,28 +1,51 @@
 import * as THREE from "three";
-import { dot, fract, positionView, screenCoordinate, screenUV, smoothstep, step, uniform, vec2 } from "three/tsl";
+import { float, positionView, screenUV, smoothstep, uniform, vec2 } from "three/tsl";
 import { player } from "../state";
 
 // Hueco de visión: lo que queda entre la cámara y el astronauta (una copa, una
-// roca, una casa) se vuelve translúcido a su alrededor, para no perderlo nunca
-// de vista. La transparencia se hace con un tramado fino por píxel en vez de
-// mezcla alfa: así no hay que ordenar miles de instancias y las sombras siguen
-// funcionando. El borde es suave en pantalla (se desvanece con la distancia al
-// astronauta) y en profundidad (lo que está justo delante de él apenas cede).
-// (La idea viene del follaje de folio-2025, de Bruno Simon, MIT.)
+// roca, una casa, el pozo, el cohete) se recorta a su alrededor, para no
+// perderlo nunca de vista. Es un círculo limpio en pantalla: dentro no queda
+// nada de lo que tapa y el borde se funde con mezcla de verdad (sin tramado).
+// En profundidad también es gradual: lo que está justo delante de él apenas cede.
+//
+// Para que la mezcla salga bien sin ordenar miles de copias, estos materiales
+// se dibujan justo después de todo lo opaco y antes del resto de lo
+// translúcido (agua, halos, humo, rótulos): ver `seeThroughFirst`. Siguen
+// escribiendo profundidad, así que para todo lo demás se portan como opacos.
+
+// Radio del recorte, en fracciones del alto de la pantalla: limpio hasta
+// `CLEAR`, y de ahí a `EDGE` se va cerrando.
+const CLEAR = 0.105, EDGE = 0.17;
 
 // Dónde está el astronauta en pantalla (0–1), a qué profundidad, y el aspecto de la ventana.
 const view = { screen: uniform(new THREE.Vector2(0.5, 0.5)), depth: uniform(-20), aspect: uniform(1.6) };
 const point = new THREE.Vector3();
 
-// `strength`: cuánto llega a deshacerse en el centro (1 = desaparece del todo).
-export function withSeeThrough(material, { strength = 0.88 } = {}) {
+export function withSeeThrough(material) {
  const fromPlayer = screenUV.sub(view.screen).mul(vec2(view.aspect, 1)).length();
  const inFront = smoothstep(view.depth.add(0.35), view.depth.add(1.5), positionView.z);
- const hole = smoothstep(0.26, 0.08, fromPlayer).mul(inFront).mul(strength);
- const grain = fract(fract(dot(screenCoordinate.xy, vec2(0.06711056, 0.00583715))).mul(52.9829189));
- material.opacityNode = step(hole, grain.mul(0.98).add(0.01));
- material.alphaTest = 0.5;
+ const hole = smoothstep(EDGE, CLEAR, fromPlayer).mul(inFront);
+ material.opacityNode = float(1).sub(hole);
+ material.transparent = true;
+ material.depthWrite = true;
+ // Lo translúcido de dos caras se dibuja, por defecto, en dos pasadas (caras de
+ // atrás y caras de delante): aquí no hace falta —escribe profundidad— y serían
+ // el doble de dibujados y otros tantos pipelines sin precalentar.
+ material.forceSinglePass = true;
+ material.alphaTest = 0.02; // dentro del círculo no queda nada: ni color ni profundidad
+ material.userData.seeThrough = true;
  return material;
+}
+
+// Orden de lo translúcido: primero lo que lleva hueco de visión (de lejos a
+// cerca) y después lo demás, como siempre.
+export function seeThroughFirst(a, b) {
+ if (a.groupOrder !== b.groupOrder) return a.groupOrder - b.groupOrder;
+ const first = (b.material.userData.seeThrough ? 1 : 0) - (a.material.userData.seeThrough ? 1 : 0);
+ if (first !== 0) return first;
+ if (a.renderOrder !== b.renderOrder) return a.renderOrder - b.renderOrder;
+ if (a.z !== b.z) return b.z - a.z;
+ return a.id - b.id;
 }
 
 // Se llama una vez por fotograma, con la cámara ya colocada.

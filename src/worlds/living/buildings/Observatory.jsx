@@ -54,7 +54,7 @@ preloadModel("observatorio");
 export function Observatory() {
  const { x, z } = OBSERVATORY;
  const building = useModel("observatorio");
- const material = useMemo(() => createModelMaterial({ seeThrough: false }), []);
+ const material = useMemo(() => createModelMaterial(), []);
  useEffect(() => () => material.dispose(), [material]);
 
  const click = useInteractable({

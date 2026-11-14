@@ -7,13 +7,16 @@ import { positionLocal, sin, uniform, vec3 } from "three/tsl";
 import { MeshLambertNodeMaterial } from "three/webgpu";
 import { Instances } from "../../experience/Instances";
 import { useInteractable } from "../../experience/interact";
+import { addWarmSource } from "../../experience/lightSources";
 import { lambert } from "../../experience/materials";
 import { emit, events, game, player } from "../../experience/state";
-import { createBasketballTexture } from "../../experience/textures";
-import { uniforms } from "../../experience/theme";
+import { createBasketballTexture, createGlowTexture } from "../../experience/textures";
+import { registerGlow, uniforms } from "../../experience/theme";
 import { PLAYER_RADIUS } from "../collision";
 import { BASKET, COURT, COURT_FENCE, WATER_LEVEL, blockerCollider, height as terrainHeight } from "./layout";
 import { fontReady } from "../../ui/fonts";
+import { merge, piece } from "./kit/geometry";
+import { Halos } from "./props/Halos";
 
 // Pista de baloncesto. No es un minijuego con modos: se coge el balón, se
 // acerca uno a la canasta, se mantiene pulsado para cargar fuerza y se suelta
@@ -793,11 +796,67 @@ function BallStand() {
  );
 }
 
+// Focos de la pista: dos postes altos por fuera de la valla norte, cada uno con
+// su brazo y su proyector vuelto hacia la pista. De noche se encienden: lente
+// con halo, luz de verdad (de las cálidas que se reparten por cercanía) y una
+// mancha de claridad sobre el suelo, que está siempre aunque esas luces anden
+// ocupadas en otro sitio.
+const FLOOD = { height: 5.6, reach: 1.5, xs: [court.x0 + 1.1, court.x1 - 1.1], z: fence.z0 - 0.42 };
+function createFloodlight() {
+ const steel = "#59626e", dark = "#2f343c";
+ return merge([
+  piece(new THREE.CylinderGeometry(0.2, 0.26, 0.3, 8), { color: dark, position: [0, 0.15, 0] }),
+  piece(new THREE.CylinderGeometry(0.07, 0.1, FLOOD.height, 7), { bottom: dark, top: steel, position: [0, FLOOD.height / 2, 0] }),
+  // Brazo hacia la pista y su tirante.
+  piece(new THREE.BoxGeometry(0.09, 0.09, FLOOD.reach), { color: steel, position: [0, FLOOD.height - 0.1, FLOOD.reach / 2] }),
+  piece(new THREE.BoxGeometry(0.05, 0.05, 1.3), { color: dark, position: [0, FLOOD.height - 0.62, 0.52], rotation: [-0.82, 0, 0] }),
+  // Proyector: caja con visera, inclinada hacia abajo.
+  piece(new THREE.BoxGeometry(0.92, 0.26, 0.5), { bottom: dark, top: steel, position: [0, FLOOD.height - 0.2, FLOOD.reach], rotation: [0.5, 0, 0] }),
+  piece(new THREE.BoxGeometry(1.0, 0.05, 0.3), { color: dark, position: [0, FLOOD.height - 0.02, FLOOD.reach + 0.3], rotation: [0.5, 0, 0] }),
+ ]);
+}
+function Floodlights() {
+ const geometry = useMemo(createFloodlight, []);
+ const material = useMemo(() => ({ steel: lambert(), lens: new THREE.MeshLambertMaterial({ color: "#3a3f47", emissive: "#fff0cf" }), pool: new THREE.MeshBasicMaterial({ map: createGlowTexture(), color: "#ffe2b0", transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, fog: false }) }), []);
+ const lenses = useMemo(() => FLOOD.xs.map((x) => [x, FLOOD.height - 0.36, FLOOD.z + FLOOD.reach + 0.08]), []);
+ useEffect(() => {
+  const stop = [
+   registerGlow(material.lens, 0.1, 1.3),
+   registerGlow(material.pool, 0, 0.34, "opacity"),
+   ...FLOOD.xs.map((x) => addWarmSource({ x, y: FLOOD.height - 1.1, z: court.z0 + 3.4, color: "#ffdcae", reach: 17, power: 1.7, flicker: 0 })),
+  ];
+  return () => {
+   stop.forEach((off) => off());
+   geometry.dispose();
+   material.pool.map.dispose();
+   Object.values(material).forEach((one) => one.dispose());
+  };
+ }, [geometry, material]);
+ return (
+  <>
+   {FLOOD.xs.map((x, i) => (
+    <group key={i} position={[x, 0, FLOOD.z]}>
+     <mesh name="foco de la pista" userData={{ rests: 0 }} geometry={geometry} material={material.steel} castShadow />
+     <mesh position={[0, FLOOD.height - 0.34, FLOOD.reach + 0.07]} rotation-x={0.5} material={material.lens}>
+      <boxGeometry args={[0.8, 0.04, 0.4]} />
+     </mesh>
+     {/* La claridad que deja en la pista. */}
+     <mesh position={[(court.x0 + court.x1) / 2 - x > 0 ? 3.1 : -3.1, 0.09, court.z0 - FLOOD.z + 4.6]} rotation-x={-Math.PI / 2} material={material.pool} renderOrder={1}>
+      <planeGeometry args={[13, 12]} />
+     </mesh>
+    </group>
+   ))}
+   <Halos points={lenses} size={2.4} color="#ffe6b8" night={0.7} />
+  </>
+ );
+}
+
 export function Court() {
  return (
   <Staged>
    <CourtFloor />
    <Fence />
+   <Floodlights />
    <Hoop />
    <Blocker />
    <BallStand />

@@ -5,26 +5,67 @@ import { mix, positionLocal, smoothstep, texture, vec2, vec3 } from "three/tsl";
 import { Instances } from "../../../experience/Instances";
 import { noiseTexture } from "../../../experience/environment/noise";
 import { addWarmSource } from "../../../experience/lightSources";
-import { unlit } from "../../../experience/materials";
+import { lambert, unlit } from "../../../experience/materials";
 import { uniforms } from "../../../experience/theme";
 import { createModelMaterial, preloadModel, useModel } from "../buildings/useModel";
+import { merge, piece } from "../kit/geometry";
 import { WOOD } from "../kit/palette";
-import { GARDEN, height } from "../layout";
+import { BRIDGES, GARDEN, bridgeArc, bridgeSlope, height } from "../layout";
 import { Halos } from "../props/Halos";
 import { createRock } from "../props/rockModel";
 
 // Jardín japonés, al este de la pista de baloncesto. Los modelos son los
-// descargados (docs/CREDITOS.md, tools/assets/buildings.py): el torii, el puente
-// (pintado de rojo), los faroles «Japan Lamp», la «Island cabin» como casa de
-// té y el koi (solo la forma: el color, plano, se lo da cada copia). El
-// estanque no toca el relieve: es una lámina de agua a ras de suelo, con su
+// descargados (docs/CREDITOS.md, tools/assets/buildings.py): el torii, los
+// faroles «Japan Lamp», la «Island cabin» como casa de té y el koi (solo la
+// forma: el color, plano, se lo da cada copia). El puente va hecho a mano (el
+// modelo descargado es un puente de carretera, con bolardos y sin barandillas).
+// El estanque no toca el relieve: es una lámina de agua a ras de suelo, con su
 // borde de piedras.
-["torii", "farol-japones", "puente-rojo", "casa-te", "koi"].forEach(preloadModel);
+["torii", "farol-japones", "casa-te", "koi"].forEach(preloadModel);
 
 const KOI_COLORS = ["#ff7a2e", "#f6f1e8", "#e8452a", "#ffb43a", "#f6f1e8", "#ff8a3d", "#2c2a30"];
 const KOI_LENGTH = 0.62;
 const LAMP_SIZE = 0.52; // lado de la base; mide 2,33 veces eso de alto
 const dummy = new THREE.Object3D();
+
+// Puente japonés arqueado: tablero de tablas, largueros, postes con remate y
+// dos barandillas por lado, en bermellón. El tablero sigue la curva que se
+// pisa (`bridgeArc`), así que el astronauta y Woody caminan sobre las tablas.
+// Sale centrado y a lo largo de +z; quien lo monta lo gira hacia su puente.
+const VERMILION = { dark: "#a8281a", mid: "#cf3a1e", light: "#e2502a" };
+function createArchBridge(bridge) {
+ const span = Math.hypot(bridge.to[0] - bridge.from[0], bridge.to[1] - bridge.from[1]);
+ const side = bridge.width / 2 + 0.2; // donde van las barandillas (y su colisión, en layout.js)
+ const at = (t) => (t - 0.5) * span;
+ const tilt = (t) => -Math.atan(bridgeSlope(bridge, t) / span);
+ const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+ const parts = [];
+ // Tablas.
+ const PLANKS = 18;
+ for (let i = 0; i < PLANKS; i++) {
+  const t = (i + 0.5) / PLANKS;
+  parts.push(piece(box(side * 2 + 0.12, 0.07, (span / PLANKS) * 0.9), { color: i % 2 ? "#8f5f3c" : "#7a4e31", vary: 0.08, seed: i, position: [0, bridgeArc(bridge, t) - 0.035, at(t)], rotation: [tilt(t), 0, 0] }));
+ }
+ // Largueros, pasamanos y travesaño intermedio: tramos cortos que siguen la curva.
+ const RUNS = 12;
+ for (const x of [-side, side]) {
+  for (let i = 0; i < RUNS; i++) {
+   const t = (i + 0.5) / RUNS, y = bridgeArc(bridge, t), length = (span / RUNS) * 1.06;
+   parts.push(piece(box(0.12, 0.22, length), { bottom: VERMILION.dark, top: VERMILION.mid, position: [x, y - 0.13, at(t)], rotation: [tilt(t), 0, 0] }));
+   parts.push(piece(box(0.1, 0.09, length), { bottom: VERMILION.mid, top: VERMILION.light, position: [x, y + 0.74, at(t)], rotation: [tilt(t), 0, 0] }));
+   parts.push(piece(box(0.06, 0.07, length), { color: VERMILION.mid, position: [x, y + 0.4, at(t)], rotation: [tilt(t), 0, 0] }));
+  }
+  // Postes: los de los extremos, más altos y con su remate.
+  [0.015, 0.26, 0.5, 0.74, 0.985].forEach((t, i) => {
+   const end = i === 0 || i === 4;
+   const tall = end ? 1.14 : 0.92, y = bridgeArc(bridge, t) - 0.24;
+   parts.push(piece(box(0.15, tall, 0.15), { bottom: VERMILION.dark, top: VERMILION.light, position: [x, y + tall / 2, at(t)] }));
+   parts.push(piece(box(0.21, 0.07, 0.21), { color: "#2a2125", position: [x, y + tall + 0.035, at(t)] }));
+   if (end) parts.push(piece(new THREE.OctahedronGeometry(0.1, 0), { color: "#2a2125", position: [x, y + tall + 0.16, at(t)], scale: [1, 1.25, 1] }));
+  });
+ }
+ return merge(parts);
+}
 
 // El agua del estanque: turquesa hondo en el centro y claro en la orilla, con
 // unas ondas finas que derivan. De noche se apaga, como el resto del agua.
@@ -113,9 +154,9 @@ function Pond() {
 export function Garden() {
  const torii = useModel("torii");
  const lamp = useModel("farol-japones");
- const bridge = useModel("puente-rojo");
+ const bridge = useMemo(() => createArchBridge(BRIDGES.find((one) => one.own)), []);
  const teaHouse = useModel("casa-te");
- const material = useMemo(() => ({ solid: createModelMaterial({ seeThrough: false }), house: createModelMaterial(), lamp: createModelMaterial({ seeThrough: false, glow: 1.5 }) }), []);
+ const material = useMemo(() => ({ wood: lambert(), house: createModelMaterial(), lamp: createModelMaterial({ seeThrough: false, glow: 1.5 }) }), []);
  const at = (spot) => [spot.x, height(spot.x, spot.z), spot.z];
  const lamps = useMemo(() => GARDEN.lamps.map(([x, z], i) => ({ position: [x, height(x, z) - 0.02, z], rotation: [0, i * 1.3, 0], scale: LAMP_SIZE })), []);
  const lights = useMemo(() => lamps.map(({ position: [x, y, z] }) => [x, y + LAMP_SIZE * 1.45, z]), [lamps]);
@@ -125,18 +166,18 @@ export function Garden() {
   return () => {
    stop.forEach((off) => off());
    Object.values(material).forEach((one) => one.dispose());
+   bridge.dispose();
   };
- }, [lights, material]);
+ }, [lights, material, bridge]);
 
  const [fromX, fromZ] = GARDEN.bridge.from, [toX, toZ] = GARDEN.bridge.to;
- const span = Math.hypot(toX - fromX, toZ - fromZ);
  const { teaHouse: house, bench } = GARDEN;
  return (
   <>
-   <mesh name="torii" userData={{ rests: 0 }} geometry={torii} material={material.solid} position={at(GARDEN.torii)} rotation-y={GARDEN.torii.turn} scale={GARDEN.torii.size} castShadow />
+   <mesh name="torii" userData={{ rests: 0 }} geometry={torii} material={material.house} position={at(GARDEN.torii)} rotation-y={GARDEN.torii.turn} scale={GARDEN.torii.size} castShadow />
    <Pond />
-   {/* El puente: el modelo, algo más ancho que el original para que se pueda cruzar. */}
-   <mesh name="puente rojo" geometry={bridge} material={material.solid} position={[(fromX + toX) / 2, height(fromX, fromZ) - 0.42, (fromZ + toZ) / 2]} scale={[span * 1.9, span * 2.2, span * 1.04]} castShadow receiveShadow />
+   {/* El puente: su tablero es la curva que se pisa. */}
+   <mesh name="puente rojo" geometry={bridge} material={material.wood} position={[(fromX + toX) / 2, 0, (fromZ + toZ) / 2]} rotation-y={Math.atan2(toX - fromX, toZ - fromZ)} castShadow receiveShadow />
    <mesh name="casa de té" userData={{ rests: 0 }} geometry={teaHouse} material={material.house} position={at(house)} rotation-y={house.turn} scale={house.size} castShadow receiveShadow />
    {/* Banco junto al estanque. */}
    <group name="banco del jardín" userData={{ rests: 0 }} position={at(bench)} rotation-y={bench.turn}>

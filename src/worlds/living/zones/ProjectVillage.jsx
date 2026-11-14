@@ -11,7 +11,7 @@ import { Glow } from "../buildings/Glow";
 import { createModelMaterial, preloadModel, useModel } from "../buildings/useModel";
 import { SIGN_RATIO, SignFace } from "../props/Signpost";
 import { withSeeThrough } from "../../../experience/environment/seeThrough";
-import { blob, limb, merge, piece, randomFrom } from "../kit/geometry";
+import { blob, merge, piece, randomFrom } from "../kit/geometry";
 import { CREAM, STONE, WOOD } from "../kit/palette";
 import { BENCHES, PLAZA, PROJECT_CABINS, WELL } from "../layout";
 import { COBBLE_TONES, SLAB_THICKNESS, createSlab } from "../props/cobbles";
@@ -149,19 +149,53 @@ function Project({ project, site, models }) {
  );
 }
 
-// Pozo con tejadillo, en la plaza.
+// Pozo de la plaza. Que se lea como pozo desde la cámara de juego: brocal de
+// sillares en dos hiladas con su albardilla clara y el agua oscura dentro, dos
+// postes, torno con manivela, cuerda y cubo colgando sobre la boca, y un
+// tejadillo de madera a dos aguas con su caballete.
 function createWell() {
  const roof = ["#7d4a30", "#a9683f"]; // teja de madera, no naranja vivo
- return merge([
-  piece(new THREE.CylinderGeometry(0.95, 1.02, 0.85, 10), { bottom: STONE.dark, top: STONE.light, jitter: 0.045, vary: 0.12, position: [0, 0.42, 0] }),
-  piece(new THREE.CylinderGeometry(0.7, 0.7, 0.1, 10), { color: "#2f7f86", position: [0, 0.72, 0] }),
-  ...[-0.82, 0.82].map((x) => piece(limb(0.07, 0.06, 2.0, 5), { color: WOOD.dark, position: [x, 0.7, 0] })),
-  piece(box(2.0, 0.09, 0.9), { bottom: roof[0], top: roof[1], vary: 0.08, position: [0, 2.78, 0.33], rotation: [0.62, 0, 0] }),
-  piece(box(2.0, 0.09, 0.9), { bottom: roof[0], top: roof[1], vary: 0.08, position: [0, 2.78, -0.33], rotation: [-0.62, 0, 0] }),
-  piece(new THREE.CylinderGeometry(0.07, 0.07, 1.7, 6), { color: WOOD.mid, position: [0, 2.25, 0], rotation: [0, 0, Math.PI / 2] }),
-  piece(limb(0.012, 0.012, 0.9, 3), { color: "#2a2622", position: [0.1, 1.35, 0] }),
-  piece(new THREE.CylinderGeometry(0.16, 0.13, 0.24, 7), { bottom: WOOD.dark, top: WOOD.light, position: [0.1, 1.28, 0] }),
- ]);
+ const parts = [];
+ const RADIUS = 0.92, STONES = 9;
+ // Brocal: dos hiladas de sillares a matajunta y, encima, la albardilla.
+ for (let course = 0; course < 2; course++) {
+  for (let i = 0; i < STONES; i++) {
+   const angle = ((i + course * 0.5) / STONES) * Math.PI * 2;
+   const tone = [STONE.mid, STONE.light, "#b9b5c2"][(i * 2 + course) % 3];
+   parts.push(piece(box(0.6, 0.4, 0.3), { bottom: STONE.dark, top: tone, jitter: 0.03, vary: 0.1, seed: i + course * 9, position: [Math.cos(angle) * RADIUS, 0.2 + course * 0.4, Math.sin(angle) * RADIUS], rotation: [0, -angle + Math.PI / 2, 0] }));
+  }
+ }
+ for (let i = 0; i < STONES; i++) {
+  const angle = ((i + 0.25) / STONES) * Math.PI * 2;
+  parts.push(piece(box(0.66, 0.12, 0.44), { bottom: STONE.light, top: "#e4e6ea", jitter: 0.02, vary: 0.07, seed: i + 30, position: [Math.cos(angle) * RADIUS, 0.86, Math.sin(angle) * RADIUS], rotation: [0, -angle + Math.PI / 2, 0] }));
+ }
+ // La boca: pared oscura por dentro y el agua al fondo.
+ parts.push(piece(new THREE.CylinderGeometry(0.8, 0.8, 0.5, 10, 1, true).scale(-1, 1, 1), { color: "#3b4350", position: [0, 0.6, 0] }));
+ parts.push(piece(new THREE.CircleGeometry(0.8, 10).rotateX(-Math.PI / 2), { color: "#1f5d6b", position: [0, 0.42, 0] }));
+ // Postes, con su zapata, y el torno entre ellos.
+ for (const x of [-1.12, 1.12]) {
+  parts.push(piece(box(0.16, 2.5, 0.16), { bottom: WOOD.dark, top: WOOD.mid, vary: 0.08, position: [x, 1.25, 0] }));
+  parts.push(piece(box(0.3, 0.14, 0.3), { color: STONE.dark, jitter: 0.02, position: [x, 0.07, 0] }));
+  // Tornapuntas que sujetan el tejadillo.
+  for (const z of [-1, 1]) parts.push(piece(box(0.08, 0.62, 0.08), { color: WOOD.dark, position: [x, 2.28, z * 0.24], rotation: [z * 0.75, 0, 0] }));
+ }
+ parts.push(piece(new THREE.CylinderGeometry(0.1, 0.1, 2.24, 7), { bottom: WOOD.mid, top: WOOD.light, vary: 0.1, position: [0, 1.72, 0], rotation: [0, 0, Math.PI / 2] }));
+ // Manivela.
+ parts.push(piece(box(0.06, 0.4, 0.06), { color: "#2a2622", position: [1.27, 1.56, 0] }));
+ parts.push(piece(box(0.26, 0.06, 0.06), { color: "#2a2622", position: [1.38, 1.38, 0] }));
+ // Cuerda (enrollada en el torno y bajando) y cubo con su asa y sus aros.
+ parts.push(piece(new THREE.CylinderGeometry(0.135, 0.135, 0.36, 7), { color: "#cdb98c", vary: 0.12, position: [0.05, 1.72, 0], rotation: [0, 0, Math.PI / 2] }));
+ parts.push(piece(box(0.035, 0.5, 0.035), { color: "#cdb98c", position: [0.05, 1.42, 0.1] }));
+ parts.push(piece(new THREE.TorusGeometry(0.15, 0.014, 4, 8, Math.PI), { color: "#2a2622", position: [0.05, 1.12, 0.1] }));
+ parts.push(piece(new THREE.CylinderGeometry(0.21, 0.16, 0.3, 8), { bottom: WOOD.dark, top: WOOD.light, vary: 0.1, position: [0.05, 0.98, 0.1] }));
+ for (const y of [0.9, 1.07]) parts.push(piece(new THREE.CylinderGeometry(0.2 + (y - 0.9) * 0.12, 0.19 + (y - 0.9) * 0.12, 0.035, 8), { color: "#3a3531", position: [0.05, y, 0.1] }));
+ // Tejadillo a dos aguas: dos faldones de tablas, caballete y testeros.
+ for (const z of [-1, 1]) {
+  for (let i = 0; i < 6; i++) parts.push(piece(box(0.44, 0.07, 1.16), { bottom: roof[0], top: roof[1], vary: 0.1, seed: i + (z + 1) * 5, position: [-1.14 + i * 0.456, 2.86, z * 0.44], rotation: [z * 0.62, 0, 0] }));
+  parts.push(piece(box(2.56, 0.1, 0.09), { color: WOOD.dark, position: [0, 2.56, z * 0.86] })); // alero
+ }
+ parts.push(piece(box(2.86, 0.1, 0.16), { color: WOOD.dark, position: [0, 3.2, 0] })); // caballete
+ return merge(parts);
 }
 
 // Banco de madera.
@@ -174,7 +208,7 @@ const createBench = () =>
 
 export function ProjectVillage() {
  // Las casas comparten material; la que tape al astronauta se vuelve translúcida.
- const models = useMemo(() => ({ house: createModelMaterial(), material: withSeeThrough(lambert()), showcaseBase: createShowcaseBase(), showcaseTop: createShowcaseTop(), well: createWell(), bench: createBench(), lamp: createLantern() }), []);
+ const models = useMemo(() => ({ house: createModelMaterial(), material: withSeeThrough(lambert()), ground: lambert(), showcaseBase: createShowcaseBase(), showcaseTop: createShowcaseTop(), well: createWell(), bench: createBench(), lamp: createLantern() }), []);
  const stone = useMemo(createSlab, []);
  useEffect(
   () => () => {
@@ -213,7 +247,7 @@ export function ProjectVillage() {
 
  return (
   <>
-   <Instances name="adoquín de plaza" geometry={stone} material={models.material} items={cobbles} colored receiveShadow />
+   <Instances name="adoquín de plaza" geometry={stone} material={models.ground} items={cobbles} colored receiveShadow />
    <mesh name="pozo" userData={{ rests: 0 }} geometry={models.well} material={models.material} position={[WELL.x, 0, WELL.z]} castShadow receiveShadow />
    {BENCHES.map((bench) => (
     <mesh key={bench.x} name="banco" userData={{ rests: 0 }} geometry={models.bench} material={models.material} position={[bench.x, 0, bench.z]} rotation-y={bench.turn} castShadow />

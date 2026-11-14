@@ -43,10 +43,12 @@ check(/mant[eé]n.*canasta/i.test((await t.hint()) ?? ""), `con el balón, junto
 const ideal = (await state()).ideal;
 const rate = await t.evaluate(() => window.__world.court.rate);
 await page.keyboard.down("KeyE");
+const pressed = Date.now();
 await wait(Math.round((ideal / rate) * 1000 * 0.55));
 const mid = await state();
 await shot("carga");
-await wait(Math.round((ideal / rate) * 1000 * 0.45));
+// (La captura tarda lo suyo y la carga sigue: se suelta a la hora justa, contada desde la pulsación.)
+await wait(Math.max(0, pressed + Math.round((ideal / rate) * 1000) - Date.now()));
 await page.keyboard.up("KeyE");
 await wait(120);
 const released = await state();

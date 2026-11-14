@@ -73,48 +73,78 @@ export function createBlock(seed, { shape = "chunk", moss = 1, stone = BLUESTONE
  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
  let whole = geometry;
  if (moss > 0) {
-  // Musgo: una capa que tapa toda la coronación y cae por los lados, más en
-  // unos sitios que en otros: baja un trecho distinto por cada arista y, entre
-  // arista y arista, otra lengua. Va un dedo por fuera de la piedra.
-  const centre = tops.reduce((sum, p) => sum.add(p), new THREE.Vector3()).multiplyScalar(1 / tops.length);
-  const outward = (p) => new THREE.Vector3(p.x - centre.x, 0, p.z - centre.z).normalize();
-  const cap = [];
-  const ring = [0, 1, 3, 2]; // las cuatro esquinas, en corro
-  const bare = Math.floor(random() * 4); // una esquina se queda en piedra
-  ring.forEach((corner, i) => {
-   const top = tops[corner], foot = feet[corner], out = outward(top);
-   if (i === bare) {
-    // Aquí el musgo no llega al canto: se retira hacia el centro.
-    cap.push(top.clone().lerp(centre, 0.5 + random() * 0.15).setY(top.y + 0.05));
-    return;
-   }
-   cap.push(top.clone().addScaledVector(out, 0.05).setY(top.y + 0.05));
-   // Por las aristas vecinas a la esquina pelada apenas cae; por las otras, más.
-   const reach = Math.abs(i - bare) === 2 ? 0.34 : 0.12;
-   cap.push(top.clone().lerp(foot, (0.04 + random() * reach) * moss).addScaledVector(out, 0.06));
-   // La lengua de en medio de esta cara (si no da a la esquina pelada).
-   const next = ring[(i + 1) % 4];
-   if ((i + 1) % 4 === bare) return;
-   const along = 0.3 + random() * 0.4;
-   const midTop = top.clone().lerp(tops[next], along), midFoot = foot.clone().lerp(feet[next], along);
-   cap.push(midTop.clone().lerp(midFoot, (0.03 + random() * 0.26) * moss).addScaledVector(outward(midTop), 0.06));
-  });
-  // Y un par de bultos encima, para que la coronación no sea un plano.
-  for (let i = 0; i < 2; i++) cap.push(centre.clone().add(new THREE.Vector3((random() - 0.5) * s.x * 0.7, 0.1 + random() * 0.07, (random() - 0.5) * s.z * 0.7)));
-  const layer = new ConvexGeometry(cap);
-  const layerNormal = layer.attributes.normal, layerPlace = layer.attributes.position, layerColors = new Float32Array(layerPlace.count * 3);
-  for (let i = 0; i < layerPlace.count; i += 3) {
-   const ny = layerNormal.getY(i);
-   const vary = 0.93 + random() * 0.14;
-   for (let k = 0; k < 3; k++) {
-    // Más claro arriba, más hondo conforme cae.
-    const fall = Math.min(1, Math.max(0, (centre.y - layerPlace.getY(i + k)) / (s.top * 0.5)));
-    tone.copy(ny > 0.7 ? mossLight : mossMid).lerp(mossDeep, ny > 0.7 ? 0 : 0.25 + fall * 0.75).multiplyScalar(vary);
-    tone.toArray(layerColors, (i + k) * 3);
+  // Musgo: una capa de polígonos pequeños que tapa la coronación —abombada, no
+  // un plano— y cae por los cuatro lados en un fleco desigual. Se hace con una
+  // rejilla sobre la cara de arriba: cada vértice sube lo suyo, una esquina se
+  // queda en piedra y, por el borde, cada tramo baja un trecho distinto pegado
+  // a la pared. Va un dedo por fuera de la piedra.
+  const N = 5;
+  const lerp4 = (c, u, v) => c[0].clone().lerp(c[2], u).lerp(c[1].clone().lerp(c[3], u), v);
+  const centre = lerp4(tops, 0.5, 0.5);
+  const bare = [random() < 0.5 ? 0 : N, random() < 0.5 ? 0 : N]; // la esquina pelada
+  const reach = 1.5 + random() * 1.1; // hasta dónde llega la calva, en celdas
+  const grid = [];
+  for (let j = 0; j <= N; j++) {
+   for (let i = 0; i <= N; i++) {
+    const rim = i === 0 || i === N || j === 0 || j === N;
+    // Por dentro los vértices se descolocan; en el borde solo resbalan a lo largo de él.
+    const u = (i + (i > 0 && i < N ? (random() - 0.5) * 0.5 : 0)) / N, v = (j + (j > 0 && j < N ? (random() - 0.5) * 0.5 : 0)) / N;
+    const p = lerp4(tops, u, v);
+    p.y += 0.04 + (rim ? random() * 0.03 : 0.05 + random() * 0.11); // abombado: más alto por dentro
+    if (rim) p.addScaledVector(new THREE.Vector3(p.x - centre.x, 0, p.z - centre.z).normalize(), 0.05);
+    grid.push({ p, u, v, gone: Math.hypot(i - bare[0], j - bare[1]) < reach });
    }
   }
-  layer.deleteAttribute("normal");
-  layer.setAttribute("color", new THREE.BufferAttribute(layerColors, 3));
+  const at = (i, j) => grid[j * (N + 1) + i];
+  const place3 = [], tones = [];
+  const up = new THREE.Vector3(0, 1, 0), ab = new THREE.Vector3(), ac = new THREE.Vector3(), face = new THREE.Vector3();
+  // Un triángulo, mirando hacia `towards`, con su matiz.
+  const add = (a, b, c, towards, colour) => {
+   face.crossVectors(ab.subVectors(b, a), ac.subVectors(c, a));
+   const order = face.dot(towards) < 0 ? [a, c, b] : [a, b, c];
+   const vary = 0.9 + random() * 0.2;
+   for (const p of order) {
+    place3.push(p.x, p.y, p.z);
+    tones.push(colour.r * vary, colour.g * vary, colour.b * vary);
+   }
+  };
+  for (let j = 0; j < N; j++) {
+   for (let i = 0; i < N; i++) {
+    const q = [at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)];
+    if (q.filter((one) => one.gone).length > 1) continue; // la calva
+    const pick = random();
+    const colour = tone.copy(pick < 0.45 ? mossLight : pick < 0.85 ? mossMid : mossDeep).clone();
+    // La diagonal, a un lado o al otro: que no se lea la rejilla.
+    if ((i + j) % 2) (add(q[0].p, q[1].p, q[2].p, up, colour), add(q[0].p, q[2].p, q[3].p, up, colour.clone().lerp(mossMid, 0.4)));
+    else (add(q[0].p, q[1].p, q[3].p, up, colour), add(q[1].p, q[2].p, q[3].p, up, colour.clone().lerp(mossMid, 0.4)));
+   }
+  }
+  // El fleco: por cada lado, lo que cae de cada vértice del borde.
+  const sides = [
+   Array.from({ length: N + 1 }, (_, i) => at(i, 0)),
+   Array.from({ length: N + 1 }, (_, i) => at(N, i)),
+   Array.from({ length: N + 1 }, (_, i) => at(N - i, N)),
+   Array.from({ length: N + 1 }, (_, i) => at(0, N - i)),
+  ];
+  for (const side of sides) {
+   const long = 0.5 + random() * 0.9; // hay lados por los que cae más
+   const hem = side.map((one) => {
+    const foot = lerp4(feet, one.u, one.v);
+    const out = new THREE.Vector3(one.p.x - centre.x, 0, one.p.z - centre.z).normalize();
+    const drop = one.gone ? 0 : (0.05 + random() * 0.24 * long) * moss;
+    return { out, low: lerp4(tops, one.u, one.v).lerp(foot, drop).addScaledVector(out, 0.055) };
+   });
+   for (let i = 0; i < N; i++) {
+    const a = side[i], b = side[i + 1];
+    if (a.gone || b.gone) continue;
+    const colour = tone.copy(mossMid).lerp(mossDeep, 0.3 + random() * 0.5).clone();
+    add(a.p, b.p, hem[i].low, hem[i].out, colour);
+    add(b.p, hem[i + 1].low, hem[i].low, hem[i].out, colour.clone().lerp(mossDeep, 0.35));
+   }
+  }
+  const layer = new THREE.BufferGeometry();
+  layer.setAttribute("position", new THREE.Float32BufferAttribute(place3, 3));
+  layer.setAttribute("color", new THREE.Float32BufferAttribute(tones, 3));
   whole = mergeGeometries([geometry, layer]);
   geometry.dispose();
   layer.dispose();
