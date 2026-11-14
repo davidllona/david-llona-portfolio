@@ -4,7 +4,7 @@ Actualizado: 14 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
 **En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **En curso: bloque 3** (errores de juego), a medias: ver su fila y «Bloque 3, lo que queda».
-**En curso: objetivo 18 — pulido del mundo 1** (`docs/OBJETIVO-18.md`, 14-11-2026). **Sustituye a los bloques 4 a 7 del objetivo 16.** Ocho apartados, commit y push por apartado; paradas solo tras el 4 y tras el 8. Ver «Objetivo 18».
+**En curso: objetivo 18 — pulido del mundo 1** (`docs/OBJETIVO-18.md`, 14-11-2026). **Sustituye a los bloques 4 a 7 del objetivo 16.** Ocho apartados, commit y push por apartado; paradas solo tras el 4 y tras el 8. **Los ocho están hechos: parada del apartado 8, pendiente del visto bueno de David** (batería completa y capturas en «Parada del apartado 8»). Ver «Objetivo 18».
 Decidido por David el 13-11-2026: los pesos reales de los modelos mandan sobre la ficha (reducir «Japan Lamp», puente, observatorio y cabaña hasta que no bajen los fps y dar el número final de triángulos de cada uno); los pasos fuera de la hierba y los sonidos de baloncesto se quedan sintetizados hasta que él avise.
 Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
 Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado.
@@ -24,7 +24,7 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 | 5. Baloncesto | **Hecho.** Fps después: 106 · 113 · 109 · 111 · 113. Capturas: `capturas/23-pulido/5-baloncesto/` (`hoja.jpg`) |
 | 6. Fútbol | **Hecho.** Fps después: 104 · 108 · 107 · 106 · 106. Capturas: `capturas/23-pulido/6-futbol/` (`hoja.jpg`, y los fotogramas de cada tiro) |
 | 7. Edificios | **Hecho.** Fps después: 109 · 112 · 112 · 113 · 110. Capturas: `capturas/23-pulido/7-edificios/` (`hoja.jpg`, `hoja-noche.jpg`; los modelos sueltos, en `modelos/hoja.jpg`) |
-| 8. Jardín japonés | Sin empezar. **Parada** al terminar |
+| 8. Jardín japonés | **Hecho** (commit `790fc53`). Fps después: 71 · 76 · 71 · 67 · 72. Capturas: `capturas/23-pulido/parada-8/` (ocho hojas: apartados 5 a 8, de día y de noche). **Parada: pendiente de visto bueno** |
 
 **Apartado 1, lo que hay** (`flora/Grass.jsx`, `layout.js`, `terrainData.js`, `groundColor.js`, `tests/e2e/motion.mjs`, `tests/e2e/pulido.mjs`):
 - Una sola brizna (7 vértices, 4 alturas: base ancha, punta fina) dibujada con instancias: ~217.000 en calidad alta (20.736 matas en abanico de ~9 briznas más 30.000 sueltas), una llamada de dibujo. Antes: una malla de 113.000 briznas de 3 triángulos. El centro de la mata es más alto y más oscuro; las briznas caen hacia fuera.
@@ -121,6 +121,51 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 - Ojo: Blender escribió las vistas previas en `C:\capturas\` (ruta relativa mal resuelta; ya corregido en `preview.py`). Las copié al proyecto; **queda esa carpeta `C:\capturas` con ocho JPG**, que no he podido borrar (lo bloquea una protección de borrado): bórrala a mano.
 - Sin comprobar: que cada fachada quede bien orientada vista andando (solo en capturas fijas); la escalera de la casa del árbol es decorado.
 
+**Apartado 8, lo que hay** (`zones/Garden.jsx`, `layout.js` (`GARDEN`), `tools/assets/buildings.py`, `public/models/living/buildings/{torii,puente-rojo,farol-japones,koi,casa-te}.glb`, `tests/e2e/garden.mjs`):
+- **Dónde**: al este de la pista de baloncesto, entre la nave y la playa. No toca el relieve: el estanque es una lámina de agua a ras de suelo con su borde de piedras.
+- **Torii** («Torii Gate», ≈1.200 triángulos) de entrada viniendo de la nave, y cartel **«JARDÍN»** del estilo nuevo con su icono.
+- **Estanque** con 24 piedras de borde (instancias), agua con el turquesa del resto y **7 kois** de colores planos (naranja, blanco, rojo, ámbar y uno negro): una sola malla con instancias, del modelo «Orange and White Koi» solo la forma (≈420 triángulos); rondan cada uno por su carril y colean.
+- **Puente rojo** («Stylized Arched Road Bridge», ≈2.200 triángulos, pintado por dónde mira cada cara: lo que se pisa en madera oscura, lo demás en rojo). **Se cruza andando**: sube 0,54 m en el lomo.
+- **Faroles «Japan Lamp»** (148.000 → ≈900 triángulos): cuatro, con instancias; de noche llevan halo y dos de ellos dan luz de verdad.
+- **Casa de té**: la «Island cabin» (≈5.200 triángulos), con un **banco** hecho a mano junto al estanque.
+- **Cerezos**: tres, puestos a mano detrás y a los lados del estanque. Se quitan del reparto las plantas y rocas que caían dentro del jardín y los árboles que quedaban justo al sur.
+- Colisiones rehorneadas (841 obstáculos de 202 mallas).
+- Pruebas: `garden` 6 de 6 (están todas las piezas, el puente se cruza, los kois nadan).
+- **Visto en las capturas y sin arreglar** (decide David): el árbol viejo de (17, 33), que ya estaba, tapa la cámara de juego cuando el astronauta está en la orilla sur del estanque (captura 4 de `hoja-8-jardin-*.jpg`: se ve por el aro de visión); la casa de té no enciende ventanas de noche; el travesaño del torii sale negro.
+- Sin comprobar: que caigan pétalos de los cerezos nuevos (salen del mismo reparto que los demás; no lo he mirado en movimiento); el jardín andando, visto por una persona.
+
+**Parada del apartado 8 — batería completa** (14-11-2026, en primer plano, de dos en dos, Chrome sin ventana, servidor de desarrollo en el 5199). La sesión anterior se colgó a mitad de la batería y dejó una tanda lanzada que seguía corriendo sola; se paró antes de empezar.
+
+| Prueba | Bien | Fallos |
+|---|---|---|
+| `errors` | 8 | 0 |
+| `living` | 44 | 0 |
+| `characters` | 20 | 0 |
+| `portfolio` | 25 | 0 |
+| `progress` | 26 | 0 |
+| `motion` | 10 | 0 |
+| `camera` | 30 | 0 |
+| `woody` | 37 | 0 |
+| `rocket` | 9 | 0 |
+| `terrain` | 3 | 0 |
+| `life` | 11 | 0 |
+| `football` | 63 | 0 |
+| `sounds` | 27 | 0 |
+| **`npm run e2e` (las trece)** | **313** | **0** |
+| `basket` | 20 | 0 |
+| `garden` | 6 | 0 |
+| `birds` | 4 | 0 |
+| `collisions` | 4 | 0 |
+| `welcome` | 21 | 0 |
+| `hill` | 29 | 0 (fallaba 1; arreglado, ver abajo) |
+| `loader` | 13 | **1** (sin arreglar, ver abajo) |
+| `tests/perf/entrada.mjs` | 0 pipelines en caliente al entrar y al despegar | — |
+
+- **Arreglado — tirón en la rampa** (`hill`: «rampa-bajar-corriendo: sin tirones», 5,11 m/s). Eran dos cosas. (1) La medida: sacaba la velocidad vertical de la hora de cada fotograma, y el reloj de la grabación no es el del juego; si un fotograma llegaba tarde daba 3–5 m/s bajando una pendiente constante con los pies pegados al suelo. Ahora la saca de la pendiente del tramo andado por la velocidad del jugador. (2) Un resalte de verdad al coronar: en el último tramo, el borde de la meseta adelantaba a la rampa a 4 cm de la cima y dejaba un quiebro en el hombro por el que se sube en diagonal (1,2–2,2 m/s corriendo; es el «tirón al subir la rampa corriendo» del bloque 3 del objetivo 16). La rampa corona ahora un 8 % antes de su final (`RAMP_TOP` en `layout.js`): 0,04–0,20 m/s en las cuatro pasadas de la rampa. La pendiente del tramo recto pasa de 0,48 a 0,52. Repetidas después `hill`, `terrain`, `collisions`, `woody`, `living` y `camera`: bien.
+- **Sin arreglar — `loader`**: «la escena se pinta a los 212 ms (objetivo: menos de 100)»; en tres pasadas, mediana de 192–220 ms. La pantalla de carga no se ha tocado en el objetivo 18 (su último commit es `544f389`, anterior) y el encargo pide no tocarla hasta el cierre. El objetivo de 100 ms se fijó con los 64 ms del Mac; no he comprobado si en este equipo Windows se cumplió alguna vez.
+- **Fps** (`tests/perf/fps.mjs`, misma tanda): 71 · 76 · 71 · 67 · 72 con el jardín (otra pasada: 75 · 78 · 77 · 74 · 77); 78 · 82 · 81 · 82 · 82 con el commit anterior al jardín (`3063794`). Por encima de 60. Hoy el equipo da unos 30 fps menos que cuando se midieron los apartados 5 a 7 (109–113), también con el código de entonces.
+- **Capturas**: `capturas/23-pulido/parada-8/` — `hoja-5-baloncesto-dia.jpg`, `hoja-6-futbol-dia.jpg`, `hoja-7-edificios-dia.jpg`, `hoja-8-jardin-dia.jpg` y las cuatro `-noche.jpg`; debajo, las 68 capturas sueltas.
+
 ## Objetivo 16
 
 | Bloque | Estado |
@@ -128,7 +173,7 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 | 0. Inventario y sonidos | **Visto bueno.** `docs/RECURSOS.md`; grabación y lista en `capturas/18-sonidos/` |
 | 1. Pantalla de carga (astronauta y Woody caminando sobre un planeta) | **Visto bueno.** Capturas: `capturas/19-carga/serie-*.jpg` |
 | 2. Pantalla previa al aterrizaje (flecha, cero espera, luna, fugaces, planeta) | **Visto bueno**, con dos retoques pedidos y hechos: más relieve en los cráteres de la cara iluminada de la luna y planeta sin rótulo. Capturas: `capturas/20-aterrizaje/` (`luna-relieve-*.jpg`) |
-| 3. Errores de juego (colisiones, colina, Woody, aro de visión, carrera) | **A medias.** Hechas colisiones y colina (commit `4f0e380`, `collisions.mjs` y `hill.mjs`). **Quedan tres cosas**: tirones en la rampa, aro de visibilidad sobre el árbol de la cascada y animación de correr. Woody: hecho (recorrido de 180 s, 87 tramos, cero fallos) |
+| 3. Errores de juego (colisiones, colina, Woody, aro de visión, carrera) | **A medias.** Hechas colisiones y colina (commit `4f0e380`, `collisions.mjs` y `hill.mjs`). **Quedan dos cosas**: aro de visibilidad sobre el árbol de la cascada y animación de correr (los tirones de la rampa, arreglados el 14-11-2026: ver «Parada del apartado 8»). Woody: hecho (recorrido de 180 s, 87 tramos, cero fallos) |
 | 4. Aspecto del mundo (farolas, caminos, rocas, pájaros, carteles, cascada) | Sin empezar |
 | 5. Edificios con los modelos descargados | Sin empezar |
 | 6. Fútbol y baloncesto | Sin empezar. **Faltan recursos**: no hay sonido de bote, aro ni red de baloncesto |
@@ -136,7 +181,7 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 | 8. Cierre | Sin empezar |
 
 **Bloque 3, lo que queda** (14-11-2026; no se ha tocado nada de esto todavía). Una sola sesión de trabajo abierta; ningún servidor (ni el de desarrollo del 5199 ni la vista previa del 5198) ni Chrome de pruebas en marcha:
-- **Tirón al subir la rampa corriendo**: `hill.mjs` falla en «rampa-subir-corriendo: sin tirones» (cambio de velocidad vertical de 2,00 m/s entre fotogramas, en (−7,0, −21,4)). El resto de la colina pasa (27 de 28).
+- ~~Tirón al subir la rampa corriendo~~: **arreglado** el 14-11-2026 (`RAMP_TOP` en `layout.js`; `hill.mjs` 29 de 29, 0,04–0,20 m/s en la rampa).
 - **Aro de visibilidad**: sigue dejando una mancha de puntos sobre el árbol junto a la cascada (lo ha visto David); también fallaba al subirse al cohete y en el pozo. Arreglarlo o cambiarlo por un recorte circular limpio (`experience/environment/seeThrough.js`).
 - **Animación de correr del astronauta**: rehacerla (contacto, paso y vuelo; brazos en oposición; tronco inclinado; rebote; sin patinar) y sincronizar con ella los pasos sobre hierba.
 
@@ -221,13 +266,16 @@ node tests/e2e/loader.mjs      # pantalla de carga: peso, primer pintado, pies s
 node tests/e2e/sheet.mjs       # monta varias capturas en una hoja: salida.jpg columnas ancho img1 img2 …
 node tests/e2e/trees.mjs       # capturas de los árboles; no comprueba nada
 node tests/e2e/basket.mjs      # baloncesto: tiro con carga, racha, barrera, valla y puerta; capturas
+node tests/e2e/garden.mjs      # jardín japonés: torii, casa de té, puente (se cruza andando), faroles, kois, cartel
+node tests/e2e/hill.mjs        # cuestas: rampa, colinas y puente, andando y corriendo; pies pegados, sin atascos ni tirones
+node tests/e2e/collisions.mjs  # nada atraviesa nada; «hornear» rehace solids.js
 node tests/e2e/birds.mjs       # pájaros: posados en suelo y en alto, despegue al acercarse, bandada; capturas
 node tests/e2e/pulido.mjs      # objetivo 18: capturas de cada punto (juego, a ras, desde arriba; día y noche)
 node tests/perf/carga.mjs      # pantalla de carga: tiempo hasta poder entrar, tareas largas y parones VISIBLES (traza de Chrome); [url] [pasadas=N] [perfil]
 node tests/perf/peso.mjs       # peso descargado en la primera visita (build de producción en el 5198)
 node tests/perf/fps.mjs        # fps en cinco puntos
 node tests/e2e/errors.mjs      # ninguna excepción de página y el lienzo dibujado: carga, bienvenida, estrella fugaz y mundo, sin ventana y con ventana (incluida en e2e)
-npm run e2e                    # 290 comprobaciones en Chrome sin ventana (con el servidor encendido)
+npm run e2e                    # 313 comprobaciones en Chrome sin ventana (con el servidor encendido)
 node tests/e2e/sounds.mjs      # sonido uno por uno: señal medida de cada bucle, golpes, silencio; graba el recorrido (incluida en e2e)
 node tests/e2e/football.mjs    # fútbol de principio a fin, con fotogramas de cada tiro (incluida en e2e)
 node tests/e2e/woody.mjs       # bocadillos, ritmo, descanso, cuestas y ruta guiada (incluida en e2e)

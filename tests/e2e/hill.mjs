@@ -49,10 +49,15 @@ async function walk(name, from, keys, ms, { run = false, frames = 0 } = {}) {
  const cruising = tape.filter((f) => f.t > t0 + 600 && f.t < t0 + ms - 80);
  const slow = cruising.filter((f) => f.speed < wanted * 0.5).length;
  // Tirón: cambio brusco de la velocidad vertical entre fotogramas seguidos (m/s por fotograma).
+ // La velocidad vertical se saca de la pendiente del tramo recorrido por la
+ // velocidad del jugador, no de la hora del fotograma: el reloj de esta
+ // grabación no es el del juego y, si un fotograma llega tarde, lo andado y el
+ // tiempo no casan (daba tirones de 3 a 5 m/s bajando una pendiente constante).
+ const rise = (from, to) => { const run = Math.hypot(to.x - from.x, to.z - from.z); return run > 1e-4 ? ((to.y - from.y) / run) * to.speed : 0; };
  let jerk = 0, at = null;
  for (let i = 2; i < cruising.length; i++) {
   const a = cruising[i - 2], b = cruising[i - 1], c = cruising[i];
-  const v1 = (b.y - a.y) / Math.max(1, b.t - a.t) * 1000, v2 = (c.y - b.y) / Math.max(1, c.t - b.t) * 1000;
+  const v1 = rise(a, b), v2 = rise(b, c);
   if (Math.abs(v2 - v1) > jerk) (jerk = Math.abs(v2 - v1), at = b);
  }
  const climb = tape[tape.length - 1].y - tape[0].y;

@@ -55,7 +55,13 @@ export const RAMP = { from: [-14.5, -14], to: [-7.6, -22.5], width: 3.6 };
 // redondeada al arrancar y al llegar, para que no haya quiebro en el pie ni en
 // la cima (un quiebro es un tirón para quien sube andando).
 const RAMP_EASE = 0.2;
-function rampProfile(t) {
+// La rampa corona un poco antes de su final: en ese último tramo el borde de
+// la meseta, que sube de golpe, la adelantaba a 4 cm de la cima y dejaba un
+// resalte en el hombro por el que se sube en diagonal (un tirón al correr).
+// Llegando ya a la altura de la meseta, no hay nada que la adelante.
+const RAMP_TOP = 0.92;
+function rampProfile(along) {
+ const t = Math.min(1, along / RAMP_TOP);
  const e = RAMP_EASE, top = 1 - e;
  if (t < e) return (t * t) / (2 * e) / top;
  if (t > 1 - e) return 1 - ((1 - t) * (1 - t)) / (2 * e) / top;

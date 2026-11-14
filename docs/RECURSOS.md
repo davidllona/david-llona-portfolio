@@ -31,20 +31,20 @@ Se convierten con `tools/assets/sounds.py` (Blender, porque en el Mac no hay ffm
 
 | Recurso | Archivo origen (`assets-externos/modelos/`) | Triángulos | Optimizado en el repo | Dónde se usa | Estado |
 |---|---|---|---|---|---|
-| «Small Country House with Green Roof and Fireplace» (stdgaris) | `small-country-house-…/cottage house.blend` | 142.176 | — | Casa de un proyecto (bloque 5) | **no usado** |
-| «Small House with Red Roof and Chimney» (stdgaris) | `small-house-with-red-roof-…/red house.blend` | 92.186 | — | Casa de un proyecto (bloque 5) | **no usado** |
-| «Small House with Blue Roof» (stdgaris) | `small-house-with-blue-roof/forest house.blend` | 142.378 | — | Casa de un proyecto (bloque 5) | **no usado** |
-| «Compact Residence with Dual Contemporary Balconies» (stdgaris) | `compact-residence-…/red and blue house.blend` | 96.652 | — | Casa de un proyecto (bloque 5) | **no usado** |
-| «Island Cabin with Outdoor Seating» (stdgaris) | `island-cabin-…/japanese house.blend` | 543.738 | — | Casa de té del jardín japonés (bloque 7) | **no usado** |
-| «Torii Gate» (mrfauzi) | `torii-gate/Torii Gate.blend` (+ fbx, obj) | 24.286 | — | Entrada del jardín japonés (bloque 7) | **no usado** |
-| «Basketball 3D Icons» (twinstd) | `basketball-3d-icons/05_Basketball.glb` (+ blend, obj) | 108.332 | — | Canasta de la pista (bloque 6) | **no usado** |
+| «Small Country House with Green Roof and Fireplace» (stdgaris) | `small-country-house-…/cottage house.blend` | 142.176 | `public/models/living/buildings/casa-campo.glb` (≈5.200 triángulos, 91 kB) | Casa del proyecto 1 | **en uso** (objetivo 18) |
+| «Small House with Red Roof and Chimney» (stdgaris) | `small-house-with-red-roof-…/red house.blend` | 92.186 | `public/models/living/buildings/casa-roja.glb` (≈5.200, 85 kB) | Casa del proyecto 3 | **en uso** (objetivo 18) |
+| «Small House with Blue Roof» (stdgaris) | `small-house-with-blue-roof/forest house.blend` | 142.378 | `public/models/living/buildings/casa-bosque.glb` (≈5.200, 85 kB) | Casa del proyecto 2 | **en uso** (objetivo 18) |
+| «Compact Residence with Dual Contemporary Balconies» (stdgaris) | `compact-residence-…/red and blue house.blend` | 96.652 | `public/models/living/buildings/casa-balcones.glb` (≈5.200, 85 kB) | Casa del proyecto 4 | **en uso** (objetivo 18) |
+| «Island Cabin with Outdoor Seating» (stdgaris) | `island-cabin-…/japanese house.blend` | 543.738 | `public/models/living/buildings/casa-te.glb` (≈5.200, 94 kB) | Casa de té del jardín japonés | **en uso** (objetivo 18) |
+| «Torii Gate» (mrfauzi) | `torii-gate/Torii Gate.blend` (+ fbx, obj) | 24.286 | `public/models/living/buildings/torii.glb` (≈1.200, 22 kB) | Entrada del jardín japonés | **en uso** (objetivo 18) |
+| «Basketball 3D Icons» (twinstd) | `basketball-3d-icons/05_Basketball.glb` (+ blend, obj) | 108.332 | `public/models/living/court/canasta.glb` (2.200, 72 kB) | Canasta de la pista, con la red aparte | **en uso** (objetivo 18) |
 | «Court Net» (spacepixelcreative) | `court-net/Pickleball Net.glb` | — | — | Ninguno | **no se usa**: es una red de pickleball; la valla de la pista se hace a mano |
-| «World Cup Trophy Football» (adimaskur48) | `world-cup-trophy-football/World Cup Trophy.glb` (+ blend, fbx, obj) | 228.848 | — | Trofeo del templete del campo de fútbol (bloque 5) | **no usado** |
-| «Cartoon treehouse with ladder access» (permadicreative) | `cartoon-treehouse-…/Treehouse.glb` (+ fbx, obj) | 229.138 | — | Casa del árbol de Sobre mí (bloque 5) | **no usado** |
-| «Small observatory with telescope dome» (kerismaker) | `small-observatory-…/OBSERVATORY.glb` (+ blend) | 32.208 | — | Base del observatorio (bloque 5) | **no usado** |
-| «Orange and White Koi» (TurboSquid) | `orange-and-white-koi/[BLEND] koi_fish/koi_fish.blend` (+ fbx, obj) | 8.224 | — | Kois del estanque del jardín, solo la forma (bloque 7) | **no usado** |
-| «Stylized Arched Road Bridge with Railings» (TurboSquid) | `stylized-arched-road-bridge-…/[BLEND] road_bridge/road_bridge.blend` (+ fbx, obj) | 160.272 | — | Puente rojo del jardín (bloque 7) | **no usado** |
-| «Japan Lamp» (nixxdsgn) | `japan-lamp/Lamp.glb` (+ obj) | 148.248 | — | Faroles del camino del jardín (bloque 7) | **no usado** |
+| «World Cup Trophy Football» (adimaskur48) | `world-cup-trophy-football/World Cup Trophy.glb` (+ blend, fbx, obj) | 228.848 | `public/models/living/buildings/trofeo.glb` (4.498, 60 kB) | Trofeo del templete del campo de fútbol | **en uso** (objetivo 18) |
+| «Cartoon treehouse with ladder access» (permadicreative) | `cartoon-treehouse-…/Treehouse.glb` (+ fbx, obj) | 229.138 | `public/models/living/buildings/casa-arbol.glb` (7.000, 231 kB) | Casa del árbol de Sobre mí | **en uso** (objetivo 18) |
+| «Small observatory with telescope dome» (kerismaker) | `small-observatory-…/OBSERVATORY.glb` (+ blend) | 32.208 | `public/models/living/buildings/observatorio.glb` (5.999, 150 kB) | Edificio del observatorio | **en uso** (objetivo 18) |
+| «Orange and White Koi» (TurboSquid) | `orange-and-white-koi/[BLEND] koi_fish/koi_fish.blend` (+ fbx, obj) | 8.224 | `public/models/living/buildings/koi.glb` (≈420, 7 kB) | Kois del estanque del jardín, solo la forma | **en uso** (objetivo 18) |
+| «Stylized Arched Road Bridge with Railings» (TurboSquid) | `stylized-arched-road-bridge-…/[BLEND] road_bridge/road_bridge.blend` (+ fbx, obj) | 160.272 | `public/models/living/buildings/puente-rojo.glb` (≈2.200, 48 kB) | Puente rojo del jardín | **en uso** (objetivo 18) |
+| «Japan Lamp» (nixxdsgn) | `japan-lamp/Lamp.glb` (+ obj) | 148.248 | `public/models/living/buildings/farol-japones.glb` (≈900, 12 kB) | Faroles del jardín | **en uso** (objetivo 18) |
 
 Añadido el 14-11-2026 (objetivo 18): «Animated Bluebird with Feathery Wings», `animated-bluebird-with-feathery-wings/` (ZIP de 123 MB: `.blend`, FBX por animación, OBJ y texturas de 4K). 3.642 caras, esqueleto de 354 huesos, 11 animaciones. **En uso**: los pájaros del planeta (`public/models/living/fauna/pajaro.glb`, 720 triángulos, 74 kB; `tools/assets/bird.py`).
 
