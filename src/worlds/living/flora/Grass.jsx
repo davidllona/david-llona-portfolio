@@ -7,22 +7,23 @@ import { noiseTexture } from "../../../experience/environment/noise";
 import { trailPush } from "../../../experience/environment/trail";
 import { WIND, windOffset } from "../../../experience/environment/wind";
 import { player, rig } from "../../../experience/state";
-import { SPAN, terrainTextures } from "../terrainData";
+import { SPAN, sampleTerrain, terrainTextures } from "../terrainData";
 
-// Césped. Una sola malla con todas las briznas, que acompaña a la cámara: las
-// que salen por un lado reaparecen por el otro (módulo), así que siempre hay
-// hierba donde se mira y nunca fuera de plano. Todo lo demás —dónde crece,
-// cuánto mide, de qué color es, cómo la mueve el viento y cómo se aparta al
-// paso— se calcula en la GPU con nodos TSL.
+// Césped. Una sola brizna dibujada con instancias (una llamada de dibujo), en
+// un parche que acompaña a la cámara: las matas que salen por un lado
+// reaparecen por el otro (módulo), así que siempre hay hierba donde se mira y
+// nunca fuera de plano. Todo lo demás —dónde crece, cuánto mide, de qué color
+// es, cómo la mueve el viento y cómo se aparta al paso— se calcula en la GPU
+// con nodos TSL.
 //
-// La arquitectura (malla única, envoltura alrededor de la vista, máscara de
-// terreno, giro hacia la cámara) está adaptada de folio-2025 de Bruno Simon
-// (MIT; ver docs/CREDITOS.md). Son propios: la brizna curva de dos tramos, las
-// matas, la densidad variable y que se doble al pisarla.
+// La arquitectura (envoltura alrededor de la vista, máscara de terreno, giro
+// hacia la cámara) está adaptada de folio-2025 de Bruno Simon (MIT; ver
+// docs/CREDITOS.md). Son propios: la brizna curva de cuatro tramos, las matas
+// en abanico, la densidad por máscara y que se doble al pisarla.
 
 const PATCH = 48; // metros de lado del parche a la distancia normal de cámara
-const SIDE = { high: 336, low: 190 }; // briznas por lado
-const CLUMPS = 44; // matas por lado: las briznas se arriman a la más cercana
+// Matas por lado, briznas por mata (de media) y briznas sueltas de relleno.
+const DETAIL = { high: { tufts: 144, blades: 9, loose: 30000 }, low: { tufts: 76, blades: 8, loose: 9000 } };
 
 // Generador con semilla: el césped sale igual en cada visita.
 function seeded(seed) {
@@ -30,50 +31,40 @@ function seeded(seed) {
  return () => ((state = (state * 16807) % 2147483647) / 2147483647);
 }
 
-// Cada brizna son 5 vértices (dos en la base, dos a media altura y la punta) y
-// 3 triángulos. Todos sus vértices guardan el mismo punto de nacimiento; quién
-// es cada uno va en `blade` = (lado −1…1, altura 0…1, azar de brizna, azar de mata).
-function createGeometry(side) {
+// La brizna: siete vértices en cuatro alturas (base, dos tramos y punta) y
+// cinco triángulos. x = lado (−1…1), y = altura (0…1); la forma, la curva y
+// el sitio los pone el sombreador. Cada instancia lleva:
+//   tuftA = (centro de su mata en el parche, x y z en −0,5…0,5 · separación del centro, en metros)
+//   tuftB = (distancia al centro de la mata 0…1 · 1 si es brizna suelta · azar de brizna · azar de mata)
+function createGeometry({ tufts, blades, loose }) {
  const random = seeded(90210);
- const clumps = Array.from({ length: CLUMPS * CLUMPS }, () => [random(), random(), random()]);
- const count = side * side;
- const positions = new Float32Array(count * 5 * 3);
- const blades = new Float32Array(count * 5 * 4);
- const indices = new Uint32Array(count * 9);
- const shape = [[-1, 0], [1, 0], [-1, 0.5], [1, 0.5], [0, 1]];
- for (let i = 0; i < count; i++) {
-  // Rejilla descolocada, en coordenadas 0…1 del parche.
-  let x = ((i % side) + random()) / side;
-  let z = (Math.floor(i / side) + random()) / side;
-  // Se arrima a la mata más cercana (mirando las casillas vecinas, con vuelta).
-  const cx = Math.floor(x * CLUMPS), cz = Math.floor(z * CLUMPS);
-  let best = null, bestDistance = Infinity;
-  for (let dz = -1; dz <= 1; dz++) {
-   for (let dx = -1; dx <= 1; dx++) {
-    const clump = clumps[((cz + dz + CLUMPS) % CLUMPS) * CLUMPS + ((cx + dx + CLUMPS) % CLUMPS)];
-    const px = (cx + dx + clump[0]) / CLUMPS, pz = (cz + dz + clump[1]) / CLUMPS;
-    const distance = (px - x) ** 2 + (pz - z) ** 2;
-    if (distance < bestDistance) {
-     bestDistance = distance;
-     best = [px, pz, clump[2]];
-    }
-   }
+ const a = [], b = [];
+ for (let i = 0; i < tufts * tufts; i++) {
+  const cx = ((i % tufts) + random()) / tufts - 0.5;
+  const cz = (Math.floor(i / tufts) + random()) / tufts - 0.5;
+  const radius = 0.09 + random() * 0.15;
+  const clump = random();
+  const count = Math.round(blades * (0.6 + random() * 0.8));
+  for (let k = 0; k < count; k++) {
+   const angle = random() * Math.PI * 2;
+   const radial = random() ** 0.7;
+   a.push(cx, cz, Math.cos(angle) * radial * radius, Math.sin(angle) * radial * radius);
+   b.push(radial, 0, random(), clump);
   }
-  const pull = 0.12 + random() * 0.38;
-  x += (best[0] - x) * pull;
-  z += (best[1] - z) * pull;
-  const own = random();
-  for (let k = 0; k < 5; k++) {
-   positions.set([x - 0.5, 0, z - 0.5], (i * 5 + k) * 3);
-   blades.set([shape[k][0], shape[k][1], own, best[2]], (i * 5 + k) * 4);
-  }
-  const v = i * 5;
-  indices.set([v, v + 1, v + 2, v + 1, v + 3, v + 2, v + 2, v + 3, v + 4], i * 9);
  }
- const geometry = new THREE.BufferGeometry();
- geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
- geometry.setAttribute("blade", new THREE.BufferAttribute(blades, 4));
- geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+ // Briznas sueltas: césped corto entre las matas, para que no queden islas.
+ for (let i = 0; i < loose; i++) {
+  const angle = random() * Math.PI * 2;
+  a.push(random() - 0.5, random() - 0.5, Math.cos(angle) * 0.01, Math.sin(angle) * 0.01);
+  b.push(random(), 1, random(), random());
+ }
+ const geometry = new THREE.InstancedBufferGeometry();
+ const levels = [0, 0.36, 0.7];
+ geometry.setAttribute("position", new THREE.Float32BufferAttribute([...levels.flatMap((y) => [-1, y, 0, 1, y, 0]), 0, 1, 0], 3));
+ geometry.setIndex([0, 1, 2, 1, 3, 2, 2, 3, 4, 3, 5, 4, 4, 5, 6]);
+ geometry.setAttribute("tuftA", new THREE.InstancedBufferAttribute(new Float32Array(a), 4));
+ geometry.setAttribute("tuftB", new THREE.InstancedBufferAttribute(new Float32Array(b), 4));
+ geometry.instanceCount = b.length / 4;
  // La posición real se decide en el sombreador: no hay caja que valga para descartarla.
  geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
  return geometry;
@@ -81,25 +72,38 @@ function createGeometry(side) {
 
 function createMaterial(centre, size, rise) {
  const { data, color } = terrainTextures();
- const blade = attribute("blade", "vec4");
- const side = blade.x, along = blade.y, own = blade.z, clump = blade.w;
+ const tuftA = attribute("tuftA", "vec4"), tuftB = attribute("tuftB", "vec4");
+ const side = positionGeometry.x, along = positionGeometry.y;
+ const radial = tuftB.x, loose = tuftB.y, own = tuftB.z, clump = tuftB.w;
 
- // Dónde nace: su sitio en el parche, envuelto alrededor del centro de la vista.
- const local = positionGeometry.xz.mul(size).sub(centre);
- const root = mod(local.add(size.mul(0.5)), size).sub(size.mul(0.5)).add(centre);
+ // Dónde nace: el centro de su mata, envuelto alrededor del centro de la
+ // vista, más su sitio dentro de la mata (así una mata nunca se parte).
+ const local = tuftA.xy.mul(size).sub(centre);
+ const root = mod(local.add(size.mul(0.5)), size).sub(size.mul(0.5)).add(centre).add(tuftA.zw);
  const terrainUv = root.div(SPAN).add(0.5);
  const terrain = texture(data, terrainUv);
- const amount = terrain.r;
+ const amount = terrain.r, density = terrain.b;
 
- // Densidad: donde hay poca hierba, solo nacen algunas briznas.
- const present = step(own.mul(0.6).add(0.08), amount);
- // Altura: la mata, la brizna, una ondulación amplia del terreno y la máscara.
+ // Densidad: cada mata nace o no entera según la máscara (tupido junto a
+ // caminos, rocas, árboles y orillas; claros entre medias). Las briznas
+ // sueltas salen más repartidas. Donde no hay hierba, nada.
+ const grows = mix(step(clump.mul(0.86).add(0.07), density), step(own.mul(0.9).add(0.04), density.mul(0.7).add(0.12)), loose).mul(step(0.07, amount));
+ // Altura: la mata, el sitio en la mata (el centro, más alto), la brizna,
+ // una ondulación amplia del terreno y la máscara.
  const rolling = texture(noiseTexture, root.mul(0.031)).r.add(0.5);
  // `rise` (0…1) recoge las briznas hacia el suelo cuando la cámara se aleja
  // (al despegar): encogen sin moverse de su sitio. El parche no cambia nunca de
  // tamaño: si lo hiciera, cada brizna saltaría a otro punto y el césped se rompería.
- const height = float(0.54).mul(mix(0.62, 1.2, clump)).mul(mix(0.72, 1.18, fract(own.mul(5.3)))).mul(rolling).mul(amount.mul(0.85).add(0.32)).mul(present).mul(rise);
- const width = float(0.082).mul(mix(0.7, 1.35, fract(own.mul(7.7)))).mul(present).mul(rise.mul(0.5).add(0.5));
+ const height = float(0.56)
+  .mul(mix(0.68, 1.25, clump))
+  .mul(mix(1.08, 0.6, radial))
+  .mul(mix(0.78, 1.15, fract(own.mul(5.3))))
+  .mul(mix(1, 0.5, loose))
+  .mul(rolling)
+  .mul(amount.mul(0.85).add(0.3))
+  .mul(grows)
+  .mul(rise);
+ const width = float(0.058).mul(mix(0.75, 1.3, fract(own.mul(7.7)))).mul(grows).mul(rise.mul(0.5).add(0.5));
 
  // Mira a la cámara (girando solo sobre la vertical), con un desvío propio
  // para que no parezcan cartones alineados.
@@ -107,11 +111,14 @@ function createMaterial(centre, size, rise) {
  const angle = atan(toCamera.y, toCamera.x).add(Math.PI / 2).add(fract(own.mul(13.7)).sub(0.5).mul(1.5));
  const across = vec2(cos(angle), sin(angle));
  // Perfil: ancha en la base, afinada hacia la punta.
- const profile = along.oneMinus().pow(0.55);
+ const profile = along.oneMinus().pow(0.62);
 
- // Curvatura propia: cada brizna cae hacia un lado.
- const leanAngle = own.mul(6.2831 * 3).add(clump.mul(6.2831));
- const lean = vec2(cos(leanAngle), sin(leanAngle)).mul(mix(0.12, 0.42, fract(own.mul(3.1))));
+ // Curvatura propia: la mata se abre en abanico, cada brizna cae hacia fuera
+ // de su centro (las del borde, más), con un giro propio.
+ const outward = tuftA.zw.div(tuftA.zw.length().max(0.0001));
+ const twist = fract(own.mul(9.1)).sub(0.5).mul(1.3);
+ const fan = vec2(outward.x.mul(cos(twist)).sub(outward.y.mul(sin(twist))), outward.x.mul(sin(twist)).add(outward.y.mul(cos(twist))));
+ const lean = fan.mul(mix(0.1, 0.5, radial).add(fract(own.mul(3.1)).mul(0.16)));
  // Viento y rastro: la base no se mueve; la punta, la que más (crece con el cuadrado).
  const wind = windOffset(root).mul(WIND.flex.grass);
  const push = trailPush(root);
@@ -129,13 +136,17 @@ function createMaterial(centre, size, rise) {
  material.positionNode = vec3(root.x.add(across.x.mul(width).mul(side).mul(profile)).add(bend.x), terrain.a.add(tall).sub(drop).sub(0.02), root.y.add(across.y.mul(width).mul(side).mul(profile)).add(bend.y));
 
  // Color: nace del color del suelo (así césped y terreno son una misma masa),
- // oscuro en la base y claro en la punta; más cálido al sol y más frío a la
- // sombra de los árboles; cada mata, un matiz.
+ // oscuro en la base y claro en la punta. Cada mata es de uno de tres verdes
+ // (hondo, fresco o lima); cuál abunda depende de la zona: lima al sol, hondo
+ // a la sombra de los árboles.
  const soil = texture(color, terrainUv).rgb;
  const sunny = texture(noiseTexture, root.mul(0.013)).g;
- const tip = soil.mul(mix(vec3(0.98, 1.2, 0.8), vec3(1.26, 1.26, 0.66), smoothstep(0.35, 0.75, sunny)));
+ const pick = fract(clump.mul(7.31)).add(sunny.sub(0.5).mul(0.7)).sub(terrain.g.mul(0.25));
+ const green = mix(mix(vec3(0.68, 0.94, 0.82), vec3(1.0, 1.2, 0.78), smoothstep(0.28, 0.36, pick)), vec3(1.36, 1.32, 0.56), smoothstep(0.7, 0.78, pick));
  const shaded = mix(vec3(1), vec3(0.8, 0.94, 1.08), terrain.g.mul(0.8));
- material.colorNode = mix(soil.mul(vec3(0.42, 0.56, 0.5)), tip, along.pow(0.9)).mul(shaded).mul(mix(0.9, 1.1, clump));
+ // El corazón de la mata, más oscuro: da volumen sin sombras.
+ const base = soil.mul(vec3(0.36, 0.5, 0.44)).mul(mix(0.8, 1, radial));
+ material.colorNode = mix(base, soil.mul(green), along.pow(1.15)).mul(shaded);
  // Normal hacia arriba: toda la pradera recibe la misma luz que el suelo.
  material.normalNode = transformNormalToView(vec3(0, 1, 0));
  return material;
@@ -145,9 +156,10 @@ export function Grass({ quality = "high" }) {
  const centre = useMemo(() => uniform(new THREE.Vector2()), []);
  const size = useMemo(() => uniform(PATCH), []);
  const rise = useMemo(() => uniform(1), []);
- const geometry = useMemo(() => createGeometry(SIDE[quality] ?? SIDE.high), [quality]);
+ const geometry = useMemo(() => createGeometry(DETAIL[quality] ?? DETAIL.high), [quality]);
  const material = useMemo(() => createMaterial(centre, size, rise), [centre, size, rise]);
  const mesh = useRef(null);
+ if (import.meta.env.DEV) window.__world.grassAt = sampleTerrain; // para las pruebas automáticas
  useEffect(
   () => () => {
    geometry.dispose();

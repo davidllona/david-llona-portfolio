@@ -1,13 +1,13 @@
 import * as THREE from "three";
 import { groundColor } from "./groundColor";
-import { grassAmount, groundHeight, inShade, surface } from "./layout";
+import { grassAmount, grassDensity, groundHeight, inShade, surface } from "./layout";
 
 // Datos del terreno horneados en texturas, para que los sombreadores sepan qué
 // hay en cada punto sin geometría de por medio (técnica de folio-2025, MIT;
 // allí la textura viene pintada, aquí sale del plano de la isla).
 //
-//  · data  (16 bits flotantes): R = cuánta hierba · G = sombra de árbol ·
-//    A = altura del suelo en metros.
+//  · data  (16 bits flotantes): R = cuánta hierba (altura) · G = sombra de árbol ·
+//    B = densidad de matas · A = altura del suelo en metros.
 //  · color (8 bits, sRGB): color del suelo.
 //
 // Cubren SPAN × SPAN metros centrados en el origen: uv = xz / SPAN + 0.5.
@@ -34,7 +34,7 @@ function startBake() {
     const height = groundHeight(x, z);
     data[i] = half(grassAmount(x, z, kind));
     data[i + 1] = half(kind === "shade" || inShade(x, z) ? 1 : 0);
-    data[i + 2] = 0;
+    data[i + 2] = half(grassDensity(x, z, kind));
     data[i + 3] = half(height);
     groundColor(tone, x, z, { kind, height }).convertLinearToSRGB();
     color.set([tone.r * 255, tone.g * 255, tone.b * 255, 255], i);
@@ -54,6 +54,18 @@ function startBake() {
   return { data: dataTexture, color: colorTexture };
  };
  return { advance, finish };
+}
+
+// Lo que lee el césped en un punto, con la misma interpolación que la GPU:
+// { amount, shade, density, height }. Para las pruebas.
+export function sampleTerrain(x, z) {
+ const { data } = terrainTextures();
+ const read = THREE.DataUtils.fromHalfFloat;
+ const u = (x / SPAN + 0.5) * SIZE - 0.5, v = (z / SPAN + 0.5) * SIZE - 0.5;
+ const u0 = Math.floor(u), v0 = Math.floor(v), fu = u - u0, fv = v - v0;
+ const at = (column, row, channel) => read(data.image.data[(Math.min(SIZE - 1, Math.max(0, row)) * SIZE + Math.min(SIZE - 1, Math.max(0, column))) * 4 + channel]);
+ const mixed = (channel) => (at(u0, v0, channel) * (1 - fu) + at(u0 + 1, v0, channel) * fu) * (1 - fv) + (at(u0, v0 + 1, channel) * (1 - fu) + at(u0 + 1, v0 + 1, channel) * fu) * fv;
+ return { amount: mixed(0), shade: mixed(1), density: mixed(2), height: mixed(3) };
 }
 
 let baked = null;

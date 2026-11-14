@@ -4,10 +4,37 @@ Actualizado: 14 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
 **En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **En curso: bloque 3** (errores de juego), a medias: ver su fila y «Bloque 3, lo que queda».
+**En curso: objetivo 18 — pulido del mundo 1** (`docs/OBJETIVO-18.md`, 14-11-2026). **Sustituye a los bloques 4 a 7 del objetivo 16.** Ocho apartados, commit y push por apartado; paradas solo tras el 4 y tras el 8. Ver «Objetivo 18».
 Decidido por David el 13-11-2026: los pesos reales de los modelos mandan sobre la ficha (reducir «Japan Lamp», puente, observatorio y cabaña hasta que no bajen los fps y dar el número final de triángulos de cada uno); los pasos fuera de la hierba y los sonidos de baloncesto se quedan sintetizados hasta que él avise.
 Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
 Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado.
 Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Contents/MacOS/Blender -b` (5.0.1). No hay ffmpeg: el audio también se convierte con Blender.
+
+## Objetivo 18
+
+Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Windows): llegada 75 · proyectos 77 · estanque 71 · meseta 81 · pista 83. Entre pasadas iguales varían ±10.
+
+| Apartado | Estado |
+|---|---|
+| 1. Césped | **Hecho.** Fps después: 74 · 82 · 77 · 83 · 85. Capturas: `capturas/23-pulido/1-cesped/` (antes: `0-antes/`) |
+| 2. Rocas, caminos, farolas y carteles | Sin empezar |
+| 3. Color y vegetación (variantes de árbol, capa baja, pájaros) | Sin empezar |
+| 4. Agua y luz | Sin empezar. **Parada** al terminar |
+| 5. Baloncesto | Sin empezar |
+| 6. Fútbol | Sin empezar |
+| 7. Edificios | Sin empezar |
+| 8. Jardín japonés | Sin empezar. **Parada** al terminar |
+
+**Apartado 1, lo que hay** (`flora/Grass.jsx`, `layout.js`, `terrainData.js`, `groundColor.js`, `tests/e2e/motion.mjs`, `tests/e2e/pulido.mjs`):
+- Una sola brizna (7 vértices, 4 alturas: base ancha, punta fina) dibujada con instancias: ~217.000 en calidad alta (20.736 matas en abanico de ~9 briznas más 30.000 sueltas), una llamada de dibujo. Antes: una malla de 113.000 briznas de 3 triángulos. El centro de la mata es más alto y más oscuro; las briznas caen hacia fuera.
+- **Densidad por máscara** (`grassDensity` en `layout.js`, canal B de la textura de datos del terreno): tupida junto a caminos, edificios, rocas, pies de árbol, farolas, carteles, orillas y donde empieza la arena; a campo abierto, manchas tupidas y claros de césped ralo. Cada mata nace o no entera.
+- Tres verdes por mata (hondo, fresco, lima); cuál abunda depende de la zona (lima al sol, hondo bajo los árboles). Base oscura, punta clara.
+- Viento con rachas, ráfaga y rastro del astronauta y de Woody: los mismos campos de antes (`wind.js`, `trail.js`).
+- Suelo de hierba con manchas suaves y continuas de verde claro y oscuro (antes, un tono por triángulo).
+- **Ninguna brizna sobre lo construido**: la hierba empieza a 0,75 m de pistas, plataforma, plaza y zócalos. Lo comprueba `motion.mjs` leyendo la máscara como la lee la GPU (máximo 0,000 en pista, campo, plataforma, plaza y eje de los caminos).
+- `node tests/e2e/pulido.mjs <carpeta> [puntos] [vistas] [momentos]`: capturas de cada punto con la cámara de juego, a ras y desde arriba, de día y de noche.
+- Pruebas: `motion` 11 de 11, `errors` bien, `entrada.mjs` 0 pipelines en caliente al entrar y al despegar, consola sin errores.
+- El respaldo WebGL2 dibuja y mueve el césped instanciado (`motion.mjs "?backend=webgl"`). Sin comprobar: la calidad baja (`low`).
 
 ## Objetivo 16
 

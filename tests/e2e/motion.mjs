@@ -87,4 +87,26 @@ await t.shot("rastro-recien");
 await t.put(-27, 22, { settle: 4500 });
 const healed = await trail((middle.x + end.x) / 2, end.z);
 check(healed < behind * 0.12, `la hierba se recupera sola: ${behind.toFixed(2)} → ${healed.toFixed(3)} en 4,5 s`);
+
+// Ninguna brizna sobre lo construido: la máscara que lee el césped (interpolada
+// como en la GPU) vale menos que el umbral de nacer (0,07) en toda la pista,
+// el campo, la plataforma del cohete, la plaza y el eje de los caminos.
+const hard = await t.evaluate(async () => {
+ const w = window.__world, L = await import("/src/worlds/living/layout.js");
+ const worst = { pista: 0, campo: 0, plataforma: 0, plaza: 0, caminos: 0 };
+ const see = (name, x, z) => { worst[name] = Math.max(worst[name], w.grassAt(x, z).amount); };
+ for (const [name, rect] of [["pista", L.COURT], ["campo", L.PITCH]]) for (let x = rect.x0; x <= rect.x1; x += 0.2) for (let z = rect.z0; z <= rect.z1; z += 0.2) see(name, x, z);
+ for (const [name, disc, r] of [["plataforma", L.PAD, L.PAD.padRadius], ["plaza", L.PLAZA, L.PLAZA.r - 0.4]]) for (let a = 0; a < 6.283; a += 0.05) for (let d = 0; d <= r; d += 0.2) see(name, disc.x + Math.cos(a) * d, disc.z + Math.sin(a) * d);
+ for (const path of L.PATHS) for (let i = 0; i < path.length - 1; i++) for (let k = 0; k <= 1; k += 0.02) see("caminos", path[i][0] + (path[i + 1][0] - path[i][0]) * k, path[i][1] + (path[i + 1][1] - path[i][1]) * k);
+ return worst;
+});
+check(Object.values(hard).every((v) => v < 0.07), `ninguna brizna sobre pista, campo, plataforma, plaza ni caminos (máscara máxima: ${Object.entries(hard).map(([k, v]) => `${k} ${v.toFixed(3)}`).join(" · ")})`);
+// Y la densidad cambia: tupida junto al camino, rala en los claros.
+const spread = await t.evaluate(() => {
+ const w = window.__world;
+ let low = 1, high = 0;
+ for (let x = -44; x <= 44; x += 0.5) for (let z = -44; z <= 44; z += 0.5) { const s = w.grassAt(x, z); if (s.amount > 0.3) { low = Math.min(low, s.density); high = Math.max(high, s.density); } }
+ return { low, high, verge: w.grassAt(-9, 2.6).density };
+});
+check(spread.low < 0.2 && spread.high > 0.95 && spread.verge > 0.9, `hay claros y zonas tupidas (densidad ${spread.low.toFixed(2)}–${spread.high.toFixed(2)}; junto al camino ${spread.verge.toFixed(2)})`);
 await t.done();

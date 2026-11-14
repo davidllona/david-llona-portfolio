@@ -512,7 +512,7 @@ const built = (x, z) => FOOTPRINTS.some((f) => (f.x - x) ** 2 + (f.z - z) ** 2 <
 
 // Cuánta hierba crece en un punto, de 0 (nada) a 1 (pradera alta). De aquí
 // sale la máscara que lee el césped: densidad y altura a la vez.
-const GRASS_AMOUNT = { meadow: 1, grass: 0.7, moss: 0.86, shade: 0.5, pathEdge: 0.3 };
+const GRASS_AMOUNT = { meadow: 1, grass: 0.7, moss: 0.86, shade: 0.5, pathEdge: 0.42 };
 const toRect = (x, z, rect) => Math.hypot(Math.max(rect.x0 - x, 0, x - rect.x1), Math.max(rect.z0 - z, 0, z - rect.z1));
 // Distancia a lo construido más cercano (edificios, carteles, pistas, plataforma, plaza).
 function toBuilt(x, z) {
@@ -528,9 +528,14 @@ function toBuilt(x, z) {
 export function grassAmount(x, z, kind = surface(x, z)) {
  const base = GRASS_AMOUNT[kind] ?? 0;
  if (base === 0 || built(x, z)) return 0;
- // Junto a los caminos y a lo construido, césped corto (una franja segada); la
- // hierba alta queda para las praderas.
- const verge = (0.36 + 0.64 * smooth(1.3, 4.6, pathDistance(x, z))) * (0.4 + 0.6 * smooth(0.2, 3.2, toBuilt(x, z)));
+ // Ni una brizna sobre lo construido: la hierba empieza a un palmo largo de
+ // losas, plataformas, pistas y zócalos (la máscara se lee interpolada y las
+ // briznas se inclinan; sin este margen asomarían por encima del borde).
+ const toHard = toBuilt(x, z);
+ if (toHard < 0.75) return 0;
+ // Junto a los caminos y a lo construido la hierba es más corta, pero no
+ // rala: es donde más tupida crece (ver `grassDensity`).
+ const verge = (0.5 + 0.5 * smooth(1.3, 4.6, pathDistance(x, z))) * (0.45 + 0.55 * smooth(0.75, 3.2, toHard));
  // Dentro de cada zona, manchas algo más altas y más bajas.
  return base * (0.8 + meadow(x, z) * 0.4) * verge;
 }
@@ -733,6 +738,58 @@ const seated = {
 const peek = (list) => list.map((rock) => (groundHeight(rock.x, rock.z) < WATER_LEVEL ? { ...rock, y: Math.max(rock.y, WATER_LEVEL - 0.28 * rock.scale) } : rock));
 for (const key of ["rocks", "cliffRocks", "shoreRocks"]) seated[key] = peek(seated[key]);
 export const SCATTER = { trees, ...seated, flowers: Object.values(seated.flowersByKind).flat(), lilies, lanterns };
+
+// ── Densidad del césped ─────────────────────────────────────────────────────
+// Cuántas matas nacen en cada punto, de 0 a 1 (la altura la da `grassAmount`).
+// La hierba se espesa donde en un prado de verdad nadie la pisa ni la siega:
+// al borde de los caminos, al pie de rocas, árboles y edificios y en las
+// orillas. Entre medias quedan claros de césped ralo por los que asoma el suelo.
+let fringes = null; // pies de árbol y rocas, en casillas de 4 m
+function fringeAt(x, z) {
+ if (!fringes) {
+  fringes = new Map();
+  const add = (list, radius, reach) => {
+   for (const item of list) {
+    const one = { x: item.x, z: item.z, r: radius(item), reach };
+    const key = Math.floor(item.x / 4) * 1000 + Math.floor(item.z / 4);
+    if (!fringes.has(key)) fringes.set(key, []);
+    fringes.get(key).push(one);
+   }
+  };
+  add(trees, (t) => 0.35 * t.scale, 1.9);
+  add(seated.rocks, (r) => 0.55 * r.scale, 1.3);
+  add(seated.cliffRocks, (r) => 0.55 * r.scale, 1.3);
+  add(lanterns, () => 0.1, 0.9);
+  add(SIGNPOSTS, () => 0.2, 1.1);
+ }
+ let best = 0;
+ const cx = Math.floor(x / 4), cz = Math.floor(z / 4);
+ for (let dx = -1; dx <= 1; dx++) {
+  for (let dz = -1; dz <= 1; dz++) {
+   const cell = fringes.get((cx + dx) * 1000 + cz + dz);
+   if (!cell) continue;
+   for (const one of cell) best = Math.max(best, 1 - smooth(one.r, one.r + one.reach, Math.hypot(one.x - x, one.z - z)));
+  }
+ }
+ return best;
+}
+export function grassDensity(x, z, kind = surface(x, z)) {
+ if (!(GRASS_AMOUNT[kind] > 0)) return 0;
+ // La hierba invade el borde del camino a mechones, no en franja.
+ if (kind === "pathEdge") return 0.75 * smooth(0.3, 0.62, noise2(x * 1.1 + 4, z * 1.1 - 9));
+ if (kind === "moss") return 1; // orillas del río y del estanque, pie del acantilado
+ const fromCentre = Math.hypot(x, z);
+ const edge = Math.max(
+  1 - smooth(2.3, 4.3, pathDistance(x, z)),
+  1 - smooth(0.9, 2.8, toBuilt(x, z)),
+  1 - smooth(0.6, 3.2, shoreRadius(Math.atan2(z, x)) - 5.5 - fromCentre), // donde empieza la arena
+  fringeAt(x, z),
+ );
+ // Claros y manchas tupidas a campo abierto.
+ const spread = noise2(x * 0.13 + 5.2, z * 0.13 - 3.4) * 0.65 + noise2(x * 0.37 - 8, z * 0.37 + 2) * 0.35;
+ const open = 0.12 + (kind === "meadow" ? 0.78 : 0.6) * smooth(0.4, 0.58, spread);
+ return Math.max(edge * 0.95 + 0.05, open);
+}
 
 // ── Colisiones ──────────────────────────────────────────────────────────────
 // Lo sólido del planeta (árboles, rocas, edificios, la cascada, el pozo, los
