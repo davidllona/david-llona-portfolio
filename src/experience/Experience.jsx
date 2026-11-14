@@ -32,6 +32,31 @@ const QUALITY = {
 const debug = import.meta.env.DEV ? new URLSearchParams(window.location.search) : null;
 const flag = (name, fallback) => (debug?.has(name) ? Number(debug.get(name)) : fallback);
 
+// Nada se dibuja hasta que su pipeline existe en la GPU.
+// El precalentamiento (`compileAsync`) crea los pipelines en asíncrono: three
+// r183 los apunta en su caché en el acto, pero el objeto de la GPU no llega
+// hasta que el controlador termina de compilar. Si entretanto un fotograma
+// real dibuja algo que comparte ese pipeline (lo que estaba oculto y aparece:
+// la estela de la estrella fugaz, por ejemplo), `setPipeline` recibe
+// `undefined`, lanza una excepción a mitad del dibujado y el renderer se queda
+// con su estado interno a medias (`_callDepth`, destino): no vuelve a pintar
+// nada. En Metal el pipeline llega antes del siguiente fotograma; en Direct3D
+// tarda varios. No se espera un tiempo: el objeto se salta mientras su
+// pipeline esté pendiente y entra solo en el primer fotograma en que existe.
+// (three ya hace lo mismo con los pipelines que fallan: `pipelineData.error`.)
+function skipUnbuiltPipelines(renderer) {
+ const backend = renderer.backend;
+ if (!backend.isWebGPUBackend) return; // WebGL2 enlaza sus programas al usarlos
+ const draw = backend.draw;
+ backend.draw = function (renderObject, info) {
+  if (this.get(renderObject.pipeline).pipeline === undefined) {
+   if (import.meta.env.DEV) window.__world.skippedDraws = (window.__world.skippedDraws ?? 0) + 1; // para las pruebas automáticas
+   return;
+  }
+  return draw.call(this, renderObject, info);
+ };
+}
+
 // El renderer es WebGPU. Donde el navegador no lo ofrece, el propio renderer
 // cae a su backend WebGL2: mismos materiales de nodos, mismo código.
 function createRenderer(canvas, onReady) {
@@ -44,6 +69,7 @@ function createRenderer(canvas, onReady) {
  // La inicialización es asíncrona (pide el adaptador y el dispositivo de GPU):
  // hasta que termina no se dibuja nada.
  renderer.init().then(() => {
+  skipUnbuiltPipelines(renderer);
   if (import.meta.env.DEV) Object.assign(window.__world, { renderer, backend: renderer.backend.isWebGPUBackend ? "webgpu" : "webgl2" }); // para las pruebas automáticas
   stage("gpu");
   onReady();

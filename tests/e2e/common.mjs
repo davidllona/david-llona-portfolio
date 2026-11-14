@@ -5,7 +5,11 @@
 //   node tests/e2e/<prueba>.mjs
 //
 // Variables: E2E_URL (por defecto http://localhost:5199/), CHROME (ruta al
-// ejecutable), E2E_SHOTS (carpeta para capturas; por defecto, la temporal).
+// ejecutable), E2E_SHOTS (carpeta para capturas; por defecto, la temporal),
+// E2E_HEADFUL=1 (Chrome con ventana, como lo ve una persona).
+//
+// Cualquier excepción de la página es un FALLO de la prueba que la vea, con
+// su traza: una sola a mitad del dibujado puede dejar el lienzo en blanco.
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
@@ -31,12 +35,13 @@ const MOBILE_UA =
 // `tips`: con los consejos de Woody activados (bienvenida y frases de zona).
 // Por defecto van apagados: las demás pruebas no esperan a que termine de hablar.
 // `early`: no espera a que el planeta esté listo (para ver la bienvenida mientras se prepara).
-export async function open({ mobile = false, viewport, query = "", uncapped = false, tips = false, early = false } = {}) {
+// `headful`: con ventana y sin opciones gráficas forzadas, como el Chrome de un visitante.
+export async function open({ mobile = false, viewport, query = "", uncapped = false, tips = false, early = false, headful = !!process.env.E2E_HEADFUL } = {}) {
  const browser = await puppeteer.launch({
   executablePath: CHROME,
-  headless: "new",
+  headless: headful ? false : "new",
   args: [
-   ...GPU_ARGS,
+   ...(headful ? ["--window-size=1480,1040"] : GPU_ARGS),
    ...(uncapped ? ["--disable-frame-rate-limit", "--disable-gpu-vsync"] : []),
   ],
  });
@@ -53,7 +58,8 @@ export async function open({ mobile = false, viewport, query = "", uncapped = fa
   // Avisos conocidos de three que no dependen de este proyecto.
   if (["error", "warning"].includes(message.type()) && !/Clock|PCFSoft/.test(message.text())) logs.push(message.text().slice(0, 300));
  });
- page.on("pageerror", (error) => logs.push("[pageerror] " + error.message.slice(0, 300)));
+ const pageErrors = [];
+ page.on("pageerror", (error) => pageErrors.push(`${error.message.slice(0, 300)}\n${(error.stack ?? "").split("\n").slice(1, 9).join("\n")}`));
  // Cada prueba parte de cero: sin tema, ajustes ni logros guardados.
  await page.evaluateOnNewDocument((tips) => {
   try {
@@ -80,6 +86,7 @@ export async function open({ mobile = false, viewport, query = "", uncapped = fa
   browser,
   page,
   logs,
+  pageErrors,
   evaluate,
   shot: (name) => page.screenshot({ path: `${out}${name}.jpg`, type: "jpeg", quality: 82 }),
   text: (selector) => evaluate((selector) => document.querySelector(selector)?.textContent ?? null, selector),
@@ -194,6 +201,8 @@ export async function open({ mobile = false, viewport, query = "", uncapped = fa
     seconds,
    ),
   done: async () => {
+   check(pageErrors.length === 0, `sin excepciones de página${pageErrors.length ? ` — ${pageErrors.length}:` : ""}`);
+   for (const one of [...new Set(pageErrors)]) console.log(one.replace(/^/gm, "       "));
    console.log(logs.length ? [...new Set(logs)].join("\n") : "sin errores ni avisos en consola");
    await browser.close();
    if (failures || logs.length) process.exitCode = 1;

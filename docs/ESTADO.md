@@ -93,6 +93,7 @@ node tests/e2e/sheet.mjs       # monta varias capturas en una hoja: salida.jpg c
 node tests/e2e/trees.mjs       # capturas de los árboles; no comprueba nada
 node tests/perf/peso.mjs       # peso descargado en la primera visita (build de producción en el 5198)
 node tests/perf/fps.mjs        # fps en cinco puntos
+node tests/e2e/errors.mjs      # ninguna excepción de página y el lienzo dibujado: carga, bienvenida, estrella fugaz y mundo, sin ventana y con ventana (incluida en e2e)
 npm run e2e                    # 290 comprobaciones en Chrome sin ventana (con el servidor encendido)
 node tests/e2e/sounds.mjs      # sonido uno por uno: señal medida de cada bucle, golpes, silencio; graba el recorrido (incluida en e2e)
 node tests/e2e/football.mjs    # fútbol de principio a fin, con fotogramas de cada tiro (incluida en e2e)
@@ -109,7 +110,7 @@ node tests/e2e/motion.mjs      # viento, ráfaga y rastro en la hierba; guarda f
 node tests/e2e/look.mjs tests/e2e/views.json   # las 12 vistas fijas, de día y de noche
 ```
 
-**Windows**: las pruebas buscan Chrome solas en Mac, Windows y Linux (`tests/chrome.mjs`; la variable `CHROME` manda) y lanzan WebGPU sobre Direct3D. Las capturas van a la carpeta temporal salvo que se indique `E2E_SHOTS`. Git: `.gitattributes` fija LF en todo el texto y marca los binarios; en la copia de Windows, `core.autocrlf=false` y `core.filemode=false` (los `.glb` «modificados» tras copiar desde el Mac eran solo el bit de permisos).
+**Windows**: las pruebas buscan Chrome solas en Mac, Windows y Linux (`tests/chrome.mjs`; la variable `CHROME` manda) y lanzan WebGPU sobre Direct3D. Las capturas van a la carpeta temporal salvo que se indique `E2E_SHOTS`; `E2E_HEADFUL=1` abre Chrome con ventana. Blender no está en el PATH: `"C:/Program Files/Blender Foundation/Blender 5.0/blender.exe" -b` (5.0.1). Git: `.gitattributes` fija LF en todo el texto y marca los binarios; en la copia de Windows, `core.autocrlf=false` y `core.filemode=false` (los `.glb` «modificados» tras copiar desde el Mac eran solo el bit de permisos).
 
 Atajos de desarrollo: `?world=cosmic` abre el planeta antiguo; `?webgl=0` simula un navegador sin GPU (solo sale un aviso con LinkedIn y correo); `?backend=webgl` fuerza el respaldo WebGL2.
 
@@ -247,6 +248,8 @@ Rendimiento medido en el Mac a 2880 × 1620 sobre WebGPU: 192–221 fps tras el 
 | Permiso para borrar `public/modelos` (200 MB), el kit Sci-Fi y su `.zip` | — | Solo ignorados en git |
 
 ## Incidencias conocidas
+
+- **Resuelto el 14-11-2026 — en Windows no se dibujaba el 3D** (solo texto y flecha en la bienvenida; `setPipeline … is not of type GPURenderPipeline`). Causa: el precalentamiento crea los pipelines en asíncrono (`compileAsync`) y three r183 los apunta en caché antes de que existan en la GPU; la estela de la estrella fugaz (oculta al compilar, visible ~1,2 s después) se dibujaba con el suyo aún pendiente, la excepción cortaba el dibujado a medias y el renderer quedaba con `_callDepth` descolocado para siempre. En Metal el pipeline llega antes del siguiente fotograma; en Direct3D, no. Arreglo: `skipUnbuiltPipelines` en `Experience.jsx` (un objeto no se dibuja mientras su pipeline no exista; entra solo cuando llega). Prueba: `node tests/e2e/errors.mjs` (con y sin ventana; la primera de `npm run e2e`), y toda prueba de `common.mjs` da FALLO ante cualquier excepción de página. Capturas: `capturas/21-windows-pipeline/`.
 
 - `woody.mjs` falló una vez de tres en «y la baja contigo» (Woody se quedó arriba de la rampa, y=0,8, con el astronauta ya abajo). Sin tocar a Woody en ese commit. Para el bloque 3 del objetivo 16.
 
