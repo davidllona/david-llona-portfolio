@@ -48,6 +48,8 @@ Se convierten con `tools/assets/sounds.py` (Blender, porque en el Mac no hay ffm
 
 Añadido el 14-11-2026 (objetivo 18): «Animated Bluebird with Feathery Wings», `animated-bluebird-with-feathery-wings/` (ZIP de 123 MB: `.blend`, FBX por animación, OBJ y texturas de 4K). 3.642 caras, esqueleto de 354 huesos, 11 animaciones. **En uso**: los pájaros del planeta (`public/models/living/fauna/pajaro.glb`, 720 triángulos, 74 kB; `tools/assets/bird.py`).
 
+En uso desde el objetivo 18, apartado 5: «Basketball 3D Icons» (`basketball-3d-icons/05_Basketball.glb`) es la canasta de la pista (`public/models/living/court/canasta.glb`, 2.200 triángulos; `tools/assets/hoop.py`). Sonidos de baloncesto: no hay recurso; siguen sintetizados.
+
 Ya en uso desde antes (no están en la lista de este objetivo): los cinco árboles y arbustos de slabdsgn
 (`public/models/living/flora/*.glb`).
 

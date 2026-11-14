@@ -244,6 +244,16 @@ const SOUNDS = {
   tone(out, t, { from: 240, to: 140, type: "square", peak: 0.12 * s, decay: 0.07 });
   hiss(out, t, { filter: "lowpass", from: 1400, peak: 0.2 * s, decay: 0.06 });
  },
+ // Valla metálica: un golpe sordo y la malla que tintinea.
+ "ball-fence": (out, t, s) => {
+  for (const [ratio, decay] of [[1, 0.22], [1.93, 0.16], [3.1, 0.1], [4.7, 0.07]]) tone(out, t + ratio * 0.004, { from: vary(520) * ratio, type: "triangle", peak: (0.11 * s) / ratio, decay });
+  hiss(out, t, { filter: "bandpass", from: 4200, to: 2600, q: 2.2, peak: 0.16 * s, attack: 0.005, decay: 0.22 });
+ },
+ // Tapón: la mano contra el cuero.
+ "ball-block": (out, t, s) => {
+  tone(out, t, { from: 210, to: 90, peak: 0.4 * s, decay: 0.09 });
+  hiss(out, t, { filter: "bandpass", from: 1500, q: 0.8, peak: 0.3 * s, decay: 0.05 });
+ },
  "ball-post": (out, t, s) => tone(out, t, { from: 290, to: 250, type: "triangle", peak: 0.2 * s, decay: 0.16 }),
  "ball-net": (out, t) => {
   hiss(out, t, { filter: "bandpass", from: 5200, to: 1700, q: 0.9, peak: 0.28, attack: 0.02, decay: 0.3 });
@@ -332,7 +342,7 @@ const SOUNDS = {
 // Mínimo entre dos repeticiones del mismo sonido, en segundos.
 // Los cuatro sonidos de interfaz comparten turno: un botón que abre una ficha no suena dos veces.
 const GROUP = { "ui-open": "ui", "ui-close": "ui", "ui-toggle": "ui", "ui-pop": "ui" };
-const COOLDOWN = { default: 0.05, ui: 0.09, splash: 0.4, "ball-grass": 0.12, "ball-woodwork": 0.15, "ball-crossbar": 0.15, "ball-wall": 0.15, "ball-save": 0.15, "ball-goalnet": 0.8, "football-goal": 1.5, "ball-floor": 0.07, "ball-rim": 0.06, crate: 0.12, chirp: 0.5, flutter: 1.5, gust: 3 };
+const COOLDOWN = { default: 0.05, ui: 0.09, splash: 0.4, "ball-grass": 0.12, "ball-woodwork": 0.15, "ball-crossbar": 0.15, "ball-wall": 0.15, "ball-save": 0.15, "ball-goalnet": 0.8, "football-goal": 1.5, "ball-floor": 0.07, "ball-rim": 0.06, "ball-fence": 0.1, "ball-block": 0.2, crate: 0.12, chirp: 0.5, flutter: 1.5, gust: 3 };
 
 // Reproduce un sonido. Con `x, z` suena desde ese punto del mundo: más flojo
 // cuanto más lejos del astronauta y desplazado a izquierda o derecha.

@@ -18,8 +18,8 @@ import { open, check } from "./common.mjs";
 // Lo que se pisa o se roza a propósito (plantas bajas, adoquines, agua, luz).
 const SOFT = /^(adoquín|espiga|flor|trébol|helecho|arbusto|junco|seta|guijarro|nenúfar|Scene\/|\()/;
 // Lo que se mueve (lleva su propio obstáculo o su propia física) o va a mano en layout.js.
-const MOVING = /^(cohete|caja|barril|balón|pájaros)/;
-const BY_HAND = /^(puente)/;
+const MOVING = /^(cohete|caja|barril|balón|pájaros|puerta de la pista|barrera de la pista)/;
+const BY_HAND = /^(puente|valla)/;
 const mode = process.argv[2];
 const FILE = new URL("../../src/worlds/living/solids.js", import.meta.url);
 const CELL = 0.15, EXTENT = 51, LOW = 0.25, HIGH = 1.4; // por debajo de 25 cm se pisa (losa de la nave, bordillos)

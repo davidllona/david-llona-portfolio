@@ -21,7 +21,7 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 | 3. Color y vegetación (variantes de árbol, capa baja, pájaros) | **Hecho.** Fps después: 74 · 77 · 79 · 78 · 81. Capturas: `capturas/23-pulido/3-color/`, `3-pajaros/` |
 | 4. Agua y luz | **Hecho y aprobado** (con los retoques de abajo). Fps después: 86 · 88 · 86 · 85 · 87. Capturas: `capturas/23-pulido/parada-4/` (12 puntos × cámara de juego, a ras y desde arriba × día y noche; hojas `hoja-dia.jpg` y `hoja-noche.jpg`) |
 | Retoques de 1–4 (pedidos por David al aprobar) | **Hechos.** Fps: 110 · 114 · 109 · 113 · 114. Hojas: `capturas/23-pulido/retoques/hoja-dia.jpg` y `hoja-noche.jpg` |
-| 5. Baloncesto | Sin empezar |
+| 5. Baloncesto | **Hecho.** Fps después: 106 · 113 · 109 · 111 · 113. Capturas: `capturas/23-pulido/5-baloncesto/` (`hoja.jpg`) |
 | 6. Fútbol | Sin empezar |
 | 7. Edificios | Sin empezar |
 | 8. Jardín japonés | Sin empezar. **Parada** al terminar |
@@ -78,6 +78,16 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 - Pradera entre la plaza y el campo de fútbol: tres árboles a los lados (cerezo, roble, álamo), tres grupos de rocas y ocho manchas de flores, puestos a mano sin mover el resto del reparto.
 - **No hecho**: guardar las tres imágenes de referencia en `docs/referencias/`. No han llegado adjuntas a la sesión en ninguno de los tres mensajes.
 - Colisiones rehorneadas (813 obstáculos). Pruebas en primer plano: `collisions`, `terrain`, `errors`, `entrada.mjs` (0 pipelines en caliente), `living`, `portfolio`, `camera`, `woody`, `birds`, `life`, `characters`: 179 comprobaciones bien, 0 fallos.
+
+**Apartado 5, lo que hay** (`Court.jsx`, `layout.js`, `audio/engine.js`, `tools/assets/hoop.py`, `public/models/living/court/canasta.glb`, `tests/e2e/basket.mjs`):
+- **Canasta**: el modelo «Basketball 3D Icons» sin el balón ni la peana (107.000 → 2.200 triángulos, 72 kB): poste, tablero y aro en una malla y la **red aparte**, que se va con el balón, se estira y se sacude al encestar (y tiembla un poco al dar en el aro). Color de cada material pasado a color de vértice. El tablero y el poste con los que choca el balón se han medido sobre el modelo.
+- **Valla** metálica de 3,3 m alrededor de toda la pista, hecha a mano: postes de tubo, tres largueros y paños de malla de rombos. **Puerta** en el lado norte, donde llega el camino: se abre hacia fuera al acercarse y se cierra sola. El balón rebota en los cuatro lados (suena a metal) y no se sale a ninguna altura, tampoco con la puerta abierta. El astronauta y Woody solo pasan por la puerta.
+- **Tiro con carga**, sin modo de juego: con el balón en la mano y dentro de la pista, mantener E (o el ratón, o el dedo) carga la fuerza —sube y baja en vaivén— y al soltar se tira. Barra de fuerza junto al astronauta con la franja verde donde hay que soltar (depende de la distancia). Corto con poca fuerza, largo con demasiada; un aviso dice cuál.
+- **Barrera**: un maniquí delante del aro que se pone en la línea del tiro y salta al salir el balón (0,7–1,1 m): tapona los tiros flojos o tensos («¡Tapón!»). Con colisión.
+- **Marcador** de canastas y racha sobre el tablero; la racha se corta al fallar. El balón vuelve solo a su soporte si se queda parado lejos (ya lo hacía).
+- **Sonido**: no había ZIP de baloncesto en Descargas. Bote, aro, tablero y red siguen **sintetizados**, y se añaden la valla y el tapón, también sintetizados.
+- Pruebas: `basket` 20 de 20 (dos pasadas), `progress` (el logro «Primer enceste» con tiro cargado), `living`, `woody`, `camera`, `sounds`, `collisions`, `terrain`, `errors`, `entrada.mjs` (0 pipelines en caliente).
+- Sin comprobar: el tiro con el dedo en un teléfono; la dificultad jugando a mano (las pruebas tiran con la fuerza exacta); la valla del sur queda entre la cámara y la pista (es malla, se ve a través).
 
 ## Objetivo 16
 
@@ -178,6 +188,7 @@ node tests/e2e/descent.mjs     # el descenso tras el clic, una captura cada 200 
 node tests/e2e/loader.mjs      # pantalla de carga: peso, primer pintado, pies sin patinar, móvil; fotogramas del bucle y del fundido
 node tests/e2e/sheet.mjs       # monta varias capturas en una hoja: salida.jpg columnas ancho img1 img2 …
 node tests/e2e/trees.mjs       # capturas de los árboles; no comprueba nada
+node tests/e2e/basket.mjs      # baloncesto: tiro con carga, racha, barrera, valla y puerta; capturas
 node tests/e2e/birds.mjs       # pájaros: posados en suelo y en alto, despegue al acercarse, bandada; capturas
 node tests/e2e/pulido.mjs      # objetivo 18: capturas de cada punto (juego, a ras, desde arriba; día y noche)
 node tests/perf/carga.mjs      # pantalla de carga: tiempo hasta poder entrar, tareas largas y parones VISIBLES (traza de Chrome); [url] [pasadas=N] [perfil]

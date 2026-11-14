@@ -62,12 +62,17 @@ check((await has("mejor-amigo")) && (await sounds()).pet === 3, "tres caricias: 
 // Primer enceste: una canasta que entra por el aro.
 await t.put(BASKET.ballStand.x + 0.9, BASKET.ballStand.z + 0.6, { withWoody: false, settle: 500 });
 let score = 0;
+await t.evaluate(() => (window.__world.court.blocker.active = false)); // sin la barrera: aquí se mide el logro
 for (let tries = 0; tries < 12 && !score; tries++) {
  await page.keyboard.press("KeyE"); // coger
  await wait(350);
  await t.put(BASKET.hoop.x - 3.2, BASKET.hoop.z, { withWoody: false, settle: 250 });
  check(tries > 0 || !(await has("primer-enceste")), "con el balón en la mano aún no hay logro");
- await page.keyboard.press("KeyE"); // tirar
+ // Tirar: se mantiene E lo justo para la distancia y se suelta.
+ const hold = await t.evaluate(() => (window.__world.court.idealCharge() / window.__world.court.rate) * 1000);
+ await page.keyboard.down("KeyE");
+ await wait(Math.round(hold));
+ await page.keyboard.up("KeyE");
  await wait(2600);
  score = await t.evaluate(() => window.__world.game.score);
  if (!score) {

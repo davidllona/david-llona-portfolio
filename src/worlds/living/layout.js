@@ -275,6 +275,9 @@ export const BASKET = {
  hoop: { x: COURT.x1 - 0.9, z: (COURT.z0 + COURT.z1) / 2, rimHeight: 3.0 }, // tablero al este
  ballStand: { x: COURT.x0 + 5.8, z: COURT.z1 - 1.8 },
 };
+// Valla de la pista: la rodea entera, por fuera del bordillo. La puerta, en el
+// lado norte, donde llega el camino.
+export const COURT_FENCE = { x0: COURT.x0 - 0.45, x1: COURT.x1 + 0.45, z0: COURT.z0 - 0.45, z1: COURT.z1 + 0.45, height: 3.3, gate: { x: 0, width: 1.9 } };
 export const PITCH = { x0: -33, x1: -14, z0: 17, z1: 29 }; // fútbol
 // Lo que hay plantado en el campo y a su lado (ver football/Football.jsx).
 const FOOTBALL_SOLIDS = [
@@ -936,6 +939,8 @@ export function grassDensity(x, z, kind = surface(x, z)) {
 // solo va lo que esa huella no puede dar: lo que es más fino que su rejilla
 // (postes), el puente (se pisa) y la nave (despega).
 const shipCollider = { x: PAD.x, z: PAD.z, r: 2.3, active: true };
+// La barrera de la pista de baloncesto se mueve de lado: Court.jsx le va cambiando la z.
+export const blockerCollider = { x: BASKET.hoop.x - 2.17, z: BASKET.hoop.z, r: 0.36 };
 const colliders = [
  ...SOLIDS,
  ...lanterns.map((l) => ({ x: l.x, z: l.z, r: 0.14 })),
@@ -947,6 +952,14 @@ const colliders = [
  { x: CONTACT.x - 4.3, z: CONTACT.z + 2.6, r: 0.14 },
  // La cortina de agua de la cascada (es una lámina casi vertical: no deja huella).
  { x: WATERFALL.x - 1.5, z: WATERFALL.z + 1.75, bx: WATERFALL.x + 1.5, bz: WATERFALL.z + 1.75, r: 0.55 },
+ // Valla de la pista de baloncesto: los cuatro lados, con el hueco de la puerta.
+ ...(() => {
+  const f = COURT_FENCE, from = f.gate.x - f.gate.width / 2, to = f.gate.x + f.gate.width / 2;
+  return [[f.x0, f.z0, from, f.z0], [to, f.z0, f.x1, f.z0], [f.x1, f.z0, f.x1, f.z1], [f.x1, f.z1, f.x0, f.z1], [f.x0, f.z1, f.x0, f.z0]].map(([x, z, bx, bz]) => ({ x, z, bx, bz, r: 0.1 }));
+ })(),
+ // Poste de la canasta (más fino que la rejilla del horneado) y la barrera.
+ { x: BASKET.hoop.x + 0.38, z: BASKET.hoop.z, r: 0.17 },
+ blockerCollider,
  // Postes de la portería.
  ...FOOTBALL_SOLIDS.filter((one) => one.r < 0.2),
  // Barandillas del puente: solo se cruza por el tablero.
