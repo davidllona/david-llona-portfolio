@@ -22,6 +22,7 @@ export function Lights({ shadowMapSize }) {
  const sun = useRef(sceneLights.sun);
  const scene = useThree((state) => state.scene);
  const woodyStep = useRef({ x: 0, z: 0 });
+ const shadowTurn = useRef(0);
 
  useFrame(({ clock }, delta) => {
   updateTheme(Math.min(delta, 0.05), clock.elapsedTime);
@@ -57,6 +58,14 @@ export function Lights({ shadowMapSize }) {
   sun.current.shadow.intensity = current.shadow;
   sun.current.target.position.set(x, y, z);
   sun.current.target.updateMatrixWorld();
+  // En vuelo, de lejos, las sombras ya no se distinguen y rehacer su mapa en
+  // cada fotograma es lo que más cuesta (unas 150 llamadas de dibujo): se
+  // rehace uno de cada tres desde los 90 m de altura y uno de cada ocho arriba.
+  // El mapa y su matriz se renuevan a la vez, así que entre medias casan.
+  const every = rig.space >= 1 ? 8 : rig.space > 0.5 ? 3 : 1;
+  const shadow = sun.current.shadow;
+  shadow.autoUpdate = every === 1;
+  if (every > 1 && (shadowTurn.current = (shadowTurn.current + 1) % every) === 0) shadow.needsUpdate = true;
  });
 
  return (

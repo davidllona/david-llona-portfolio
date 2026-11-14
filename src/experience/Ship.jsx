@@ -313,7 +313,8 @@ export function Ship() {
    focus.set(ship.current.position.x, height + 2.6, ship.current.position.z).lerp(orbitFocus, wide);
    rig.focus = focus;
    // En el encendido se retira un poco para que quepan la nave y el humo.
-   rig.distance = 1 + ignition * 0.5 + (state.phase === "igniting" ? 0 : 0.5 + Math.pow(progress, 1.35) * (ORBIT_VIEW.distance - 1.5));
+   // (En el fotograma en que se levanta, `ignition` aún vale 1 y la fase ya es la subida: no se suman las dos cosas.)
+   rig.distance = 1 + (state.phase === "igniting" ? ignition * 0.5 : 0.5 + Math.pow(progress, 1.35) * (ORBIT_VIEW.distance - 1.5));
    // (Se aleja pronto: la nave sube muy deprisa y la cámara la sigue con algo de retardo; de cerca se le escaparía por arriba.)
    rig.tilt = ORBIT_VIEW.tilt * above * above * (3 - 2 * above);
    rig.yaw = around;

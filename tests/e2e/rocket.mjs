@@ -54,8 +54,11 @@ const orbit = await t.evaluate(() => {
  const w = window.__world, s = w.space;
  const seen = {};
  s.group.traverse((o) => { if (o.name) seen[o.name] = o.visible; });
- return { visible: s.group.visible, shown: s.shown.value, radius: s.radius, centre: s.centre, names: s.names, seen, fog: w.scene.fog.density, labels: [] };
+ const shadows = [];
+ w.scene.traverse((o) => o.isLight && o.castShadow && shadows.push(o.shadow.autoUpdate));
+ return { visible: s.group.visible, shown: s.shown.value, radius: s.radius, centre: s.centre, names: s.names, seen, fog: w.scene.fog.density, labels: [], shadows };
 });
+check(orbit.shadows.length > 0 && orbit.shadows.every((auto) => !auto), "en órbita el mapa de sombras no se rehace en cada fotograma");
 check(orbit.visible && orbit.shown > 0.99 && orbit.fog < 1e-5, `el planeta está a la vista y sin niebla (aparición ${orbit.shown.toFixed(2)}, niebla ${orbit.fog.toExponential(1)})`);
 const rim = [];
 for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) rim.push(await t.screen(dx * orbit.radius, orbit.centre, dz * orbit.radius));
@@ -96,9 +99,14 @@ for (let i = 0; i < 6; i++) {
 check(down.every((one, i) => i === 0 || (one.y <= down[i - 1].y + 0.5 && one.distance <= down[i - 1].distance + 0.01)), `al aterrizar baja y la cámara se acerca, sin saltos (alturas: ${down.map((one) => one.y.toFixed(0)).join(" → ")} m)`);
 await wait(900);
 now = await probe();
-const after = await t.evaluate(() => ({ planet: window.__world.space.group.visible, yaw: window.__world.rig.yaw, fog: window.__world.scene.fog.density }));
+const after = await t.evaluate(() => {
+ const shadows = [];
+ window.__world.scene.traverse((o) => o.isLight && o.castShadow && shadows.push(o.shadow.autoUpdate));
+ return { planet: window.__world.space.group.visible, yaw: window.__world.rig.yaw, fog: window.__world.scene.fog.density, shadows };
+});
 check(now.phase === "idle" && now.y < 0.05 && Math.abs(now.x - PAD.x) < 0.05 && Math.abs(now.z - PAD.z) < 0.05 && Math.abs(now.distance - 1) < 0.01, "al aterrizar, la nave vuelve a su sitio y la cámara al astronauta");
 check(!after.planet && after.yaw === 0 && after.fog > 0.001 && now.space === 0, "y en tierra no queda nada del espacio: ni planeta, ni giro, y vuelve la niebla");
+check(after.shadows.length > 0 && after.shadows.every(Boolean), "y las sombras vuelven a rehacerse en cada fotograma (en vuelo, de lejos, van espaciadas)");
 await wait(2500);
 await t.shot("despegue-13-de-vuelta");
 await t.done();

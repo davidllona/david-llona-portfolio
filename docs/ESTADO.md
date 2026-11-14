@@ -4,7 +4,7 @@ Actualizado: 14 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
 **En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **En curso: bloque 3** (errores de juego), a medias: ver su fila y «Bloque 3, lo que queda».
-**En curso: objetivo 19 — pulido final del mundo 1** (`docs/OBJETIVO-19.md`): bloques A y B hechos, **parada del bloque B pendiente de visto bueno**; quedan C y D. Ver «Objetivo 19».
+**En curso: objetivo 19 — pulido final del mundo 1** (`docs/OBJETIVO-19.md`): los cuatro bloques (A, B, C y D) están hechos: **parada del bloque D, pendiente del visto bueno de David** (batería completa, fotogramas del despegue y fps en «Parada del bloque D»). Ver «Objetivo 19».
 **Objetivo 18 — pulido del mundo 1** (`docs/OBJETIVO-18.md`, 14-11-2026). **Sustituye a los bloques 4 a 7 del objetivo 16.** Ocho apartados, commit y push por apartado; paradas solo tras el 4 y tras el 8. **Los ocho están hechos: parada del apartado 8, pendiente del visto bueno de David** (batería completa y capturas en «Parada del apartado 8»). Ver «Objetivo 18».
 Decidido por David el 13-11-2026: los pesos reales de los modelos mandan sobre la ficha (reducir «Japan Lamp», puente, observatorio y cabaña hasta que no bajen los fps y dar el número final de triángulos de cada uno); los pasos fuera de la hierba y los sonidos de baloncesto se quedan sintetizados hasta que él avise.
 Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
@@ -20,7 +20,7 @@ Pulido final del mundo 1 (`docs/OBJETIVO-19.md`, 14-11-2026). Cuatro bloques, co
 | A. Errores visibles (ocho puntos) | **Hecho** (commit `519149f`; el orden de dibujado del recorte, afinado en el commit del bloque B) |
 | B. Animación de correr | **Hecho. Parada: pendiente de visto bueno.** Capturas: `capturas/24-final/parada-B/` (`hoja-A-dia.jpg`, `hoja-A-noche.jpg`, `hoja-carrera.jpg`) |
 | C. «Sobre mí» sale de este mundo | **Hecho** |
-| D. Despegue: que se vea un planeta | Sin empezar. **Parada** al terminar |
+| D. Despegue: que se vea un planeta | **Hecho** (commit `cb163cc` y el de los arreglos de la parada). **Parada: pendiente de visto bueno.** Capturas: `capturas/24-final/parada-D/` (`hoja-despegue-dia.jpg`, `hoja-despegue-noche.jpg`, `hoja-casa-arbol.jpg`) |
 
 **Bloque A, lo que hay:**
 1. **Aro de visibilidad** (`experience/environment/seeThrough.js`): recorte circular limpio alrededor del astronauta, con el borde fundido por mezcla de verdad; sin tramado. Igual en casas, árboles, rocas, pozo, cohete, torii, casa de té, observatorio y casa del árbol. Los materiales siguen en la lista de opacos del renderer (mezcla «a medida» sin declararse translúcidos) y se dibujan después del resto de lo opaco; el césped, después de ellos (`seeThroughOrder`, `drawAfterSeeThrough`). Sacarlos a la lista de translúcidos costaba 6 fps y dejaba 27 pipelines sin precalentar. En el borde fundido lo que se ve detrás es el suelo, no el césped ni otro árbol: no se nota.
@@ -50,6 +50,47 @@ Pulido final del mundo 1 (`docs/OBJETIVO-19.md`, 14-11-2026). Cuatro bloques, co
 - Lo que dependía de la zona: en el logro «Explorador» sigue contando como una de las seis zonas (ahora `casa-arbol`); Woody comenta el rincón la primera vez («La casa del árbol. Buen sitio para sentarse un rato y mirar la isla.»); el nodo del camino por el que guía hacia el observatorio se llama `casa-arbol`. Las huellas de los carteles quitados se conservan en el reparto (`FORMER_SIGNS`): nada cambia de sitio.
 - Colisiones rehorneadas (838 obstáculos de 202 mallas). Pruebas: `living` 46 (junto a la casa no se ofrece «Sobre mí», no queda cartel, el botón del menú abre la ficha), `portfolio` 27 (la ficha se abre sin guiado y trae las áreas), `progress`, `woody`, `terrain`, `birds`, `collisions`, `errors`.
 - Capturas: `capturas/24-final/parada-D/hoja-casa-arbol.jpg` (día y noche).
+
+**Bloque D, lo que hay** (`worlds/living/Space.jsx`, `experience/Ship.jsx`, `experience/state.js` (`ORBIT_VIEW`), `experience/Sky.jsx`, `experience/theme.js`, `experience/Lights.jsx`, `tests/e2e/rocket.mjs`):
+- **La isla es el polo de un planeta de verdad**: debajo hay un globo low poly de 170 m de radio (océano, otras masas de tierra, nubes en bandas y halo de atmósfera) que solo se dibuja en vuelo. No hay cambio de escena ni fundido: al subir, la niebla se retira, el mar plano se deshace y lo que asoma es el océano del globo, del mismo color. Mismos mares, arenas, prados y bosques que el planeta de la bienvenida.
+- **La cámara se aleja mucho más**: la órbita está a 440 m (antes 34) y la cámara llega a 72 veces la distancia de juego (antes 13); la nave sube en arco hacia el sur y queda delante del planeta, que cabe entero (550 px de lado a lado a 1440 × 900). En órbita la cámara lo rodea despacio (0,035 rad/s): se le ve girar.
+- **En el cielo de la órbita**: la luna y los otros dos mundos como destinos cerrados, cada uno con su rótulo y «PRÓXIMAMENTE»: **THE TWISTED MOON** (morados y grises, crestas en espiral y colinas enroscadas) y **THE COSMIC LAB** (turquesa, magenta y verde ácido, vainas y zarcillos). Nombres provisionales. Solo son astros: de esos mundos no hay nada construido.
+- **Al aterrizar, el camino inverso**; en tierra no queda nada del espacio (ni planeta, ni giro; vuelve la niebla).
+- **0 pipelines en caliente** al despegar, en órbita y al bajar, de día y de noche; ningún hueco de más de 40 ms entre fotogramas en la subida ni en la bajada.
+- Sin comprobar: el despegue visto en movimiento por una persona (solo en fotogramas y por medida); un teléfono; el respaldo WebGL2. De noche el planeta queda bastante oscuro lejos de la isla (lo decide David con la hoja).
+
+**Parada del bloque D — batería completa** (14-11-2026, en primer plano, de dos en dos, Chrome sin ventana, servidor de desarrollo en el 5199). La sesión anterior se cortó en mitad de la batería y dejó su tanda corriendo sola; se paró antes de empezar.
+
+| Prueba | Bien | Fallos |
+|---|---|---|
+| `errors` | 8 | 0 |
+| `living` | 46 | 0 |
+| `characters` | 20 | 0 |
+| `portfolio` | 27 | 0 |
+| `progress` | 26 | 0 |
+| `motion` | 10 | 0 |
+| `camera` | 30 | 0 |
+| `woody` | 37 | 0 |
+| `rocket` | 21 | 0 (falló 1 tras el primer arreglo; arreglado, ver abajo) |
+| `terrain` | 3 | 0 |
+| `life` | 11 | 0 |
+| `football` | 63 | 0 |
+| `sounds` | 27 | 0 |
+| **`npm run e2e` (las trece)** | **329** | **0** |
+| `basket` | 20 | 0 |
+| `garden` | 6 | 0 |
+| `birds` | 4 | 0 |
+| `run` | 19 | 0 |
+| `hill` | 29 | 0 |
+| `collisions` | 4 | 0 |
+| `welcome` | 21 | 0 |
+| `loader` | 13 | **1** (la de siempre: primer pintado a 204 ms, objetivo 100; la pantalla de carga no se toca) |
+| `tests/perf/entrada.mjs` | 0 pipelines en caliente al entrar y al despegar; despegue sin tareas largas ni huecos | — |
+
+- **Arreglado — fps en vuelo**. A 2880 × 1620 sin límite, con 63 fps en tierra, la subida daba 51–57 y la órbita 49–57. No era el planeta (quitándolo, lo mismo) ni la resolución: era el mapa de sombras, que se rehacía entero en cada fotograma (150 llamadas de dibujo) para sombras que desde arriba no se distinguen. Ahora en vuelo se rehace uno de cada tres fotogramas desde los 90 m de altura y uno de cada ocho arriba (`Lights.jsx`); en tierra, como siempre. Después: subida 68–80, órbita 76–95, bajada 64–79. `rocket` lo comprueba (dos comprobaciones nuevas: 21).
+- **Arreglado — salto de la cámara al levantarse la nave** (`rocket`: «se aleja cada vez más, sin saltos»). En el fotograma en que se pasa del encendido a la subida la distancia de cámara saltaba de 1,5 a 2,0 y volvía a 1,5 (se sumaban el retiro del encendido y el de la subida). La prueba solo lo veía si una muestra caía en ese fotograma. Corregido en `Ship.jsx`; `rocket` 21 de 21 en dos pasadas seguidas.
+- **Fps en tierra** (`tests/perf/fps.mjs`): 66 · 75 · 73 · 73 · 60, 73 · 69 · 68 · 61 · 63 y, tras los arreglos, 66 · 70 · 66 · 68 · 64. Con el commit anterior al bloque D (`78f2d5e`), en la misma tanda: 65 · 61 · 59 · 60 · 61. El bloque D no cuesta fps en tierra. **El equipo va hoy justo**: de noche, en la misma tanda, 57–66 con el bloque D y 56–62 sin él (pista 57 en los dos casos); no es de este bloque.
+- **Capturas**: `capturas/24-final/parada-D/` — `hoja-despegue-dia.jpg` y `hoja-despegue-noche.jpg` (12 fotogramas cada una, uno cada 0,95 s desde antes de subir hasta la órbita; debajo, los 24 sueltos) y `hoja-casa-arbol.jpg`.
 
 **Parada del bloque B — batería completa** (14-11-2026, en primer plano, de dos en dos, Chrome sin ventana):
 
@@ -349,12 +390,12 @@ node tests/perf/carga.mjs      # pantalla de carga: tiempo hasta poder entrar, t
 node tests/perf/peso.mjs       # peso descargado en la primera visita (build de producción en el 5198)
 node tests/perf/fps.mjs        # fps en cinco puntos
 node tests/e2e/errors.mjs      # ninguna excepción de página y el lienzo dibujado: carga, bienvenida, estrella fugaz y mundo, sin ventana y con ventana (incluida en e2e)
-npm run e2e                    # 313 comprobaciones en Chrome sin ventana (con el servidor encendido)
+npm run e2e                    # 329 comprobaciones en Chrome sin ventana (con el servidor encendido)
 node tests/e2e/sounds.mjs      # sonido uno por uno: señal medida de cada bucle, golpes, silencio; graba el recorrido (incluida en e2e)
 node tests/e2e/football.mjs    # fútbol de principio a fin, con fotogramas de cada tiro (incluida en e2e)
 node tests/e2e/woody.mjs       # bocadillos, ritmo, descanso, cuestas y ruta guiada (incluida en e2e)
 node tests/e2e/camera.mjs      # cámara, zoom, tarjeta «E», postes y oclusión, cohete incluido (incluida en e2e)
-node tests/e2e/rocket.mjs      # despegue: escala, empuje, cámara, aceleración; saca la serie de fotogramas (incluida en e2e)
+node tests/e2e/rocket.mjs      # despegue: escala, empuje, cámara, aceleración, planeta entero en órbita con la luna y los dos mundos cerrados, y aterrizaje; saca la serie de fotogramas (incluida en e2e)
 node tests/e2e/terrain.mjs     # objetos que flotan, hundidos o bajo el agua (incluida en e2e); «lista» y «capturas» como argumento
 node tests/perf/entrada.mjs    # tirones y pipelines compilados en caliente al entrar y al despegar
 node tests/e2e/life.mjs        # polvo, salpicaduras, hojas, polen, luciérnagas y «El bosque despierta»; saca fotogramas (incluida en e2e)
