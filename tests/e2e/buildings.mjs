@@ -14,7 +14,7 @@ const spots = [
  ...PROJECT_CABINS.map((c, i) => [`proyecto-${i}`, c.x, c.z - 1.6, 0.4, 5.6, 0.8, 2.2]),
  ["cartel-proyectos", PLAZA.x, PLAZA.z - 7.2, 0, 4, 0.5, 1.8],
  ["contacto", CONTACT.x, CONTACT.z - 2.6, 0, 6.2, 0.7, 2],
- ["sobre-mi", TREEHOUSE.x, TREEHOUSE.z - 0.9, 0, 5.5, 0.8, 3],
+ ["casa-arbol", TREEHOUSE.x, TREEHOUSE.z - 0.9, 0, 5.5, 0.8, 3],
  ...LAB_TOTEMS.map((totem, i) => [`laboratorio-${i}`, totem.x, totem.z, 0, 3.2, 0.42, 1.3]),
  // La casa de referencia junto al cohete.
  ["referencia-con-cohete", (PROJECT_CABINS[0].x + PAD.x) / 2 + 0.6, (PROJECT_CABINS[0].z - 1.6 + PAD.z) / 2, 0, 9, 1.45, 2.4],

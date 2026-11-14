@@ -178,7 +178,7 @@ check(!inside, "Woody no queda metido en ningún obstáculo");
 await page.keyboard.press("KeyG");
 await wait(300);
 await t.evaluate(() => [...document.querySelectorAll(".woody-menu__list button")].find((b) => b.textContent === "Silenciar consejos").click());
-const tree = living.zones.find((zone) => zone.id === "sobre-mi");
+const tree = living.zones.find((zone) => zone.id === "casa-arbol");
 await t.put(tree.x, tree.z, { settle: 1300 });
 check((await t.speech()) === null, "con los consejos silenciados no comenta la zona");
 

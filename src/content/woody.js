@@ -12,7 +12,7 @@ export const WELCOME = [
 // Una frase la primera vez que se entra en cada zona.
 export const ZONE_LINES = {
  proyectos: "Esta es la aldea de proyectos: cada casa guarda uno. Acércate a su escaparate.",
- "sobre-mi": "La casa del árbol es de David. Ahí cuenta quién es y en qué trabaja.",
+ "casa-arbol": "La casa del árbol. Buen sitio para sentarse un rato y mirar la isla.",
  contacto: "Desde aquí se le escribe: LinkedIn, GitHub y el buzón del correo.",
  cv: "En este atril está su currículum.",
  observatorio: "El observatorio. Con el telescopio se hace de noche… y otra vez de día.",
@@ -40,7 +40,6 @@ export const GUIDE = {
   proyectos: "Aquí están los proyectos.",
   cohete: "El cohete.",
   contacto: "Contacto, al otro lado del río.",
-  "sobre-mi": "Sobre mí, en la casa del árbol.",
   cv: "Aquí tienes el CV.",
  },
 };

@@ -19,7 +19,7 @@ Pulido final del mundo 1 (`docs/OBJETIVO-19.md`, 14-11-2026). Cuatro bloques, co
 |---|---|
 | A. Errores visibles (ocho puntos) | **Hecho** (commit `519149f`; el orden de dibujado del recorte, afinado en el commit del bloque B) |
 | B. Animación de correr | **Hecho. Parada: pendiente de visto bueno.** Capturas: `capturas/24-final/parada-B/` (`hoja-A-dia.jpg`, `hoja-A-noche.jpg`, `hoja-carrera.jpg`) |
-| C. «Sobre mí» sale de este mundo | Sin empezar |
+| C. «Sobre mí» sale de este mundo | **Hecho** |
 | D. Despegue: que se vea un planeta | Sin empezar. **Parada** al terminar |
 
 **Bloque A, lo que hay:**
@@ -40,6 +40,16 @@ Pulido final del mundo 1 (`docs/OBJETIVO-19.md`, 14-11-2026). Cuatro bloques, co
 - **Sonido**: cada marca de pisada cae cuando su pie llega al suelo y suena un paso por pisada. Fuera el tope de cadencia que había que poner a mano.
 - `node tests/e2e/run.mjs` (19 comprobaciones; con `capturas`, los 12 fotogramas de perfil): el pie apoyado se mueve 0,4 cm al trote y 0,7 corriendo.
 - Sin comprobar: la carrera vista en movimiento por una persona (solo en fotogramas y por medida); andar despacio (menos de 1,7 m/s, con el joystick a medias) sigue con el clip `Astro_Walk` del modelo, sin tocar.
+
+**Retoque tras la parada B** (pedido por David al aprobar A y B): quitado el árbol viejo de (17, 33), cuya copa tapaba la cámara de juego en la orilla sur del estanque del jardín. Su claro se conserva en el reparto (`FORMER_ANCIENT_TREE`), así que nada más cambia de sitio. Quedan dos árboles viejos.
+
+**Bloque C, lo que hay** (`zones/Treehouse.jsx`, `layout.js`, `content/about.js`, `content/sections.js`, `ui/QuickMenu.jsx`, `content/woody.js`):
+- **«Sobre mí» ya no es un sitio de este mundo.** Fuera sus dos carteles (el del camino de la rampa y el de la casa del árbol), su interacción («Leer Sobre mí») y el guiado de Woody hasta allí. No se ha construido nada del mundo 2 ni se ha movido a ningún islote.
+- **PENDIENTE DE TRASLADAR AL MUNDO 2**: el contenido de Sobre mí (`content/about.js`: texto y áreas de trabajo) sigue entero y **se lee desde el botón «Sobre mí» del menú superior**, que abre la misma ficha de antes (`aboutCard()`), sin mover a nadie. Cuando exista el mundo 2: darle allí su sitio, devolver a `SECTIONS` su `place` y quitar el `card`.
+- **La casa del árbol queda como rincón decorativo**: el modelo de siempre y, alrededor, hecho a mano en una sola malla: banco mirando al sur, tocón que hace de mesa con un farol (se enciende de noche) y una taza, arriate de flores con bordillo de piedra y una pila de leña.
+- Lo que dependía de la zona: en el logro «Explorador» sigue contando como una de las seis zonas (ahora `casa-arbol`); Woody comenta el rincón la primera vez («La casa del árbol. Buen sitio para sentarse un rato y mirar la isla.»); el nodo del camino por el que guía hacia el observatorio se llama `casa-arbol`. Las huellas de los carteles quitados se conservan en el reparto (`FORMER_SIGNS`): nada cambia de sitio.
+- Colisiones rehorneadas (838 obstáculos de 202 mallas). Pruebas: `living` 46 (junto a la casa no se ofrece «Sobre mí», no queda cartel, el botón del menú abre la ficha), `portfolio` 27 (la ficha se abre sin guiado y trae las áreas), `progress`, `woody`, `terrain`, `birds`, `collisions`, `errors`.
+- Capturas: `capturas/24-final/parada-D/hoja-casa-arbol.jpg` (día y noche).
 
 **Parada del bloque B — batería completa** (14-11-2026, en primer plano, de dos en dos, Chrome sin ventana):
 

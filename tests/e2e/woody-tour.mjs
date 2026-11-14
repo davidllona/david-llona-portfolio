@@ -14,7 +14,7 @@ const SECONDS = Number(process.argv[2] ?? 180);
 const TOUR = [
  [-5.2, 0.3, 0, "cruce oeste"], [-19, 0.4, 1, "plaza de proyectos"], [-22.3, -4.6, 0, "junto al pozo"], [-26.8, -4.8, 0, "rodeando el pozo"], [-24.5, -6.3, 0, "entre el pozo y el tablón"],
  [-18, -5.5, 0, "entre las casas"], [-17.5, 0.5, 0, "plaza"], [-24.5, 5, 0, "jardín del laboratorio"], [-21.8, 8.6, 0, "entre los tótems"], [-12, 2, 1, "hierba"],
- [-10.5, -9.5, 0, "senda norte"], [-14.5, -14, 0, "pie de la rampa"], [-7.6, -22.5, 0, "rampa arriba"], [-3, -25, 0, "meseta"], [1.5, -24.2, 0, "Sobre mí"], [4.6, -23.6, 0, "junto a la casa del árbol"],
+ [-10.5, -9.5, 0, "senda norte"], [-14.5, -14, 0, "pie de la rampa"], [-7.6, -22.5, 0, "rampa arriba"], [-3, -25, 0, "meseta"], [1.5, -24.2, 0, "casa del árbol"], [4.6, -23.6, 0, "junto a la casa del árbol"],
  [10, -23.2, 1, "senda de la meseta"], [18.5, -21.6, 0, "observatorio"], [22.6, -22.6, 0, "rodeando el observatorio"], [12.5, -22.2, 1, "vuelta"], [3, -20.2, 0, "borde de la meseta (no se salta)"],
  [-3, -25, 0, "vuelta a la rampa"], [-7.6, -22.5, 0, "rampa, arriba"], [-14.5, -14, 0, "rampa abajo"], [-6, -9.5, 1, "hacia el estanque"], [4.5, -7.6, 0, "orilla del estanque"], [13.2, -7.4, 0, "rodeando el estanque"], [13.4, -13.4, 0, "orilla este"], [10.2, -14.3, 0, "contra la cascada, por el agua"], [13.6, -13.2, 0, "vuelta a la orilla"], [15.2, -11.2, 0, "rodeando"], [13.2, -7.4, 0, "vuelta"], [6, -6.2, 0, "orilla sur del estanque"],
  [5.4, 1, 0, "cruce este"], [17.5, 2.2, 1, "hacia el río"], [21.6, 4.6, 0, "orilla del río"], [27.6, 4.2, 0, "vadeando el río"], [33.5, 1.8, 0, "Contacto"], [36.2, 1.2, 0, "junto a los aparatos"],

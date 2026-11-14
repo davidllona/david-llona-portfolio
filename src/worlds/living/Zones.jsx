@@ -13,7 +13,7 @@ import { registerGlow } from "../../experience/theme";
 import { addWarmSource } from "../../experience/lightSources";
 import { Observatory } from "./buildings/Observatory";
 import { Football } from "./football/Football";
-import { AboutMe } from "./zones/AboutMe";
+import { Treehouse } from "./zones/Treehouse";
 import { Contact } from "./zones/Contact";
 import { ProjectVillage } from "./zones/ProjectVillage";
 import { SignFace, Signposts } from "./props/Signpost";
@@ -270,7 +270,7 @@ export function Zones() {
     <LabTotem key={experiment.id} experiment={experiment} index={i} {...LAB_TOTEMS[i]} />
    ))}
    <CvKiosk />
-   <AboutMe />
+   <Treehouse />
    <Observatory />
    <Contact />
    <WindChime />

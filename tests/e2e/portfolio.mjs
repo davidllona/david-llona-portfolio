@@ -18,7 +18,7 @@ const labels = await t.evaluate(() => [...document.querySelectorAll(".quick butt
 check(labels.join("|").startsWith("Proyectos|Sobre mí|CV|Contacto|Logros"), `menú superior: ${labels.join(" · ")}`);
 
 // Cada botón pide a Woody que guíe hasta su zona; siguiéndole, se llega.
-const PLACES = [["Proyectos", "proyectos"], ["CV", "cv"], ["Contacto", "contacto"], ["Sobre mí", "sobre-mi"]];
+const PLACES = [["Proyectos", "proyectos"], ["CV", "cv"], ["Contacto", "contacto"]];
 for (const [label, place] of PLACES) {
  await t.put(0, 7.5, { settle: 900 });
  await press(t, label);
@@ -37,6 +37,18 @@ for (const [label, place] of PLACES) {
  check(arrived && Math.hypot(p.x - nx, p.z - nz) < 7, `siguiéndole se llega a ${label} (a ${Math.hypot(p.x - nx, p.z - nz).toFixed(1)} m de su punto)`);
  await t.shot(`menu-${place}-llegada`);
 }
+
+// «Sobre mí» no tiene sitio en este mundo: su botón abre la ficha sin mover a nadie.
+await t.put(0, 7.5, { settle: 900 });
+await press(t, "Sobre mí");
+await wait(600);
+check((await count(t, ".modal")) === 1 && (await t.woody()).mode !== "guide" && /\S/.test((await t.text(".modal__title")) ?? ""), `«Sobre mí» abre su ficha desde el menú, sin guiado: «${await t.text(".modal__title")}»`);
+const aboutTags = await count(t, ".modal__tag, .modal__tags li, .modal__tags span");
+check(aboutTags > 0, `y trae las áreas de trabajo (${aboutTags})`);
+await page.keyboard.press("Escape");
+await wait(500);
+check((await count(t, ".modal")) === 0, "Esc la cierra");
+check(!living.guide.places.some((place) => place.id === "sobre-mi"), "Woody ya no guía a «Sobre mí»");
 
 // Con una ficha abierta no se mueve; al cerrarla, se sigue jugando.
 await t.put(living.guide.nodes.cv[0] + 0.4, living.guide.nodes.cv[1] - 0.4, { withWoody: false, settle: 900 });

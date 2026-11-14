@@ -67,7 +67,7 @@ const top = await t.pos();
 check(top.y > 3.5, `la rampa sube a la meseta (y=${top.y})`);
 
 // Proyectos: cada cabaña abre la ficha de su proyecto.
-const { PROJECT_CABINS, LAB_TOTEMS, CV_KIOSK, TREEHOUSE, OBSERVATORY, CONTACT, WIND_CHIME, BASKET } = await import("../../src/worlds/living/layout.js");
+const { PROJECT_CABINS, LAB_TOTEMS, CV_KIOSK, TREEHOUSE, OBSERVATORY, CONTACT, WIND_CHIME, BASKET, SIGNPOSTS } = await import("../../src/worlds/living/layout.js");
 for (const [i, project] of PROJECTS.entries()) {
  await t.put(PROJECT_CABINS[i].x + 0.4, PROJECT_CABINS[i].z + 3.4, { withWoody: false, settle: 500 });
  const hint = await prompt();
@@ -91,11 +91,17 @@ await use();
 const cvLink = await page.$(".modal__link");
 check(/pendiente/i.test((await title()) ?? "") && !cvLink, `CV sin PDF: «${await title()}», sin botón de descarga`);
 await close();
-// Sobre mí.
+// La casa del árbol es un rincón decorativo: ni cartel ni nada que abrir.
 await t.put(TREEHOUSE.x + 2.6, TREEHOUSE.z + 3, { withWoody: false, settle: 500 });
-check(/Sobre mí/.test(await prompt()), `casa del árbol: "${await prompt()}"`);
-await use();
-check(Boolean(await title()), `Sobre mí abre su texto: «${await title()}»`);
+check(!/Sobre mí/.test((await prompt()) ?? ""), `junto a la casa del árbol no se ofrece «Sobre mí» (indicación: ${JSON.stringify(await prompt())})`);
+const signs = SIGNPOSTS.map((sign) => sign.text);
+check(!signs.includes("SOBRE MÍ") && signs.length === 8, `no queda ningún cartel «SOBRE MÍ» (${signs.join(", ")})`);
+const corner = await t.evaluate(() => Boolean(window.__world.scene.getObjectByName("rincón de la casa del árbol")) && Boolean(window.__world.scene.getObjectByName("casa del árbol")));
+check(corner, "la casa del árbol sigue en su sitio, con su rincón (banco, tocón, arriate, leña)");
+// «Sobre mí» se lee desde el menú superior.
+await t.evaluate(() => [...document.querySelectorAll(".quick button")].find((b) => b.textContent === "Sobre mí").click());
+await wait(500);
+check(Boolean(await title()), `el botón «Sobre mí» del menú abre su texto: «${await title()}»`);
 await close();
 // Observatorio: el telescopio cambia a noche y de vuelta.
 await t.put(OBSERVATORY.x, OBSERVATORY.z + 3.0, { withWoody: false, settle: 500 });
@@ -119,7 +125,8 @@ const before = await t.evaluate(() => window.__world.gusts ?? 0);
 await use();
 const toast = (await t.toasts()).join(" · ");
 const after = await t.evaluate(() => window.__world.gusts ?? 0);
-check(after === before + 1 && /bosque despierta/i.test(toast ?? ""), `el carillón lanza la ráfaga (aviso: "${toast}")`);
+// (El bosque lanza además su propia brisa, sin aviso, a los 45 s de empezar: puede caer justo aquí.)
+check(after >= before + 1 && after <= before + 2 && /bosque despierta/i.test(toast ?? ""), `el carillón lanza la ráfaga (aviso: "${toast}"; ráfagas: ${after - before})`);
 await wait(1500);
 await t.shot("living-rafaga");
 // Baloncesto: el balón está en su soporte y se puede coger.

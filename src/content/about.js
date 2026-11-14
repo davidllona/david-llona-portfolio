@@ -232,6 +232,17 @@ export const popupDescriptions = {
  },
 };
 
+// La ficha de «Sobre mí», tal como la abre el juego (evento "open"). Hoy sale del
+// botón del menú superior; cuando exista el mundo 2, de su sitio allí.
+export const aboutCard = () => ({
+ kind: "about",
+ eyebrow: aboutText.eyebrow,
+ title: aboutText.headline.join(" "),
+ paragraphs: aboutText.paragraphs,
+ // Las áreas en las que trabajo, tal como están en el contenido del portfolio.
+ tags: mainOrbit.nodes.map((node) => node.label),
+});
+
 export const aboutText = {
  eyebrow: "Sobre mí",
  headline: ["Entre lo visual", "y lo interactivo"],

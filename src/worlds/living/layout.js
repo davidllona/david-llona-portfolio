@@ -274,7 +274,7 @@ export const LAB_TOTEMS = [
  { x: -29.8, z: 6.3 },
 ];
 export const CV_KIOSK = { x: 6.6, z: 6.4 };
-export const TREEHOUSE = { x: 1.5, z: -27 }; // Sobre mí, en la meseta
+export const TREEHOUSE = { x: 1.5, z: -27 }; // la casa del árbol, en la meseta: un rincón decorativo («Sobre mí» irá en el mundo 2)
 export const OBSERVATORY = { x: 19, z: -25.5 };
 export const CONTACT = { x: 34, z: -2.5, antenna: { x: 37.5, z: -6.5 }, terminals: [-2.6, 0, 2.6].map((dx) => ({ x: 34 + dx, z: -0.8 })) };
 export const COURT = { x0: -5, x1: 11, z0: 20, z1: 30.4 }; // baloncesto
@@ -320,21 +320,29 @@ export const SIGNPOSTS = [
  { text: "BALONCESTO", icon: "basketball", x: -2.3, z: 18.5, turn: 0.18 },
  { text: "FÚTBOL", icon: "football", x: -13.7, z: 16.0, turn: -0.3 },
  { text: "OBSERVATORIO", icon: "observatory", x: 16.2, z: -21.8, turn: 0.2 },
- { text: "SOBRE MÍ", icon: "about", x: -11.0, z: -13.2, turn: 0.3 },
  { text: "CONTACTO", icon: "contact", x: 30.6, z: 3.5, turn: -0.15 },
  // Los rótulos propios de cada zona, más grandes (`scale`).
  { text: "JARDÍN", icon: "garden", x: 12.3, z: 14.6, turn: 0.55 },
  { text: "PROYECTOS", icon: "projects", x: PLAZA.x, z: PLAZA.z - 7.2, turn: 0, scale: 1.45 },
- { text: "SOBRE MÍ", icon: "about", x: TREEHOUSE.x + 3.5, z: TREEHOUSE.z + 1.1, turn: -0.12, scale: 1.2 },
+];
+// Los dos carteles de «SOBRE MÍ» se quitaron (objetivo 19: esa sección sale de
+// este mundo). Su huella se conserva en el reparto para que nada cambie de sitio.
+const FORMER_SIGNS = [
+ { x: -11.0, z: -13.2, turn: 0.3 },
+ { x: TREEHOUSE.x + 3.5, z: TREEHOUSE.z + 1.1, turn: -0.12, scale: 1.2 },
 ];
 // Cada cartel va sobre dos postes, a esta distancia del centro.
 export const SIGN_SPAN = 1.0;
-const signPosts = SIGNPOSTS.flatMap((s) => [-1, 1].map((side) => ({ x: s.x + Math.cos(s.turn) * SIGN_SPAN * (s.scale ?? 1) * side, z: s.z - Math.sin(s.turn) * SIGN_SPAN * (s.scale ?? 1) * side })));
+const postsOf = (signs) => signs.flatMap((s) => [-1, 1].map((side) => ({ x: s.x + Math.cos(s.turn) * SIGN_SPAN * (s.scale ?? 1) * side, z: s.z - Math.sin(s.turn) * SIGN_SPAN * (s.scale ?? 1) * side })));
+const signPosts = postsOf(SIGNPOSTS);
 export const ANCIENT_TREES = [
  { x: -29.5, z: -25.5, scale: 1.25 },
  { x: 26.5, z: -31, scale: 1.05 },
- { x: 17, z: 33, scale: 1.1 },
 ];
+// (Había un tercero en (17, 33): su copa tapaba la cámara de juego en la orilla
+// sur del estanque del jardín. Se quitó; su claro se conserva —`CLEARINGS`—
+// para que el resto del reparto no cambie de sitio.)
+const FORMER_ANCIENT_TREE = { x: 17, z: 33 };
 
 // Caminos de tierra entre las zonas.
 export const PATHS = [
@@ -459,6 +467,7 @@ const CLEARINGS = [
  { x: PLAZA.x, z: 7, r: 8.5 }, // jardín del laboratorio
  ...LAB_TOTEMS.map((c) => ({ ...c, r: 2.4 })),
  ...ANCIENT_TREES.map((t) => ({ ...t, r: 4.5 })),
+ { ...FORMER_ANCIENT_TREE, r: 4.5 },
 ];
 function isClear(x, z, margin) {
  if (CLEARINGS.some((c) => distance(x, z, c.x, c.z) < c.r + margin)) return false;
@@ -564,7 +573,7 @@ const FOOTPRINTS = [
  ...CONTACT.terminals.map((t) => ({ ...t, r: 0.8 })),
  { ...WIND_CHIME, r: 0.5 },
  { x: PITCH.x0 + 6.2, z: PITCH.z0 - 1.9, r: 1.5 },
- ...signPosts.map((s) => ({ x: s.x, z: s.z, r: 0.3 })),
+ ...[...signPosts.slice(0, 10), ...postsOf(FORMER_SIGNS.slice(0, 1)), ...signPosts.slice(10), ...postsOf(FORMER_SIGNS.slice(1))].map((s) => ({ x: s.x, z: s.z, r: 0.3 })),
  // Rótulos tumbados en el suelo: la hierba no debe taparlos.
  ...LAB_TOTEMS.flatMap((t) => [-0.8, 0.8].map((dx) => ({ x: t.x + dx, z: t.z + 1.5, r: 0.8 }))),
  { x: TREEHOUSE.x, z: TREEHOUSE.z - 0.9, r: 3.0 },
@@ -1098,7 +1107,7 @@ export const living = {
  areas: [
   { id: "proyectos", x: -24, z: -1, r: 9 },
   { id: "contacto", x: CONTACT.x, z: CONTACT.z + 1, r: 6 },
-  { id: "sobre-mi", x: TREEHOUSE.x + 1.5, z: TREEHOUSE.z + 3, r: 5.5 },
+  { id: "casa-arbol", x: TREEHOUSE.x + 1.5, z: TREEHOUSE.z + 3, r: 5.5 },
   { id: "observatorio", x: OBSERVATORY.x, z: OBSERVATORY.z + 2.5, r: 5 },
   { id: "cascada", x: POND.x, z: POND.z + 1, r: 7 },
   { id: "deportes", x: (COURT.x0 + COURT.x1) / 2, z: (COURT.z0 + COURT.z1) / 2, r: 7 },
@@ -1106,7 +1115,7 @@ export const living = {
  // Zonas de las que Woody dice algo la primera vez que se entra (content/woody.js).
  zones: [
   { id: "proyectos", x: PLAZA.x, z: PLAZA.z, r: 8 },
-  { id: "sobre-mi", x: TREEHOUSE.x + 1.5, z: TREEHOUSE.z + 3, r: 5.5 },
+  { id: "casa-arbol", x: TREEHOUSE.x + 1.5, z: TREEHOUSE.z + 3, r: 5.5 },
   { id: "contacto", x: CONTACT.x, z: CONTACT.z + 1, r: 6 },
   { id: "cv", x: CV_KIOSK.x, z: CV_KIOSK.z + 0.8, r: 2.8 },
   { id: "observatorio", x: OBSERVATORY.x, z: OBSERVATORY.z + 2.5, r: 5 },
@@ -1136,7 +1145,7 @@ export const living = {
    "pie-rampa": [-14.5, -14],
    "alto-rampa": [-7.6, -22.5],
    "senda-meseta-a": [-3, -25],
-   "sobre-mi": [1.5, -24.4],
+   "casa-arbol": [1.5, -24.4],
    "senda-meseta-b": [10, -23.2],
    observatorio: [19, -22.6],
    deportes: [0, 18.5],
@@ -1159,12 +1168,13 @@ export const living = {
    ["puenteE", "contacto"],
    ["pie-rampa", "alto-rampa"],
    ["alto-rampa", "senda-meseta-a"],
-   ["senda-meseta-a", "sobre-mi"],
-   ["sobre-mi", "senda-meseta-b"],
+   ["senda-meseta-a", "casa-arbol"],
+   ["casa-arbol", "senda-meseta-b"],
    ["senda-meseta-b", "observatorio"],
   ],
   // (Lo que Woody dice al pedírselo y al llegar está en content/woody.js.)
-  places: [{ id: "proyectos" }, { id: "cohete" }, { id: "contacto" }, { id: "sobre-mi" }, { id: "cv" }],
+  // («Sobre mí» ya no es un sitio de este mundo: se lee desde el menú superior.)
+  places: [{ id: "proyectos" }, { id: "cohete" }, { id: "contacto" }, { id: "cv" }],
  },
  // Colores de día y de noche de este planeta (ver experience/theme.js).
  themes: {
