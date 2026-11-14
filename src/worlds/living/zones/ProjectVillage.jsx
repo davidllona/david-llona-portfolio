@@ -7,10 +7,9 @@ import { Instances } from "../../../experience/Instances";
 import { useInteractable } from "../../../experience/interact";
 import { lambert } from "../../../experience/materials";
 import { emit, player } from "../../../experience/state";
-import { createLabelTexture } from "../../../experience/textures";
-import { createCottage } from "../buildings/cottageModels";
 import { Glow } from "../buildings/Glow";
-import { preloadBuilding, useBuilding } from "../buildings/useBuilding";
+import { createModelMaterial, preloadModel, useModel } from "../buildings/useModel";
+import { SIGN_RATIO, SignFace } from "../props/Signpost";
 import { withSeeThrough } from "../../../experience/environment/seeThrough";
 import { blob, limb, merge, piece, randomFrom } from "../kit/geometry";
 import { CREAM, STONE, WOOD } from "../kit/palette";
@@ -85,101 +84,14 @@ const createShowcaseTop = () =>
 // Edificio modelado en Blender (uno por proyecto, con identidad propia). La
 // captura va dentro de su escaparate y el único rótulo, sobre la fachada. Al
 // acercarse responde: se aviva la luz del escaparate y el rótulo da un bote.
-const REBUILT = { 0: "taller" };
-Object.values(REBUILT).forEach(preloadBuilding);
+PROJECT_CABINS.forEach((site) => preloadModel(site.model));
 
-function Building({ project, site, name, models }) {
+// Una casa de proyecto: el modelo de stdgaris (docs/CREDITOS.md) y, delante y a
+// un lado, la pantalla con la captura real del proyecto bajo su rótulo.
+function Project({ project, site, models }) {
  const { x, z, turn } = site;
- const { geometry, anchors } = useBuilding(name);
- const label = useMemo(() => createLabelTexture(project.name.toUpperCase(), CREAM, { title: true }), [project]);
- useEffect(() => () => label.dispose(), [label]);
- const sign = useRef(null);
+ const house = useModel(site.model);
  const lamp = useRef(null);
- // Un punto del modelo (en sus ejes) llevado al mundo.
- const toWorld = ([px, py, pz]) => ({ x: x + px * Math.cos(turn) + pz * Math.sin(turn), y: py, z: z - 1.6 - px * Math.sin(turn) + pz * Math.cos(turn) });
-
- const open = () =>
-  emit("open", {
-   kind: "project",
-   at: { ...toWorld(anchors.screen.position), distance: 0.42 }, // la cámara se acerca al escaparate antes de abrir la ficha
-   eyebrow: `Proyecto · ${project.year}`,
-   title: project.name,
-   paragraphs: [project.tagline, project.description],
-   tags: project.tags,
-   image: project.images[0],
-   link: project.link,
-   linkLabel: "Ver proyecto",
-  });
- const click = useInteractable({ position: { x, z: z + 2.4 }, radius: 3.4, hint: `Ver «${project.name}»`, anywhere: true, action: open });
-
- const state = useRef({ near: 0, wasNear: false, bounce: 1 });
- useFrame((_, rawDelta) => {
-  const delta = Math.min(rawDelta, 0.05);
-  const memo = state.current;
-  const close = !player.hidden && Math.hypot(player.position.x - x, player.position.z - (z + 2.4)) < 3.4;
-  memo.near += ((close ? 1 : 0) - memo.near) * Math.min(1, delta * 4);
-  if (close && !memo.wasNear) memo.bounce = 0;
-  memo.wasNear = close;
-  memo.bounce = Math.min(1, memo.bounce + delta / 0.7);
-  // Rebote elástico del rótulo, sobre su borde de arriba (de donde cuelga).
-  const t = memo.bounce;
-  const spring = t >= 1 ? 0 : Math.pow(2, -7 * t) * Math.sin(t * 15);
-  sign.current.rotation.x = anchors.sign.rotation[0] + spring * 0.22;
-  sign.current.scale.setScalar(1 + spring * 0.05);
-  lamp.current.scale.set(1, 1 + memo.near * 0.6, 1);
- });
-
- const screen = anchors.screen;
- return (
-  <group name={`casa de «${project.name}»`} userData={{ rests: 0, foot: 2.2 }} position={[x, 0, z - 1.6]} rotation-y={turn} {...click}>
-   <mesh geometry={geometry} material={models.material} castShadow receiveShadow />
-   {/* Cristales con luz cálida. */}
-   {Object.entries(anchors)
-    .filter(([key]) => key.startsWith("glow"))
-    .map(([key, anchor], i) => (
-     <Glow key={key} light={i === 0} position={anchor.position} rotation={anchor.rotation}>
-      {key.includes("round") ? <circleGeometry args={[anchor.size[0], 12]} /> : <planeGeometry args={[anchor.size[0], anchor.size[1]]} />}
-     </Glow>
-    ))}
-   <Glow power={0.6} forward={0.9} drop={0.5} position={anchors.lantern.position}>
-    <boxGeometry args={anchors.lantern.size} />
-   </Glow>
-   {anchors.smoke && <Smoke position={anchors.smoke.position} />}
-   {/* La captura del proyecto, dentro del escaparate. */}
-   <group position={screen.position} rotation={screen.rotation}>
-    <Suspense fallback={null}>
-     <Picture url={project.images[0]} width={screen.size[0]} height={screen.size[1]} lift={0.012} />
-    </Suspense>
-    {/* Luz del escaparate: una regleta bajo el dintel, que se aviva al acercarse. */}
-    <group ref={lamp} position={[0, screen.size[1] / 2 + 0.02, 0.1]}>
-     <Glow power={0.35} reach={6} forward={1.2} drop={0.5} night={1.4}>
-      <boxGeometry args={[screen.size[0] * 0.9, 0.04, 0.05]} />
-     </Glow>
-    </group>
-   </group>
-   {/* El rótulo: el nombre del proyecto sobre su tabla. */}
-   <group ref={sign} position={anchors.sign.position} rotation={anchors.sign.rotation}>
-    <mesh>
-     <planeGeometry args={[anchors.sign.size[0], anchors.sign.size[1]]} />
-     <meshBasicMaterial map={label} transparent toneMapped={false} fog={false} />
-    </mesh>
-   </group>
-  </group>
- );
-}
-
-function Project({ project, site, index, models }) {
- const { x, z, turn } = site;
- const cottage = useMemo(() => createCottage(index, project.color), [index, project.color]);
- const label = useMemo(() => createLabelTexture(project.name.toUpperCase(), CREAM, { title: true }), [project]);
- const lamp = useRef(null);
- useEffect(
-  () => () => {
-   cottage.geometry.dispose();
-   label.dispose();
-  },
-  [cottage, label],
- );
 
  const open = () =>
   emit("open", {
@@ -193,31 +105,25 @@ function Project({ project, site, index, models }) {
    link: project.link,
    linkLabel: "Ver proyecto",
   });
- const click = useInteractable({ position: { x, z: z + 2.4 }, radius: 3.4, hint: `Ver «${project.name}»`, anywhere: true, action: open });
+ const click = useInteractable({ position: { x, z: z + 2.4 }, radius: 3.6, hint: `Ver «${project.name}»`, anywhere: true, action: open });
 
- // Al acercarse, la luz del escaparate se aviva.
+ // Al acercarse, la luz de la pantalla se aviva.
  const near = useRef(0);
  useFrame((_, delta) => {
-  const close = Math.hypot(player.position.x - x, player.position.z - (z + 2.4)) < 3.4 ? 1 : 0;
+  const close = Math.hypot(player.position.x - x, player.position.z - (z + 2.4)) < 3.6 ? 1 : 0;
   near.current += (close - near.current) * Math.min(1, delta * 4);
   lamp.current.scale.setScalar(1 + near.current * 0.5);
  });
 
  return (
   <group name={`casa de «${project.name}»`} userData={{ rests: 0 }} position={[x, 0, z - 1.6]} rotation-y={turn} {...click}>
-   {/* Casa. */}
-   <mesh geometry={cottage.geometry} material={models.material} castShadow receiveShadow />
-   {cottage.windows.map((window, i) => (
-    <Glow key={i} light={i === 0} position={window.position}>
-     {window.round ? <circleGeometry args={[window.round, 8]} /> : <planeGeometry args={window.size} />}
-    </Glow>
-   ))}
-   <Glow power={0.5} forward={1.0} drop={0.4} position={cottage.lantern}>
+   <mesh geometry={house} material={models.house} scale={site.size} castShadow receiveShadow />
+   {/* Farol junto a la puerta: da luz de noche. */}
+   <Glow power={0.55} forward={1.0} drop={0.4} position={[site.window.x > 0 ? -1.2 : 1.2, 1.9, site.size * 0.5 + 0.1]}>
     <boxGeometry args={[0.16, 0.24, 0.16]} />
    </Glow>
-   {cottage.smoke && <Smoke position={cottage.smoke} />}
 
-   {/* Escaparate con la captura del proyecto y, encima, su rótulo. */}
+   {/* Pantalla con la captura del proyecto y, encima, su rótulo. */}
    <group position={[site.window.x, 0, site.window.z]} rotation-y={site.window.turn}>
     <mesh geometry={models.showcaseBase} material={models.material} castShadow receiveShadow />
     <group position-y={SHOWCASE.base} rotation-x={SHOWCASE.tilt}>
@@ -227,10 +133,11 @@ function Project({ project, site, index, models }) {
        <Picture url={project.images[0]} width={SHOWCASE.width - 0.24} height={1.12} />
       </Suspense>
      </group>
-     <mesh position={[0, 1.62, 0.09]}>
-      <planeGeometry args={[SHOWCASE.width + 0.1, (SHOWCASE.width + 0.1) / 4]} />
-      <meshBasicMaterial map={label} transparent toneMapped={false} fog={false} />
+     <mesh position={[0, 1.66, 0.06]}>
+      <boxGeometry args={[SHOWCASE.width + 0.3, (SHOWCASE.width + 0.22) / SIGN_RATIO + 0.08, 0.06]} />
+      <meshLambertMaterial color={WOOD.dark} flatShading />
      </mesh>
+     <SignFace text={project.name.toUpperCase()} icon="projects" width={SHOWCASE.width + 0.22} position={[0, 1.66, 0.094]} />
      <group ref={lamp} position={[0, 1.28, 0.12]}>
       <Glow power={0.3} reach={6} forward={1.3} drop={0.5} night={1.2}>
        <boxGeometry args={[1.3, 0.05, 0.06]} />
@@ -267,7 +174,7 @@ const createBench = () =>
 
 export function ProjectVillage() {
  // Las casas comparten material; la que tape al astronauta se vuelve translúcida.
- const models = useMemo(() => ({ material: withSeeThrough(lambert()), showcaseBase: createShowcaseBase(), showcaseTop: createShowcaseTop(), well: createWell(), bench: createBench(), lamp: createLantern() }), []);
+ const models = useMemo(() => ({ house: createModelMaterial(), material: withSeeThrough(lambert()), showcaseBase: createShowcaseBase(), showcaseTop: createShowcaseTop(), well: createWell(), bench: createBench(), lamp: createLantern() }), []);
  const stone = useMemo(createSlab, []);
  useEffect(
   () => () => {
@@ -319,13 +226,7 @@ export function ProjectVillage() {
      </Glow>
     </group>
    ))}
-   {PROJECTS.map((project, i) =>
-    REBUILT[i] ? (
-     <Building key={project.id} project={project} site={PROJECT_CABINS[i]} name={REBUILT[i]} models={models} />
-    ) : (
-     <Project key={project.id} project={project} site={PROJECT_CABINS[i]} index={i} models={models} />
-    ),
-   )}
+   {PROJECTS.map((project, i) => PROJECT_CABINS[i] && <Project key={project.id} project={project} site={PROJECT_CABINS[i]} models={models} />)}
   </>
  );
 }

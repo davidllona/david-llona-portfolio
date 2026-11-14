@@ -238,12 +238,12 @@ export const WELL = { x: -24.5, z: -3.5 };
 // captura del proyecto va en un escaparate adosado a la fachada: `window` dice
 // dónde, en el sistema de la casa (x a lo ancho, z hacia el frente, giro propio).
 export const PROJECT_CABINS = [
- // (Con `solid`, el edificio es de los nuevos: sin escaparate aparte, y esos son
- // sus círculos de colisión —[dx, dz, radio] en los ejes de la casa—.)
- { x: -14.2, z: -5.6, turn: -0.34, solid: [[-1.05, 0, 1.95], [1.05, 0, 1.95], [-3.2, 0.3, 1.3], [2.7, -1.1, 0.5], [2.7, 1.25, 0.45]] },
- { x: -20.6, z: -10.4, turn: -0.1, window: { x: 1.95, z: 1.25, turn: -0.42 } },
- { x: -28.2, z: -8.7, turn: 0.17, window: { x: -0.5, z: 1.72, turn: 0 } },
- { x: -34.7, z: -3.8, turn: 0.44, window: { x: -2.5, z: 1.2, turn: 0.38 } },
+ // `model`: la casa (buildings/useModel.js) y `size`, su lado mayor en metros.
+ // `window`: dónde va la pantalla con la captura del proyecto, delante y a un lado.
+ { x: -14.2, z: -5.6, turn: -0.34, model: "casa-campo", size: 5.6, window: { x: 2.9, z: 3.2, turn: -0.3 } },
+ { x: -20.6, z: -10.4, turn: -0.1, model: "casa-bosque", size: 5.2, window: { x: 2.8, z: 3.1, turn: -0.35 } },
+ { x: -28.2, z: -8.7, turn: 0.17, model: "casa-roja", size: 5.2, window: { x: -2.9, z: 3.1, turn: 0.3 } },
+ { x: -34.7, z: -3.8, turn: 0.44, model: "casa-balcones", size: 5.4, window: { x: -3.0, z: 3.0, turn: 0.38 } },
 ];
 // Dónde cae cada pieza de una parcela (la casa, y su escaparate ya girado).
 export const cabinParts = (c) => {
@@ -957,6 +957,14 @@ const colliders = [
   const f = COURT_FENCE, from = f.gate.x - f.gate.width / 2, to = f.gate.x + f.gate.width / 2;
   return [[f.x0, f.z0, from, f.z0], [to, f.z0, f.x1, f.z0], [f.x1, f.z0, f.x1, f.z1], [f.x1, f.z1, f.x0, f.z1], [f.x0, f.z1, f.x0, f.z0]].map(([x, z, bx, bz]) => ({ x, z, bx, bz, r: 0.1 }));
  })(),
+ // Esfera armilar del observatorio (sus aros giran: no se hornea bien).
+ { x: OBSERVATORY.x - 4.4, z: OBSERVATORY.z + 1.0, r: 0.8 },
+ // Vallitas del jardín de la casa azul (más finas que la rejilla del horneado).
+ ...[[-2.6, -0.8], [0.8, 2.6]].map(([from, to]) => {
+  const { at } = cabinParts(PROJECT_CABINS[1]);
+  const a = at(from, 2.2), b = at(to, 2.2);
+  return { x: a.x, z: a.z, bx: b.x, bz: b.z, r: 0.22 };
+ }),
  // Poste de la canasta (más fino que la rejilla del horneado) y la barrera.
  { x: BASKET.hoop.x + 0.38, z: BASKET.hoop.z, r: 0.17 },
  blockerCollider,

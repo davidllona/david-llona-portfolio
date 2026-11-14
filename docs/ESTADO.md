@@ -23,7 +23,7 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 | Retoques de 1–4 (pedidos por David al aprobar) | **Hechos.** Fps: 110 · 114 · 109 · 113 · 114. Hojas: `capturas/23-pulido/retoques/hoja-dia.jpg` y `hoja-noche.jpg` |
 | 5. Baloncesto | **Hecho.** Fps después: 106 · 113 · 109 · 111 · 113. Capturas: `capturas/23-pulido/5-baloncesto/` (`hoja.jpg`) |
 | 6. Fútbol | **Hecho.** Fps después: 104 · 108 · 107 · 106 · 106. Capturas: `capturas/23-pulido/6-futbol/` (`hoja.jpg`, y los fotogramas de cada tiro) |
-| 7. Edificios | Sin empezar |
+| 7. Edificios | **Hecho.** Fps después: 109 · 112 · 112 · 113 · 110. Capturas: `capturas/23-pulido/7-edificios/` (`hoja.jpg`, `hoja-noche.jpg`; los modelos sueltos, en `modelos/hoja.jpg`) |
 | 8. Jardín japonés | Sin empezar. **Parada** al terminar |
 
 **Apartado 1, lo que hay** (`flora/Grass.jsx`, `layout.js`, `terrainData.js`, `groundColor.js`, `tests/e2e/motion.mjs`, `tests/e2e/pulido.mjs`):
@@ -97,6 +97,29 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 - **Red que se deforma con el gol**: es la tela con física del objetivo 8 (se embolsa 33 cm en la prueba; sin cambios).
 - Pruebas: `football` 63 comprobaciones (tres nuevas: portero que se mueve, estirada a la escuadra, estela teñida). El umbral de «el efecto curva el vuelo» baja de 0,30 a 0,25 m: la curva medida baila entre 0,29 y 0,39 m según el muestreo y la prueba fallaba una de cada tres pasadas (ya ocurría antes de este objetivo). `errors`, `entrada.mjs` (0 pipelines en caliente).
 - Sin comprobar: lo mismo que en el objetivo 8 (controles táctiles, dificultad a mano, sonido de oído).
+
+**Apartado 7, lo que hay** (`tools/assets/buildings.py`, `tools/assets/preview.py`, `public/models/living/buildings/*.glb`, `buildings/useModel.js`, `zones/ProjectVillage.jsx`, `zones/AboutMe.jsx`, `buildings/Observatory.jsx`, `football/Football.jsx`, `layout.js`):
+- **Los ocho modelos se pueden usar** (todos son de color plano, sin texturas). `buildings.py` (Blender, sin ventana) saca de cada uno una sola malla con el color en los vértices, apoyada en el suelo y con su lado mayor en planta de 1. Reduce primero las caras que están en un mismo plano y luego el resto. `preview.py` renderiza los GLB para verlos sueltos.
+
+| Modelo | Antes → después (triángulos) | Peso | Dónde |
+|---|---|---|---|
+| Small country house with green roof and fireplace | 54.690 (125.096 con modificadores) → 5.200 | 91 kB | Proyecto 1 (cabaña en A; es así, con porche abierto) |
+| Small house with blue roof | 34.490 → 5.200 | 85 kB | Proyecto 2 |
+| Small house with red roof and chimney | 59.898 → 5.200 | 85 kB | Proyecto 3 |
+| Compact residence with dual contemporary balconies | 17.136 (75.284) → 5.200 | 85 kB | Proyecto 4 |
+| Island cabin with outdoor seating | 1.958 (536.450) → 5.200 | 94 kB | Convertida; es la casa de té del apartado 8 |
+| Cartoon treehouse with ladder access | 229.138 → 7.000 | 231 kB | Sobre mí |
+| Small observatory with telescope dome | 32.208 → 5.999 | 150 kB | Observatorio |
+| World Cup Trophy Football | 228.848 → 4.498 | 60 kB | Vitrina del trofeo |
+
+- **Proyectos**: son cuatro proyectos, así que van cuatro casas de stdgaris (la quinta, la «Island cabin», queda para el jardín japonés). Los modelos son dioramas: se les quita la peana de terreno y los árboles. Cada casa lleva delante, a un lado, su **pantalla** con la captura real del proyecto y encima su **rótulo** del estilo nuevo. Las ventanas se encienden de noche (la conversión las pinta de un color exacto y el material lo enciende). Fuera las casetas hechas a mano y el taller (`taller.glb` sigue en el repo, sin usar).
+- **Casa del árbol**: el modelo entero (árbol, cabaña y escalera), sin su plano de suelo, de 8,2 m.
+- **Observatorio**: el edificio es el modelo (6,4 m de diámetro). Se conservan la esfera armilar y el telescopio como interruptor del día y la noche. **Se pierde** el giro de la cúpula de noche (el modelo es una sola malla) y la carta estelar de la fachada.
+- **Trofeo**: el modelo, en dorado con sus dos anillos verdes; placa y aviso «ESPAÑA · CAMPEONA DEL MUNDO · 2010 · 2026».
+- Colisiones rehorneadas (815 obstáculos); a mano, la esfera armilar y las vallitas de la casa azul. `camera.mjs`: la comprobación de los escaparates se ha reescrito (la pantalla va exenta: se la rodea, no hay fachada detrás).
+- Pruebas: `collisions`, `terrain`, `errors`, `entrada.mjs` (0 pipelines en caliente), `living` (las cuatro fichas, Sobre mí, observatorio), `portfolio`, `camera`, `woody`, `progress`, `football`.
+- Ojo: Blender escribió las vistas previas en `C:\capturas\` (ruta relativa mal resuelta; ya corregido en `preview.py`). Las copié al proyecto; **queda esa carpeta `C:\capturas` con ocho JPG**, que no he podido borrar (lo bloquea una protección de borrado): bórrala a mano.
+- Sin comprobar: que cada fachada quede bien orientada vista andando (solo en capturas fijas); la escalera de la casa del árbol es decorado.
 
 ## Objetivo 16
 

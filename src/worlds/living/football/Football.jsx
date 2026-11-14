@@ -11,6 +11,7 @@ import { Glow } from "../buildings/Glow";
 import { merge, piece } from "../kit/geometry";
 import { CREAM, STONE, WOOD } from "../kit/palette";
 import { PITCH } from "../layout";
+import { createModelMaterial, preloadModel, useModel } from "../buildings/useModel";
 import { BALL_RADIUS, GOAL, MODES, SWEET, TARGET_PLANE, TURF, createMatch, enter, leave, netBulge, preview, release, setAim, setKeeper, startCharge, startMode, strike, toggleWall, update } from "./match";
 
 // Estela del balón: cuántas marcas, y el color de un tiro con mucho efecto.
@@ -27,6 +28,8 @@ import { fontReady } from "../../../ui/fonts";
 // el ratón (o el dedo), se carga manteniendo pulsado y se suelta para chutar.
 
 const TROPHY = { x: PITCH.x0 + 6.2, z: PITCH.z0 - 1.9 };
+const TROPHY_PLAQUE = "ESPAÑA · CAMPEONA DEL MUNDO · 2010 · 2026";
+preloadModel("trofeo");
 // El marcador de madera: detrás de la línea de fondo, a la derecha de la
 // portería según se chuta, bajo y girado hacia el lanzador. Es el único
 // marcador. (Sitio y tamaño elegidos para que quepa entero en pantalla desde
@@ -96,29 +99,6 @@ function createGoalFrame() {
  ]);
 }
 
-// Trofeo propio: copa facetada sobre una columna en espiral, coronada por una
-// estrella. No copia ningún trofeo real.
-function createTrophy() {
- const gold = { bottom: "#b8802a", top: "#ffd76a", vary: 0.08 };
- const pieces = [
-  piece(new THREE.CylinderGeometry(0.2, 0.24, 0.08, 6), { bottom: "#2f6f55", top: "#49a07a", position: [0, 0.04, 0] }),
-  piece(new THREE.CylinderGeometry(0.15, 0.19, 0.07, 6), { bottom: "#2f6f55", top: "#49a07a", position: [0, 0.115, 0], rotation: [0, Math.PI / 6, 0] }),
-  piece(lathe([[0.1, 0.15], [0.05, 0.22], [0.045, 0.36], [0.08, 0.43], [0.19, 0.55], [0.21, 0.68], [0.17, 0.72], [0.0, 0.7]], 8), gold),
- ];
- // Columna en espiral: tres cintas que suben girando alrededor del fuste.
- for (let i = 0; i < 9; i++) {
-  const t = i / 8, angle = t * Math.PI * 1.6;
-  for (let k = 0; k < 3; k++) pieces.push(piece(new THREE.IcosahedronGeometry(0.024, 0), { ...gold, position: [Math.cos(angle + (k * Math.PI * 2) / 3) * 0.062, 0.2 + t * 0.2, Math.sin(angle + (k * Math.PI * 2) / 3) * 0.062] }));
- }
- // Estrella de cinco puntas, de pie sobre la copa.
- const star = new THREE.Shape();
- for (let i = 0; i < 10; i++) {
-  const r = i % 2 ? 0.045 : 0.11, a = (i / 10) * Math.PI * 2 + Math.PI / 2;
-  star[i ? "lineTo" : "moveTo"](Math.cos(a) * r, Math.sin(a) * r);
- }
- pieces.push(piece(new THREE.ExtrudeGeometry(star, { depth: 0.04, bevelEnabled: false }).translate(0, 0, -0.02), { bottom: "#e0a23c", top: "#fff0b0", position: [0, 0.84, 0] }));
- return merge(pieces);
-}
 
 // Vitrina: peana de piedra, zócalo de madera, cuatro montantes y tejadillo.
 function createShowcase() {
@@ -228,6 +208,7 @@ export function Football() {
  const match = useMemo(createMatch, []);
  const ball = useRef(null), shadow = useRef(null), keeper = useRef(null), reticle = useRef(null), netLines = useRef(null), confetti = useRef(null), trophy = useRef(null);
  const wall = useRef([]), targets = useRef([]);
+ const cup = useModel("trofeo");
  const trailMesh = useRef(null);
  const trail = useMemo(() => ({ marks: [], clock: 0 }), []);
  const focus = useMemo(() => new THREE.Vector3(), []);
@@ -242,12 +223,12 @@ export function Football() {
    frame: createGoalFrame(),
    keeper: createDummy({ shirt: "#f2a23a", arms: true }),
    dummy: createDummy({ shirt: "#5b8cff" }),
-   trophy: createTrophy(),
    showcase: createShowcase(),
    board: createBoardFrame(),
    ballTexture: createBallTexture(),
    gold: lambert({ emissive: new THREE.Color("#ffb24a"), emissiveIntensity: 0 }),
-   label: createLabelTexture("ESPAÑA · 2010", CREAM, { title: true }),
+   label: createLabelTexture(TROPHY_PLAQUE, CREAM, { title: true }),
+   cup: createModelMaterial({ seeThrough: false }),
   }),
   [],
  );
@@ -336,7 +317,7 @@ export function Football() {
    // Confeti: sale de lo alto de la vitrina y cae revoloteando.
    for (const bit of bits) Object.assign(bit, { x: TROPHY.x + (Math.random() - 0.5) * 0.8, y: 2.6 + Math.random() * 0.4, z: TROPHY.z + (Math.random() - 0.5) * 0.6, vx: (Math.random() - 0.5) * 3.2, vy: 2.5 + Math.random() * 3.5, vz: (Math.random() - 0.5) * 3.2 + 0.8, spin: (Math.random() - 0.5) * 12, turn: Math.random() * 6 });
    emit("sound", { id: "football-trophy", x: TROPHY.x, z: TROPHY.z });
-   emit("toast", { text: "ESPAÑA · 2010", at: { x: TROPHY.x, y: 3.4, z: TROPHY.z } });
+   emit("toast", { text: TROPHY_PLAQUE, at: { x: TROPHY.x, y: 3.4, z: TROPHY.z } });
    emit("football", { type: "trophy" });
   },
  });
@@ -686,7 +667,8 @@ export function Football() {
    {/* Vitrina del trofeo. */}
    <group name="vitrina del trofeo" userData={{ rests: 0 }} position={[TROPHY.x, 0, TROPHY.z]} {...trophyClick}>
     <mesh geometry={models.showcase} material={models.material} castShadow receiveShadow />
-    <mesh ref={trophy} geometry={models.trophy} material={models.gold} position={[0, 1.07, 0]} scale={1.15} castShadow />
+    {/* El trofeo es el modelo «World Cup Trophy Football» (docs/CREDITOS.md). */}
+    <mesh ref={trophy} geometry={cup} material={models.cup} position={[0, 1.07, 0]} scale={0.46} castShadow />
     <mesh position={[0, 0.62, 0.47]}>
      <planeGeometry args={[1.16, 0.29]} />
      <meshBasicMaterial map={models.label} transparent toneMapped={false} fog={false} />

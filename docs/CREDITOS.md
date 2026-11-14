@@ -57,6 +57,14 @@ Descargados por David Llona con su licencia de Envato. Los archivos originales e
 | `public/models/living/flora/mata.glb` | «Low poly bush cluster» | slabdsgn | 400 triángulos (sin reducir); ídem |
 | `public/models/living/fauna/pajaro.glb` | «Animated Bluebird with Feathery Wings» (Envato; el paquete no trae el nombre del autor) | — | 7.190 → 720 triángulos, sin esqueleto ni texturas: color plano por cara sacado de su textura y cinco posturas (cuatro del vuelo, una posado) como shape keys (`tools/assets/bird.py`) |
 | `public/models/living/court/canasta.glb` | «Basketball 3D Icons» (Envato; el paquete no trae el nombre del autor) | — | Sin el balón ni la peana; 107.000 → 2.200 triángulos, dos mallas (canasta y red), color de material pasado a color de vértice (`tools/assets/hoop.py`) |
+| `public/models/living/buildings/casa-campo.glb` | «Small country house with green roof and fireplace» | stdgaris | Sin la peana ni los árboles del diorama; → 5.200 triángulos, una malla, color de material pasado a color de vértice (`tools/assets/buildings.py`) |
+| `public/models/living/buildings/casa-bosque.glb` | «Small house with blue roof» | stdgaris | Ídem; → 5.200 triángulos |
+| `public/models/living/buildings/casa-roja.glb` | «Small house with red roof and chimney» | stdgaris | Ídem; → 5.200 triángulos |
+| `public/models/living/buildings/casa-balcones.glb` | «Compact residence with dual contemporary balconies» | stdgaris | Ídem; → 5.200 triángulos |
+| `public/models/living/buildings/casa-te.glb` | «Island cabin with outdoor seating» | stdgaris | Ídem; → 5.200 triángulos |
+| `public/models/living/buildings/casa-arbol.glb` | «Cartoon treehouse with ladder access» (Envato; el paquete no trae el nombre del autor) | — | Sin el plano de suelo; 229.138 → 7.000 triángulos; ídem |
+| `public/models/living/buildings/observatorio.glb` | «Small observatory with telescope dome» (Envato; ídem) | — | 32.208 → 5.999 triángulos; ídem |
+| `public/models/living/buildings/trofeo.glb` | «World Cup Trophy Football» (Envato; ídem) | — | 228.848 → 4.498 triángulos; vértices soldados antes de reducir; dorado y verde puestos a mano |
 | `public/loader/mundo.webp` (imagen) | «Low poly green tree asset», «Low poly green tree object», «Low poly bush cluster» | slabdsgn | Aparecen renderizados en el planeta de la pantalla de carga (`tools/blender/loader.py`); no se distribuye el modelo, solo la imagen |
 
 ### Sonidos (en uso desde el objetivo 16, bloque 0)

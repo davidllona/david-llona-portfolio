@@ -333,7 +333,7 @@ check(/trofeo/i.test((await t.hint()) ?? ""), `junto a la vitrina: "${await t.hi
 await t.shot("trofeo-0");
 await page.keyboard.press("KeyE");
 await wait(700);
-check((await t.toasts()).some((text) => /ESPAÑA · 2010/.test(text)), "la vitrina enseña «ESPAÑA · 2010»");
+check((await t.toasts()).some((text) => /ESPAÑA · CAMPEONA DEL MUNDO · 2010 · 2026/.test(text)), "la vitrina enseña «ESPAÑA · CAMPEONA DEL MUNDO · 2010 · 2026»");
 for (let i = 1; i <= 3; i++) {
  await t.shot(`trofeo-${i}`);
  await wait(450);

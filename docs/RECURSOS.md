@@ -50,6 +50,8 @@ Añadido el 14-11-2026 (objetivo 18): «Animated Bluebird with Feathery Wings»,
 
 En uso desde el objetivo 18, apartado 5: «Basketball 3D Icons» (`basketball-3d-icons/05_Basketball.glb`) es la canasta de la pista (`public/models/living/court/canasta.glb`, 2.200 triángulos; `tools/assets/hoop.py`). Sonidos de baloncesto: no hay recurso; siguen sintetizados.
 
+En uso desde el objetivo 18, apartado 7 (`public/models/living/buildings/`, `tools/assets/buildings.py`): las cuatro casas de stdgaris de los proyectos, «Cartoon treehouse with ladder access», «Small observatory with telescope dome» y «World Cup Trophy Football». Triángulos finales, en `docs/ESTADO.md` (apartado 7).
+
 Ya en uso desde antes (no están en la lista de este objetivo): los cinco árboles y arbustos de slabdsgn
 (`public/models/living/flora/*.glb`).
 
