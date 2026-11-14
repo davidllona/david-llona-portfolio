@@ -444,7 +444,7 @@ export function Experience({ active, lowPower, onReady }) {
    shadows={flag("shadows", 1) > 0}
    dpr={[1, pixelRatio]}
    gl={(canvas) => createRenderer(canvas, () => setGpuReady(true))}
-   camera={{ fov: 40, near: 0.5, far: 900, position: [0, 17, 21] }}
+   camera={{ fov: 40, near: 0.5, far: 4500, position: [0, 17, 21] }}
   >
    {/* El color del fondo y de la niebla los pone el tema (ver Lights.jsx). */}
    <color attach="background" args={["#f4b98a"]} />

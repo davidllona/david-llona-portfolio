@@ -6,7 +6,7 @@ import { withSeeThrough } from "./environment/seeThrough";
 import { setBlast } from "./environment/wind";
 import { Exhaust } from "./Exhaust";
 import { lambert } from "./materials";
-import { emit, player, rig } from "./state";
+import { ORBIT_VIEW, emit, player, rig } from "./state";
 import { materialColor, normalWorld, vec3 } from "three/tsl";
 import { addWarmSource } from "./lightSources";
 import { registerGlow, uniforms } from "./theme";
@@ -15,13 +15,19 @@ import { world } from "../worlds";
 
 const PAD_COLOR = "#ffb238";
 
-const ALTITUDE = 34; // m a los que se queda en órbita
+// La órbita: muy por encima de la isla y algo al sur de ella (la nave sube
+// trazando un arco, como un cohete de verdad), justo por donde mira la cámara
+// de la órbita: se la ve delante del planeta entero.
+const ALTITUDE = 440; // m a los que se queda en órbita
+const DOWNRANGE = 163; // m hacia el sur a los que queda, al final del arco
 const IGNITION = 1.6; // s con los motores encendidos antes de levantarse
-const ASCENT = 6.2; // s de subida
-const DESCENT = 4.5;
+const ASCENT = 7.4; // s de subida
+const DESCENT = 5.6;
+const ORBIT_TURN = 0.035; // rad/s a los que la cámara rodea el planeta en órbita: se le ve girar despacio
 const NOZZLE = 0.45; // altura de la boca de la tobera sobre la base de la nave
 const BLAST_REACH = 11; // m alrededor de la plataforma en los que el empuje agita la vegetación
 
+const UP = new THREE.Vector3(0, 1, 0), ACROSS = new THREE.Vector3(1, 0, 0);
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 // Perfil del casco (radio, altura): panzudo abajo y afilado arriba. Se tornea
@@ -170,7 +176,9 @@ export function Ship() {
  const ship = useRef(null);
  const flame = useRef(null);
  const flare = useRef(null);
- const flight = useRef({ phase: "idle", time: 0, power: 0, gusts: 0 });
+ const flight = useRef({ phase: "idle", time: 0, power: 0, gusts: 0, turn: 0 });
+ const orbitFocus = useMemo(() => new THREE.Vector3(...ORBIT_VIEW.focus), []);
+ const turning = useMemo(() => new THREE.Quaternion(), []);
  const focus = useMemo(() => new THREE.Vector3(), []);
  // De dónde sale el escape en cada fotograma (lo lee Exhaust.jsx).
  const exhaust = useMemo(() => ({ x: SHIP.x, y: NOZZLE, z: SHIP.z, thrust: 0, ground: 0.2, radius: SHIP.padRadius }), [SHIP]);
@@ -199,7 +207,9 @@ export function Ship() {
   emit("ship", { phase: "launch" });
  };
  const land = () => {
-  Object.assign(flight.current, { phase: "descending", time: 0, gusts: 0 });
+  // La vuelta que se haya dado alrededor del planeta se deshace por el lado corto.
+  const turn = Math.atan2(Math.sin(flight.current.turn), Math.cos(flight.current.turn));
+  Object.assign(flight.current, { phase: "descending", time: 0, gusts: 0, turn });
   emit("ship", { phase: "land" });
  };
 
@@ -219,7 +229,7 @@ export function Ship() {
    player.hidden = player.frozen = false;
    world.shipCollider.active = true;
    setBlast(0, 0, 0, 1, 0);
-   Object.assign(rig, { focus: null, distance: 1, tilt: 0, space: 0 });
+   Object.assign(rig, { focus: null, distance: 1, tilt: 0, space: 0, yaw: 0 });
   },
   [],
  );
@@ -258,12 +268,17 @@ export function Ship() {
     player.facing = Math.PI;
     player.hidden = player.frozen = false;
     world.shipCollider.active = true;
-    Object.assign(rig, { focus: null, distance: 1, tilt: 0, space: 0 });
+    state.turn = 0;
+    Object.assign(rig, { focus: null, distance: 1, tilt: 0, space: 0, yaw: 0 });
    }
   } else if (state.phase === "orbit") {
    progress = 1;
+   state.turn += dt * ORBIT_TURN;
   }
   const height = progress * ALTITUDE;
+  // El arco: sube casi a plomo y se va tumbando hacia el sur.
+  const south = progress * progress * DOWNRANGE;
+  const lean = Math.atan2(2 * progress * DOWNRANGE, ALTITUDE) * Math.min(1, progress * 4);
   const flying = state.phase !== "idle";
   const thrusting = state.phase === "igniting" || state.phase === "ascending" || state.phase === "descending";
 
@@ -275,28 +290,34 @@ export function Ship() {
   // Posición: en el encendido vibra un poco; en órbita deriva en círculo.
   const drift = state.phase === "orbit" ? 1 : progress * progress;
   const tremble = state.phase === "igniting" ? 0.022 * ignition : state.phase === "ascending" ? 0.03 * Math.max(0, 1 - progress * 8) : 0;
+  // En órbita la cámara rodea despacio el planeta (se le ve girar) y la nave va
+  // con ella, por delante; al bajar, las dos deshacen la vuelta.
+  const around = state.phase === "orbit" ? state.turn : state.phase === "descending" ? state.turn * progress * progress : 0;
+  const offX = Math.sin(time * 0.3) * 3 * drift + Math.sin(time * 71) * tremble;
+  const offZ = south + Math.cos(time * 0.3) * 3 * drift + Math.cos(time * 63) * tremble;
   ship.current.position.set(
-   SHIP.x + Math.sin(time * 0.3) * 3 * drift + Math.sin(time * 71) * tremble,
+   SHIP.x + offX * Math.cos(around) + offZ * Math.sin(around),
    height + (flying ? Math.sin(time * 1.7) * 0.25 * drift : 0) + Math.abs(Math.sin(time * 57)) * tremble * 0.6,
-   SHIP.z + Math.cos(time * 0.3) * 3 * drift + Math.cos(time * 63) * tremble,
+   SHIP.z - offX * Math.sin(around) + offZ * Math.cos(around),
   );
-  ship.current.rotation.y = flying ? time * 0.25 * drift : 0;
+  // Gira despacio sobre su eje y apunta hacia donde va.
+  if (flying) ship.current.quaternion.setFromAxisAngle(UP, around).multiply(turning.setFromAxisAngle(ACROSS, lean)).multiply(turning.setFromAxisAngle(UP, time * 0.25 * drift));
+  else ship.current.quaternion.identity();
 
   if (flying) {
-   // La cámara sigue al cohete mientras sube y, ya arriba, se abre para ver
-   // el planeta entero desde lo alto.
-   const open = Math.min(1, Math.max(0, (progress - 0.3) / 0.55));
-   const wide = open * open * (3 - 2 * open);
-   focus.set(
-    THREE.MathUtils.lerp(ship.current.position.x, SHIP.x * 0.15, wide),
-    THREE.MathUtils.lerp(height + 2.6, height * 0.28, wide),
-    THREE.MathUtils.lerp(ship.current.position.z, SHIP.z * 0.03, wide),
-   );
+   // La cámara sigue al cohete mientras sube, alejándose cada vez más, y en el
+   // último tramo deja de mirarle a él para mirar al planeta entero, con la
+   // nave delante (ver `ORBIT_VIEW`). Todo es continuo: no hay corte.
+   const wide = Math.pow(Math.min(1, Math.max(0, (progress - 0.55) / 0.45)), 1.6);
+   const above = Math.min(1, Math.max(0, (progress - 0.3) / 0.7));
+   focus.set(ship.current.position.x, height + 2.6, ship.current.position.z).lerp(orbitFocus, wide);
    rig.focus = focus;
    // En el encendido se retira un poco para que quepan la nave y el humo.
-   rig.distance = 1 + ignition * 0.5 + (state.phase === "igniting" ? 0 : 0.5 + progress * progress * 11.3);
-   rig.tilt = wide;
-   rig.space = Math.min(1, progress * 1.3);
+   rig.distance = 1 + ignition * 0.5 + (state.phase === "igniting" ? 0 : 0.5 + Math.pow(progress, 1.35) * (ORBIT_VIEW.distance - 1.5));
+   // (Se aleja pronto: la nave sube muy deprisa y la cámara la sigue con algo de retardo; de cerca se le escaparía por arriba.)
+   rig.tilt = ORBIT_VIEW.tilt * above * above * (3 - 2 * above);
+   rig.yaw = around;
+   rig.space = Math.min(1, progress * 2.4);
    // Vibración suave en el encendido, más fuerte al levantarse, y se apaga al subir.
    const rumble = state.phase === "igniting" ? 0.1 + ignition * 0.12 : state.phase === "orbit" ? 0 : 0.26 * Math.max(0, 1 - progress * 3.2);
    rig.shake = Math.max(rig.shake, rumble);

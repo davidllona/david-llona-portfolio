@@ -145,6 +145,7 @@ export function Player({ active }) {
   let swing = (rig.focus ? rig.yaw ?? 0 : 0) - state.yaw;
   swing = Math.atan2(Math.sin(swing), Math.cos(swing));
   state.yaw += swing * follow * 0.6;
+  rig.viewYaw = state.yaw; // (lo lee el cielo de la órbita)
   state.lift += ((rig.focus ? rig.lift ?? 1 : 1) - state.lift) * follow * 0.6;
 
   rig.shake = Math.max(0, rig.shake - dt * 1.6);

@@ -151,8 +151,11 @@ export function updateTheme(delta, elapsed) {
  current.background.lerp(SPACE, space);
  current.fog.lerp(SPACE, space);
  current.skyTop.lerp(SPACE, space);
- current.skyHorizon.lerp(SPACE, space * 0.85);
+ // (Desde la órbita se mira hacia abajo: ahí el cielo es todo «horizonte», y también es espacio.)
+ current.skyHorizon.lerp(SPACE, Math.max(space * 0.85, rig.space));
  current.fogDensity *= 1 - space * 0.8;
+ // En órbita no queda niebla: el planeta se ve entero, a casi un kilómetro.
+ current.fogDensity *= (1 - rig.space) ** 2;
  sunDirection.copy(SUN_DAY).lerp(SUN_NIGHT, t).lerp(SUN_WELCOME, rig.intro).normalize();
  // En el islote la luna manda menos luz de ambiente: las siluetas se recortan.
  current.hemiPower *= 1 - rig.intro * 0.5;

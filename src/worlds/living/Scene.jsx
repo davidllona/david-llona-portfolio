@@ -2,6 +2,7 @@ import { Court } from "./Court";
 import { Fauna } from "./Fauna";
 import { Flora } from "./Flora";
 import { Grass } from "./flora/Grass";
+import { Space } from "./Space";
 import { Terrain } from "./Terrain";
 import { Zones } from "./Zones";
 import { useEffect, useRef, useState } from "react";
@@ -36,6 +37,7 @@ export default function LivingScene({ quality, onBuilt }) {
    <Zones />
    <Court />
    <Fauna />
+   <Space />
   </Staged>
  );
 }

@@ -34,7 +34,12 @@ export const woody = {
 };
 
 // Cámara: a quién sigue y desde cuánto de lejos. `focus` nulo = al jugador.
-export const rig = { focus: null, distance: 1, zoom: 1, shake: 0, space: 0, intro: 1, introTarget: 1, yaw: 0, lift: 1 };
+export const rig = { focus: null, distance: 1, zoom: 1, shake: 0, space: 0, intro: 1, introTarget: 1, yaw: 0, lift: 1, viewYaw: 0 };
+// La vista desde la órbita: a dónde mira la cámara, a qué distancia (en veces la
+// del juego) y cuánto se pone encima. Con eso queda en `camera`, a unos 770 m
+// del centro del planeta, que se ve entero. (La usan la nave, que lleva la
+// cámara hasta ahí, y el cielo de la órbita, que coloca sus astros en esa vista.)
+export const ORBIT_VIEW = { focus: [0, -40, 0], distance: 72, tilt: 0.913, camera: [0, 567, 188] };
 // `yaw`: giro de la cámara alrededor de lo que sigue (0 = mira al norte, como siempre);
 // `lift`: cuánto de su altura normal toma (1 = la de siempre; menos, más rasante).
 // Los usa el fútbol para ponerse a la espalda del balón; el resto no los toca.

@@ -34,9 +34,9 @@ function Stars({ count }) {
    const angle = random() * Math.PI * 2;
    const up = 0.04 + random() * 0.96;
    const flat = Math.sqrt(1 - up * up);
-   helper.position.set(Math.cos(angle) * flat, up, Math.sin(angle) * flat).multiplyScalar(620);
+   helper.position.set(Math.cos(angle) * flat, up, Math.sin(angle) * flat).multiplyScalar(3100);
    helper.lookAt(0, 0, 0);
-   helper.scale.setScalar(0.7 + random() ** 3 * 2.6);
+   helper.scale.setScalar((0.7 + random() ** 3 * 2.6) * 5);
    helper.updateMatrix();
    mesh.current.setMatrixAt(i, helper.matrix);
   }
@@ -57,7 +57,8 @@ function Stars({ count }) {
 // Cielo: una cúpula con degradado del horizonte al cenit, las estrellas, y el
 // sol o la luna con su halo allí de donde viene la luz. Sigue a la cámara, así
 // que nunca se llega a su borde. Desde el suelo apenas se ve (la cámara mira
-// hacia abajo); luce al despegar con el cohete.
+// hacia abajo); luce al despegar con el cohete. Va muy lejos (3,5 km): el
+// planeta entero y los astros de la órbita quedan por delante.
 export function Sky({ stars = 3000 }) {
  const group = useRef(null);
  const orb = useRef(null);
@@ -78,7 +79,7 @@ export function Sky({ stars = 3000 }) {
 
  useFrame(({ camera }) => {
   group.current.position.copy(camera.position);
-  orb.current.position.copy(sunDirection).multiplyScalar(560);
+  orb.current.position.copy(sunDirection).multiplyScalar(2800);
   halo.current.position.copy(orb.current.position);
   orb.current.quaternion.copy(camera.quaternion);
   halo.current.quaternion.copy(camera.quaternion);
@@ -87,7 +88,9 @@ export function Sky({ stars = 3000 }) {
   orb.current.material.color.setRGB(2.4 - night * 0.9, 2.1 - night * 0.3, 1.5 + night * 0.9);
   halo.current.material.color.copy(current.sun);
   halo.current.material.opacity = 0.5 - night * 0.15;
-  orb.current.scale.setScalar(30 - night * 8);
+  orb.current.scale.setScalar((30 - night * 8) * 5);
+  // El cielo acompaña a la cámara cuando rodea el planeta en órbita: las estrellas no se arremolinan.
+  group.current.rotation.y = rig.space > 0 ? rig.viewYaw : 0;
   // En la bienvenida la luna es la del islote (Welcome.jsx): esta no se ve.
   orb.current.visible = halo.current.visible = rig.intro < 1;
  });
@@ -95,14 +98,14 @@ export function Sky({ stars = 3000 }) {
  return (
   <group ref={group} renderOrder={-10}>
    <mesh material={dome}>
-    <sphereGeometry args={[700, 24, 12]} />
+    <sphereGeometry args={[3500, 24, 12]} />
    </mesh>
    <Stars count={stars} />
    <mesh ref={orb}>
     <circleGeometry args={[1, 20]} />
     <meshBasicMaterial toneMapped={false} fog={false} depthWrite={false} />
    </mesh>
-   <mesh ref={halo} scale={190}>
+   <mesh ref={halo} scale={950}>
     <planeGeometry />
     <meshBasicMaterial map={glow} transparent depthWrite={false} fog={false} toneMapped={false} blending={THREE.AdditiveBlending} />
    </mesh>
