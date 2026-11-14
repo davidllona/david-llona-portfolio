@@ -94,14 +94,16 @@ export const STREAM_LEVEL = PLATEAU.height - 0.17; // altura de su agua
 
 // Puente sobre el río, en el camino a Contacto. El tablero se pisa: su altura
 // sustituye a la del cauce.
+// (`model`: el puente es un modelo —el rojo del jardín—; Terrain.jsx no le pone tablones.)
 export const BRIDGES = [{ from: [19.3, -0.4], to: [26.9, 0.9], width: 2.8, rise: 0.75 }];
 
 // Altura del tablero en el punto t (0–1) de su largo, y su pendiente (por
 // unidad de t). Arranca y termina a ras de suelo y sin quiebro: se entra y se
 // sale del puente sin escalón.
 export const BRIDGE_LIP = 0.04;
-export const bridgeArc = (bridge, t) => BRIDGE_LIP + Math.sin(t * Math.PI) ** 2 * (bridge.rise + 0.08);
-export const bridgeSlope = (bridge, t) => Math.sin(2 * t * Math.PI) * Math.PI * (bridge.rise + 0.08);
+// (El puente del jardín es un modelo y su tablero es una parábola: se pisa esa.)
+export const bridgeArc = (bridge, t) => (bridge.model ? BRIDGE_LIP + 4 * t * (1 - t) * bridge.rise : BRIDGE_LIP + Math.sin(t * Math.PI) ** 2 * (bridge.rise + 0.08));
+export const bridgeSlope = (bridge, t) => (bridge.model ? 4 * (1 - 2 * t) * bridge.rise : Math.sin(2 * t * Math.PI) * Math.PI * (bridge.rise + 0.08));
 
 function bridgeHeight(x, z) {
  for (const bridge of BRIDGES) {
@@ -278,6 +280,20 @@ export const BASKET = {
 // Valla de la pista: la rodea entera, por fuera del bordillo. La puerta, en el
 // lado norte, donde llega el camino.
 export const COURT_FENCE = { x0: COURT.x0 - 0.45, x1: COURT.x1 + 0.45, z0: COURT.z0 - 0.45, z1: COURT.z1 + 0.45, height: 3.3, gate: { x: 0, width: 1.9 } };
+// Jardín japonés, al este de la pista de baloncesto (zones/Garden.jsx). No toca
+// el relieve: el estanque es una lámina de agua a ras de suelo.
+export const GARDEN = {
+ x: 19, z: 17,
+ pond: { x: 19, z: 17.4, rx: 3.5, rz: 2.5 },
+ bridge: { from: [19, 14.6], to: [19, 20.2] }, // cruza el estanque de norte a sur
+ torii: { x: 15.0, z: 13.5, turn: Math.PI / 4, size: 3.6 }, // la entrada, viniendo de la nave
+ teaHouse: { x: 24.4, z: 13.4, turn: -0.35, size: 5.0 },
+ bench: { x: 14.6, z: 18.7, turn: 1.25 },
+ lamps: [[15.9, 15.5], [22.3, 19.7], [15.8, 20.3], [21.2, 15.2]],
+ // Cerezos: detrás y a los lados del estanque, nunca al sur (taparían el jardín a la cámara).
+ cherries: [[20.6, 10.4, 1.0], [27.5, 17.8, 0.9], [17.4, 10.9, 0.9]],
+};
+BRIDGES.push({ from: GARDEN.bridge.from, to: GARDEN.bridge.to, width: 1.25, rise: 0.5, model: true });
 export const PITCH = { x0: -33, x1: -14, z0: 17, z1: 29 }; // fútbol
 // Lo que hay plantado en el campo y a su lado (ver football/Football.jsx).
 const FOOTBALL_SOLIDS = [
@@ -301,6 +317,7 @@ export const SIGNPOSTS = [
  { text: "SOBRE MÍ", icon: "about", x: -11.0, z: -13.2, turn: 0.3 },
  { text: "CONTACTO", icon: "contact", x: 30.6, z: 3.5, turn: -0.15 },
  // Los rótulos propios de cada zona, más grandes (`scale`).
+ { text: "JARDÍN", icon: "garden", x: 12.3, z: 14.6, turn: 0.55 },
  { text: "PROYECTOS", icon: "projects", x: PLAZA.x, z: PLAZA.z - 7.2, turn: 0, scale: 1.45 },
  { text: "SOBRE MÍ", icon: "about", x: TREEHOUSE.x + 3.5, z: TREEHOUSE.z + 1.1, turn: -0.12, scale: 1.2 },
 ];
@@ -565,6 +582,7 @@ function toBuilt(x, z) {
  }
  return best;
 }
+const inPondOrHouse = (x, z) => ((x - GARDEN.pond.x) / (GARDEN.pond.rx + 0.5)) ** 2 + ((z - GARDEN.pond.z) / (GARDEN.pond.rz + 0.5)) ** 2 < 1 || Math.hypot(x - GARDEN.teaHouse.x, z - GARDEN.teaHouse.z) < 2.9;
 // `kind`: tipo de suelo, si quien llama ya lo ha calculado.
 export function grassAmount(x, z, kind = surface(x, z)) {
  const base = GRASS_AMOUNT[kind] ?? 0;
@@ -574,6 +592,8 @@ export function grassAmount(x, z, kind = surface(x, z)) {
  // briznas se inclinan; sin este margen asomarían por encima del borde).
  const toHard = toBuilt(x, z);
  if (toHard < 0.75) return 0;
+ // (El jardín japonés: ni en el estanque ni bajo la casa de té.)
+ if (inPondOrHouse(x, z)) return 0;
  // Junto a los caminos y a lo construido la hierba es más corta, pero no
  // rala: es donde más tupida crece (ver `grassDensity`).
  const verge = (0.5 + 0.5 * smooth(1.3, 4.6, pathDistance(x, z))) * (0.45 + 0.55 * smooth(0.75, 3.2, toHard));
@@ -851,7 +871,27 @@ const seated = {
 // el agua y no se ve. Lo vigila también tests/e2e/terrain.mjs.
 const peek = (list) => list.map((rock) => (groundHeight(rock.x, rock.z) < WATER_LEVEL ? { ...rock, y: Math.max(rock.y, WATER_LEVEL - 0.28 * rock.scale) } : rock));
 for (const key of ["rocks", "cliffRocks", "shoreRocks"]) seated[key] = peek(seated[key]);
-export const SCATTER = { trees: [...trees, ...meadowTrees], ...seated, flowers: Object.values(seated.flowersByKind).flat(), lilies, lanterns };
+// Cerezos del jardín japonés, puestos a mano.
+const gardenTrees = GARDEN.cherries.map(([x, z, scale], i) => ({ x, y: groundHeight(x, z), z, scale, kind: "cherry", seed: 0.13 + i * 0.19, turn: i * 1.9, model: modelOf("cherry", 0.13 + i * 0.19) }));
+// Lo que ocupa el jardín: el reparto no sabe de él (no se toca, para no mover
+// nada de sitio); lo que había caído dentro se retira después.
+const gardenSpots = [
+ { x: GARDEN.teaHouse.x, z: GARDEN.teaHouse.z, r: 3.3 },
+ { x: GARDEN.torii.x, z: GARDEN.torii.z, r: 1.9 },
+ { x: GARDEN.bench.x, z: GARDEN.bench.z, r: 1.1 },
+ ...GARDEN.lamps.map(([x, z]) => ({ x, z, r: 0.6 })),
+];
+const inPond = (x, z, margin = 0) => ((x - GARDEN.pond.x) / (GARDEN.pond.rx + margin)) ** 2 + ((z - GARDEN.pond.z) / (GARDEN.pond.rz + margin)) ** 2 < 1;
+const inGarden = (x, z) => inPond(x, z, 0.9) || gardenSpots.some((spot) => (spot.x - x) ** 2 + (spot.z - z) ** 2 < spot.r * spot.r) || toSegment(x, z, ...GARDEN.bridge.from, ...GARDEN.bridge.to).distance < 1.2;
+{
+ const clear = (list) => list.filter((item) => !inGarden(item.x, item.z));
+ for (const key of ["rocks", "pebbles", "bushes", "shrubs", "ferns", "mushrooms", "clover"]) seated[key] = clear(seated[key]);
+ seated.tufts.seed = clear(seated.tufts.seed);
+ for (const kind of Object.keys(seated.flowersByKind)) seated.flowersByKind[kind] = clear(seated.flowersByKind[kind]);
+}
+// (Y el árbol del reparto que quedaba justo al sur del estanque, entre el jardín y la cámara.)
+const gardenView = (t) => t.x > 14 && t.x < 24 && t.z > 18.5 && t.z < 29.5;
+export const SCATTER = { trees: [...trees.filter((t) => !gardenView(t)), ...meadowTrees, ...gardenTrees], ...seated, flowers: Object.values(seated.flowersByKind).flat(), lilies, lanterns };
 
 // ── Densidad del césped ─────────────────────────────────────────────────────
 // Cuántas matas nacen en cada punto, de 0 a 1 (la altura la da `grassAmount`).
@@ -872,7 +912,7 @@ function fringeAt(x, z, contact = false) {
    }
   };
   let solid = false;
-  add([...trees, ...meadowTrees], (t) => 0.35 * t.scale, 1.9);
+  add([...trees.filter((t) => !gardenView(t)), ...meadowTrees, ...gardenTrees], (t) => 0.35 * t.scale, 1.9);
   solid = true; // bajo una roca no crece hierba (asomaría por encima)
   add(seated.rocks, (r) => 0.8 * r.scale, 1.3);
   add(seated.cliffRocks, (r) => 0.8 * 1.35 * r.scale, 1.3);

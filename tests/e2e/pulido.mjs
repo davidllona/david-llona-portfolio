@@ -28,6 +28,9 @@ const POINTS = {
  observatorio: [19, -21.5],
  arbol: [3, -22.5],
  trofeo: [-26.8, 17.2],
+ jardin: [19, 21.6],
+ puenteRojo: [19, 17.4],
+ entradaJardin: [13.4, 12.6],
 };
 // `lift`: altura de la cámara (1 = la del juego); `distance`: cuánto se aleja.
 const VIEWS = { cerca: { lift: 0.24, distance: 0.3 }, juego: { lift: 1, distance: 1 }, bajo: { lift: 0.2, distance: 0.62 }, alto: { lift: 1.45, distance: 2.6 } };

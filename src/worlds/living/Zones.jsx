@@ -17,6 +17,7 @@ import { AboutMe } from "./zones/AboutMe";
 import { Contact } from "./zones/Contact";
 import { ProjectVillage } from "./zones/ProjectVillage";
 import { SignFace, Signposts } from "./props/Signpost";
+import { Garden } from "./zones/Garden";
 import { COLORS, CONTACT, CV_KIOSK, LAB_TOTEMS, PITCH, PLATEAU, PROJECT_CABINS, TREEHOUSE, WIND_CHIME, height } from "./layout";
 
 const WOOD = "#c58a55";
@@ -275,6 +276,7 @@ export function Zones() {
    <WindChime />
    <Pitch />
    <Football />
+   <Garden />
    <Signposts />
   </Staged>
  );

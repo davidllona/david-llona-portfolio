@@ -248,6 +248,17 @@ const SIGN_ICONS = {
   for (const [x, y, r] of [[-0.14, 0.3, 0.11], [0.2, 0.38, 0.08], [0.04, 0.06, 0.07]]) (c.beginPath(), c.arc(x, y, r, 0, 7), c.fill());
   c.globalCompositeOperation = "source-over";
  },
+ garden: (c) => {
+  // Torii.
+  c.beginPath();
+  c.moveTo(-0.78, -0.62);
+  c.quadraticCurveTo(0, -0.44, 0.78, -0.62);
+  c.lineTo(0.7, -0.4);
+  c.quadraticCurveTo(0, -0.24, -0.7, -0.4);
+  c.fill();
+  c.fillRect(-0.6, -0.16, 1.2, 0.14);
+  for (const x of [-0.46, 0.32]) c.fillRect(x, -0.36, 0.15, 1.04);
+ },
  contact: (c) => {
   c.fillRect(-0.7, -0.46, 1.4, 0.94);
   c.globalCompositeOperation = "destination-out";

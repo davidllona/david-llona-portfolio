@@ -27,6 +27,11 @@ MODELS = {
     "casa-arbol": ("cartoon-treehouse-with-ladder-access/Treehouse.glb", 7000),
     "observatorio": ("small-observatory-with-telescope-dome/OBSERVATORY.glb", 6000),
     "trofeo": ("world-cup-trophy-football/World Cup Trophy.glb", 4500),
+    # Jardín japonés.
+    "torii": ("torii-gate/Torii Gate.blend", 1200),
+    "farol-japones": ("japan-lamp/Lamp.glb", 900),
+    "puente-rojo": ("stylized-arched-road-bridge-with-railings/[BLEND] road_bridge/road_bridge.blend", 2200),
+    "koi": ("orange-and-white-koi/[BLEND] koi_fish/koi_fish.blend", 420),
 }
 # Las casas vienen como dioramas: una peana de terreno con la casa, árboles y
 # piedras encima. La peana y los árboles se quitan (el terreno y los árboles
@@ -35,13 +40,16 @@ DIORAMAS = {"casa-campo", "casa-bosque", "casa-roja", "casa-balcones", "casa-te"
 # La casa del árbol trae un plano de suelo: fuera también (el árbol es parte del modelo y se queda).
 GROUNDED = DIORAMAS | {"casa-arbol"}
 # Formas redondas: sin la pasada de «caras en un mismo plano», que las deja a jirones.
-ROUND = {"trofeo"}
+ROUND = {"trofeo", "farol-japones", "koi"}
+# El puente viene con una sola textura: aquí se pinta por dónde mira cada cara
+# (lo que se pisa, madera oscura; lo demás, rojo).
+BY_FACING = {"puente-rojo": ((0.3, 0.17, 0.1), (0.72, 0.09, 0.06))}
 TREES = ("daun", "kayu pohon")
 # Lo que en el original no es un material de color (emisión, cristal) son las
 # ventanas: se pintan de este color exacto, y el juego lo enciende de noche.
 GLASS = (1.0, 0.82, 0.5)
 # Colores que se cambian a mano: (modelo, material) → color.
-REPAINT = {("trofeo", "body"): (0.92, 0.62, 0.12), ("trofeo", "Material.009"): (0.04, 0.3, 0.14), ("observatorio", "kaca.005"): GLASS, ("observatorio", "Material.003"): (0.93, 0.92, 0.88)}
+REPAINT = {("torii", "Red"): (0.74, 0.1, 0.06), ("torii", "Red Key"): (0.55, 0.06, 0.04), ("torii", "White"): (0.9, 0.88, 0.82), ("farol-japones", "Material.004"): GLASS, ("farol-japones", "Material.001"): (0.74, 0.1, 0.06), ("farol-japones", "Material.005"): (0.6, 0.08, 0.05), ("koi", "koi_material"): (1, 1, 1), ("koi", "koi_eye_material"): (0.05, 0.05, 0.06), ("trofeo", "body"): (0.92, 0.62, 0.12), ("trofeo", "Material.009"): (0.04, 0.3, 0.14), ("observatorio", "kaca.005"): GLASS, ("observatorio", "Material.003"): (0.93, 0.92, 0.88)}
 args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 look = "mirar" in args
 wanted = [a for a in args if a in MODELS] or list(MODELS)
@@ -189,6 +197,8 @@ for name in wanted:
     tones = [material_colour(slot.material)[0] or (0.6, 0.6, 0.6) for slot in whole.material_slots] or [(0.6, 0.6, 0.6)]
     for polygon in mesh.polygons:
         tone = tones[min(polygon.material_index, len(tones) - 1)]
+        if name in BY_FACING:
+            tone = BY_FACING[name][0 if polygon.normal.z > 0.75 else 1]
         for loop in polygon.loop_indices:
             layer.data[loop].color = (*tone, 1)
     mesh.materials.clear()

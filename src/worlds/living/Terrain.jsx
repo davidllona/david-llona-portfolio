@@ -70,6 +70,7 @@ function Bridges() {
  const items = useMemo(() => {
   const list = [];
   for (const bridge of BRIDGES) {
+   if (bridge.model) continue; // (el del jardín es un modelo)
    const [ax, az] = bridge.from;
    const [bx, bz] = bridge.to;
    const length = Math.hypot(bx - ax, bz - az);
