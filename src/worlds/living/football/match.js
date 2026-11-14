@@ -95,7 +95,7 @@ export function createMatch() {
    createPanel([[GOAL.x, 0, z1], [back, 0, z1], [back, top, z1], [GOAL.x, top, z1]], 6, 9),
   ],
   keeper: {
-   z: GOAL.z, y: 0, vy: 0, vz: 0, lean: 0, state: "ready", timer: 0, target: null, skill: 0.75, on: true,
+   z: GOAL.z, y: 0, vy: 0, vz: 0, lean: 0, stretch: 0, state: "ready", timer: 0, target: null, skill: 0.75, on: true,
    body: capsule("keeper", [KEEPER_X, 0.2, GOAL.z], [KEEPER_X, KEEPER_TALL, GOAL.z], 0.27, { restitution: 0.3, friction: 0.5 }),
    arms: capsule("keeper", [KEEPER_X, KEEPER_TALL, GOAL.z], [KEEPER_X, KEEPER_TALL + 0.6, GOAL.z], 0.15, { restitution: 0.25, friction: 0.5 }),
   },
@@ -133,7 +133,8 @@ function placeKeeper(keeper, dt) {
   collider.to.copy(w);
  };
  set(keeper.body, 0.25, KEEPER_TALL);
- set(keeper.arms, KEEPER_TALL, KEEPER_TALL + 0.62);
+ // Al estirarse, los brazos llegan más lejos (y el cuerpo se alarga con ellos: lo dibuja Football.jsx).
+ set(keeper.arms, KEEPER_TALL, KEEPER_TALL + 0.62 + keeper.stretch * 0.42);
  keeper.body.active = keeper.arms.active = keeper.on;
 }
 
@@ -151,7 +152,11 @@ function updateKeeper(match, dt) {
  const keeper = match.keeper;
  if (!keeper.on) return;
  keeper.timer += dt;
- let wantZ = GOAL.z + Math.sin(match.clock * 0.9) * 0.45, wantLean = 0, speed = 1.3;
+ // A la espera no se está quieto: va de un palo a otro a pasitos, botando
+ // sobre las puntas, y se centra un poco cuando el tiro está al caer.
+ const sway = match.phase === "charge" ? 0.45 : 0.95;
+ let wantZ = GOAL.z + Math.sin(match.clock * 1.25) * sway + Math.sin(match.clock * 2.9) * 0.16, wantLean = 0, wantStretch = 0, speed = 1.9;
+ if (keeper.state === "ready" && keeper.y === 0 && Math.sin(match.clock * 5.2) > 0.985) keeper.vy = 1.15;
  if (keeper.state === "react" && keeper.timer >= keeper.reaction) {
   // Se decide: lee el tiro con algo de error y se lanza.
   const read = predict(match);
@@ -161,6 +166,8 @@ function updateKeeper(match, dt) {
    keeper.state = "dive";
    keeper.timer = 0;
    const reach = keeper.target.z - keeper.z;
+   // Lo que tiene que cubrir desde donde está: de eso depende cuánto se estira.
+   keeper.cover = Math.max(Math.abs(reach), (keeper.target.y - 1.3) * 1.2);
    if (keeper.target.y > 1.75 || Math.abs(reach) > 1.1) keeper.vy = 2.6 + Math.min(1.6, Math.abs(reach) * 0.5);
   } else keeper.state = "ready";
  }
@@ -170,6 +177,8 @@ function updateKeeper(match, dt) {
   // Cerca, se queda de pie; lejos, se tumba hacia ese lado hasta llegar con las manos.
   wantLean = Math.abs(reach) < 0.42 ? 0 : THREE.MathUtils.clamp(Math.atan2(reach, Math.max(0.25, y - keeper.y)), -1.4, 1.4);
   wantZ = z - Math.sin(wantLean) * 1.5;
+  // Cuanto más lejos le queda, más se estira para llegar.
+  wantStretch = THREE.MathUtils.clamp(((keeper.cover ?? 0) - 0.3) / 0.9, 0, 1) * (keeper.timer < 0.9 ? 1 : 0);
   speed = 2.6 + keeper.skill * 3.2;
   if (keeper.timer > 1.25) {
    keeper.state = "recover";
@@ -184,6 +193,7 @@ function updateKeeper(match, dt) {
  keeper.vz += (THREE.MathUtils.clamp((wantZ - keeper.z) * 9, -speed, speed) - keeper.vz) * Math.min(1, dt * 12);
  keeper.z += keeper.vz * dt;
  keeper.lean += THREE.MathUtils.clamp(wantLean - keeper.lean, -dt * (keeper.state === "dive" ? 4 + keeper.skill * 3 : 3), dt * 7);
+ keeper.stretch += THREE.MathUtils.clamp(wantStretch - keeper.stretch, -dt * 2.2, dt * 6);
  keeper.vy -= GRAVITY * dt;
  keeper.y = Math.max(0, keeper.y + keeper.vy * dt);
  if (keeper.y === 0) keeper.vy = Math.max(0, keeper.vy);

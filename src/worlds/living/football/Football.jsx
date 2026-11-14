@@ -12,6 +12,12 @@ import { merge, piece } from "../kit/geometry";
 import { CREAM, STONE, WOOD } from "../kit/palette";
 import { PITCH } from "../layout";
 import { BALL_RADIUS, GOAL, MODES, SWEET, TARGET_PLANE, TURF, createMatch, enter, leave, netBulge, preview, release, setAim, setKeeper, startCharge, startMode, strike, toggleWall, update } from "./match";
+
+// Estela del balón: cuántas marcas, y el color de un tiro con mucho efecto.
+const TRAIL = 26;
+const TRAIL_CURL = new THREE.Color("#ff9a3a");
+const trailHelper = new THREE.Object3D();
+const trailColor = new THREE.Color();
 import { football } from "./shared";
 import { fontReady } from "../../../ui/fonts";
 
@@ -222,6 +228,8 @@ export function Football() {
  const match = useMemo(createMatch, []);
  const ball = useRef(null), shadow = useRef(null), keeper = useRef(null), reticle = useRef(null), netLines = useRef(null), confetti = useRef(null), trophy = useRef(null);
  const wall = useRef([]), targets = useRef([]);
+ const trailMesh = useRef(null);
+ const trail = useMemo(() => ({ marks: [], clock: 0 }), []);
  const focus = useMemo(() => new THREE.Vector3(), []);
  const memo = useRef({ party: 0, pointer: null, charging: false, startX: 0, celebrate: 0 });
  const bits = useMemo(() => Array.from({ length: CONFETTI }, () => ({ x: 0, y: -9, z: 0, vx: 0, vy: 0, vz: 0, spin: 0, turn: 0 })), []);
@@ -265,7 +273,7 @@ export function Football() {
  useEffect(() => {
   football.match = match;
   score.draw(match.mode, match.stats);
-  if (import.meta.env.DEV) window.__world.football = { match, enter: () => enterGame(), exit: () => exitGame(), release: (shot) => kick(shot), startMode: (mode) => startMode(match, mode), toggleWall: () => toggleWall(match), setKeeper: (on, skill) => setKeeper(match, on, skill), netBulge: () => netBulge(match), GOAL, board: () => score.board.shown, boardCorners: () => BOARD_CORNERS.map(([x, y]) => boardMesh.current.localToWorld(new THREE.Vector3(x, y, 0)).toArray()) }; // para las pruebas automáticas
+  if (import.meta.env.DEV) window.__world.football = { trail, match, enter: () => enterGame(), exit: () => exitGame(), release: (shot) => kick(shot), startMode: (mode) => startMode(match, mode), toggleWall: () => toggleWall(match), setKeeper: (on, skill) => setKeeper(match, on, skill), netBulge: () => netBulge(match), GOAL, board: () => score.board.shown, boardCorners: () => BOARD_CORNERS.map(([x, y]) => boardMesh.current.localToWorld(new THREE.Vector3(x, y, 0)).toArray()) }; // para las pruebas automáticas
   return () => {
    football.match = null;
    for (const one of Object.values(models)) one.dispose();
@@ -462,6 +470,36 @@ export function Football() {
   keeper.current.visible = match.keeper.on;
   keeper.current.position.set(KEEPER_X, match.keeper.y, match.keeper.z);
   keeper.current.rotation.x = match.keeper.lean;
+  // Se estira: el cuerpo se alarga hacia donde va (y se afina un poco).
+  keeper.current.scale.set(1 - match.keeper.stretch * 0.06, 1 + match.keeper.stretch * 0.24, 1 - match.keeper.stretch * 0.06);
+
+  // Estela: deja ver la curva del tiro. Blanca si va recto; naranja, y más
+  // larga, cuanto más efecto lleva.
+  const flying = match.phase === "flight" && b.velocity.length() > 3;
+  const marks = trail.marks;
+  trail.clock += dt;
+  if (flying && trail.clock > 0.022) {
+   trail.clock = 0;
+   marks.unshift({ x: b.position.x, y: b.position.y, z: b.position.z, life: 1, curl: Math.min(1, Math.abs(b.spin.y) / 110) });
+   if (marks.length > TRAIL) marks.pop();
+  }
+  for (let i = 0; i < TRAIL; i++) {
+   const mark = marks[i];
+   if (mark) mark.life -= dt * (1.5 - mark.curl * 0.6);
+   if (!mark || mark.life <= 0) {
+    trailHelper.scale.setScalar(0);
+    trailHelper.position.set(0, -9, 0);
+   } else {
+    trailHelper.position.set(mark.x, mark.y, mark.z);
+    trailHelper.scale.setScalar(BALL_RADIUS * (0.12 + 0.42 * mark.life));
+    trailMesh.current.setColorAt(i, trailColor.set("#ffffff").lerp(TRAIL_CURL, mark.curl).multiplyScalar(mark.life * mark.life * 0.5));
+   }
+   trailHelper.updateMatrix();
+   trailMesh.current.setMatrixAt(i, trailHelper.matrix);
+  }
+  trailMesh.current.instanceMatrix.needsUpdate = true;
+  if (trailMesh.current.instanceColor) trailMesh.current.instanceColor.needsUpdate = true;
+  while (marks.length && marks[marks.length - 1].life <= 0) marks.pop();
   match.wall.forEach((one, i) => {
    const mesh = wall.current[i];
    mesh.visible = one.on;
@@ -590,6 +628,12 @@ export function Football() {
     <circleGeometry args={[BALL_RADIUS * 1.15, 18]} />
     <meshBasicMaterial color="#000000" transparent opacity={0.3} depthWrite={false} />
    </mesh>
+
+   {/* Estela del balón. */}
+   <instancedMesh ref={trailMesh} args={[undefined, undefined, TRAIL]} frustumCulled={false}>
+    <sphereGeometry args={[1, 8, 6]} />
+    <meshBasicMaterial transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} fog={false} />
+   </instancedMesh>
 
    {/* Portero y barrera: maniquíes. */}
    <group ref={keeper} position={[KEEPER_X, 0, GOAL.z]}>

@@ -35,6 +35,9 @@ async function shoot(name, shot, { frames = 5, every = 230, keeper = false } = {
    log.bulge = Math.max(log.bulge, w.football.netBulge());
    match.wall.forEach((one, i) => (log.wallJump[i] = Math.max(log.wallJump[i], one.y)));
    log.keeperLean = Math.max(log.keeperLean, Math.abs(match.keeper.lean));
+   log.keeperStretch = Math.max(log.keeperStretch ?? 0, match.keeper.stretch);
+   log.trail = Math.max(log.trail ?? 0, w.football.trail.marks.length);
+   log.trailCurl = Math.max(log.trailCurl ?? 0, ...w.football.trail.marks.map((mark) => mark.curl));
    log.woody.push(w.woodyLook ?? 0);
    if (match.phase === "flight" && !match.shot?.result) log.path.push([match.ball.position.x, match.ball.position.z]);
    log.clips.add(w.astroClip());
@@ -54,7 +57,7 @@ async function shoot(name, shot, { frames = 5, every = 230, keeper = false } = {
   const w = window.__world;
   clearInterval(w.shotTimer);
   const b = w.football.match.ball.position;
-  return { ...w.shotLog.result, bulge: w.shotLog.bulge, wallJump: w.shotLog.wallJump, keeperLean: w.shotLog.keeperLean, woodySwing: Math.max(...w.shotLog.woody) - Math.min(...w.shotLog.woody), clips: [...w.shotLog.clips], woodyCheer: Boolean(w.shotLog.woodyClip), ball: [b.x, b.y, b.z], path: w.shotLog.path };
+  return { ...w.shotLog.result, bulge: w.shotLog.bulge, wallJump: w.shotLog.wallJump, keeperLean: w.shotLog.keeperLean, keeperStretch: w.shotLog.keeperStretch ?? 0, trail: w.shotLog.trail ?? 0, trailCurl: w.shotLog.trailCurl ?? 0, woodySwing: Math.max(...w.shotLog.woody) - Math.min(...w.shotLog.woody), clips: [...w.shotLog.clips], woodyCheer: Boolean(w.shotLog.woodyClip), ball: [b.x, b.y, b.z], path: w.shotLog.path };
  });
 }
 
@@ -184,16 +187,32 @@ r = await shoot("efecto", { y: 1.0, z: cz, power: 0.6, curl: 1 }, { frames: 3 })
  const flight = r.path.filter(([x]) => x > GOAL.x);
  const curve = bend(flight);
  const miss = Math.abs((r.cross?.z ?? 99) - cz);
- check(Math.abs(curve) > 0.3, `el efecto curva el vuelo de verdad (se aparta ${Math.abs(curve).toFixed(2)} m de la recta en un penalti)`);
+ check(r.trail > 8 && r.trailCurl > 0.6, `el efecto se ve: el balón deja una estela (${r.trail} marcas, teñida al ${(r.trailCurl * 100).toFixed(0)} %)`);
+ check(Math.abs(curve) > 0.25, `el efecto curva el vuelo de verdad (se aparta ${Math.abs(curve).toFixed(2)} m de la recta en un penalti)`);
  check(miss < 0.35, `y aun así el balón llega a donde se apunta (cruza a ${miss.toFixed(2)} m del punto; resultado «${r.result}»)`);
  const other = await shoot("efecto-contrario", { y: 1.0, z: cz, power: 0.6, curl: -1 }, { frames: 3 });
  const back = bend(other.path.filter(([x]) => x > GOAL.x));
- check(Math.sign(back) === -Math.sign(curve) && Math.abs(back) > 0.3, `con el efecto al otro lado, la curva es la contraria (${back.toFixed(2)} m frente a ${curve.toFixed(2)} m)`);
+ // (La curva medida baila entre 0,29 y 0,39 m según en qué instantes cae el muestreo: el umbral, 0,25.)
+ check(Math.sign(back) === -Math.sign(curve) && Math.abs(back) > 0.25, `con el efecto al otro lado, la curva es la contraria (${back.toFixed(2)} m frente a ${curve.toFixed(2)} m)`);
 }
 
 // ── Parada del portero ───────────────────────────────────────────────────────
 r = await shoot("parada", { y: 1.0, z: cz + 0.9, power: 0.55, curl: 0 }, { keeper: 1 });
 check(r.tags.includes("keeper") && r.result === "parada", `el portero se desplaza y para el tiro (resultado «${r.result}», se inclina ${r.keeperLean.toFixed(2)} rad)`);
+{
+ // A la escuadra: tiene que estirarse entero.
+ const far = await shoot("estirada", { y: 1.7, z: cz + 2.2, power: 0.55, curl: 0 }, { keeper: 1 });
+ check(far.keeperStretch > 0.6 && far.keeperLean > 0.5, `y se estira para llegar a un tiro a la escuadra (${(far.keeperStretch * 100).toFixed(0)} % de su estirada, ${far.keeperLean.toFixed(2)} rad; «${far.result}»)`);
+}
+{
+ // A la espera no se está quieto: recorre la portería.
+ const zs = [];
+ for (let i = 0; i < 14; i++) {
+  zs.push(await t.evaluate(() => window.__world.football.match.keeper.z));
+  await wait(220);
+ }
+ check(Math.max(...zs) - Math.min(...zs) > 0.9, `el portero se mueve bajo los palos mientras espera (${(Math.max(...zs) - Math.min(...zs)).toFixed(2)} m de un lado a otro)`);
+}
 
 // ── Barrera ──────────────────────────────────────────────────────────────────
 await mode("Digit2");

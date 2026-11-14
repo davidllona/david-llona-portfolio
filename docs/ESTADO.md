@@ -22,7 +22,7 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 | 4. Agua y luz | **Hecho y aprobado** (con los retoques de abajo). Fps después: 86 · 88 · 86 · 85 · 87. Capturas: `capturas/23-pulido/parada-4/` (12 puntos × cámara de juego, a ras y desde arriba × día y noche; hojas `hoja-dia.jpg` y `hoja-noche.jpg`) |
 | Retoques de 1–4 (pedidos por David al aprobar) | **Hechos.** Fps: 110 · 114 · 109 · 113 · 114. Hojas: `capturas/23-pulido/retoques/hoja-dia.jpg` y `hoja-noche.jpg` |
 | 5. Baloncesto | **Hecho.** Fps después: 106 · 113 · 109 · 111 · 113. Capturas: `capturas/23-pulido/5-baloncesto/` (`hoja.jpg`) |
-| 6. Fútbol | Sin empezar |
+| 6. Fútbol | **Hecho.** Fps después: 104 · 108 · 107 · 106 · 106. Capturas: `capturas/23-pulido/6-futbol/` (`hoja.jpg`, y los fotogramas de cada tiro) |
 | 7. Edificios | Sin empezar |
 | 8. Jardín japonés | Sin empezar. **Parada** al terminar |
 
@@ -88,6 +88,15 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 - **Sonido**: no había ZIP de baloncesto en Descargas. Bote, aro, tablero y red siguen **sintetizados**, y se añaden la valla y el tapón, también sintetizados.
 - Pruebas: `basket` 20 de 20 (dos pasadas), `progress` (el logro «Primer enceste» con tiro cargado), `living`, `woody`, `camera`, `sounds`, `collisions`, `terrain`, `errors`, `entrada.mjs` (0 pipelines en caliente).
 - Sin comprobar: el tiro con el dedo en un teléfono; la dificultad jugando a mano (las pruebas tiran con la fuerza exacta); la valla del sur queda entre la cámara y la pista (es malla, se ve a través).
+
+**Apartado 6, lo que hay** (`football/match.js`, `football/Football.jsx`, `tests/e2e/football.mjs`). Portero, barrera, efecto y red de tela ya existían desde el objetivo 8; aquí se hace visible lo que pedía el encargo:
+- **Portero que se mueve**: a la espera recorre la portería a pasitos (1,5 m de un lado a otro, antes 0,9) y bota sobre las puntas; se centra al cargar el tiro.
+- **Y se estira**: al lanzarse se alarga según lo que tiene que cubrir (el cuerpo hasta un 24 % y los brazos 42 cm más, también en la colisión): a un tiro a la escuadra llega estirado del todo.
+- **Barrera que salta**: los tres maniquíes saltan cada uno a su tiempo tras el golpeo (ya lo hacían; sin cambios).
+- **Efecto visible**: el balón deja una estela de 26 marcas que dibuja la curva del tiro; blanca si va recto y naranja, y más larga, cuanto más efecto lleva.
+- **Red que se deforma con el gol**: es la tela con física del objetivo 8 (se embolsa 33 cm en la prueba; sin cambios).
+- Pruebas: `football` 63 comprobaciones (tres nuevas: portero que se mueve, estirada a la escuadra, estela teñida). El umbral de «el efecto curva el vuelo» baja de 0,30 a 0,25 m: la curva medida baila entre 0,29 y 0,39 m según el muestreo y la prueba fallaba una de cada tres pasadas (ya ocurría antes de este objetivo). `errors`, `entrada.mjs` (0 pipelines en caliente).
+- Sin comprobar: lo mismo que en el objetivo 8 (controles táctiles, dificultad a mano, sonido de oído).
 
 ## Objetivo 16
 
