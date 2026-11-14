@@ -16,19 +16,19 @@ Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Co
 | 0. Inventario y sonidos | **Visto bueno.** `docs/RECURSOS.md`; grabación y lista en `capturas/18-sonidos/` |
 | 1. Pantalla de carga (astronauta y Woody caminando sobre un planeta) | **Visto bueno.** Capturas: `capturas/19-carga/serie-*.jpg` |
 | 2. Pantalla previa al aterrizaje (flecha, cero espera, luna, fugaces, planeta) | **Visto bueno**, con dos retoques pedidos y hechos: más relieve en los cráteres de la cara iluminada de la luna y planeta sin rótulo. Capturas: `capturas/20-aterrizaje/` (`luna-relieve-*.jpg`) |
-| 3. Errores de juego (colisiones, colina, Woody, aro de visión, carrera) | **A medias.** Hechas colisiones y colina (commit `4f0e380`, `collisions.mjs` y `hill.mjs`); Woody en curso (`woody-tour.mjs`). Faltan: tirón al subir la rampa corriendo, aro de visibilidad y animación de correr |
+| 3. Errores de juego (colisiones, colina, Woody, aro de visión, carrera) | **A medias.** Hechas colisiones y colina (commit `4f0e380`, `collisions.mjs` y `hill.mjs`). **Quedan tres cosas**: tirones en la rampa, aro de visibilidad sobre el árbol de la cascada y animación de correr. Woody: hecho (recorrido de 180 s, 87 tramos, cero fallos) |
 | 4. Aspecto del mundo (farolas, caminos, rocas, pájaros, carteles, cascada) | Sin empezar |
 | 5. Edificios con los modelos descargados | Sin empezar |
 | 6. Fútbol y baloncesto | Sin empezar. **Faltan recursos**: no hay sonido de bote, aro ni red de baloncesto |
 | 7. Jardín japonés | Sin empezar |
 | 8. Cierre | Sin empezar |
 
-**Bloque 3, lo que queda** (14-11-2026; no se ha tocado nada de esto todavía):
+**Bloque 3, lo que queda** (14-11-2026; no se ha tocado nada de esto todavía). Una sola sesión de trabajo abierta; ningún servidor (ni el de desarrollo del 5199 ni la vista previa del 5198) ni Chrome de pruebas en marcha:
 - **Tirón al subir la rampa corriendo**: `hill.mjs` falla en «rampa-subir-corriendo: sin tirones» (cambio de velocidad vertical de 2,00 m/s entre fotogramas, en (−7,0, −21,4)). El resto de la colina pasa (27 de 28).
 - **Aro de visibilidad**: sigue dejando una mancha de puntos sobre el árbol junto a la cascada (lo ha visto David); también fallaba al subirse al cohete y en el pozo. Arreglarlo o cambiarlo por un recorte circular limpio (`experience/environment/seeThrough.js`).
 - **Animación de correr del astronauta**: rehacerla (contacto, paso y vuelo; brazos en oposición; tronco inclinado; rebote; sin patinar) y sincronizar con ella los pasos sobre hierba.
-- **Woody**: el recorrido de 3 minutos (`woody-tour.mjs`) no se ha llegado a pasar entero en Windows; falta contar sus fallos.
-- Otras pruebas que fallaron el 14-11 con el lienzo en blanco y hay que volver a mirar con el render ya arreglado: `football.mjs` «el efecto curva el vuelo de verdad» (0,29 m; puede ser real).
+
+Comprobado (lo confirma David el 14-11-2026): el recorrido de 3 minutos de Woody (`woody-tour.mjs`) pasó entero en Windows (180 s, 87 tramos, cero fallos) y el fallo de `football.mjs` en «el efecto curva el vuelo de verdad» no se repitió.
 
 **Carga sin tirones (14-11-2026, aplicada)** (`index.html`, `src/experience/Experience.jsx`, `src/worlds/Staged.jsx`, `src/worlds/living/terrainData.js`, `tests/perf/carga.mjs`):
 - Los tirones de la pantalla de carga no eran del hilo principal: eran del proceso de GPU de Chrome, que es también el que presenta la página (animación CSS incluida). Lo paraban los pipelines creados «en el acto» (three r183 al dibujar algo por primera vez; DXC en Direct3D), la creación del dispositivo, el pipeline interno de la primera copia de imagen a textura, los de mipmaps y el compositor esperando al lienzo del juego.
