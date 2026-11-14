@@ -19,7 +19,7 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 | 1. Césped | **Hecho.** Fps después: 74 · 82 · 77 · 83 · 85. Capturas: `capturas/23-pulido/1-cesped/` (antes: `0-antes/`) |
 | 2. Rocas, caminos, farolas y carteles | **Hecho.** Fps después: 85 · 87 · 82 · 87 · 88. Capturas: `capturas/23-pulido/2-rocas/`, `2-caminos/`, `2-farolas/` |
 | 3. Color y vegetación (variantes de árbol, capa baja, pájaros) | **Hecho.** Fps después: 74 · 77 · 79 · 78 · 81. Capturas: `capturas/23-pulido/3-color/`, `3-pajaros/` |
-| 4. Agua y luz | Sin empezar. **Parada** al terminar |
+| 4. Agua y luz | **Hecho. PARADA: pendiente del visto bueno de David.** Fps después: 86 · 88 · 86 · 85 · 87. Capturas: `capturas/23-pulido/parada-4/` (12 puntos × cámara de juego, a ras y desde arriba × día y noche; hojas `hoja-dia.jpg` y `hoja-noche.jpg`) |
 | 5. Baloncesto | Sin empezar |
 | 6. Fútbol | Sin empezar |
 | 7. Edificios | Sin empezar |
@@ -53,6 +53,17 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 - Los FBX del paquete del pájaro solo traen el esqueleto al importarlos en Blender 5; se parte del `.blend`.
 - Colisiones rehorneadas (804 obstáculos). Pruebas: `birds` 3 de 3, `life` (las aves despegan en cadena: 1, 1, 3, 4, 7, 8, 10, 10), `collisions`, `terrain`, `errors`, `entrada.mjs` (0 pipelines en caliente al entrar y al despegar).
 - Sin comprobar: el aleteo visto en movimiento por una persona (solo en fotogramas sueltos); los pájaros de noche.
+
+**Apartado 4, lo que hay** (`experience/theme.js`, `experience/Lights.jsx`, `experience/Experience.jsx`, `layout.js`, `groundColor.js`, `water/Water.jsx`, `water/Waterfall.jsx`):
+- **Agua**: turquesa más saturado, de casi blanco en la orilla a azul hondo (`waterShallow`, `waterDeep`). Espuma en dos líneas blancas nítidas —la del borde y otra fina más adentro, que va y viene— en orillas y costa y alrededor de cada roca que asoma; más agua batida al pie de la cascada. Cascada con seis láminas (antes cuatro) y más anchas, espuma arriba y en el último tercio, 14 almohadas de espuma mayores (antes 9) y bruma que se ve (12 nubecillas, opacidad 0,3; antes 8 a 0,09).
+- **Día**: sol cálido (`#ffdcae`) y relleno frío del cielo (`#d6e6ff`): la sombra queda azulada, nunca negra (intensidad 0,86). Sombras más suaves (`shadow-radius` 2,6). Niebla clara a lo lejos (`#dcebf3`, algo más densa); antes era de color melocotón.
+- **Oclusión suave** al pie de árboles, rocas y edificios: va horneada en el color del suelo y de la hierba (`contactShade` en `layout.js`), tono frío; no cuesta llamadas de dibujo.
+- **Noche**: luna fría y azul (antes violeta); luciérnagas (170), ventanas, faroles con halo y carteles encendidos.
+- **Bloom solo en luces**: umbral subido a 1,14 (por encima de una superficie blanca a pleno sol) y fuerza de día de 0,5 a 0,3.
+- Pruebas tras el apartado: `errors`, `entrada.mjs` (0 pipelines en caliente al entrar y al despegar), `life`, `motion`, consola sin errores; batería completa `npm run e2e`: 310 comprobaciones bien, 0 fallos (las trece pruebas; `sounds.mjs` se pasó aparte porque la sesión se cortó antes de llegar a ella). `welcome.mjs` 21 de 21 con la luna nueva.
+- Los colores de la noche y la piedra gris azulada también llegan a la bienvenida (usa el tema de noche): captura en `capturas/23-pulido/parada-4/bienvenida/`, pendiente de que David la compare con la aprobada.
+- Sin comprobar: Chrome con ventana, el Mac, un teléfono.
+- **No guardadas**: las tres imágenes de referencia (`docs/referencias/`). No llegaron adjuntas a la sesión; hay que volver a pasarlas.
 
 ## Objetivo 16
 

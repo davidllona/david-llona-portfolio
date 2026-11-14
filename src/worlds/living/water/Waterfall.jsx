@@ -34,7 +34,7 @@ function flowMaterial({ speed, length, width, fall = 0, white = 0, seed = 0 }) {
  const base = mix(uWaterShallow, uWaterDeep, clumps.mul(0.2).add(fall ? 0.3 : 0.42));
  let foam = lines.mul(0.8).add(rim.mul(fall ? 0.3 : 0.6)).add(white);
  // La caída gana espuma en el último tramo y revienta al llegar.
- if (fall) foam = foam.add(smoothstep(0.78, 1, uv().y).mul(0.7));
+ if (fall) foam = foam.add(smoothstep(0.62, 1, uv().y).mul(0.95)).add(smoothstep(0.08, 0, uv().y).mul(0.5));
  foam = foam.clamp(0, 1);
  const material = unlit({ transparent: true, depthWrite: false, side: THREE.DoubleSide });
  material.colorNode = mix(base, mix(vec3(1), vec3(0.62, 0.78, 1), uNight.mul(0.75)), foam);
@@ -81,10 +81,12 @@ function ribbon(points, width, { columns = 1, bulge = 0, flare = 0 } = {}) {
 // Láminas de la cascada, de atrás adelante: [desplazamiento lateral, ancho,
 // cuánto sobresale, velocidad, blancura extra].
 const SHEETS = [
- [0, 1, 0, 1.25, 0],
- [-0.28, 0.4, 0.22, 1.7, 0.04],
- [0.3, 0.32, 0.3, 2.0, 0.08],
- [0.04, 0.2, 0.42, 2.35, 0.14],
+ [0, 1.12, 0, 1.25, 0],
+ [-0.34, 0.46, 0.2, 1.6, 0.05],
+ [0.36, 0.4, 0.26, 1.9, 0.08],
+ [-0.1, 0.34, 0.4, 2.15, 0.12],
+ [0.14, 0.24, 0.56, 2.45, 0.2],
+ [-0.44, 0.16, 0.5, 2.7, 0.26],
 ];
 // La roca del salto: un canal oscuro y mojado por detrás del agua, bloques que
 // la encauzan a los lados, el labio del que cae y piedras donde rompe.
@@ -117,9 +119,9 @@ function createRocks() {
  return merge(pieces);
 }
 
-const PILLOWS = 9; // almohadas de espuma en la base
+const PILLOWS = 14; // almohadas de espuma en la base
 const DROPS = 46;
-const MIST = 8;
+const MIST = 12;
 
 export function Waterfall() {
  const drops = useRef(null);
@@ -146,7 +148,7 @@ export function Waterfall() {
    const radius = 0.5 + (i % 3) * 0.42;
    dummy.position.set(WATERFALL.x + Math.cos(angle) * radius * 1.5, WATER_LEVEL - 0.08, WATERFALL.z + 1.3 + Math.sin(angle) * radius * 0.75);
    dummy.rotation.set(i, i * 2.3, i * 0.6);
-   dummy.scale.set(0.34 + (i % 4) * 0.09, 0.2 + (i % 3) * 0.05, 0.3 + (i % 2) * 0.12);
+   dummy.scale.set(0.44 + (i % 4) * 0.12, 0.26 + (i % 3) * 0.07, 0.4 + (i % 2) * 0.15);
    dummy.updateMatrix();
    pillowMesh.current.setMatrixAt(i, dummy.matrix);
   }
@@ -229,10 +231,10 @@ export function Waterfall() {
    }
    const sprite = mist.current[i];
    const t = puff.life;
-   sprite.position.set(baseX + puff.side * 1.2 + puff.drift * t * 0.8, WATER_LEVEL + 0.2 + t * 1.5, baseZ + 0.2 + t * 0.9);
-   sprite.scale.setScalar(puff.size * (0.6 + t * 1.3));
+   sprite.position.set(baseX + puff.side * 1.5 + puff.drift * t * 1.1, WATER_LEVEL + 0.25 + t * 2.3, baseZ + 0.2 + t * 1.1);
+   sprite.scale.setScalar(puff.size * (0.9 + t * 1.7));
    sprite.quaternion.copy(camera.quaternion);
-   sprite.material.opacity = Math.sin(t * Math.PI) * 0.09 * dim;
+   sprite.material.opacity = Math.sin(t * Math.PI) * 0.3 * dim;
   });
 
   // (Los anillos que se abren sobre el estanque los dibuja el propio agua: Water.jsx.)

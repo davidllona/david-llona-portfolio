@@ -372,7 +372,9 @@ function Pipeline({ quality, effects }) {
   let glow = null;
   if (effects) {
    // Solo brilla lo que supera el blanco: farolas, ventanas, cristales.
-   glow = bloom(color, 0.5, 0.75, 1.0);
+   // Umbral por encima de lo que da una superficie blanca a pleno sol: solo
+   // brilla lo que emite luz (cristales, halos, llamas, estrellas).
+   glow = bloom(color, 0.3, 0.75, 1.14);
    glow._nMips = quality.bloomMips;
    output = color.add(glow);
   }

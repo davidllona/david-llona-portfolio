@@ -68,6 +68,7 @@ export function Lights({ shadowMapSize }) {
     shadow-mapSize={[shadowMapSize, shadowMapSize]}
     shadow-bias={-0.0008}
     shadow-normalBias={0.05}
+    shadow-radius={2.6}
     shadow-camera-left={-SHADOW_REACH}
     shadow-camera-right={SHADOW_REACH}
     shadow-camera-top={SHADOW_REACH}

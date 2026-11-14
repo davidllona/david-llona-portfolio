@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { grassAmount, groundHeight, noise2, surface } from "./layout";
+import { contactShade, grassAmount, groundHeight, noise2, surface } from "./layout";
 
 // Color del suelo en cada punto. Lo usan la malla del terreno y la textura que
 // lee el césped (cada brizna nace del color del suelo que tiene debajo).
@@ -37,7 +37,15 @@ const lawn = Object.fromEntries(Object.entries(LAWN).map(([key, list]) => [key, 
 //  · at: punto del que se toma la mancha de tono (por defecto, el mismo).
 //  · odd: usa el tono siguiente (para salpicar caras sueltas distintas).
 //  · kind, height: tipo de suelo y altura, si quien llama ya los tiene.
-export function groundColor(target, x, z, { at = [x, z], odd = false, kind = surface(x, z), height } = {}) {
+const OCCLUSION = new THREE.Color("#5d6f96"); // sombra fría, no negra
+export function groundColor(target, x, z, options) {
+ paint(target, x, z, options);
+ // Oclusión suave al pie de árboles, rocas y edificios.
+ const shade = contactShade(x, z);
+ return shade > 0.01 ? target.lerp(scratch.copy(target).multiply(OCCLUSION), shade * 0.62) : target;
+}
+const scratch = new THREE.Color();
+function paint(target, x, z, { at = [x, z], odd = false, kind = surface(x, z), height } = {}) {
  if (kind === "rock") {
   const band = Math.floor((height ?? groundHeight(x, z)) * 1.5 + noise2(at[0] * 0.5, at[1] * 0.5) * 1.6);
   return target.copy(strata[((band % strata.length) + strata.length) % strata.length]);

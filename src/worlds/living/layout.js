@@ -823,7 +823,8 @@ export const SCATTER = { trees, ...seated, flowers: Object.values(seated.flowers
 // al borde de los caminos, al pie de rocas, árboles y edificios y en las
 // orillas. Entre medias quedan claros de césped ralo por los que asoma el suelo.
 let fringes = null; // pies de árbol y rocas, en casillas de 4 m
-function fringeAt(x, z) {
+// `contact`: devuelve, en negativo, la oclusión de contacto en vez de la densidad.
+function fringeAt(x, z, contact = false) {
  if (!fringes) {
   fringes = new Map();
   const add = (list, radius, reach) => {
@@ -851,12 +852,29 @@ function fringeAt(x, z) {
    if (!cell) continue;
    for (const one of cell) {
     const away = Math.hypot(one.x - x, one.z - z);
+    if (contact) {
+     // Bajo la copa cerca del tronco; alrededor de la roca.
+     if (one.reach > 1) best = Math.max(best, 1 - smooth(one.solid ? one.r * 0.8 : 0.1, one.solid ? one.r + 0.8 : one.r + 1.7, away));
+     continue;
+    }
     if (one.solid && away < one.r) return -1;
     best = Math.max(best, 1 - smooth(one.r, one.r + one.reach, away));
    }
   }
  }
- return best;
+ return contact ? -best : best;
+}
+// Oclusión de contacto (0…1): cuánto se oscurece el suelo por tener encima o
+// pegado un tronco, una roca o un edificio. Va en el color del suelo (y, con
+// él, en la hierba): no cuesta ninguna llamada de dibujo.
+export function contactShade(x, z) {
+ let shade = Math.abs(Math.min(0, fringeAt(x, z, true)));
+ for (const f of FOOTPRINTS) {
+  const dx = f.x - x, dz = f.z - z;
+  if (Math.abs(dx) > f.r + 1.6 || Math.abs(dz) > f.r + 1.6) continue;
+  shade = Math.max(shade, 1 - smooth(-0.2, 1.5, Math.hypot(dx, dz) - f.r));
+ }
+ return shade;
 }
 export function grassDensity(x, z, kind = surface(x, z)) {
  if (!(GRASS_AMOUNT[kind] > 0)) return 0;

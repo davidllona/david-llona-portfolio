@@ -64,7 +64,7 @@ function createMaterial() {
 
  // Color por profundidad: continuo, con el contorno algo movido por el ruido.
  const deep = smoothstep(0.05, 1.75, depth.add(calmA.sub(0.5).mul(0.5)));
- const shore = mix(uWaterShallow, vec3(1), 0.3);
+ const shore = mix(uWaterShallow, vec3(1), 0.42);
  let color = mix(mix(shore, uWaterShallow, smoothstep(0, 0.3, deep)), uWaterDeep, smoothstep(0.22, 1, deep));
  // Manchas de luz y sombra que se mueven despacio: el agua no es un color plano.
  color = color.mul(waveA.sub(0.5).mul(0.3).add(waveB.sub(0.5).mul(0.14)).add(1));
@@ -88,20 +88,26 @@ function createMaterial() {
  const ragged = foamNoise.sub(0.5).mul(0.2).add(fine.sub(0.5).mul(0.1));
  // Orilla y costa: una franja que respira.
  const breathe = sin(uTime.mul(0.9).add(foamNoise.mul(6))).mul(0.025);
- let foam = smoothstep(0.1, 0.035, depth.add(ragged).add(breathe));
+ // Dos líneas blancas y nítidas: la del borde, pegada a la tierra, y otra
+ // fina un poco más adentro, que va y viene.
+ const lip = depth.add(ragged.mul(0.6)).add(breathe);
+ let foam = smoothstep(0.085, 0.07, lip);
+ const second = lip.sub(0.2).sub(sin(uTime.mul(0.55).add(foamNoise.mul(4))).mul(0.035)).abs();
+ foam = max(foam, smoothstep(0.03, 0.018, second).mul(0.9));
  // Ondas que se acercan a la orilla siguiendo la profundidad, a tramos.
  const band = fract(depth.mul(1.35).sub(uTime.mul(0.12)).add(foamNoise.mul(0.6)));
  const broken = smoothstep(0.46, 0.56, fine.add(foamNoise).mul(0.5));
  foam = max(foam, smoothstep(0, 0.07, band).mul(smoothstep(0.24, 0.1, band)).mul(smoothstep(1.25, 0.3, depth)).mul(broken).mul(0.75));
  // Alrededor de las rocas que asoman.
- foam = max(foam, smoothstep(0.24, 0.06, rock.add(ragged)).mul(step(-0.3, rock)));
+ foam = max(foam, smoothstep(0.2, 0.17, rock.add(ragged)).mul(step(-0.3, rock)));
+ foam = max(foam, smoothstep(0.035, 0.02, rock.add(ragged).sub(0.36).sub(breathe.mul(1.6)).abs()).mul(step(-0.3, rock)).mul(0.85));
  // Corriente del río: jirones de espuma que bajan con el agua.
  const streaks = smoothstep(0.6, 0.68, riverA).mul(smoothstep(0.5, 0.62, riverB));
  foam = max(foam, streaks.mul(running).mul(0.7));
  // Donde cae la cascada: agua batida y anillos que se abren.
  const fromFall = pos.sub(fall).length();
  const rings = sin(fromFall.mul(4.2).sub(uTime.mul(3.6)).add(foamNoise.mul(2.5))).mul(0.5).add(0.5);
- foam = max(foam, smoothstep(1.7, 0.6, fromFall.add(foamNoise.mul(1.1))));
+ foam = max(foam, smoothstep(2.3, 1.0, fromFall.add(foamNoise.mul(1.3))));
  foam = max(foam, smoothstep(0.7, 0.92, rings).mul(smoothstep(POND.r, 1.4, fromFall)).mul(broken.mul(0.6).add(0.4)).mul(0.55));
  // Al vadear: el rastro del astronauta y de Woody deja ondas que se deshacen.
  const wake = trailPush(pos).z;
@@ -111,7 +117,7 @@ function createMaterial() {
  // (De noche la espuma se apaga: sin sol no puede ser lo más claro de la escena.)
  color = mix(color, mix(vec3(1), vec3(0.42, 0.56, 0.86), uNight), foam.mul(mix(0.94, 0.7, uNight)));
 
- let alpha = max(mix(0.72, 0.96, deep), foam);
+ let alpha = max(mix(0.78, 0.97, deep), foam);
  // El mar se funde con el horizonte; desde la nave se recoge alrededor de la isla.
  alpha = alpha.mul(smoothstep(170, 105, fromCentre)).mul(uSpace.mul(smoothstep(60, 94, fromCentre)).oneMinus());
  // Donde el fondo asoma por encima del agua no se pinta nada.
