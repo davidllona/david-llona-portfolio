@@ -22,7 +22,7 @@ import { SCATTER, SIGNPOSTS, height } from "../layout";
 const URL = "/models/living/fauna/pajaro.glb";
 useGLTF.preload(URL);
 
-const SIZE = 1.5; // sobre el tamaño del modelo (0,36 m de pico a cola)
+const SIZE = 2.1; // sobre el tamaño del modelo (0,36 m de pico a cola)
 const LONERS = 10;
 const SCARE_DISTANCE = 3.6;
 const FLIGHT_TIME = 9;
@@ -100,7 +100,7 @@ export function Birds() {
   const random = seeded(909);
   return [
    ...SCATTER.bushes.filter(() => random() < 0.5).map((bush) => ({ x: bush.x + 1.4, z: bush.z + 1.1, lift: 0 })),
-   ...SIGNPOSTS.map((sign) => ({ x: sign.x + Math.cos(sign.turn) * 0.5, z: sign.z - Math.sin(sign.turn) * 0.5 - 0.14, lift: 2.07 })),
+   ...SIGNPOSTS.map((sign) => ({ x: sign.x + Math.cos(sign.turn) * 0.5, z: sign.z - Math.sin(sign.turn) * 0.5 - 0.14 * (sign.scale ?? 1), lift: 2.07 * (sign.scale ?? 1) })),
    ...SCATTER.lanterns.map((lamp) => ({ x: lamp.x + LANTERN_GLASS[0] * 0.5 * Math.cos(lamp.turn), z: lamp.z - LANTERN_GLASS[0] * 0.5 * Math.sin(lamp.turn), lift: 2.69 })),
   ];
  }, []);

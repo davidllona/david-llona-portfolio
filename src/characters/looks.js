@@ -4,7 +4,8 @@
 // El astronauta mide 1,25 m en el modelo; en el juego, 1,75 m.
 export const ASTRONAUT_SCALE = 1.4;
 export const ASTRONAUT_PALETTE = {
- Astro_Visor: { color: "#15131f", emissive: "#2a2456", glow: 0.5 },
+ // El visor es cristal: refleja el cielo y lleva un brillo (ver useRiggedModel.js).
+ Astro_Visor: { color: "#1b2340", glass: true },
  Astro_Teal: { color: "#1fb3a4", emissive: "#1fb3a4", glow: 0.35 },
  Astro_Yellow: { color: "#ffb21f", emissive: "#ffb21f", glow: 0.3 },
 };

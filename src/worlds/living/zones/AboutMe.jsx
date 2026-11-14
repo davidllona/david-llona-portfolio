@@ -1,16 +1,14 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import * as THREE from "three";
-import { useFrame } from "@react-three/fiber";
 import { aboutText, mainOrbit } from "../../../content/about";
 import { WIND, withWind } from "../../../experience/environment/wind";
 import { useInteractable } from "../../../experience/interact";
 import { lambert } from "../../../experience/materials";
-import { emit, player } from "../../../experience/state";
-import { createLabelTexture } from "../../../experience/textures";
+import { emit } from "../../../experience/state";
 import { createCottage } from "../buildings/cottageModels";
 import { Glow } from "../buildings/Glow";
 import { hero } from "../flora/treeModels";
-import { limb, merge, piece, tube } from "../kit/geometry";
+import { limb, merge, piece } from "../kit/geometry";
 import { STONE, WOOD } from "../kit/palette";
 import { PLATEAU, TREEHOUSE } from "../layout";
 
@@ -59,12 +57,6 @@ function createDeck() {
  return merge(pieces);
 }
 
-const createSignPost = () =>
- merge([
-  piece(tube([[0, 0, 0], [0, 1.7, 0], [0.05, 2.6, 0], [0.4, 2.95, 0], [1.0, 3.0, 0]], (t) => 0.085 - t * 0.035, { sides: 6, segments: 8 }), { bottom: WOOD.dark, top: WOOD.mid, vary: 0.08 }),
-  piece(new THREE.CylinderGeometry(0.17, 0.22, 0.2, 6), { color: STONE.mid, position: [0, 0.1, 0] }),
- ]);
-
 export function AboutMe() {
  const { x, z } = TREEHOUSE;
  const house = useMemo(() => createCottage(5, ROOF), []);
@@ -74,19 +66,15 @@ export function AboutMe() {
    tree: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.tree, power: 2, cap: 8 }),
    treeGeometry: hero(0.71),
    deck: createDeck(),
-   sign: createSignPost(),
   }),
   [],
  );
- const label = useMemo(() => createLabelTexture("SOBRE MÍ", "#f6ead6"), []);
- const sign = useRef(null);
  useEffect(
   () => () => {
    house.geometry.dispose();
    Object.values(models).forEach((one) => one.dispose());
-   label.dispose();
   },
-  [house, models, label],
+  [house, models],
  );
 
  const click = useInteractable({
@@ -105,10 +93,6 @@ export function AboutMe() {
     tags: mainOrbit.nodes.map((node) => node.label),
    }),
  });
- useFrame(({ clock }) => {
-  const close = Math.hypot(player.position.x - (x + 2.6), player.position.z - (z + 2.6)) < 3.4;
-  sign.current.rotation.z = Math.sin(clock.elapsedTime * 1.2) * (close ? 0.1 : 0.035);
- });
 
  return (
   <group name="casa del árbol" userData={{ rests: 0, foot: 2.4 }} position={[x, PLATEAU.height, z]} {...click}>
@@ -126,22 +110,6 @@ export function AboutMe() {
      <Glow power={0.5} forward={1.0} drop={0.4} night={2.3} position={house.lantern}>
       <boxGeometry args={[0.15, 0.22, 0.15]} />
      </Glow>
-    </group>
-   </group>
-   {/* Cartel colgado, junto a donde se lee. */}
-   <group position={[4.2, 0, 1.4]} scale={[-1, 1, 1]}>
-    <mesh geometry={models.sign} material={models.material} castShadow />
-    <group ref={sign} position={[1.0, 2.96, 0]}>
-     <group position={[0.2, -0.82, 0.1]} rotation-x={-0.5} scale={[-1, 1, 1]}>
-      <mesh castShadow>
-       <boxGeometry args={[2.7, 0.8, 0.07]} />
-       <meshLambertMaterial color={WOOD.dark} flatShading />
-      </mesh>
-      <mesh position-z={0.04}>
-       <planeGeometry args={[2.6, 0.68]} />
-       <meshBasicMaterial map={label} transparent toneMapped={false} fog={false} />
-      </mesh>
-     </group>
     </group>
    </group>
   </group>

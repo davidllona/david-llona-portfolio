@@ -295,13 +295,15 @@ export const SIGNPOSTS = [
  { text: "BALONCESTO", icon: "basketball", x: -2.3, z: 18.5, turn: 0.18 },
  { text: "FÚTBOL", icon: "football", x: -13.7, z: 16.0, turn: -0.3 },
  { text: "OBSERVATORIO", icon: "observatory", x: 16.2, z: -21.8, turn: 0.2 },
- { text: "PROYECTOS", icon: "projects", x: -14.6, z: 2.3, turn: 0.2 },
  { text: "SOBRE MÍ", icon: "about", x: -11.0, z: -13.2, turn: 0.3 },
  { text: "CONTACTO", icon: "contact", x: 30.6, z: 3.5, turn: -0.15 },
+ // Los rótulos propios de cada zona, más grandes (`scale`).
+ { text: "PROYECTOS", icon: "projects", x: PLAZA.x, z: PLAZA.z - 7.2, turn: 0, scale: 1.45 },
+ { text: "SOBRE MÍ", icon: "about", x: TREEHOUSE.x + 3.5, z: TREEHOUSE.z + 1.1, turn: -0.12, scale: 1.2 },
 ];
 // Cada cartel va sobre dos postes, a esta distancia del centro.
 export const SIGN_SPAN = 1.0;
-const signPosts = SIGNPOSTS.flatMap((s) => [-1, 1].map((side) => ({ x: s.x + Math.cos(s.turn) * SIGN_SPAN * side, z: s.z - Math.sin(s.turn) * SIGN_SPAN * side })));
+const signPosts = SIGNPOSTS.flatMap((s) => [-1, 1].map((side) => ({ x: s.x + Math.cos(s.turn) * SIGN_SPAN * (s.scale ?? 1) * side, z: s.z - Math.sin(s.turn) * SIGN_SPAN * (s.scale ?? 1) * side })));
 export const ANCIENT_TREES = [
  { x: -29.5, z: -25.5, scale: 1.25 },
  { x: 26.5, z: -31, scale: 1.05 },
@@ -660,6 +662,37 @@ const shrubs = grouped(
  shrubSite,
  (c) => ({ tone: Math.floor(c.seed * 997) % 5 }),
 ).map((s) => ({ ...s, scale: s.first ? 0.85 + s.seed * 0.35 : 0.45 + s.seed * 0.4 }));
+// Pradera entre la plaza y el campo de fútbol: puesta a mano (el jardín del
+// laboratorio es un claro y el reparto no planta nada en él). Tres árboles a
+// los lados, dos grupos de rocas y manchas de flores, sin tapar los tótems
+// desde donde se miran ni pisar los caminos.
+const meadowTrees = [
+ { x: -33.6, z: 10.4, kind: "cherry", scale: 0.98, seed: 0.37 },
+ { x: -15.6, z: 8.2, kind: "oak", scale: 0.9, seed: 0.62 },
+ { x: -21.3, z: 13.6, kind: "poplar", scale: 0.8, seed: 0.18 },
+].map((t) => ({ ...t, y: groundHeight(t.x, t.z), turn: t.seed * 6.28, model: modelOf(t.kind, t.seed) }));
+const meadowRocks = [
+ { x: -29.2, z: 12.6, scale: 0.82, seed: 0.41 },
+ { x: -18.4, z: 11.9, scale: 0.7, seed: 0.77 },
+ { x: -24.0, z: 14.9, scale: 0.55, seed: 0.23 },
+].map((r) => ({ ...r, y: groundHeight(r.x, r.z), turn: r.seed * 6.28 }));
+for (const [x, z, kind, count] of [
+ [-27.5, 10.7, "tulipRed", 10],
+ [-21.7, 10.5, "daisy", 11],
+ [-30.8, 13.5, "lavender", 10],
+ [-18.6, 14.6, "tulipYellow", 9],
+ [-25.3, 13.0, "bluebell", 9],
+ [-16.4, 11.4, "daisyPink", 8],
+ [-32.4, 7.6, "daisy", 8],
+ [-22.6, 15.6, "daisyPink", 7],
+]) {
+ for (let i = 0; i < count; i++) {
+  const angle = lowRandom() * Math.PI * 2, reach = Math.sqrt(lowRandom()) * 1.5;
+  const px = x + Math.cos(angle) * reach, pz = z + Math.sin(angle) * reach;
+  const flower = { x: px, y: groundHeight(px, pz), z: pz, seed: lowRandom(), turn: lowRandom() * Math.PI * 2 };
+  if (isGrassy(px, pz) && !built(px, pz)) flowersByKind[kind].push(flower);
+ }
+}
 // Juncos y espadañas en las orillas del estanque y del río.
 const reeds = [];
 for (let angle = 0; angle < Math.PI * 2; angle += 0.17) {
@@ -796,7 +829,7 @@ const seated = {
  // (El apoyo que se mira es el del centro de la roca, no toda su anchura; lo
  // que puede caer el suelo a su lado es lo que la roca baja bajo su centro:
  // algo más de la mitad de su tamaño, y más las altas del pie del acantilado.)
- rocks: seat(rocks, (r) => Math.min(0.5 * r.scale, 0.45), (r) => 0.5 * r.scale, { slide: 2, centre: true, embed: 0 }),
+ rocks: seat([...rocks, ...meadowRocks], (r) => Math.min(0.5 * r.scale, 0.45), (r) => 0.5 * r.scale, { slide: 2, centre: true, embed: 0 }),
  cliffRocks: seat(cliffRocks, (r) => Math.min(0.6 * r.scale, 0.45), (r) => 0.9 * r.scale, { slide: 3, centre: true, embed: 0 }),
  shoreRocks: seat(shoreRocks, (r) => Math.min(0.5 * r.scale, 0.45), (r) => 0.68 * r.scale, { centre: true, embed: 0, keep: true }), // en la orilla y en el río no se mueven: asoman del agua donde están
  pebbles: seat(pebbles, (p) => p.scale * 0.8, () => 0.09, { embed: 0, sink: 0.04 }),
@@ -815,7 +848,7 @@ const seated = {
 // el agua y no se ve. Lo vigila también tests/e2e/terrain.mjs.
 const peek = (list) => list.map((rock) => (groundHeight(rock.x, rock.z) < WATER_LEVEL ? { ...rock, y: Math.max(rock.y, WATER_LEVEL - 0.28 * rock.scale) } : rock));
 for (const key of ["rocks", "cliffRocks", "shoreRocks"]) seated[key] = peek(seated[key]);
-export const SCATTER = { trees, ...seated, flowers: Object.values(seated.flowersByKind).flat(), lilies, lanterns };
+export const SCATTER = { trees: [...trees, ...meadowTrees], ...seated, flowers: Object.values(seated.flowersByKind).flat(), lilies, lanterns };
 
 // ── Densidad del césped ─────────────────────────────────────────────────────
 // Cuántas matas nacen en cada punto, de 0 a 1 (la altura la da `grassAmount`).
@@ -836,7 +869,7 @@ function fringeAt(x, z, contact = false) {
    }
   };
   let solid = false;
-  add(trees, (t) => 0.35 * t.scale, 1.9);
+  add([...trees, ...meadowTrees], (t) => 0.35 * t.scale, 1.9);
   solid = true; // bajo una roca no crece hierba (asomaría por encima)
   add(seated.rocks, (r) => 0.8 * r.scale, 1.3);
   add(seated.cliffRocks, (r) => 0.8 * 1.35 * r.scale, 1.3);
@@ -1068,22 +1101,24 @@ export const living = {
  },
  // Colores de día y de noche de este planeta (ver experience/theme.js).
  themes: {
+  // Día: sol cálido y relleno frío del cielo. La sombra no recibe sol, pero sí
+  // ese relleno azulado: nunca es negra. Niebla clara a lo lejos.
   day: {
-   hemiSky: "#fff4d6",
-   hemiGround: "#6f9f58",
-   hemiPower: 1.0,
-   sun: "#ffe7bd",
+   hemiSky: "#dfeaff",
+   hemiGround: "#86a86a",
+   hemiPower: 1.1,
+   sun: "#ffdfae",
    sunPower: 2.9,
-   fog: "#c6e6dc",
-   fogDensity: 0.0062,
-   background: "#c6e6dc",
+   fog: "#d3e9ea",
+   fogDensity: 0.0074,
+   background: "#d3e9ea",
    skyTop: "#5fa8e6",
-   skyHorizon: "#d9efe2",
-   waterShallow: "#63dccb",
-   waterDeep: "#1b8fb8",
+   skyHorizon: "#dcefe8",
+   waterShallow: "#48dfcb",
+   waterDeep: "#0f8fb8",
    glow: 0,
-   bloom: 0.45,
-   shadow: 1,
+   bloom: 0.3,
+   shadow: 0.88,
   },
   // Noche azul y profunda: la luna recorta las siluetas desde el fondo y la
   // luz cálida la ponen las farolas y las ventanas.
@@ -1098,8 +1133,9 @@ export const living = {
    background: "#0f2350",
    skyTop: "#050b24",
    skyHorizon: "#1b3a7a",
-   waterShallow: "#2a74bd",
-   waterDeep: "#0a1d58",
+   // (El agua, apagada y oscura: de noche solo brilla su espuma.)
+   waterShallow: "#27466c",
+   waterDeep: "#0b1836",
    glow: 1,
    bloom: 0.95,
    shadow: 0.7,

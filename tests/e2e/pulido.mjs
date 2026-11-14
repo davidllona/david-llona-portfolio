@@ -20,9 +20,13 @@ const POINTS = {
  futbol: [-22, 15],
  contacto: [33, 2],
  playa: [0, 41],
+ totems: [-24.5, 10.8],
+ atril: [6.6, 8.8],
+ prado: [-24.5, 12.5],
+ roca: [13.4, 13.6],
 };
 // `lift`: altura de la cámara (1 = la del juego); `distance`: cuánto se aleja.
-const VIEWS = { juego: { lift: 1, distance: 1 }, bajo: { lift: 0.2, distance: 0.62 }, alto: { lift: 1.45, distance: 2.6 } };
+const VIEWS = { cerca: { lift: 0.24, distance: 0.3 }, juego: { lift: 1, distance: 1 }, bajo: { lift: 0.2, distance: 0.62 }, alto: { lift: 1.45, distance: 2.6 } };
 
 const folder = (process.argv[2] ?? "capturas/23-pulido") + "/";
 const pick = (arg, all) => (arg && arg !== "-" ? arg.split(",") : all);

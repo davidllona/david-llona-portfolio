@@ -19,7 +19,8 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 | 1. Césped | **Hecho.** Fps después: 74 · 82 · 77 · 83 · 85. Capturas: `capturas/23-pulido/1-cesped/` (antes: `0-antes/`) |
 | 2. Rocas, caminos, farolas y carteles | **Hecho.** Fps después: 85 · 87 · 82 · 87 · 88. Capturas: `capturas/23-pulido/2-rocas/`, `2-caminos/`, `2-farolas/` |
 | 3. Color y vegetación (variantes de árbol, capa baja, pájaros) | **Hecho.** Fps después: 74 · 77 · 79 · 78 · 81. Capturas: `capturas/23-pulido/3-color/`, `3-pajaros/` |
-| 4. Agua y luz | **Hecho. PARADA: pendiente del visto bueno de David.** Fps después: 86 · 88 · 86 · 85 · 87. Capturas: `capturas/23-pulido/parada-4/` (12 puntos × cámara de juego, a ras y desde arriba × día y noche; hojas `hoja-dia.jpg` y `hoja-noche.jpg`) |
+| 4. Agua y luz | **Hecho y aprobado** (con los retoques de abajo). Fps después: 86 · 88 · 86 · 85 · 87. Capturas: `capturas/23-pulido/parada-4/` (12 puntos × cámara de juego, a ras y desde arriba × día y noche; hojas `hoja-dia.jpg` y `hoja-noche.jpg`) |
+| Retoques de 1–4 (pedidos por David al aprobar) | **Hechos.** Fps: 110 · 114 · 109 · 113 · 114. Hojas: `capturas/23-pulido/retoques/hoja-dia.jpg` y `hoja-noche.jpg` |
 | 5. Baloncesto | Sin empezar |
 | 6. Fútbol | Sin empezar |
 | 7. Edificios | Sin empezar |
@@ -64,6 +65,19 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 - Los colores de la noche y la piedra gris azulada también llegan a la bienvenida (usa el tema de noche): captura en `capturas/23-pulido/parada-4/bienvenida/`, pendiente de que David la compare con la aprobada.
 - Sin comprobar: Chrome con ventana, el Mac, un teléfono.
 - **No guardadas**: las tres imágenes de referencia (`docs/referencias/`). No llegaron adjuntas a la sesión; hay que volver a pasarlas.
+
+**Retoques tras la parada del apartado 4** (14-11-2026):
+- **Corrección del apartado 4**: este planeta trae sus propios colores de día y de noche (`themes` al final de `layout.js`) y pisan los de `experience/theme.js`. Los colores de luz, niebla, agua y fuerza del bloom que se anotaron en el apartado 4 se habían puesto en `theme.js` y **no se estaban aplicando**; lo que David aprobó llevaba solo el umbral del bloom, las sombras suaves, la oclusión, la espuma y la cascada. Ahora están en `layout.js` (relleno frío `#dfeaff`, sol `#ffdfae`, niebla `#d3e9ea`, sombra 0,88, bloom de día 0,3) y `theme.js` vuelve a ser el de antes (valores de reserva de otros planetas).
+- Musgo: capa que tapa la coronación salvo una esquina, que queda en piedra, y cae por los lados a distinta altura; verde más amarillo y apagado que la hierba.
+- Cohete de noche: cada pieza devuelve su color en cálido (en el material: se ve desde toda la isla y no gasta luces), ventanilla encendida en cálido, tres focos al borde de la losa con lente, halo y luz de verdad.
+- Agua de noche: apagada y oscura (`#27466c` / `#0b1836`); la espuma se mantiene.
+- Junto a la plataforma: piedras irregulares encajadas (celdas de un reparto de puntos descolocados, junta de 2 cm, una sola malla) en vez de losas en rejilla.
+- Rótulos: PROYECTOS (plaza) y SOBRE MÍ (casa del árbol) son ahora carteles del estilo nuevo, más grandes (`scale` en `SIGNPOSTS`); fuera el cartel antiguo de CONTACTO (queda uno) y el indicador de PROYECTOS de la entrada de la aldea. Placas de los tres tótems (icono de matraz), de los tres aparatos de Contacto y del atril del CV, con la cara clara de `SignFace`. Diez carteles en total.
+- Visor del astronauta: cristal (refleja el cielo del momento, más claro arriba y en el borde, con un brillo). También lo lleva el astronauta de la bienvenida.
+- Pájaros un 40 % más grandes (`SIZE` 2,1).
+- Pradera entre la plaza y el campo de fútbol: tres árboles a los lados (cerezo, roble, álamo), tres grupos de rocas y ocho manchas de flores, puestos a mano sin mover el resto del reparto.
+- **No hecho**: guardar las tres imágenes de referencia en `docs/referencias/`. No han llegado adjuntas a la sesión en ninguno de los tres mensajes.
+- Colisiones rehorneadas (813 obstáculos). Pruebas en primer plano: `collisions`, `terrain`, `errors`, `entrada.mjs` (0 pipelines en caliente), `living`, `portfolio`, `camera`, `woody`, `birds`, `life`, `characters`: 179 comprobaciones bien, 0 fallos.
 
 ## Objetivo 16
 

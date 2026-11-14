@@ -10,7 +10,7 @@ import { randomFrom } from "../kit/geometry";
 // cantos (donde se gasta) y con musgo en lo que mira al cielo.
 export const BLUESTONE = { dark: "#5f6a7a", mid: "#8793a3", light: "#aab5c3", edge: "#c3ccd8" };
 export const WET_STONE = { dark: "#454d5a", mid: "#626c7a", light: "#7f8a98", edge: "#97a2b0" };
-const MOSS = { deep: "#4f9146", mid: "#6fae4f", light: "#93c95c" };
+const MOSS = { deep: "#4d7f34", mid: "#6f9c3a", light: "#93b548" }; // más amarillo y apagado que la hierba: se distingue de ella
 
 const SHAPES = {
  // medio ancho, medio fondo, alto sobre el suelo, cuánto se estrecha arriba
@@ -32,7 +32,7 @@ export function createBlock(seed, { shape = "chunk", moss = 1, stone = BLUESTONE
  const s = SHAPES[shape];
  const bottom = -0.62; // va hondo: en una cuesta, el lado de abajo no queda al aire
  const tiltX = (random() - 0.5) * 0.3 + (s.tilt ?? 0), tiltZ = (random() - 0.5) * 0.24;
- const points = [], crown = [];
+ const points = [], tops = [], feet = [];
  for (const sy of [0, 1]) {
   for (const sx of [-1, 1]) {
    for (const sz of [-1, 1]) {
@@ -43,7 +43,7 @@ export function createBlock(seed, { shape = "chunk", moss = 1, stone = BLUESTONE
     const cy = sy ? s.top * (0.88 + random() * 0.2) + cx * tiltX + cz * tiltZ : bottom;
     const bevel = (sy ? 0.16 : 0.1) + random() * 0.12;
     points.push(new THREE.Vector3(cx - sx * bevel, cy, cz), new THREE.Vector3(cx, cy, cz - sz * bevel), new THREE.Vector3(cx, cy + (sy ? -bevel : bevel) * 0.9, cz));
-    if (sy) crown.push(new THREE.Vector3(cx - sx * bevel, cy, cz - sz * bevel));
+    (sy ? tops : feet).push(new THREE.Vector3(cx, cy, cz));
    }
   }
  }
@@ -73,31 +73,51 @@ export function createBlock(seed, { shape = "chunk", moss = 1, stone = BLUESTONE
  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
  let whole = geometry;
  if (moss > 0) {
-  // Musgo: un cojín bajo que cubre parte de la coronación, arrimado a un
-  // lado, y rebosa por ese canto. No toda la roca: la piedra se sigue viendo.
-  const centre = crown.reduce((sum, p) => sum.add(p), new THREE.Vector3()).multiplyScalar(1 / crown.length);
-  const toward = random() * Math.PI * 2;
-  const shift = new THREE.Vector3(Math.cos(toward) * s.x, 0, Math.sin(toward) * s.z).multiplyScalar(0.24);
-  const cushion = [];
-  for (const p of crown) {
-   const out = p.clone().sub(centre);
-   const base = centre.clone().addScaledVector(out, 0.66 + random() * 0.2).add(shift);
-   // Lo que sobresale del canto cuelga un poco por la cara.
-   const over = Math.max(0, out.dot(shift) / (shift.length() * out.length() + 1e-6));
-   base.y = p.y - over * 0.26 * moss;
-   cushion.push(base.clone().setY(base.y - 0.05), base.clone().setY(base.y + 0.035), centre.clone().addScaledVector(out, 0.46).add(shift).setY(base.y + 0.08));
+  // Musgo: una capa que tapa toda la coronación y cae por los lados, más en
+  // unos sitios que en otros: baja un trecho distinto por cada arista y, entre
+  // arista y arista, otra lengua. Va un dedo por fuera de la piedra.
+  const centre = tops.reduce((sum, p) => sum.add(p), new THREE.Vector3()).multiplyScalar(1 / tops.length);
+  const outward = (p) => new THREE.Vector3(p.x - centre.x, 0, p.z - centre.z).normalize();
+  const cap = [];
+  const ring = [0, 1, 3, 2]; // las cuatro esquinas, en corro
+  const bare = Math.floor(random() * 4); // una esquina se queda en piedra
+  ring.forEach((corner, i) => {
+   const top = tops[corner], foot = feet[corner], out = outward(top);
+   if (i === bare) {
+    // Aquí el musgo no llega al canto: se retira hacia el centro.
+    cap.push(top.clone().lerp(centre, 0.5 + random() * 0.15).setY(top.y + 0.05));
+    return;
+   }
+   cap.push(top.clone().addScaledVector(out, 0.05).setY(top.y + 0.05));
+   // Por las aristas vecinas a la esquina pelada apenas cae; por las otras, más.
+   const reach = Math.abs(i - bare) === 2 ? 0.34 : 0.12;
+   cap.push(top.clone().lerp(foot, (0.04 + random() * reach) * moss).addScaledVector(out, 0.06));
+   // La lengua de en medio de esta cara (si no da a la esquina pelada).
+   const next = ring[(i + 1) % 4];
+   if ((i + 1) % 4 === bare) return;
+   const along = 0.3 + random() * 0.4;
+   const midTop = top.clone().lerp(tops[next], along), midFoot = foot.clone().lerp(feet[next], along);
+   cap.push(midTop.clone().lerp(midFoot, (0.03 + random() * 0.26) * moss).addScaledVector(outward(midTop), 0.06));
+  });
+  // Y un par de bultos encima, para que la coronación no sea un plano.
+  for (let i = 0; i < 2; i++) cap.push(centre.clone().add(new THREE.Vector3((random() - 0.5) * s.x * 0.7, 0.1 + random() * 0.07, (random() - 0.5) * s.z * 0.7)));
+  const layer = new ConvexGeometry(cap);
+  const layerNormal = layer.attributes.normal, layerPlace = layer.attributes.position, layerColors = new Float32Array(layerPlace.count * 3);
+  for (let i = 0; i < layerPlace.count; i += 3) {
+   const ny = layerNormal.getY(i);
+   const vary = 0.93 + random() * 0.14;
+   for (let k = 0; k < 3; k++) {
+    // Más claro arriba, más hondo conforme cae.
+    const fall = Math.min(1, Math.max(0, (centre.y - layerPlace.getY(i + k)) / (s.top * 0.5)));
+    tone.copy(ny > 0.7 ? mossLight : mossMid).lerp(mossDeep, ny > 0.7 ? 0 : 0.25 + fall * 0.75).multiplyScalar(vary);
+    tone.toArray(layerColors, (i + k) * 3);
+   }
   }
-  const cap = new ConvexGeometry(cushion);
-  const capNormal = cap.attributes.normal, capColors = new Float32Array(cap.attributes.position.count * 3);
-  for (let i = 0; i < cap.attributes.position.count; i += 3) {
-   tone.copy(capNormal.getY(i) > 0.8 ? mossLight : capNormal.getY(i) > 0.2 ? mossMid : mossDeep).multiplyScalar(0.95 + random() * 0.1);
-   for (let k = 0; k < 3; k++) tone.toArray(capColors, (i + k) * 3);
-  }
-  cap.deleteAttribute("normal");
-  cap.setAttribute("color", new THREE.BufferAttribute(capColors, 3));
-  whole = mergeGeometries([geometry, cap]);
+  layer.deleteAttribute("normal");
+  layer.setAttribute("color", new THREE.BufferAttribute(layerColors, 3));
+  whole = mergeGeometries([geometry, layer]);
   geometry.dispose();
-  cap.dispose();
+  layer.dispose();
  }
  if (position || rotation || scale) {
   const helper = new THREE.Object3D();

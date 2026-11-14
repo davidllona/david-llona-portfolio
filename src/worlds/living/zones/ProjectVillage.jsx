@@ -265,38 +265,6 @@ const createBench = () =>
   ...[-0.6, 0.6].map((x) => piece(box(0.1, 0.46, 0.4), { color: WOOD.dark, position: [x, 0.23, 0] })),
  ]);
 
-// Tablón «PROYECTOS» al fondo de la plaza.
-function Board() {
- const texture = useMemo(() => createLabelTexture("PROYECTOS", "#f6ead6"), []);
- useEffect(() => () => texture.dispose(), [texture]);
- const geometry = useMemo(
-  () =>
-   merge([
-    ...[-1.2, 1.2].map((x) => piece(limb(0.09, 0.075, 3.3, 5), { bottom: WOOD.dark, top: WOOD.mid, position: [x, 0, 0] })),
-    piece(box(2.9, 0.86, 0.1), { bottom: WOOD.mid, top: WOOD.light, vary: 0.1, position: [0, 2.85, 0.02], rotation: [-0.42, 0, 0] }),
-    piece(box(3.2, 0.1, 0.5), { color: WOOD.dark, position: [0, 3.36, -0.08], rotation: [0.3, 0, 0] }),
-   ]),
-  [],
- );
- const material = useMemo(() => lambert(), []);
- useEffect(
-  () => () => {
-   geometry.dispose();
-   material.dispose();
-  },
-  [geometry, material],
- );
- return (
-  <group name="tablón de proyectos" userData={{ rests: 0 }} position={[PLAZA.x, 0, PLAZA.z - 7.2]}>
-   <mesh geometry={geometry} material={material} castShadow />
-   <mesh position={[0, 2.85, 0.09]} rotation-x={-0.42}>
-    <planeGeometry args={[2.75, 0.7]} />
-    <meshBasicMaterial map={texture} transparent toneMapped={false} fog={false} />
-   </mesh>
-  </group>
- );
-}
-
 export function ProjectVillage() {
  // Las casas comparten material; la que tape al astronauta se vuelve translúcida.
  const models = useMemo(() => ({ material: withSeeThrough(lambert()), showcaseBase: createShowcaseBase(), showcaseTop: createShowcaseTop(), well: createWell(), bench: createBench(), lamp: createLantern() }), []);
@@ -351,7 +319,6 @@ export function ProjectVillage() {
      </Glow>
     </group>
    ))}
-   <Board />
    {PROJECTS.map((project, i) =>
     REBUILT[i] ? (
      <Building key={project.id} project={project} site={PROJECT_CABINS[i]} name={REBUILT[i]} models={models} />

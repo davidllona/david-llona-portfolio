@@ -7,7 +7,10 @@ import { setBlast } from "./environment/wind";
 import { Exhaust } from "./Exhaust";
 import { lambert } from "./materials";
 import { emit, player, rig } from "./state";
-import { registerGlow } from "./theme";
+import { materialColor, normalWorld, vec3 } from "three/tsl";
+import { addWarmSource } from "./lightSources";
+import { registerGlow, uniforms } from "./theme";
+import { Halos } from "../worlds/living/props/Halos";
 import { world } from "../worlds";
 
 const PAD_COLOR = "#ffb238";
@@ -55,7 +58,17 @@ const ORANGE_DARK = "#e8591c";
 const METAL = "#5a4a44";
 // Material del cohete: facetado y, como árboles y casas, translúcido (tramado)
 // alrededor del astronauta cuando lo tapa.
-const paint = (color, options) => withSeeThrough(lambert({ vertexColors: false, color, ...options }));
+// De noche tiene luz propia: como si lo bañaran los focos de la plataforma,
+// cada pieza devuelve su color en cálido, más lo que mira al sur (a la cámara).
+// Va en el material, así que se ve desde cualquier punto de la isla y no gasta
+// ninguna de las luces de verdad.
+const paint = (color, options) => {
+ const material = withSeeThrough(lambert({ vertexColors: false, color, ...options }));
+ material.emissiveNode = materialColor.mul(vec3(1, 0.8, 0.56)).mul(uniforms.uGlow).mul(normalWorld.z.max(0).mul(0.15).add(normalWorld.y.negate().max(0).mul(0.1)).add(0.1));
+ return material;
+};
+// Focos de la plataforma: tres, al borde de la losa, mirando al cohete.
+const SPOT_ANGLES = [Math.PI / 2 - 0.62, Math.PI / 2 + 0.62, -Math.PI / 2];
 function Rocket({ flame }) {
  const material = useMemo(
   () => ({
@@ -66,14 +79,15 @@ function Rocket({ flame }) {
    nozzle: paint(METAL, { side: THREE.DoubleSide }),
    door: paint("#e3d3b8"),
    tip: paint("#ffd98a"),
-   glass: paint("#8fe9f2", { emissive: new THREE.Color("#3fd8ff") }),
+   // Ventanilla: de día, cristal azulado; de noche, encendida en cálido.
+   glass: withSeeThrough(lambert({ vertexColors: false, color: "#8fe9f2", emissive: new THREE.Color("#ffd28a") })),
   }),
   [],
  );
  const glass = material.glass;
  const geometry = useMemo(() => ({ hull: new THREE.LatheGeometry(profile(HULL), SIDES), nose: new THREE.LatheGeometry(profile(NOSE), SIDES), fin: createFin() }), []);
  useEffect(() => {
-  const stop = registerGlow(glass, 0.3, 1.1);
+  const stop = registerGlow(glass, 0.22, 1.3);
   return () => {
    stop();
    Object.values(geometry).forEach((one) => one.dispose());
@@ -148,6 +162,17 @@ export function Ship() {
  const exhaust = useMemo(() => ({ x: SHIP.x, y: NOZZLE, z: SHIP.z, thrust: 0, ground: 0.2, radius: SHIP.padRadius }), [SHIP]);
  const ringMaterial = useMemo(() => new THREE.MeshLambertMaterial({ color: PAD_COLOR, emissive: PAD_COLOR }), []);
  useEffect(() => registerGlow(ringMaterial, 0.5, 2.4), [ringMaterial]);
+ // Los focos: dónde está cada uno, su lente encendida, su halo y su luz.
+ const spots = useMemo(() => SPOT_ANGLES.map((angle) => ({ angle, x: SHIP.x + Math.cos(angle) * (SHIP.padRadius - 0.32), z: SHIP.z + Math.sin(angle) * (SHIP.padRadius - 0.32) })), [SHIP]);
+ const lens = useMemo(() => new THREE.MeshLambertMaterial({ color: "#000000", emissive: "#ffc878" }), []);
+ const lensPoints = useMemo(() => spots.map((spot) => [spot.x - Math.cos(spot.angle) * 0.1, 0.42, spot.z - Math.sin(spot.angle) * 0.1]), [spots]);
+ useEffect(() => {
+  const stop = [registerGlow(lens, 0.3, 1.3), ...spots.map((spot) => addWarmSource({ x: spot.x - Math.cos(spot.angle) * 1.1, y: 1.3, z: spot.z - Math.sin(spot.angle) * 1.1, reach: 8, power: 0.75, flicker: 0.01 }))];
+  return () => {
+   stop.forEach((off) => off());
+   lens.dispose();
+  };
+ }, [lens, spots]);
  useEffect(() => {
   if (import.meta.env.DEV) window.__world.ship = { body: ship.current, flight: flight.current, exhaust }; // para las pruebas automáticas
  }, [exhaust]);
@@ -306,6 +331,23 @@ export function Ship() {
      <ringGeometry args={[SHIP.padRadius - 0.75, SHIP.padRadius - 0.45, 40]} />
     </mesh>
    </group>
+   {/* Focos al borde de la losa. */}
+   {spots.map((spot, i) => (
+    <group key={i} position={[spot.x, 0.2, spot.z]} rotation-y={-spot.angle + Math.PI}>
+     <mesh position-y={0.08}>
+      <boxGeometry args={[0.2, 0.16, 0.3]} />
+      <meshLambertMaterial color="#2c2f36" flatShading />
+     </mesh>
+     <mesh position={[0.07, 0.24, 0]} rotation-z={0.7}>
+      <boxGeometry args={[0.26, 0.2, 0.24]} />
+      <meshLambertMaterial color="#3a3e47" flatShading />
+     </mesh>
+     <mesh position={[0.16, 0.32, 0]} rotation-z={0.7} material={lens}>
+      <boxGeometry args={[0.04, 0.15, 0.19]} />
+     </mesh>
+    </group>
+   ))}
+   <Halos points={lensPoints} size={1.1} night={0.5} />
    {/* Llamarada sobre la losa (fuera del grupo medido: no es un objeto apoyado). */}
    <group ref={flare} position={[SHIP.x, 0.21, SHIP.z]} visible={false}>
     <mesh position-y={0.16}>

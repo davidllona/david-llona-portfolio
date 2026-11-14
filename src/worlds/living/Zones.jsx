@@ -16,7 +16,7 @@ import { Football } from "./football/Football";
 import { AboutMe } from "./zones/AboutMe";
 import { Contact } from "./zones/Contact";
 import { ProjectVillage } from "./zones/ProjectVillage";
-import { Signposts } from "./props/Signpost";
+import { SignFace, Signposts } from "./props/Signpost";
 import { COLORS, CONTACT, CV_KIOSK, LAB_TOTEMS, PITCH, PLATEAU, PROJECT_CABINS, TREEHOUSE, WIND_CHIME, height } from "./layout";
 
 const WOOD = "#c58a55";
@@ -120,10 +120,10 @@ function LabTotem({ experiment, index, x, z }) {
     </mesh>
     <group position-y={0.62} rotation-x={-0.95}>
      <mesh>
-      <boxGeometry args={[2.3, 0.6, 0.06]} />
+      <boxGeometry args={[2.3, 0.8, 0.06]} />
       <Flat color={WOOD_DARK} />
      </mesh>
-     <Label text={experiment.title.toUpperCase()} color="#f6ead6" width={2.2} position={[0, 0, 0.04]} />
+     <SignFace text={experiment.title.toUpperCase()} icon="lab" width={2.24} position={[0, 0, 0.034]} />
     </group>
    </group>
   </group>
@@ -144,6 +144,14 @@ function CvKiosk() {
     <boxGeometry args={[1.2, 0.08, 0.9]} />
     <Flat color={WOOD} />
    </mesh>
+   {/* Placa al frente, como las de los carteles. */}
+   <group position={[0, 0.66, 0.115]}>
+    <mesh>
+     <boxGeometry args={[0.98, 0.36, 0.03]} />
+     <Flat color={WOOD_DARK} />
+    </mesh>
+    <SignFace text="CV" icon="cv" width={0.94} position-z={0.018} />
+   </group>
    {/* La hoja; con una franja naranja si ya hay PDF. */}
    <mesh position={[0, 1.27, 0.08]} rotation-x={-0.6}>
     <boxGeometry args={[0.72, 0.03, 0.62]} />

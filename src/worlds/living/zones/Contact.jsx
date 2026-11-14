@@ -5,12 +5,12 @@ import { CONTACT_LINKS, EMAIL } from "../../../content/contact";
 import { useInteractable } from "../../../experience/interact";
 import { lambert } from "../../../experience/materials";
 import { emit, player } from "../../../experience/state";
-import { createLabelTexture } from "../../../experience/textures";
 import { createCottage } from "../buildings/cottageModels";
 import { Glow } from "../buildings/Glow";
-import { blob, limb, merge, piece, tube } from "../kit/geometry";
+import { blob, limb, merge, piece } from "../kit/geometry";
 import { STONE, WOOD } from "../kit/palette";
 import { CONTACT } from "../layout";
+import { SignFace } from "../props/Signpost";
 import { LANTERN_GLASS, LANTERN_GLASS_SIZE, createLantern } from "../props/lampModel";
 
 // Contacto: la estación de comunicaciones del bosque. Una casa con su mástil
@@ -142,7 +142,6 @@ const DEVICES = {
 function Device({ link, x, z, models }) {
  const device = useMemo(() => DEVICES[link.label](), [link.label]);
  const texture = useMemo(() => ICONS[link.label](), [link.label]);
- const plaque = useMemo(() => createLabelTexture(link.label.toUpperCase(), "#f6ead6"), [link.label]);
  const screen = useRef(null);
  const lift = useRef(null);
  const flag = useRef(null);
@@ -151,9 +150,8 @@ function Device({ link, x, z, models }) {
   () => () => {
    device.geometry.dispose();
    texture.dispose();
-   plaque.dispose();
   },
-  [device, texture, plaque],
+  [device, texture],
  );
 
  const isMail = link.href.startsWith("mailto:");
@@ -207,13 +205,10 @@ function Device({ link, x, z, models }) {
    {/* Plaquita de madera con el nombre, al pie. */}
    <group position={[0, 0.2, 0.85]} rotation-x={-1.05}>
     <mesh>
-     <boxGeometry args={[1.5, 0.42, 0.05]} />
+     <boxGeometry args={[1.5, 0.52, 0.05]} />
      <meshLambertMaterial color={WOOD.dark} flatShading />
     </mesh>
-    <mesh position-z={0.03}>
-     <planeGeometry args={[1.44, 0.36]} />
-     <meshBasicMaterial map={plaque} transparent toneMapped={false} fog={false} />
-    </mesh>
+    <SignFace text={link.label.toUpperCase()} icon="contact" width={1.44} position-z={0.03} />
    </group>
   </group>
  );
@@ -238,17 +233,9 @@ const createDish = () =>
   piece(limb(0.07, 0.06, 0.5, 5), { color: "#5a5560", position: [0, -0.3, 0] }),
  ]);
 
-// Cartel colgado «CONTACTO».
-const createSignPost = () =>
- merge([
-  piece(tube([[0, 0, 0], [0, 1.7, 0], [0.05, 2.6, 0], [0.4, 2.95, 0], [1.0, 3.0, 0]], (t) => 0.085 - t * 0.035, { sides: 6, segments: 8 }), { bottom: WOOD.dark, top: WOOD.mid, vary: 0.08 }),
-  piece(new THREE.CylinderGeometry(0.17, 0.22, 0.2, 6), { color: STONE.mid, position: [0, 0.1, 0] }),
- ]);
-
 export function Contact() {
  const station = useMemo(() => createCottage(4, ROOF), []);
- const models = useMemo(() => ({ material: lambert({ side: THREE.DoubleSide }), tower: createTower(), dish: createDish(), sign: createSignPost(), lamp: createLantern() }), []);
- const label = useMemo(() => createLabelTexture("CONTACTO", "#f6ead6"), []);
+ const models = useMemo(() => ({ material: lambert({ side: THREE.DoubleSide }), tower: createTower(), dish: createDish(), lamp: createLantern() }), []);
  const dish = useRef(null);
  const beacon = useRef(null);
  const deck = useMemo(
@@ -263,10 +250,9 @@ export function Contact() {
   () => () => {
    station.geometry.dispose();
    Object.values(models).forEach((one) => one.dispose());
-   label.dispose();
    deck.dispose();
   },
-  [station, models, label, deck],
+  [station, models, deck],
  );
  useFrame(({ clock }) => {
   dish.current.rotation.y = clock.elapsedTime * 0.3;
@@ -305,25 +291,12 @@ export function Contact() {
    {CONTACT_LINKS.map((link, i) => (
     <Device key={link.label} link={link} {...CONTACT.terminals[i]} models={models} />
    ))}
-   {/* Farola y cartel de la zona. */}
+   {/* Farola de la zona (el cartel es uno de los de layout.js). */}
    <group name="farola de contacto" userData={{ rests: 0 }} position={[x - 4.3, 0, z + 2.6]} rotation-y={Math.PI}>
     <mesh geometry={models.lamp} material={models.material} castShadow />
     <Glow power={0.9} reach={10} forward={0.7} drop={0.9} night={2.6} position={LANTERN_GLASS}>
      <boxGeometry args={LANTERN_GLASS_SIZE} />
     </Glow>
-   </group>
-   <group name="cartel de contacto" userData={{ rests: 0 }} position={[x + 3.9, 0, z + 3.3]} scale={[-1, 1, 1]}>
-    <mesh geometry={models.sign} material={models.material} castShadow />
-    <group position={[1.2, 2.14, 0.1]} rotation-x={-0.5} scale={[-1, 1, 1]}>
-     <mesh castShadow>
-      <boxGeometry args={[2.7, 0.8, 0.07]} />
-      <meshLambertMaterial color={WOOD.dark} flatShading />
-     </mesh>
-     <mesh position-z={0.04}>
-      <planeGeometry args={[2.6, 0.68]} />
-      <meshBasicMaterial map={label} transparent toneMapped={false} fog={false} />
-     </mesh>
-    </group>
    </group>
   </>
  );
