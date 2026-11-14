@@ -92,7 +92,7 @@ await t.put(0, 9.5, { settle: 1500 });
 }
 
 // ── Postes indicadores: están, y no se atraviesan ────────────────────────────
-check(SIGNPOSTS.length === 5 && SIGNPOSTS.every((s) => living.colliders.some((c) => Math.hypot(c.x - s.x, c.z - s.z) < 0.05)), "los cinco postes tienen colisión");
+check(SIGNPOSTS.length >= 5 && SIGNPOSTS.every((s) => living.colliders.some((c) => Math.hypot((c.x + (c.bx ?? c.x)) / 2 - s.x, (c.z + (c.bz ?? c.z)) / 2 - s.z) < 0.05)), `los ${SIGNPOSTS.length} carteles tienen colisión`);
 for (const sign of SIGNPOSTS.slice(0, 2)) {
  await t.put(sign.x, sign.z + 1.3, { withWoody: false, settle: 300 });
  await t.hold("KeyW", 900);

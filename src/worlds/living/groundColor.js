@@ -20,7 +20,7 @@ const PALETTE = {
  bed: ["#4f9f9c", "#3f8f90", "#2f7f86"],
 };
 // La roca va por estratos: el tono depende de la altura.
-const STRATA = ["#8a847d", "#a59f95", "#b9b3a7", "#968f88", "#aaa398"];
+const STRATA = ["#7a8492", "#929dab", "#a7b1be", "#858f9d", "#9ca6b3"];
 
 const palette = Object.fromEntries(Object.entries(PALETTE).map(([key, list]) => [key, list.map((c) => new THREE.Color(c))]));
 const strata = STRATA.map((c) => new THREE.Color(c));

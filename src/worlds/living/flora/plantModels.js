@@ -1,6 +1,7 @@
+import { ROCK_SHAPES, createRock } from "../props/rockModel";
 import * as THREE from "three";
-import { blade, blob, limb, merge, piece, randomFrom } from "../kit/geometry";
-import { GRASS, ROCK } from "../kit/palette";
+import { blade, limb, merge, piece, randomFrom } from "../kit/geometry";
+import { GRASS } from "../kit/palette";
 
 // Modelos de la vegetación baja y de las rocas. Cada uno es una geometría
 // única con colores de vértice, en metros y con el pie en el origen.
@@ -139,15 +140,6 @@ function mushrooms(cap, capTop) {
 }
 
 // Roca: poliedro descolocado y achatado; con `moss`, una capa verde encima.
-function rock(seed, moss) {
- const random = randomFrom(seed);
- const base = seed > 0.5 ? new THREE.DodecahedronGeometry(1, 0) : new THREE.IcosahedronGeometry(1, 0);
- const pieces = [piece(base, { bottom: ROCK.dark, top: ROCK.light, jitter: 0.2, vary: 0.1, seed: seed * 50, scale: [1, 0.72, 0.9], position: [0, 0.3, 0] })];
- if (random() < 0.7) pieces.push(piece(new THREE.DodecahedronGeometry(0.55, 0), { bottom: ROCK.dark, top: ROCK.mid, jitter: 0.12, vary: 0.1, seed: seed * 31, position: [0.8, 0.1, 0.3], scale: [1, 0.7, 1] }));
- if (moss) pieces.push(piece(blob(0), { bottom: "#4f8f45", top: ROCK.moss, jitter: 0.12, seed: seed * 7, position: [-0.05, 0.86, 0], scale: [0.78, 0.2, 0.7] }));
- return merge(pieces, { ground: 0.2, groundHeight: 0.5 });
-}
-
 // Nenúfar: hoja con su muesca; con `flower`, una flor abierta.
 function lily(flower) {
  const pieces = [piece(new THREE.CylinderGeometry(0.42, 0.42, 0.03, 9, 1, false, 0.5, Math.PI * 1.75), { color: "#4fae63", vary: 0.08 })];
@@ -177,9 +169,10 @@ export function createPlantModels() {
   ferns: [fern(0.15), fern(0.6)],
   reeds: [reeds(0.3), reeds(0.7)],
   mushrooms: [mushrooms("#c9412f", "#f0603f"), mushrooms("#b9824f", "#e3bc85")],
-  rocks: [rock(0.2), rock(0.62), rock(0.9)],
-  mossy: [rock(0.2, true), rock(0.62, true)],
-  pebble: piece(new THREE.IcosahedronGeometry(1, 0), { bottom: ROCK.mid, top: ROCK.light, jitter: 0.22, seed: 4, scale: [1, 0.55, 0.8] }),
+  // Rocas: cuatro bloques distintos, pelados (en el agua) y con musgo (ver props/rockModel.js).
+  rocks: ROCK_SHAPES.map((shape, i) => createRock(0.21 + i * 0.17, { shape, moss: 0 })),
+  mossy: ROCK_SHAPES.map((shape, i) => createRock(0.37 + i * 0.13, { shape, moss: 1 })),
+  pebble: createRock(0.58, { shape: "slab", moss: 0, scale: [1, 0.9, 0.85] }),
   lilies: [lily(false), lily(true)],
  };
 }

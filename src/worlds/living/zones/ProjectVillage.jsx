@@ -15,8 +15,8 @@ import { withSeeThrough } from "../../../experience/environment/seeThrough";
 import { blob, limb, merge, piece, randomFrom } from "../kit/geometry";
 import { CREAM, STONE, WOOD } from "../kit/palette";
 import { BENCHES, PLAZA, PROJECT_CABINS, WELL } from "../layout";
-import { cobble, createCobble } from "../props/cobbles";
-import { LAMP_GLASS, createLamp } from "../props/lampModel";
+import { COBBLE_TONES, SLAB_THICKNESS, createSlab } from "../props/cobbles";
+import { LANTERN_GLASS, LANTERN_GLASS_SIZE, createLantern } from "../props/lampModel";
 
 // Aldea de proyectos. Una plaza empedrada con su pozo y, alrededor, una casa
 // por proyecto, cada una a su aire. La captura real del proyecto va en un
@@ -299,8 +299,8 @@ function Board() {
 
 export function ProjectVillage() {
  // Las casas comparten material; la que tape al astronauta se vuelve translúcida.
- const models = useMemo(() => ({ material: withSeeThrough(lambert()), showcaseBase: createShowcaseBase(), showcaseTop: createShowcaseTop(), well: createWell(), bench: createBench(), lamp: createLamp() }), []);
- const stone = useMemo(() => createCobble(0.57), []);
+ const models = useMemo(() => ({ material: withSeeThrough(lambert()), showcaseBase: createShowcaseBase(), showcaseTop: createShowcaseTop(), well: createWell(), bench: createBench(), lamp: createLantern() }), []);
+ const stone = useMemo(createSlab, []);
  useEffect(
   () => () => {
    Object.values(models).forEach((one) => one.dispose());
@@ -308,17 +308,24 @@ export function ProjectVillage() {
   },
   [models, stone],
  );
- // Adoquines pequeños e irregulares, en anillos apretados con algún hueco.
+ // Losas encajadas en anillos alrededor del centro de la plaza: apretadas, con
+ // junta fina y a ras de suelo (asoman centímetro y medio). Hacia el borde
+ // falta alguna, y ahí asoma la tierra.
  const cobbles = useMemo(() => {
   const random = randomFrom(0.44);
   const list = [];
-  for (let ring = 1; ring <= 9; ring++) {
-   const count = ring * 9;
+  const DEPTH = 0.58, JOINT = 0.04;
+  for (let radius = DEPTH * 0.5, ring = 0; radius < PLAZA.r - 0.25; radius += DEPTH, ring++) {
+   const count = Math.max(5, Math.round((Math.PI * 2 * radius) / (0.62 + random() * 0.14)));
+   const offset = random() * Math.PI * 2;
+   const fade = Math.max(0, (radius - (PLAZA.r - 1.5)) / 1.5);
    for (let i = 0; i < count; i++) {
-    if (random() < 0.14 + (ring > 7 ? 0.3 : 0)) continue;
-    const angle = (i / count) * Math.PI * 2 + ring * 0.4 + (random() - 0.5) * 0.12;
-    const radius = ring * 0.6 + (random() - 0.5) * 0.22;
-    list.push(cobble(random, PLAZA.x + Math.cos(angle) * radius, 0.02, PLAZA.z + Math.sin(angle) * radius, 0.17 + random() * 0.1));
+    if (random() < fade * 0.55) continue;
+    const angle = offset + (i / count) * Math.PI * 2;
+    const x = PLAZA.x + Math.cos(angle) * radius, z = PLAZA.z + Math.sin(angle) * radius;
+    if (Math.hypot(x - WELL.x, z - WELL.z) < 1.05) continue; // bajo el brocal del pozo
+    const tone = COBBLE_TONES[Math.floor(random() * COBBLE_TONES.length)];
+    list.push({ position: [x, 0.015 - SLAB_THICKNESS / 2, z], rotation: [0, -angle + (random() - 0.5) * 0.04, 0], scale: [DEPTH - JOINT, 1, (Math.PI * 2 * radius) / count - JOINT], color: tone });
    }
   }
   return list;
@@ -331,7 +338,7 @@ export function ProjectVillage() {
 
  return (
   <>
-   <Instances name="adoquín de plaza" rests={0} geometry={stone} material={models.material} items={cobbles} colored receiveShadow />
+   <Instances name="adoquín de plaza" geometry={stone} material={models.material} items={cobbles} colored receiveShadow />
    <mesh name="pozo" userData={{ rests: 0 }} geometry={models.well} material={models.material} position={[WELL.x, 0, WELL.z]} castShadow receiveShadow />
    {BENCHES.map((bench) => (
     <mesh key={bench.x} name="banco" userData={{ rests: 0 }} geometry={models.bench} material={models.material} position={[bench.x, 0, bench.z]} rotation-y={bench.turn} castShadow />
@@ -339,8 +346,8 @@ export function ProjectVillage() {
    {lamps.map(([lx, lz, turn], i) => (
     <group key={i} position={[lx, 0, lz]} rotation-y={turn}>
      <mesh name="farola de la plaza" userData={{ rests: 0 }} geometry={models.lamp} material={models.material} castShadow />
-     <Glow power={0.9} reach={10} forward={0.7} drop={0.9} night={3} position={LAMP_GLASS}>
-      <boxGeometry args={[0.2, 0.34, 0.2]} />
+     <Glow power={0.9} reach={10} forward={0.7} drop={0.9} night={3} position={LANTERN_GLASS}>
+      <boxGeometry args={LANTERN_GLASS_SIZE} />
      </Glow>
     </group>
    ))}

@@ -11,7 +11,7 @@ export const LEAF = {
 };
 export const BARK = { oak: ["#5e3f2b", "#8c6040"], pine: ["#4f3526", "#77503a"], birch: ["#cfcabb", "#f1eee2"], cherry: ["#4f3230", "#7e5148"], old: ["#4b3324", "#86603f"] };
 export const GRASS = { base: "#3f8a45", tip: "#9bd765", dry: "#c2d36a", seed: "#e6d48a" };
-export const ROCK = { dark: "#77716b", mid: "#9d978f", light: "#bdb7ab", moss: "#6fa24f" };
+export const ROCK = { dark: "#5f6a7a", mid: "#8793a3", light: "#aab5c3", moss: "#6fae4f" }; // piedra gris azulada (ver props/rockModel.js)
 export const WOOD = { dark: "#6b4630", mid: "#a8713f", light: "#d19a5f", pale: "#e3bc85" };
 export const STONE = { dark: "#84808c", mid: "#a9a6b3", light: "#cfccd6" };
 export const CREAM = "#f6ead6";

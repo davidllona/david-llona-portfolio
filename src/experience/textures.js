@@ -109,6 +109,208 @@ export function createLabelTexture(text, color, { plate = false, title = false }
  return texture;
 }
 
+// Iconos de los carteles: siluetas gruesas, en crema sobre un disco naranja.
+// Se dibujan en un cuadrado de lado 2 centrado en el origen.
+const SIGN_ICONS = {
+ rocket: (c) => {
+  c.beginPath();
+  c.moveTo(0, -0.8);
+  c.bezierCurveTo(0.42, -0.4, 0.4, 0.2, 0.26, 0.48);
+  c.lineTo(-0.26, 0.48);
+  c.bezierCurveTo(-0.4, 0.2, -0.42, -0.4, 0, -0.8);
+  c.fill();
+  for (const side of [-1, 1]) {
+   c.beginPath();
+   c.moveTo(side * 0.3, 0.1);
+   c.lineTo(side * 0.62, 0.62);
+   c.lineTo(side * 0.24, 0.48);
+   c.fill();
+  }
+  c.fillRect(-0.12, 0.54, 0.24, 0.2);
+  c.globalCompositeOperation = "destination-out";
+  c.beginPath();
+  c.arc(0, -0.2, 0.15, 0, 7);
+  c.fill();
+  c.globalCompositeOperation = "source-over";
+ },
+ cv: (c) => {
+  c.beginPath();
+  c.moveTo(-0.46, -0.66);
+  c.lineTo(0.2, -0.66);
+  c.lineTo(0.48, -0.38);
+  c.lineTo(0.48, 0.66);
+  c.lineTo(-0.46, 0.66);
+  c.fill();
+  c.globalCompositeOperation = "destination-out";
+  for (const [y, w] of [[-0.2, 0.5], [0.06, 0.62], [0.32, 0.62]]) c.fillRect(-0.3, y, w, 0.11);
+  c.beginPath();
+  c.arc(-0.16, -0.42, 0.13, 0, 7);
+  c.fill();
+  c.globalCompositeOperation = "source-over";
+ },
+ basketball: (c) => {
+  c.beginPath();
+  c.arc(0, 0, 0.7, 0, 7);
+  c.fill();
+  c.globalCompositeOperation = "destination-out";
+  c.lineWidth = 0.09;
+  c.beginPath();
+  c.moveTo(-0.7, 0);
+  c.lineTo(0.7, 0);
+  c.moveTo(0, -0.7);
+  c.lineTo(0, 0.7);
+  c.stroke();
+  for (const side of [-1, 1]) {
+   c.beginPath();
+   c.arc(side * 0.98, 0, 0.62, 0, 7);
+   c.stroke();
+  }
+  c.globalCompositeOperation = "source-over";
+ },
+ football: (c) => {
+  c.beginPath();
+  c.arc(0, 0, 0.7, 0, 7);
+  c.fill();
+  c.globalCompositeOperation = "destination-out";
+  const corner = (i, r) => [Math.sin((i * Math.PI * 2) / 5) * r, -Math.cos((i * Math.PI * 2) / 5) * r];
+  c.beginPath();
+  for (let i = 0; i < 5; i++) c.lineTo(...corner(i, 0.27));
+  c.fill();
+  c.lineWidth = 0.08;
+  for (let i = 0; i < 5; i++) {
+   c.beginPath();
+   c.moveTo(...corner(i, 0.27));
+   c.lineTo(...corner(i, 0.52));
+   c.stroke();
+   c.beginPath();
+   c.moveTo(...corner(i - 0.32, 0.72));
+   c.lineTo(...corner(i, 0.52));
+   c.lineTo(...corner(i + 0.32, 0.72));
+   c.fill();
+  }
+  c.globalCompositeOperation = "source-over";
+ },
+ observatory: (c) => {
+  c.beginPath();
+  c.arc(0, 0.06, 0.56, Math.PI, 0);
+  c.fill();
+  c.fillRect(-0.56, 0.14, 1.12, 0.52);
+  c.globalCompositeOperation = "destination-out";
+  c.beginPath();
+  c.moveTo(-0.04, 0.06);
+  c.lineTo(0.3, -0.6);
+  c.lineTo(0.52, -0.42);
+  c.lineTo(0.2, 0.06);
+  c.fill();
+  c.fillRect(-0.12, 0.34, 0.24, 0.34);
+  c.globalCompositeOperation = "source-over";
+  c.save();
+  c.translate(0.36, -0.44);
+  c.rotate(0.62);
+  c.fillRect(-0.09, -0.34, 0.18, 0.5);
+  c.restore();
+ },
+ projects: (c) => {
+  c.beginPath();
+  c.moveTo(0, -0.72);
+  c.lineTo(0.76, -0.06);
+  c.lineTo(0.52, -0.06);
+  c.lineTo(0.52, 0.66);
+  c.lineTo(-0.52, 0.66);
+  c.lineTo(-0.52, -0.06);
+  c.lineTo(-0.76, -0.06);
+  c.fill();
+  c.globalCompositeOperation = "destination-out";
+  c.fillRect(-0.14, 0.2, 0.28, 0.48);
+  c.globalCompositeOperation = "source-over";
+ },
+ about: (c) => {
+  c.beginPath();
+  c.arc(0, -0.3, 0.32, 0, 7);
+  c.fill();
+  c.beginPath();
+  c.moveTo(-0.62, 0.7);
+  c.bezierCurveTo(-0.62, -0.04, 0.62, -0.04, 0.62, 0.7);
+  c.fill();
+ },
+ contact: (c) => {
+  c.fillRect(-0.7, -0.46, 1.4, 0.94);
+  c.globalCompositeOperation = "destination-out";
+  c.lineWidth = 0.1;
+  c.lineJoin = "round";
+  c.beginPath();
+  c.moveTo(-0.72, -0.44);
+  c.lineTo(0, 0.14);
+  c.lineTo(0.72, -0.44);
+  c.stroke();
+  c.globalCompositeOperation = "source-over";
+ },
+};
+
+// Cara de un cartel indicador: tablón claro de tres tablas, el icono de la
+// zona en un disco naranja y el nombre en letra oscura y gruesa. Opaca: es a
+// la vez el color y la luz propia del cartel de noche.
+export function createSignTexture(text, icon) {
+ const canvas = document.createElement("canvas");
+ canvas.width = 1024;
+ canvas.height = 330;
+ const texture = new THREE.CanvasTexture(canvas);
+ texture.colorSpace = THREE.SRGBColorSpace;
+ texture.anisotropy = 8;
+
+ const draw = () => {
+  const ctx = canvas.getContext("2d");
+  const { width, height } = canvas;
+  // Tablas: tres, cada una de un tono, con la junta oscura y un par de vetas.
+  ["#f4e4bf", "#efdcb2", "#f6e8c8"].forEach((tone, i) => {
+   ctx.fillStyle = tone;
+   ctx.fillRect(0, (i * height) / 3, width, height / 3 + 1);
+  });
+  ctx.fillStyle = "rgba(120, 84, 48, 0.42)";
+  for (const i of [1, 2]) ctx.fillRect(0, (i * height) / 3 - 2, width, 4);
+  ctx.fillStyle = "rgba(120, 84, 48, 0.13)";
+  for (const [x, y, w] of [[90, 38, 260], [560, 70, 330], [300, 150, 420], [40, 250, 300], [640, 268, 280]]) ctx.fillRect(x, y, w, 3);
+  // Clavos en las esquinas.
+  ctx.fillStyle = "#6b4630";
+  for (const x of [26, width - 26]) for (const y of [34, height - 34]) (ctx.beginPath(), ctx.arc(x, y, 8, 0, 7), ctx.fill());
+
+  // Icono.
+  const size = 232, cx = 64 + size / 2, cy = height / 2;
+  ctx.fillStyle = "#e8662a";
+  ctx.beginPath();
+  ctx.arc(cx, cy, size / 2, 0, 7);
+  ctx.fill();
+  const glyph = document.createElement("canvas");
+  glyph.width = glyph.height = size;
+  const g = glyph.getContext("2d");
+  g.translate(size / 2, size / 2);
+  g.scale(size * 0.36, size * 0.36);
+  g.fillStyle = g.strokeStyle = "#fff6e2";
+  SIGN_ICONS[icon]?.(g);
+  ctx.drawImage(glyph, cx - size / 2, cy - size / 2);
+
+  // Nombre: tan grande como quepa.
+  const left = 64 + size + 40, room = width - left - 52;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "2px";
+  if ("fontStretch" in ctx) ctx.fontStretch = "condensed";
+  let font = 216;
+  do {
+   font -= 6;
+   ctx.font = `800 ${font}px ${LABEL_FONT}, system-ui, sans-serif`;
+  } while (ctx.measureText(text).width > room && font > 60);
+  ctx.fillStyle = "#2b1a10";
+  ctx.fillText(text, left + room / 2, height / 2 + font * 0.06);
+  texture.needsUpdate = true;
+ };
+
+ draw();
+ // La fuente web puede llegar después del primer dibujado.
+ fontReady(`800 120px ${LABEL_FONT}`).then(draw);
+ return texture;
+}
+
 // Panel de texto para las paredes: antetítulo, titular en dos colores y párrafos.
 export function createTextPanelTexture({ eyebrow, headline, paragraphs, color }) {
  const canvas = document.createElement("canvas");

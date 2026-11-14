@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { groundColor } from "./groundColor";
-import { grassAmount, grassDensity, groundHeight, inShade, surface } from "./layout";
+import { grassAmount, grassDensity, groundHeight, inShade, pathEdge, surface } from "./layout";
 
 // Datos del terreno horneados en texturas, para que los sombreadores sepan qué
 // hay en cada punto sin geometría de por medio (técnica de folio-2025, MIT;
@@ -8,7 +8,8 @@ import { grassAmount, grassDensity, groundHeight, inShade, surface } from "./lay
 //
 //  · data  (16 bits flotantes): R = cuánta hierba (altura) · G = sombra de árbol ·
 //    B = densidad de matas · A = altura del suelo en metros.
-//  · color (8 bits, sRGB): color del suelo.
+//  · color (8 bits, sRGB): color del suelo · A = distancia al borde del
+//    camino (0,5 = el borde; menos, dentro; ±2 m).
 //
 // Cubren SPAN × SPAN metros centrados en el origen: uv = xz / SPAN + 0.5.
 export const SPAN = 128;
@@ -36,8 +37,11 @@ function startBake() {
     data[i + 1] = half(kind === "shade" || inShade(x, z) ? 1 : 0);
     data[i + 2] = half(grassDensity(x, z, kind));
     data[i + 3] = half(height);
-    groundColor(tone, x, z, { kind, height }).convertLinearToSRGB();
-    color.set([tone.r * 255, tone.g * 255, tone.b * 255, 255], i);
+    // El color es el del suelo sin el camino (la brizna del borde nace verde);
+    // el camino va en A, como distancia a su borde: 0,5 = el borde, ±2 m.
+    const base = kind === "path" || kind === "pathEdge" ? surface(x, z, false) : kind;
+    groundColor(tone, x, z, { kind: base, height }).convertLinearToSRGB();
+    color.set([tone.r * 255, tone.g * 255, tone.b * 255, Math.min(255, Math.max(0, (pathEdge(x, z, base) / 4 + 0.5) * 255))], i);
    }
   }
   return row >= SIZE;

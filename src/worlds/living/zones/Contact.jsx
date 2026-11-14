@@ -11,7 +11,7 @@ import { Glow } from "../buildings/Glow";
 import { blob, limb, merge, piece, tube } from "../kit/geometry";
 import { STONE, WOOD } from "../kit/palette";
 import { CONTACT } from "../layout";
-import { LAMP_GLASS, createLamp } from "../props/lampModel";
+import { LANTERN_GLASS, LANTERN_GLASS_SIZE, createLantern } from "../props/lampModel";
 
 // Contacto: la estación de comunicaciones del bosque. Una casa con su mástil
 // de radio, una antena que gira y, delante, un aparato distinto por cada vía
@@ -247,7 +247,7 @@ const createSignPost = () =>
 
 export function Contact() {
  const station = useMemo(() => createCottage(4, ROOF), []);
- const models = useMemo(() => ({ material: lambert({ side: THREE.DoubleSide }), tower: createTower(), dish: createDish(), sign: createSignPost(), lamp: createLamp() }), []);
+ const models = useMemo(() => ({ material: lambert({ side: THREE.DoubleSide }), tower: createTower(), dish: createDish(), sign: createSignPost(), lamp: createLantern() }), []);
  const label = useMemo(() => createLabelTexture("CONTACTO", "#f6ead6"), []);
  const dish = useRef(null);
  const beacon = useRef(null);
@@ -308,8 +308,8 @@ export function Contact() {
    {/* Farola y cartel de la zona. */}
    <group name="farola de contacto" userData={{ rests: 0 }} position={[x - 4.3, 0, z + 2.6]} rotation-y={Math.PI}>
     <mesh geometry={models.lamp} material={models.material} castShadow />
-    <Glow power={0.9} reach={10} forward={0.7} drop={0.9} night={2.6} position={LAMP_GLASS}>
-     <boxGeometry args={[0.2, 0.34, 0.2]} />
+    <Glow power={0.9} reach={10} forward={0.7} drop={0.9} night={2.6} position={LANTERN_GLASS}>
+     <boxGeometry args={LANTERN_GLASS_SIZE} />
     </Glow>
    </group>
    <group name="cartel de contacto" userData={{ rests: 0 }} position={[x + 3.9, 0, z + 3.3]} scale={[-1, 1, 1]}>

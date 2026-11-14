@@ -17,7 +17,7 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 | Apartado | Estado |
 |---|---|
 | 1. Césped | **Hecho.** Fps después: 74 · 82 · 77 · 83 · 85. Capturas: `capturas/23-pulido/1-cesped/` (antes: `0-antes/`) |
-| 2. Rocas, caminos, farolas y carteles | Sin empezar |
+| 2. Rocas, caminos, farolas y carteles | **Hecho.** Fps después: 85 · 87 · 82 · 87 · 88. Capturas: `capturas/23-pulido/2-rocas/`, `2-caminos/`, `2-farolas/` |
 | 3. Color y vegetación (variantes de árbol, capa baja, pájaros) | Sin empezar |
 | 4. Agua y luz | Sin empezar. **Parada** al terminar |
 | 5. Baloncesto | Sin empezar |
@@ -35,6 +35,15 @@ Fps de partida (2880 × 1620 sin límite, Chrome sin ventana, este equipo Window
 - `node tests/e2e/pulido.mjs <carpeta> [puntos] [vistas] [momentos]`: capturas de cada punto con la cámara de juego, a ras y desde arriba, de día y de noche.
 - Pruebas: `motion` 11 de 11, `errors` bien, `entrada.mjs` 0 pipelines en caliente al entrar y al despegar, consola sin errores.
 - El respaldo WebGL2 dibuja y mueve el césped instanciado (`motion.mjs "?backend=webgl"`). Sin comprobar: la calidad baja (`low`).
+
+**Apartado 2, lo que hay** (`props/rockModel.js`, `props/cobbles.js`, `props/lampModel.js`, `props/Halos.jsx`, `props/Signpost.jsx`, `Terrain.jsx`, `Flora.jsx`, `flora/Plants.jsx`, `layout.js`, `terrainData.js`, `experience/textures.js`, `solids.js`):
+- **Rocas**: todas sustituidas (pradera, pie del acantilado, orilla, río, borde del estanque, cascada y guijarros) por bloques de planos amplios con los cantos biselados: envoltura convexa de una caja desigual con las ocho esquinas matadas (`createBlock`). Piedra gris azulada, cantos más claros, cojín de musgo sobre parte de la coronación (las que tienen el pie en el agua o en la arena, peladas). Cuatro formas. Cada roca es un grupo: la grande y de dos a cuatro más, cada una menor (3 a 5 tamaños). La pared de la meseta y la paleta `ROCK` pasan también a gris azulado. Bajo las rocas grandes no nace hierba.
+- **Caminos**: tierra clara con el borde nítido y un reborde oscuro fino. Ya no dependen de la malla del suelo (0,88 m por casilla): el material del suelo los calcula en cada píxel con la distancia al borde horneada en el canal A de la textura de color del terreno (`pathEdge` en `layout.js`). La hierba del borde invade la tierra a mechones. Fuera los adoquines sueltos de todos los caminos.
+- **Losas encajadas** (a ras, asoman 1,5 cm, junta de 3,5–4 cm) solo en dos sitios: los primeros 3,4 m de cada camino que sale de la plataforma del cohete (`PadSlabs`) y la plaza, en anillos alrededor del centro.
+- **Farolas**: modelo nuevo (`createLantern`): poste recto de madera sobre dado de piedra, brazo y tornapunta de hierro, farol de hierro con tejadillo y cristal. De 22 repartidas cada 9 m a **13 puestas a mano** (`LANTERN_SPOTS`: cruces, entradas de zona, puente, pie y alto de la rampa), con el brazo vuelto al camino. De noche: luz puntual cálida de 7,5 m de alcance (antes 11), halo alrededor del cristal (`Halos`, una llamada de dibujo) y charco de luz en el suelo. Las de la plaza y Contacto usan el mismo modelo. La de la bienvenida no se ha tocado (`createLamp`).
+- **Carteles**: tablón claro de 2,36 × 0,8 m sobre dos postes (antes 1,62 × 0,46 sobre uno), letra oscura y gruesa, icono de la zona en un disco naranja (cohete, CV, balón de baloncesto, balón de fútbol, cúpula, casa, persona, sobre) y flexo de hierro: de noche la cara se enciende y la lámpara lleva halo. Ocho: los cinco de antes más PROYECTOS, SOBRE MÍ y CONTACTO. Colisión de poste a poste.
+- Colisiones rehorneadas (834 obstáculos). Pruebas: `collisions` (0 puntos dentro de algo sólido), `terrain` (2.176 objetos, ninguno flota ni se hunde; 116 rocas con el pie en el agua asoman), `camera`, `motion`, `errors`, `entrada.mjs` (0 pipelines en caliente al entrar y al despegar), consola sin errores.
+- **Queda igual, a propósito o por tiempo**: los rótulos propios de cada zona (PROYECTOS sobre la plaza, SOBRE MÍ en la casa del árbol, CONTACTO en la estación, las placas de los tótems y el atril del CV) siguen en madera oscura con letra crema; junto a Contacto se ven a la vez el cartel nuevo y el antiguo.
 
 ## Objetivo 16
 

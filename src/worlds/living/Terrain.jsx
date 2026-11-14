@@ -1,11 +1,15 @@
 import { useEffect, useMemo } from "react";
 import { Staged } from "../Staged";
 import * as THREE from "three";
+import { attribute, color, mix, positionLocal, smoothstep, texture } from "three/tsl";
+import { MeshLambertNodeMaterial } from "three/webgpu";
 import { Instances } from "../../experience/Instances";
 import { groundColor } from "./groundColor";
 import { randomFrom } from "./kit/geometry";
 import { BRIDGES, PAD, PATHS, PLAZA, bridgeArc, bridgeSlope, groundHeight, noise2, settle, surface } from "./layout";
-import { cobble, createCobble } from "./props/cobbles";
+import { SLAB_THICKNESS, createSlab } from "./props/cobbles";
+import { SPAN, terrainTextures } from "./terrainData";
+import { noiseTexture } from "../../experience/environment/noise";
 import { Water } from "./water/Water";
 import { Waterfall } from "./water/Waterfall";
 
@@ -23,7 +27,8 @@ function createGround() {
    if (Math.hypot(xs[column], xs[row]) > GROUND_RADIUS + 1.5) continue; // fuera solo hay mar
    const i = row * side + column;
    heights[i] = groundHeight(xs[column], xs[row]);
-   kinds[i] = surface(xs[column], xs[row]);
+   // (Sin los caminos: esos los pinta el material, con borde nítido.)
+   kinds[i] = surface(xs[column], xs[row], false);
   }
  }
  // Dos triángulos por casilla, sin compartir vértices (para el facetado y el
@@ -100,11 +105,14 @@ function Bridges() {
  return <Instances name="puente" geometry={plank} material={wood} items={items} colored castShadow receiveShadow />; // (sigue el arco del puente, no el terreno)
 }
 
-// Adoquines pequeños e irregulares a lo largo de los caminos, agrupados en
-// tramos con tierra entre medias (no una fila de losas iguales).
-function PathCobbles() {
- const geometry = useMemo(() => createCobble(), []);
- const material = useMemo(() => new THREE.MeshLambertMaterial({ flatShading: true }), []);
+// Losas encajadas en la tierra a la salida de la plataforma del cohete: los
+// primeros metros de cada camino que nace de ella. Van en hiladas apretadas,
+// con junta fina, a ras de suelo (asoman centímetro y medio), y se van
+// perdiendo hacia fuera. En el resto de los caminos, tierra.
+const SLAB_TONES = ["#b9c0cb", "#a9b1bd", "#c6ccd5", "#9fa8b5", "#b2b7c0"];
+function PadSlabs() {
+ const geometry = useMemo(createSlab, []);
+ const material = useMemo(() => new THREE.MeshLambertMaterial({ flatShading: true, vertexColors: true }), []);
  useEffect(
   () => () => {
    geometry.dispose();
@@ -116,52 +124,75 @@ function PathCobbles() {
   const random = randomFrom(0.713);
   const list = [];
   for (const path of PATHS) {
-   let cluster = 0, gap = 0.6 + random() * 1.2, side = 0;
-   for (let i = 0; i < path.length - 1; i++) {
-    const [ax, az] = path[i];
-    const [bx, bz] = path[i + 1];
-    const length = Math.hypot(bx - ax, bz - az);
-    const nx = -(bz - az) / length, nz = (bx - ax) / length;
-    for (let d = 0.3; d < length; d += 0.34) {
-     if (cluster <= 0) {
-      gap -= 0.34;
-      if (gap > 0) continue;
-      cluster = 1.3 + random() * 2.4; // largo del tramo empedrado
-      gap = 0.9 + random() * 2.2; // tierra hasta el siguiente
-      side = (random() - 0.5) * 0.7; // cada tramo se arrima a un lado
-     }
-     cluster -= 0.34;
-     const count = 2 + Math.floor(random() * 2);
-     for (let k = 0; k < count; k++) {
-      const across = side + (random() - 0.5) * 1.25;
-      const x = ax + (bx - ax) * (d / length) + nx * across + (random() - 0.5) * 0.2;
-      const z = az + (bz - az) * (d / length) + nz * across + (random() - 0.5) * 0.2;
-      const size = 0.13 + random() * 0.13;
-      // Asentado en el suelo; donde el terreno se quiebra (el cauce del arroyo, un talud) no hay adoquín.
-      const spot = settle(x, z, size, { relief: 0.07, embed: -0.015 });
-      if (!spot || spot.y < -0.03 || Math.hypot(x - PAD.x, z - PAD.z) < PAD.padRadius + 0.5 || Math.hypot(x - PLAZA.x, z - PLAZA.z) < PLAZA.r + 0.3) continue;
-      list.push(cobble(random, x, spot.y, z, size));
-     }
+   // Solo los caminos que arrancan junto a la plataforma.
+   const [ax, az] = path[0];
+   const [bx, bz] = path[1];
+   if (Math.hypot(ax - PAD.x, az - PAD.z) > PAD.padRadius + 1.5) continue;
+   const length = Math.hypot(bx - ax, bz - az);
+   const dx = (bx - ax) / length, dz = (bz - az) / length;
+   const yaw = Math.atan2(-dz, dx);
+   const REACH = 3.4, WIDTH = 1.66, JOINT = 0.035;
+   // Empieza donde acaba la losa de la plataforma, sea donde sea que arranque el camino.
+   const start = PAD.padRadius + 0.12 - Math.hypot(ax - PAD.x, az - PAD.z);
+   for (let d = start; d < start + REACH; ) {
+    const depth = 0.42 + random() * 0.22;
+    const fade = (d - start) / REACH; // hacia fuera faltan cada vez más
+    const cuts = [0, 0.3 + random() * 0.12, 0.62 + random() * 0.12, 1];
+    for (let k = 0; k < 3; k++) {
+     const from = cuts[k] * WIDTH - WIDTH / 2, to = cuts[k + 1] * WIDTH - WIDTH / 2;
+     if (random() < Math.max(0, fade - 0.45) * 1.5) continue;
+     const along = d + depth / 2, across = (from + to) / 2;
+     const x = ax + dx * along - dz * across, z = az + dz * along + dx * across;
+     const spot = settle(x, z, 0.3, { relief: 0.06, embed: 0 });
+     if (!spot) continue;
+     const tone = SLAB_TONES[Math.floor(random() * SLAB_TONES.length)];
+     list.push({ position: [x, spot.y + 0.015 - SLAB_THICKNESS / 2, z], rotation: [0, yaw + (random() - 0.5) * 0.05, 0], scale: [depth - JOINT, 1, to - from - JOINT], color: tone });
     }
+    d += depth;
    }
   }
   return list;
  }, []);
- return <Instances name="adoquín de camino" rests={0} geometry={geometry} material={material} items={items} colored receiveShadow />;
+ return <Instances name="adoquín de la plataforma" geometry={geometry} material={material} items={items} colored receiveShadow />;
+}
+
+// El suelo se pinta con el color de cada vértice, salvo los caminos: esos se
+// calculan en cada píxel a partir de la distancia a su borde (horneada en la
+// textura del terreno), así que el borde sale nítido por grande que sea la
+// malla. Tierra clara, más pisada en el centro, y un reborde oscuro y fino.
+function createGroundMaterial() {
+ const { color: map } = terrainTextures();
+ const material = new MeshLambertNodeMaterial({ flatShading: true }) // (el color de vértice entra por `colorNode`: con `vertexColors` se multiplicaría dos veces);
+ const at = positionLocal.xz;
+ const lane = texture(map, at.div(SPAN).add(0.5)).a.sub(0.5).mul(4); // metros al borde; negativo = dentro
+ // El borde tiembla un poco más de cerca de lo que da la textura.
+ const edge = lane.add(texture(noiseTexture, at.mul(0.41)).r.sub(0.5).mul(0.14));
+ const blotch = texture(noiseTexture, at.mul(0.06)).g;
+ const earth = mix(color("#e2c692"), color("#f0dcae"), smoothstep(-0.25, -0.8, edge).mul(0.7).add(blotch.mul(0.3)));
+ const rim = color("#b99a68");
+ const inside = smoothstep(0.02, -0.02, edge);
+ const border = smoothstep(0.02, -0.02, edge.sub(0.07)).mul(smoothstep(-0.16, -0.05, edge));
+ material.colorNode = mix(attribute("color", "vec3"), mix(earth, rim, border), inside.max(border));
+ return material;
 }
 
 export function Terrain() {
  const ground = useMemo(createGround, []);
- useEffect(() => () => ground.dispose(), [ground]);
+ const soil = useMemo(createGroundMaterial, []);
+ useEffect(
+  () => () => {
+   ground.dispose();
+   soil.dispose();
+  },
+  [ground, soil],
+ );
  return (
   <Staged>
-   <mesh geometry={ground} receiveShadow castShadow>
-    <meshLambertMaterial vertexColors flatShading />
-   </mesh>
+   <mesh geometry={ground} material={soil} receiveShadow castShadow />
    <Water />
    <Waterfall />
    <Bridges />
-   <PathCobbles />
+   <PadSlabs />
   </Staged>
  );
 }

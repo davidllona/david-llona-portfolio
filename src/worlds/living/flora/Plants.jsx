@@ -4,16 +4,19 @@ import { Instances } from "../../../experience/Instances";
 import { WIND, withWind } from "../../../experience/environment/wind";
 import { withSeeThrough } from "../../../experience/environment/seeThrough";
 import { lambert } from "../../../experience/materials";
-import { POND, SCATTER, WATER_LEVEL, settle, surface } from "../layout";
+import { randomFrom } from "../kit/geometry";
+import { POND, SCATTER, WATER_LEVEL, groundHeight, settle, surface } from "../layout";
 import { createPlantModels } from "./plantModels";
 import { BUSH_LEAF } from "./species";
 import { useFlora } from "./useFlora";
 
 // Matices por instancia: casi blancos, para que una pradera no sea un solo verde.
 const GRASS_TINTS = ["#ffffff", "#f2ffe6", "#fff8dc", "#e6f6ea", "#f6f0d2"];
-const ROCK_TINTS = ["#ffffff", "#f1ede6", "#e6e2dc", "#fbf6ea"];
+const ROCK_TINTS = ["#ffffff", "#eef1f6", "#e2e6ee", "#f6f4ee"];
 const pick = (list, seed) => list[Math.floor(seed * list.length) % list.length];
 // Reparte una lista entre las variantes de un modelo.
+// Una piedra suelta no se pone donde no crece nada por estar construido o ser camino.
+const blocksPath = (x, z, size) => size < 0.5 && ["path", "stone", "plaza"].includes(surface(x, z));
 const split = (list, variants, by = (item) => item.seed) => variants.map((_, i) => list.filter((item) => Math.floor(by(item) * 997) % variants.length === i));
 
 // Vegetación baja y rocas. Cada modelo es una malla con instancias; las
@@ -67,11 +70,37 @@ export function Plants() {
     // (La que cae dentro del agua asoma, como las rocas de la orilla.)
     return spot && { ...spot, y: Math.max(spot.y, WATER_LEVEL - 0.28 * size), seed: (i * 0.37) % 1, turn: i * 2, size };
    }).filter((stone, i) => stone && i !== 3 && i !== 4),
-  ].map((r) => {
+  ];
+  // Cada roca es un grupo: la grande y, arrimadas a ella, de dos a cuatro
+  // más, cada una menor que la anterior (de 3 a 5 tamaños por grupo).
+  const SIZES = [0.58, 0.4, 0.28, 0.2];
+  const grouped = stones.flatMap((r) => {
+   const random = randomFrom(r.seed * 0.91 + 0.043);
+   const start = random() * Math.PI * 2;
+   const count = 2 + Math.floor(random() * 3);
+   const wet = groundHeight(r.x, r.z) < WATER_LEVEL;
+   const group = [{ ...r, lead: true }];
+   for (let i = 0; i < count; i++) {
+    const size = r.size * SIZES[i] * (0.9 + random() * 0.25);
+    const angle = start + i * (Math.PI * 2 / count) * (0.7 + random() * 0.5);
+    const reach = r.size * (0.72 + random() * 0.3) + size * 0.55;
+    const x = r.x + Math.cos(angle) * reach, z = r.z + Math.sin(angle) * reach;
+    const seed = random(), turn = random() * Math.PI * 2;
+    // Asentada donde cae; lo que quede colgando de un talud o sobre lo construido no se pone.
+    const spot = settle(x, z, 0.45 * size, { relief: 0.5 * size, centre: true, embed: 0 });
+    if (!spot || blocksPath(x, z, size)) continue;
+    if (size < 0.27 && groundHeight(x, z) < WATER_LEVEL) continue; // tan pequeña, en el agua no llegaría a asomar
+    const y = wet || spot.y < WATER_LEVEL ? Math.max(spot.y, WATER_LEVEL - 0.28 * size) : spot.y;
+    group.push({ x, y, z, seed, turn, size, sink: r.sink });
+   }
+   return group;
+  }).map((r) => {
    const kind = surface(r.x, r.z);
-   return { ...r, mossy: ["moss", "shade", "bank"].includes(kind) && r.seed > 0.25 };
+   // Musgo en todas las de tierra; las que tienen el pie en el agua o en la arena van peladas.
+   return { ...r, mossy: !["bed", "wetsand", "sand"].includes(kind) };
   });
-  const toRock = (r) => ({ position: [r.x, r.y - (r.sink ?? 0.06) * r.size, r.z], rotation: [0, r.turn, 0], scale: [r.size, r.size * (r.tall ?? 1), r.size], color: pick(ROCK_TINTS, r.seed) });
+  // (Las que tienen el pie en el agua asoman siempre, sea cual sea su forma.)
+  const toRock = (r) => ({ position: [r.x, groundHeight(r.x, r.z) < WATER_LEVEL ? Math.max(r.y - (r.sink ?? 0.06) * r.size, WATER_LEVEL + 0.07 - 0.44 * r.size) : r.y - (r.sink ?? 0.06) * r.size, r.z], rotation: [0, r.turn, 0], scale: [r.size * (0.9 + ((r.seed * 29) % 1) * 0.25), r.size * (r.tall ?? 1), r.size], color: pick(ROCK_TINTS, r.seed) });
   return {
    tufts,
    flowers,
@@ -81,8 +110,8 @@ export function Plants() {
    bushes: split(SCATTER.bushes, BUSH_LEAF).map((list) => list.map((b) => ({ ...plant(b, [b.scale * (0.7 + ((b.seed * 53) % 1) * 0.3), b.scale * (0.75 + ((b.seed * 31) % 1) * 0.4), b.scale * (0.7 + ((b.seed * 17) % 1) * 0.3)], -0.04), color: pick(GRASS_TINTS, (b.seed * 13) % 1) }))),
    reeds: split(SCATTER.reeds, models.reeds).map((list) => list.map((r) => plant(r, 0.85 + r.seed * 0.5, -0.05))),
    mushrooms: split(SCATTER.mushrooms, models.mushrooms).map((list) => list.map((m) => plant(m, 0.9 + m.seed * 0.9))),
-   rocks: split(stones.filter((r) => !r.mossy), models.rocks).map((list) => list.map(toRock)),
-   mossy: split(stones.filter((r) => r.mossy), models.mossy).map((list) => list.map(toRock)),
+   rocks: split(grouped.filter((r) => !r.mossy), models.rocks).map((list) => list.map(toRock)),
+   mossy: split(grouped.filter((r) => r.mossy), models.mossy).map((list) => list.map(toRock)),
    pebbles: SCATTER.pebbles.map((p) => ({ position: [p.x, p.y + p.scale * 0.2, p.z], rotation: [0, p.turn, 0], scale: p.scale, color: pick(ROCK_TINTS, p.seed) })),
    lilies: split(SCATTER.lilies, models.lilies).map((list) => list.map((l) => ({ position: [l.x, WATER_LEVEL + 0.035, l.z], rotation: [0, l.turn, 0], scale: 0.75 + l.seed * 0.6 }))),
   };
@@ -104,7 +133,7 @@ export function Plants() {
    {/* Las rocas asoman del suelo: la mitad va enterrada a propósito (`sinks`). */}
    {each("roca", models.rocks, items.rocks, material.rocks, { colored: true, castShadow: true, receiveShadow: true, sinks: 0.5 })}
    {each("roca con musgo", models.mossy, items.mossy, material.rocks, { colored: true, castShadow: true, receiveShadow: true, sinks: 0.5 })}
-   <Instances name="guijarro" rests={0} geometry={models.pebble} material={material.still} items={items.pebbles} colored />
+   <Instances name="guijarro" rests={0} sinks={0.4} geometry={models.pebble} material={material.still} items={items.pebbles} colored />
    {each("nenúfar", models.lilies, items.lilies, material.still, { rests: "water" })}
   </>
  );

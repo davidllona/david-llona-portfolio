@@ -1,3 +1,4 @@
+import { BLUESTONE, ROCK_SHAPES, WET_STONE, createBlock } from "../props/rockModel";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
@@ -6,8 +7,7 @@ import { attribute, mix, positionLocal, sin, smoothstep, step, texture, uv, vec2
 import { noiseTexture } from "../../../experience/environment/noise";
 import { lambert, unlit } from "../../../experience/materials";
 import { current, uniforms } from "../../../experience/theme";
-import { blob, merge, piece } from "../kit/geometry";
-import { ROCK } from "../kit/palette";
+import { merge } from "../kit/geometry";
 import { STREAM, STREAM_LEVEL, WATERFALL, WATER_LEVEL } from "../layout";
 
 // Agua que corre por una cinta: el arroyo de la meseta y las láminas de la
@@ -91,9 +91,11 @@ const SHEETS = [
 function createRocks() {
  const { x, z } = WATERFALL;
  const drop = STREAM_LEVEL - WATER_LEVEL;
- const wet = ["#4b4f55", "#6f747a"]; // piedra mojada, más oscura y azulada
- const stone = (seed, position, scale, colors = [ROCK.dark, ROCK.light]) =>
-  piece(seed % 2 ? blob(0) : new THREE.DodecahedronGeometry(1, 0), { bottom: colors[0], top: colors[1], jitter: 0.2, vary: 0.1, seed, position, scale, rotation: [seed, seed * 2.1, seed * 0.7] });
+ const wet = WET_STONE; // piedra mojada, más oscura
+ // Bloques de cantos biselados, como el resto de rocas (props/rockModel.js);
+ // los secos, con musgo arriba.
+ const stone = (seed, position, scale, colors) =>
+  createBlock(((seed * 0.137) % 1 + 1) % 1 + 0.01, { shape: ROCK_SHAPES[Math.abs(seed) % ROCK_SHAPES.length], moss: colors ? 0 : 1, stone: colors ?? BLUESTONE, position: [position[0], position[1] - 0.25 * scale[1], position[2]], scale: scale.map((v) => v * 1.12), rotation: [0, seed * 2.1, (seed % 3 - 1) * 0.12] });
  const pieces = [];
  // Pared del fondo, en escalones que avanzan hacia abajo.
  for (let i = 0; i < 5; i++) {

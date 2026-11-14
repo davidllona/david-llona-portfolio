@@ -288,13 +288,20 @@ const FOOTBALL_SOLIDS = [
 ];
 export const WIND_CHIME = { x: -27.5, z: -22.5 }; // despierta al bosque
 // Postes indicadores de madera, junto al camino que llega a cada sitio.
+// (`icon`: el dibujo de la zona; ver `createSignTexture`.)
 export const SIGNPOSTS = [
- { text: "NAVE", x: -3.7, z: 8.7, turn: 0.22 },
- { text: "CV", x: 9.3, z: 8.1, turn: -0.28 },
- { text: "BALONCESTO", x: -2.3, z: 18.5, turn: 0.18 },
- { text: "FÚTBOL", x: -13.7, z: 16.0, turn: -0.3 },
- { text: "OBSERVATORIO", x: 16.2, z: -21.8, turn: 0.2 },
+ { text: "NAVE", icon: "rocket", x: -3.7, z: 8.7, turn: 0.22 },
+ { text: "CV", icon: "cv", x: 9.3, z: 8.1, turn: -0.28 },
+ { text: "BALONCESTO", icon: "basketball", x: -2.3, z: 18.5, turn: 0.18 },
+ { text: "FÚTBOL", icon: "football", x: -13.7, z: 16.0, turn: -0.3 },
+ { text: "OBSERVATORIO", icon: "observatory", x: 16.2, z: -21.8, turn: 0.2 },
+ { text: "PROYECTOS", icon: "projects", x: -14.6, z: 2.3, turn: 0.2 },
+ { text: "SOBRE MÍ", icon: "about", x: -11.0, z: -13.2, turn: 0.3 },
+ { text: "CONTACTO", icon: "contact", x: 30.6, z: 3.5, turn: -0.15 },
 ];
+// Cada cartel va sobre dos postes, a esta distancia del centro.
+export const SIGN_SPAN = 1.0;
+const signPosts = SIGNPOSTS.flatMap((s) => [-1, 1].map((side) => ({ x: s.x + Math.cos(s.turn) * SIGN_SPAN * side, z: s.z - Math.sin(s.turn) * SIGN_SPAN * side })));
 export const ANCIENT_TREES = [
  { x: -29.5, z: -25.5, scale: 1.25 },
  { x: 26.5, z: -31, scale: 1.05 },
@@ -318,6 +325,17 @@ function pathDistance(x, z) {
  let best = Infinity;
  for (const path of PATHS) best = Math.min(best, toPolyline(x, z, path));
  return best;
+}
+
+// Distancia, en metros, al borde visible del camino más cercano: negativa
+// dentro de la tierra, positiva fuera. El borde serpentea con el mismo ruido
+// que decide dónde empieza la hierba (`surface`), así que cae siempre un palmo
+// por fuera de la última tierra pelada: la hierba del borde invade el camino.
+// `base`: el suelo sin caminos, si quien llama ya lo tiene.
+export function pathEdge(x, z, base = surface(x, z, false)) {
+ // Sobre la losa de la nave, la plaza, la roca, el agua y las pistas no hay camino.
+ if (base === "stone" || base === "plaza" || base === "bed" || base === "rock" || base === "path") return 9;
+ return pathDistance(x, z) - (1.0 + (noise2(x * 0.33, z * 0.33) - 0.5) * 0.5);
 }
 
 // Ruido de valores 2D, suave y determinista (0–1): manchas de pradera, bordes
@@ -344,7 +362,9 @@ let shadeSpots = [];
 // plantas y el sonido de los pasos.
 //   bed · wetsand · sand · bank (orilla de río y estanque) · rock · stone ·
 //   path · pathEdge · moss · shade · meadow · grass
-export function surface(x, z) {
+//  · paths = false: lo que habría si no pasara un camino (el camino lo pinta el
+//    suelo aparte, con borde nítido; ver `pathEdge` y Terrain.jsx).
+export function surface(x, z, paths = true) {
  const h = groundHeight(x, z);
  if (h < WATER_LEVEL - 0.05) return "bed";
  const fromCentre = Math.hypot(x, z);
@@ -368,7 +388,7 @@ export function surface(x, z) {
  // Bajo la pista y el campo no crece hierba.
  if ([COURT, PITCH].some((rect) => x > rect.x0 - 0.5 && x < rect.x1 + 0.5 && z > rect.z0 - 0.5 && z < rect.z1 + 0.5)) return "path";
  // Caminos de ancho irregular, con un borde de tierra más oscura.
- const toPath = pathDistance(x, z);
+ const toPath = paths ? pathDistance(x, z) : Infinity;
  const width = 1.2 + rough * 0.5;
  if (toPath < width - 0.32) return "path";
  if (toPath < width) return "pathEdge";
@@ -500,7 +520,7 @@ const FOOTPRINTS = [
  ...CONTACT.terminals.map((t) => ({ ...t, r: 0.8 })),
  { ...WIND_CHIME, r: 0.5 },
  { x: PITCH.x0 + 6.2, z: PITCH.z0 - 1.9, r: 1.5 },
- ...SIGNPOSTS.map((s) => ({ x: s.x, z: s.z, r: 0.7 })),
+ ...signPosts.map((s) => ({ x: s.x, z: s.z, r: 0.3 })),
  // Rótulos tumbados en el suelo: la hierba no debe taparlos.
  ...LAB_TOTEMS.flatMap((t) => [-0.8, 0.8].map((dx) => ({ x: t.x + dx, z: t.z + 1.5, r: 0.8 }))),
  { x: TREEHOUSE.x, z: TREEHOUSE.z - 0.9, r: 3.0 },
@@ -645,20 +665,37 @@ const lilies = Array.from({ length: 9 }, () => {
  return { x: POND.x + Math.cos(angle) * radius, z: POND.z + Math.sin(angle) * radius, seed: random(), turn: random() * 6 };
 }).filter((lily) => distance(lily.x, lily.z, WATERFALL.x, WATERFALL.z + 2.4) > 1.8);
 
-// Farolas a lo largo de los caminos.
-const lanterns = [];
-for (const path of PATHS) {
- for (let i = 0; i < path.length - 1; i++) {
-  const [ax, az] = path[i];
-  const [bx, bz] = path[i + 1];
-  const length = distance(ax, az, bx, bz);
-  for (let d = 4.5, side = i % 2 ? -1 : 1; d < length - 2; d += 9, side = -side) {
-   const x = ax + ((bx - ax) * d) / length + (-(bz - az) / length) * 1.9 * side;
-   const z = az + ((bz - az) * d) / length + ((bx - ax) / length) * 1.9 * side;
-   if (!CLEARINGS.some((c) => distance(x, z, c.x, c.z) < c.r - 1.5)) lanterns.push({ x, y: groundHeight(x, z), z });
+// Farolas: pocas y puestas a mano donde hacen falta —cruces, entradas de cada
+// zona, los dos extremos del puente, el pie y el alto de la rampa—, a un paso
+// del camino y con el brazo vuelto hacia él.
+const LANTERN_SPOTS = [
+ [1.9, 10.2], // llegada, camino del sur
+ [1.9, 16.6], // entrada de la pista de baloncesto
+ [-10.2, 1.9], // camino del oeste
+ [-17.2, -1.9], // entrada de la aldea
+ [11.5, -2.1], // camino del este
+ [18.0, 1.6], // puente, orilla oeste
+ [-8.4, -5.4], // camino de la rampa
+ [-16.2, -12.6], // pie de la rampa
+ [-5.4, -21.9], // alto de la rampa
+ [6.2, -21.8], // camino de la meseta
+ [-9.4, 11.4], // camino del campo de fútbol
+ [-18.6, 15.4], // entrada del campo
+ [-26.4, 4.6], // jardín del laboratorio
+];
+const lanterns = LANTERN_SPOTS.map(([x, z]) => {
+ // El punto del camino más cercano: hacia ahí cuelga el farol.
+ let best = { distance: Infinity, x, z };
+ for (const path of PATHS) {
+  for (let i = 0; i < path.length - 1; i++) {
+   const hit = toSegment(x, z, ...path[i], ...path[i + 1]);
+   const t = Math.min(1, Math.max(0, hit.t));
+   if (hit.distance < best.distance) best = { distance: hit.distance, x: path[i][0] + (path[i + 1][0] - path[i][0]) * t, z: path[i][1] + (path[i + 1][1] - path[i][1]) * t };
   }
  }
-}
+ // (El brazo del modelo sale hacia −x.)
+ return { x, y: groundHeight(x, z), z, turn: Math.atan2(best.z - z, -(best.x - x)) };
+});
 
 // Las rocas del agua asoman siempre: se apoyan, como mucho, un poco bajo la superficie.
 for (const rock of shoreRocks) rock.y = Math.max(rock.y, WATER_LEVEL - 0.28 * rock.scale);
@@ -750,17 +787,20 @@ function fringeAt(x, z) {
   fringes = new Map();
   const add = (list, radius, reach) => {
    for (const item of list) {
-    const one = { x: item.x, z: item.z, r: radius(item), reach };
+    const one = { x: item.x, z: item.z, r: radius(item), reach, solid };
     const key = Math.floor(item.x / 4) * 1000 + Math.floor(item.z / 4);
     if (!fringes.has(key)) fringes.set(key, []);
     fringes.get(key).push(one);
    }
   };
+  let solid = false;
   add(trees, (t) => 0.35 * t.scale, 1.9);
-  add(seated.rocks, (r) => 0.55 * r.scale, 1.3);
-  add(seated.cliffRocks, (r) => 0.55 * r.scale, 1.3);
+  solid = true; // bajo una roca no crece hierba (asomaría por encima)
+  add(seated.rocks, (r) => 0.8 * r.scale, 1.3);
+  add(seated.cliffRocks, (r) => 0.8 * 1.35 * r.scale, 1.3);
+  solid = false;
   add(lanterns, () => 0.1, 0.9);
-  add(SIGNPOSTS, () => 0.2, 1.1);
+  add(signPosts, () => 0.2, 1.1);
  }
  let best = 0;
  const cx = Math.floor(x / 4), cz = Math.floor(z / 4);
@@ -768,7 +808,11 @@ function fringeAt(x, z) {
   for (let dz = -1; dz <= 1; dz++) {
    const cell = fringes.get((cx + dx) * 1000 + cz + dz);
    if (!cell) continue;
-   for (const one of cell) best = Math.max(best, 1 - smooth(one.r, one.r + one.reach, Math.hypot(one.x - x, one.z - z)));
+   for (const one of cell) {
+    const away = Math.hypot(one.x - x, one.z - z);
+    if (one.solid && away < one.r) return -1;
+    best = Math.max(best, 1 - smooth(one.r, one.r + one.reach, away));
+   }
   }
  }
  return best;
@@ -777,13 +821,15 @@ export function grassDensity(x, z, kind = surface(x, z)) {
  if (!(GRASS_AMOUNT[kind] > 0)) return 0;
  // La hierba invade el borde del camino a mechones, no en franja.
  if (kind === "pathEdge") return 0.75 * smooth(0.3, 0.62, noise2(x * 1.1 + 4, z * 1.1 - 9));
+ const fringe = fringeAt(x, z);
+ if (fringe < 0) return 0; // debajo de una roca
  if (kind === "moss") return 1; // orillas del río y del estanque, pie del acantilado
  const fromCentre = Math.hypot(x, z);
  const edge = Math.max(
   1 - smooth(2.3, 4.3, pathDistance(x, z)),
   1 - smooth(0.9, 2.8, toBuilt(x, z)),
   1 - smooth(0.6, 3.2, shoreRadius(Math.atan2(z, x)) - 5.5 - fromCentre), // donde empieza la arena
-  fringeAt(x, z),
+  fringe,
  );
  // Claros y manchas tupidas a campo abierto.
  const spread = noise2(x * 0.13 + 5.2, z * 0.13 - 3.4) * 0.65 + noise2(x * 0.37 - 8, z * 0.37 + 2) * 0.35;
@@ -801,7 +847,8 @@ const shipCollider = { x: PAD.x, z: PAD.z, r: 2.3, active: true };
 const colliders = [
  ...SOLIDS,
  ...lanterns.map((l) => ({ x: l.x, z: l.z, r: 0.14 })),
- ...SIGNPOSTS.map((s) => ({ x: s.x, z: s.z, r: 0.14 })),
+ // Carteles: de poste a poste (el tablón queda a la altura del cuerpo).
+ ...SIGNPOSTS.map((s, i) => ({ x: signPosts[i * 2].x, z: signPosts[i * 2].z, bx: signPosts[i * 2 + 1].x, bz: signPosts[i * 2 + 1].z, r: 0.16 })),
  // Farolas de la plaza y de Contacto (ver ProjectVillage.jsx y Contact.jsx).
  { x: PLAZA.x + PLAZA.r + 0.9, z: 2.2, r: 0.14 },
  { x: PLAZA.x - PLAZA.r - 0.2, z: 1.7, r: 0.14 },
