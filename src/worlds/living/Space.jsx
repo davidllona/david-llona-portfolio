@@ -14,7 +14,7 @@ import { randomFrom, tube } from "./kit/geometry";
 
 // Lo que el planeta necesita para verse como tal desde la nave. EL PLANETA ES
 // LA ISLA: no hay otro modelo. Al subir, el mundo entero se curva (ver
-// experience/environment/bend.js) hasta cerrarse en una esfera de 44 m de
+// experience/environment/bend.js) hasta cerrarse en una esfera de 32 m de
 // radio, con la isla ocupando casi todo el hemisferio que se ve y su mar
 // alrededor, hasta el borde. Aquí solo va lo que le falta a esa esfera:
 //  · un fondo de mar opaco, que se curva con todo lo demás y la cierra por

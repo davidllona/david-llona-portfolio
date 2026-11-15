@@ -161,8 +161,9 @@ export function WorldUi() {
   toasts.forEach((slot, i) => {
    const toast = ui3d.toasts[i];
    if (toast) {
-    const at = toast.at ?? follow;
-    point.set(at.x, (toast.at ? at.y : at.y + 3.1) + i * 0.62, at.z);
+    // (En vuelo, sin sitio propio: encima de la nave; ver `rig.cards`.)
+    const at = toast.at ?? rig.cards?.above ?? follow;
+    point.set(at.x, (toast.at || rig.cards ? at.y : at.y + 3.1) + i * 0.62, at.z);
    }
    place(slot, camera, delta, toast?.text ?? null, drawPill, toast ? point : null, SIZE.toast, aspect);
   });
@@ -175,7 +176,7 @@ export function WorldUi() {
   }
   if (!ui3d.achievement && achievement.k === 0 && pending.current.length) ui3d.achievement = { name: BY_ID[pending.current.shift()]?.name ?? "", age: 0 };
   const medal = ui3d.achievement;
-  place(achievement, camera, delta, medal?.name || null, drawAchievement, medal ? point.set(follow.x, follow.y + (rig.focus ? ((rig.lift ?? 1) < 1 ? 3.6 : 7.6) : 3.9), follow.z) : null, SIZE.achievement, aspect);
+  place(achievement, camera, delta, medal?.name || null, drawAchievement, medal ? (rig.cards ? point.copy(rig.cards.above) : point.set(follow.x, follow.y + (rig.focus ? ((rig.lift ?? 1) < 1 ? 3.6 : 7.6) : 3.9), follow.z)) : null, SIZE.achievement, aspect);
 
   // Bocadillo de Woody: sobre él, y apartado si fuera a tapar al astronauta.
   updateSpeech(delta);

@@ -50,7 +50,7 @@ const bends = samples.map((one) => one.bend);
 check(before.bend === 0 && bends.every((value, i) => i === 0 || value >= bends[i - 1]) && bends.some((value) => value > 0.05 && value < 0.95) && bends[bends.length - 1] === 1, `el suelo plano se va curvando hasta cerrarse en esfera, sin corte (${bends.map((value) => value.toFixed(2)).join(" → ")})`);
 await wait(3200);
 now = await probe();
-check(now.phase === "orbit" && now.y > 60, `y llega a la órbita (a ${now.y.toFixed(0)} m)`);
+check(now.phase === "orbit" && now.y > 35, `y llega a la órbita (a ${now.y.toFixed(0)} m)`);
 await t.shot("despegue-12-orbita");
 
 // En órbita se ve un planeta, y el planeta es la isla: el mundo entero curvado
@@ -101,6 +101,21 @@ const lit = await t.evaluate(async (points) => {
 }, [[centreX - wide * 0.2, centreY], [centreX, centreY + wide * 0.44], [centreX - wide * 0.44, centreY], [40, 450]]);
 check(lit[0] > 120 && lit[1] > 60 && lit[2] > 60 && lit[3] < 60, `dentro del disco hay planeta hasta el borde y fuera, cielo (brillo ${lit.join(" · ")})`);
 check(await onScreen(), "la nave se ve delante del planeta");
+// Los rótulos no la tapan: la nave queda en el centro y «Aterrizar», debajo de ella.
+{
+ const at = await probe();
+ const [shipX, shipY] = await t.screen(at.x, at.y, at.z);
+ const [hx, hy, hz] = (await t.hintAt()) ?? [0, 0, 0];
+ const [hintX, hintY] = await t.screen(hx, hy, hz);
+ // (El aviso «En órbita», mientras dura, va por encima de ella.)
+ const above = await t.evaluate(() => {
+  const w = window.__world, toast = w.ui3d.toasts.find((one) => one.text === "En órbita");
+  if (!toast?.at) return null;
+  const v = w.camera.position.clone().set(toast.at.x, toast.at.y, toast.at.z).project(w.camera);
+  return (0.5 - v.y * 0.5) * innerHeight;
+ });
+ check((await t.hint()) === "Aterrizar" && Math.hypot(shipX - 720, shipY - 450) < 110 && hintY - shipY > 70 && hintY < 860 && Math.abs(hintX - 720) < 60 && (above === null || shipY - above > 70), `la nave está en el centro (${shipX.toFixed(0)}, ${shipY.toFixed(0)}) y «Aterrizar», debajo, sin taparla (${hintX.toFixed(0)}, ${hintY.toFixed(0)})${above === null ? "" : `; «En órbita», encima (y ${above.toFixed(0)})`}`);
+}
 const sky = await t.evaluate(() => {
  const w = window.__world, out = {};
  const camera = w.camera, v = new camera.position.constructor();

@@ -35,16 +35,40 @@ export const woody = {
 
 // Cámara: a quién sigue y desde cuánto de lejos. `focus` nulo = al jugador.
 // `bend`: cuánto se ha cerrado el mundo sobre sí mismo (0 = suelo plano, 1 = planeta; ver environment/bend.js).
-export const rig = { focus: null, distance: 1, zoom: 1, shake: 0, space: 0, bend: 0, intro: 1, introTarget: 1, yaw: 0, lift: 1, viewYaw: 0 };
-// La vista desde la órbita: a dónde mira la cámara (el centro del planeta, 44 m
-// bajo la plataforma), a qué distancia (en veces la del juego) y cuánto se pone
-// encima. Con eso queda en `camera`, a 200 m del centro y 14° fuera del eje: el
-// planeta se ve entero, con la isla ocupando casi todo lo que se ve de él.
-// `ship` es dónde queda la nave: en esa misma línea, a 60 m de la cámara: se
-// la ve grande, en el centro, con el planeta detrás. (La usan la nave, que
-// lleva la cámara hasta ahí, y el cielo de la órbita, que coloca sus astros en
-// esa vista.)
-export const ORBIT_VIEW = { focus: [0, -44, 0], distance: 23.02, tilt: 0.9733, camera: [0, 150.1, 48.4], ship: [0, 91.8, 33.9] };
+// `cards`: en vuelo, dónde van los rótulos para no tapar la nave ({ above, below }; ver Ship.jsx y ui3d/WorldUi.jsx).
+export const rig = { focus: null, distance: 1, zoom: 1, shake: 0, space: 0, bend: 0, cards: null, intro: 1, introTarget: 1, yaw: 0, lift: 1, viewYaw: 0 };
+// El planeta en que se cierra el mundo al subir con la nave (ver
+// environment/bend.js). La isla mide unos 50 m del centro a la costa: con 32 m
+// de radio la costa cae sobre el ecuador de la esfera, así que desde la órbita
+// la tierra llega al borde del disco y el mar es solo la franja de la orilla.
+// (En desarrollo, `?radio=34` prueba otro.)
+const asked = import.meta.env?.DEV && typeof window !== "undefined" ? Number(new URLSearchParams(window.location.search).get("radio")) : 0;
+export const PLANET = { radius: asked >= 20 && asked <= 80 ? asked : 32 };
+// La vista desde la órbita: a dónde mira la cámara (el centro del planeta, un
+// radio bajo la plataforma), a qué distancia (en veces la del juego) y cuánto
+// se pone encima. Queda en `camera`, 20° fuera del eje (de lado se leen los
+// árboles y las casas, y al girar se nota que es una esfera) y lo bastante
+// lejos para que el planeta, con sus árboles, ocupe unas tres cuartas partes
+// del alto. `ship` es dónde queda la nave: en esa misma línea, a 60 m de la
+// cámara: se la ve grande, en el centro, con el planeta detrás. (La usan la
+// nave, que lleva la cámara hasta ahí, y el cielo de la órbita, que coloca sus
+// astros en esa vista.)
+function orbitView(radius) {
+ const off = (20 * Math.PI) / 180;
+ const far = radius * 4 + 24; // m del centro del planeta a la cámara
+ // (La cámara del juego: 13,4 m hasta lo que mira, 39° sobre el suelo; ver Player.jsx.)
+ const height = 13.4 * Math.sin((39 * Math.PI) / 180), back = 13.4 * Math.cos((39 * Math.PI) / 180);
+ const distance = (far * Math.cos(off)) / height;
+ return {
+  focus: [0, -radius, 0],
+  distance,
+  tilt: (1 - (far * Math.sin(off)) / (back * distance)) / 0.82,
+  camera: [0, far * Math.cos(off) - radius, far * Math.sin(off)],
+  ship: [0, (far - 60) * Math.cos(off) - radius, (far - 60) * Math.sin(off)],
+  shipAway: 60,
+ };
+}
+export const ORBIT_VIEW = orbitView(PLANET.radius);
 // `yaw`: giro de la cámara alrededor de lo que sigue (0 = mira al norte, como siempre);
 // `lift`: cuánto de su altura normal toma (1 = la de siempre; menos, más rasante).
 // Los usa el fútbol para ponerse a la espalda del balón; el resto no los toca.

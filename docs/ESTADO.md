@@ -52,7 +52,7 @@ Pulido final del mundo 1 (`docs/OBJETIVO-19.md`, 14-11-2026). Cuatro bloques, co
 - Capturas: `capturas/24-final/parada-D/hoja-casa-arbol.jpg` (día y noche).
 
 **Bloque D, lo que hay** (rehecho el 15-11-2026; `experience/environment/bend.js`, `experience/Ship.jsx`, `experience/state.js` (`ORBIT_VIEW`, `rig.bend`), `experience/Lights.jsx`, `experience/Sky.jsx`, `experience/environment/seeThrough.js`, `worlds/living/Space.jsx`, `worlds/living/water/Water.jsx`, `worlds/living/props/Halos.jsx`, `experience/ui3d/WorldUi.jsx`, `experience/Experience.jsx`, `tests/e2e/rocket.mjs`):
-- **El planeta es la isla.** Fuera el globo de 170 m con otros continentes, hielo y nubes. Al subir, el mundo entero se curva de verdad: cada vértice de la escena se enrolla sobre una esfera cuyo radio baja de infinito (suelo plano) a **44 m** (`PLANET.radius`), con el eje en la plataforma de la nave. La isla (unos 50 m de radio) ocupa casi todo el hemisferio que se ve y su mar la rodea como un anillo hasta el borde. Son los mismos árboles, casas, cohete, río, pistas y luces, en 3D: no hay otro modelo ni textura.
+- **El planeta es la isla.** Fuera el globo de 170 m con otros continentes, hielo y nubes. Al subir, el mundo entero se curva de verdad: cada vértice de la escena se enrolla sobre una esfera cuyo radio baja de infinito (suelo plano) al del planeta (`PLANET.radius`: 44 m en este retoque, **32 m desde el segundo**), con el eje en la plataforma de la nave. La isla (unos 50 m de radio) ocupa casi todo el hemisferio que se ve. Son los mismos árboles, casas, cohete, río, pistas y luces, en 3D: no hay otro modelo ni textura.
 - **Cómo**: un único punto para todos los materiales (`setupModelViewProjection` de los materiales de nodos de three, sustituido en `bend.js`). Solo se curva la posición en pantalla; la luz, las sombras, la niebla y la espuma se siguen calculando en plano, así que andando no cambia nada (con curvatura 0 el sombreador devuelve el punto tal cual). Quedan fuera, con `material.userData.flat`: el cielo, los astros de la órbita, las tarjetas de la interfaz y la nave.
 - **Transición continua**: `rig.bend` va de 0 a 1 durante la primera mitad de la subida (`CLOSED_AT` en `Ship.jsx`) y vuelve a 0 al aterrizar. No hay corte ni cambio de escena.
 - **La nave va rígida** (curvada, a su altura se ensancharía): sube a plomo por el eje y en el último tramo se tumba y queda en órbita en el centro de la vista, de costado, a 60 m de la cámara, con el planeta detrás.
@@ -65,7 +65,17 @@ Pulido final del mundo 1 (`docs/OBJETIVO-19.md`, 14-11-2026). Cuatro bloques, co
 - **No hecho**: guardar la imagen de referencia. `docs/referencias/` no existe en el repositorio y la imagen adjunta al encargo era la captura del estado anterior, no la referencia; se ha trabajado con la descripción.
 - Sin comprobar: el despegue visto en movimiento por una persona (solo en fotogramas y por medida); un teléfono; el respaldo WebGL2 (`?backend=webgl`); la calidad baja; el planeta antiguo (`?world=cosmic`) no se curva (su nave no está en el centro) y desde su órbita se sigue viendo plano.
 
-**Retoque del bloque D — pruebas y medidas** (15-11-2026, en primer plano, de dos en dos, Chrome sin ventana, servidor de desarrollo en el 5199):
+**Segundo retoque del bloque D: la isla es todo el planeta** (15-11-2026; `experience/state.js` (`PLANET`, `orbitView`), `experience/environment/bend.js`, `experience/Ship.jsx`, `experience/ui3d/WorldUi.jsx`, `tests/e2e/rocket.mjs`). **Pendiente del visto bueno de David.**
+- **Radio: 32 m** (antes 44). La costa cae sobre el ecuador de la esfera: desde la órbita la tierra llega al borde del disco y el mar queda como una franja con su espuma en el contorno. Probados 30, 32 y 34: a 30 los árboles y las casas del borde se abren algo más; a 34 vuelve a verse más mar. `?radio=34` (solo en desarrollo) prueba otro.
+- La vista de la órbita sale ahora del radio (`orbitView` en `state.js`): cámara 20° fuera del eje (antes 14°), a 152 m del centro; el planeta ocupa unas tres cuartas partes del alto. Los topes de la subdivisión de caras largas también salen del radio (71 geometrías).
+- **Gira muy despacio**: la cámara rodea el planeta a 0,05 rad/s (una vuelta cada dos minutos; antes 0,035).
+- **Rótulos**: en vuelo los coloca la nave (`rig.cards`). El cohete queda a la vista en el centro; «Aterrizar», debajo de él; el aviso «En órbita» y el logro, encima. `rocket.mjs` lo comprueba (26 comprobaciones).
+- Pruebas: `rocket` 26, `errors` 8, `living` 46, `camera` 30, `woody` 37 (una pasada de tres falló «y la baja contigo», en la rampa; no se repitió), `entrada.mjs` (0 pipelines en caliente al entrar y al despegar). **No se ha pasado la batería completa** tras este retoque.
+- Fps (2880 × 1620, sin límite): día, subida 88 de media y 72 en el peor medio segundo, órbita 89; noche, 79 / 68 y 87. 0 pipelines en caliente en subida, órbita y bajada.
+- Capturas: `capturas/24-final/retoque-D2/` — `orbita-32-dia.jpg`, `orbita-32-noche.jpg`, las alternativas `alternativa-30-*.jpg` y `alternativa-34-*.jpg`, y `hoja-radios.jpg` (las tres juntas, de día y de noche).
+- El servidor de desarrollo del 5199 no estaba en marcha; había uno en el 5173 (`npm run dev` a secas, no lanzado por esta sesión) y las pruebas se han pasado contra él con `E2E_URL=http://localhost:5173/`.
+
+**Retoque del bloque D — pruebas y medidas** (con el radio de 44 m, anterior al segundo retoque) (15-11-2026, en primer plano, de dos en dos, Chrome sin ventana, servidor de desarrollo en el 5199):
 
 | Prueba | Bien | Fallos |
 |---|---|---|

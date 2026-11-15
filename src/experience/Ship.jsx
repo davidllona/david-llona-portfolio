@@ -19,14 +19,14 @@ const PAD_COLOR = "#ffb238";
 // El viaje: la nave sube a plomo por el eje del planeta mientras el mundo se
 // curva bajo ella y, en el último tramo, se tumba y se coloca en órbita:
 // delante del planeta entero, de costado, justo por donde mira la cámara
-// (`ORBIT_VIEW`). El planeta es pequeño (44 m de radio): no hace falta ir lejos.
-const ALTITUDE = 75; // m que sube por el eje
+// (`ORBIT_VIEW`). El planeta es pequeño (32 m de radio): no hace falta ir lejos.
+const ALTITUDE = ORBIT_VIEW.ship[1] * 0.8; // m que sube por el eje
 const CLOSED_AT = 0.5; // fracción de la subida a la que el mundo ya es una esfera cerrada
 export const UNCULL_AT = 0.03; // curvatura a partir de la cual deja de descartarse lo que queda fuera de cuadro
 const IGNITION = 1.6; // s con los motores encendidos antes de levantarse
 const ASCENT = 7.4; // s de subida
 const DESCENT = 5.6;
-const ORBIT_TURN = 0.035; // rad/s a los que la cámara rodea el planeta en órbita: se le ve girar despacio
+const ORBIT_TURN = 0.05; // rad/s a los que la cámara rodea el planeta en órbita: se le ve girar muy despacio (una vuelta cada dos minutos)
 const NOZZLE = 0.45; // altura de la boca de la tobera sobre la base de la nave
 const BLAST_REACH = 11; // m alrededor de la plataforma en los que el empuje agita la vegetación
 
@@ -191,6 +191,8 @@ export function Ship() {
  // La nave no se curva con el mundo (a su altura se ensancharía): va rígida.
  useEffect(() => keepFlat(ship.current), []);
  const focus = useMemo(() => new THREE.Vector3(), []);
+ // Dónde van los rótulos en vuelo: encima y debajo de la nave, sin taparla (ver más abajo).
+ const cards = useMemo(() => ({ above: new THREE.Vector3(), below: new THREE.Vector3(), up: new THREE.Vector3(), centre: new THREE.Vector3() }), []);
  // De dónde sale el escape en cada fotograma (lo lee Exhaust.jsx).
  const exhaust = useMemo(() => ({ x: SHIP.x, y: NOZZLE, z: SHIP.z, thrust: 0, ground: 0.2, radius: SHIP.padRadius }), [SHIP]);
  const ringMaterial = useMemo(() => new THREE.MeshLambertMaterial({ color: PAD_COLOR, emissive: PAD_COLOR }), []);
@@ -224,9 +226,11 @@ export function Ship() {
   emit("ship", { phase: "land" });
  };
 
+ const GROUND_SIGN = useMemo(() => ({ x: SHIP.x, y: 3.3, z: SHIP.z + 2.9 }), [SHIP]);
  const click = useInteractable({
   position: SHIP,
-  sign: { x: SHIP.x, y: 3.3, z: SHIP.z + 2.9 }, // delante de la nave, no dentro
+  // Delante de la nave, no dentro. En órbita, debajo de ella en la pantalla.
+  sign: () => (flight.current.phase === "orbit" ? cards.below : GROUND_SIGN),
   radius: 6.2,
   priority: 2,
   hint: () => (flight.current.phase === "orbit" ? "Aterrizar" : "Subir a la nave"),
@@ -240,14 +244,14 @@ export function Ship() {
    player.hidden = player.frozen = false;
    world.shipCollider.active = true;
    setBlast(0, 0, 0, 1, 0);
-   Object.assign(rig, { focus: null, distance: 1, tilt: 0, space: 0, bend: 0, yaw: 0 });
+   Object.assign(rig, { focus: null, distance: 1, tilt: 0, space: 0, bend: 0, yaw: 0, cards: null });
    uncull.current?.forEach((object) => (object.frustumCulled = true));
    uncull.current = null;
   },
   [],
  );
 
- useFrame(({ clock }, rawDelta) => {
+ useFrame(({ clock, camera }, rawDelta) => {
   const dt = Math.min(rawDelta, 0.05);
   const state = flight.current;
   const time = clock.elapsedTime;
@@ -269,7 +273,7 @@ export function Ship() {
    progress = ease(Math.min(state.time / ASCENT, 1));
    if (state.time >= ASCENT) {
     state.phase = "orbit";
-    emit("toast", { text: "En órbita" });
+    emit("toast", { text: "En órbita", at: cards.above });
    }
   } else if (state.phase === "descending") {
    state.time += dt;
@@ -282,7 +286,7 @@ export function Ship() {
     player.hidden = player.frozen = false;
     world.shipCollider.active = true;
     state.turn = 0;
-    Object.assign(rig, { focus: null, distance: 1, tilt: 0, space: 0, bend: 0, yaw: 0 });
+    Object.assign(rig, { focus: null, distance: 1, tilt: 0, space: 0, bend: 0, yaw: 0, cards: null });
    }
   } else if (state.phase === "orbit") {
    progress = 1;
@@ -349,6 +353,15 @@ export function Ship() {
    rig.tilt = ORBIT_VIEW.tilt * above * above * (3 - 2 * above);
    rig.yaw = around;
    rig.space = Math.min(1, progress * 2.4);
+   // Rótulos: mientras sube, por encima del morro. En órbita la nave va tumbada
+   // en el centro de la vista: el logro y los avisos van encima de ella en la
+   // pantalla y la indicación de aterrizar, debajo; ninguno la tapa.
+   const lying = smooth(wide);
+   cards.up.set(0, 1, 0).applyQuaternion(camera.quaternion);
+   cards.centre.set(0, 0, -ORBIT_VIEW.shipAway).applyMatrix4(camera.matrixWorld);
+   cards.above.set(ship.current.position.x, ship.current.position.y + 10.2, ship.current.position.z).lerp(cards.below.copy(cards.centre).addScaledVector(cards.up, 6.4), lying);
+   cards.below.copy(cards.centre).addScaledVector(cards.up, -5.6);
+   rig.cards = cards;
    // Vibración suave en el encendido, más fuerte al levantarse, y se apaga al subir.
    const rumble = state.phase === "igniting" ? 0.1 + ignition * 0.12 : state.phase === "orbit" ? 0 : 0.26 * Math.max(0, 1 - progress * 3.2);
    rig.shake = Math.max(rig.shake, rumble);

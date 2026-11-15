@@ -1,6 +1,7 @@
 import { Box3, Matrix4, Vector3 } from "three";
 import { TessellateModifier } from "three/examples/jsm/modifiers/TessellateModifier.js";
 import { NodeMaterial } from "three/webgpu";
+import { PLANET } from "../state";
 import { PI, cameraProjectionMatrix, cameraViewMatrix, cos, modelWorldMatrix, positionLocal, renderGroup, select, sin, uniform, vec3, vec4 } from "three/tsl";
 
 // El mundo se curva de verdad. Andando, el suelo es plano; al subir con la nave
@@ -16,7 +17,7 @@ import { PI, cameraProjectionMatrix, cameraViewMatrix, cos, modelWorldMatrix, po
 //
 // El eje del planeta pasa por el origen (la plataforma de la nave) y la esfera
 // toca el plano y = 0 en el polo: su centro está en (0, −radio, 0).
-export const PLANET = { radius: 44 };
+export { PLANET };
 // Curvatura actual: 1 / radio efectivo. 0 = plano.
 // (Va en el grupo de uniformes del render, que se actualiza una vez por
 // fotograma para todos. Como uniforme «de objeto», three solo lo refresca en
@@ -68,18 +69,20 @@ NodeMaterial.prototype.setupModelViewProjection = function (builder) {
 };
 
 // Un triángulo solo se curva por sus vértices: entre ellos sigue recto. Sobre
-// un planeta de 44 m de radio, una losa de 20 m hecha con dos triángulos se
-// hundiría más de un metro bajo el suelo. Esto recorre lo montado y parte las caras
+// un planeta de 32 m de radio, una losa de 20 m hecha con dos triángulos se
+// hundiría metro y medio bajo el suelo. Esto recorre lo montado y parte las caras
 // largas (pistas, campo, largueros de las vallas…) hasta que ninguna pase de
-// `longest` metros: se hunden, como mucho, 12 cm. Lo que es una lámina tendida
+// `coarse` metros: se hunden, como mucho, 10 cm. Lo que es una lámina tendida
 // (losas, líneas pintadas, manchas de luz: menos de `THIN` de alto) va pegado
 // al suelo o a otra lámina, a milímetros: esas se parten a `fine` metros (se
-// hunden 4 mm) para que no se crucen. Se hace una vez, al terminar de montarse
+// hunden 4 mm) para que no se crucen. Los dos topes salen del radio del planeta. Se hace una vez, al terminar de montarse
 // el mundo y antes de compilarlo. Lo que ya es fino (el terreno, los modelos)
 // ni se toca.
 const SPLIT = new Set(["position", "normal", "color", "uv", "uv1"]);
 const THIN = 0.4;
-export function splitLongFaces(root, coarse = 6.5, fine = 1.2) {
+// (Una cuerda de largo L se hunde L² / 8R.)
+const chord = (sag) => Math.sqrt(8 * PLANET.radius * sag);
+export function splitLongFaces(root, coarse = chord(0.1), fine = chord(0.004)) {
  const done = new Map();
  const box = new Box3(), size = new Vector3(), scale = new Vector3(), a = new Vector3(), b = new Vector3(), matrix = new Matrix4();
  root.updateMatrixWorld(true);
