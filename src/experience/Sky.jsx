@@ -5,6 +5,7 @@ import { hash, instanceIndex, mix, positionLocal, sin, smoothstep, uniform, vec3
 import { unlit } from "./materials";
 import { createGlowTexture } from "./textures";
 import { rig } from "./state";
+import { world } from "../worlds";
 import { current, registerGlow, sunDirection, theme, uniforms } from "./theme";
 
 const FLAT = { flat: true };
@@ -96,7 +97,8 @@ export function Sky({ stars = 3000 }) {
   // El cielo acompaña a la cámara cuando rodea el planeta en órbita: las estrellas no se arremolinan.
   group.current.rotation.y = rig.space > 0 ? rig.viewYaw : 0;
   // En la bienvenida la luna es la del islote (Welcome.jsx): esta no se ve.
-  orb.current.visible = halo.current.visible = rig.intro < 1;
+  // (Y hay mundos que traen su propia luna: The Twisted Moon.)
+  orb.current.visible = halo.current.visible = rig.intro < 1 && !world.ownMoon;
  });
 
  return (

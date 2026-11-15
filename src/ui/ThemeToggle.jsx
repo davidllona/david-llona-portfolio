@@ -9,6 +9,8 @@ const LABEL = { day: "día", dusk: "atardecer", night: "noche" };
 const NEXT = { day: "dusk", dusk: "night", night: "day" };
 export function ThemeToggle() {
  const [moment, setMoment] = useState(theme.name);
+ // En un mundo de momento fijo (The Twisted Moon: siempre de noche) no hay nada que cambiar.
+ const [fixed, setFixed] = useState(Boolean(theme.lock));
 
  const toggle = () => {
   setMoment(nextTheme());
@@ -19,18 +21,24 @@ export function ThemeToggle() {
   const onKey = (event) => {
    if (event.code === "KeyN" && !event.repeat && !event.metaKey && !event.ctrlKey) toggle();
   };
-  // También puede cambiar desde el planeta (el telescopio) o con la hora.
-  const onTheme = () => setMoment(theme.name);
+  // También puede cambiar desde el planeta (el telescopio), con la hora o al viajar a otro mundo.
+  const onTheme = () => {
+   setMoment(theme.name);
+   setFixed(Boolean(theme.lock));
+  };
   const watch = window.setInterval(onTheme, 2000);
   window.addEventListener("keydown", onKey);
   events.addEventListener("theme", onTheme);
+  events.addEventListener("world", onTheme);
   return () => {
+   events.removeEventListener("world", onTheme);
    window.clearInterval(watch);
    window.removeEventListener("keydown", onKey);
    events.removeEventListener("theme", onTheme);
   };
  }, []);
 
+ if (fixed) return null;
  return (
   <button
    type="button"

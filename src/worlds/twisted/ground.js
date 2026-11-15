@@ -1,0 +1,96 @@
+import * as THREE from "three";
+import { HILL, WATER_LEVEL, createRandom, height, hill, noise2, pathEdge } from "./layout";
+
+// El suelo de The Twisted Moon.
+//  · La malla: una rejilla recortada en redondo, facetada, con un color por
+//    triángulo: páramo de morados y negros azulados, barro en la orilla, y en
+//    la colina en espiral la senda clara y los taludes oscuros.
+//  · Los caminos: no dependen de la malla. Se hornea en una textura la
+//    distancia al borde del camino más cercano y el material del suelo los
+//    pinta en cada píxel, con el borde nítido (la misma idea que en el primer mundo).
+
+// La textura cubre SPAN × SPAN metros centrados en el origen: uv = xz / SPAN + 0.5.
+export const SPAN = 112;
+const SIZE = 384; // unos 29 cm por texel
+export const EDGE_RANGE = 4; // el valor guardado cubre ±4 m en torno al borde (0,5 = el borde)
+
+let baked = null;
+// Hornea por filas, en tramos cortos, cediendo el turno entre uno y otro.
+export async function prepareGround(breathe) {
+ if (baked) return baked;
+ const data = new Uint8Array(SIZE * SIZE * 4);
+ let row = 0;
+ while (row < SIZE) {
+  const started = performance.now();
+  for (; row < SIZE && performance.now() - started < 10; row++) {
+   for (let column = 0; column < SIZE; column++) {
+    const x = ((column + 0.5) / SIZE - 0.5) * SPAN, z = ((row + 0.5) / SIZE - 0.5) * SPAN;
+    const i = (row * SIZE + column) * 4;
+    data[i] = Math.min(255, Math.max(0, (pathEdge(x, z) / (EDGE_RANGE * 2) + 0.5) * 255));
+    data[i + 3] = 255;
+   }
+  }
+  await breathe();
+ }
+ const texture = new THREE.DataTexture(data, SIZE, SIZE, THREE.RGBAFormat);
+ texture.magFilter = texture.minFilter = THREE.LinearFilter;
+ texture.needsUpdate = true;
+ baked = { paths: texture };
+ return baked;
+}
+export const groundData = () => baked;
+
+const MOOR = ["#2e2c50", "#373462", "#27264a", "#423e6c"].map((c) => new THREE.Color(c));
+const MUD = new THREE.Color("#1c1a34"), BED = new THREE.Color("#121126");
+const HILL_PATH = new THREE.Color("#7d769e"), HILL_SLOPE = new THREE.Color("#2b2548"), HILL_STRIPE = new THREE.Color("#1c1830");
+
+export const GROUND_RADIUS = 60;
+// La malla del suelo. Un color por triángulo.
+export function createGround() {
+ const STEP = 0.8, CELLS = Math.ceil((GROUND_RADIUS * 2) / STEP);
+ const base = new THREE.PlaneGeometry(CELLS * STEP, CELLS * STEP, CELLS, CELLS).rotateX(-Math.PI / 2);
+ const square = base.toNonIndexed();
+ base.dispose();
+ // Se recorta en redondo: fuera de este radio solo hay laguna.
+ const kept = [];
+ const corners = square.attributes.position.array;
+ for (let i = 0; i < corners.length; i += 9) {
+  const x = (corners[i] + corners[i + 3] + corners[i + 6]) / 3, z = (corners[i + 2] + corners[i + 5] + corners[i + 8]) / 3;
+  if (Math.hypot(x, z) < GROUND_RADIUS) kept.push(...corners.subarray(i, i + 9));
+ }
+ square.dispose();
+ const geometry = new THREE.BufferGeometry();
+ geometry.setAttribute("position", new THREE.Float32BufferAttribute(kept, 3));
+ const position = geometry.attributes.position;
+ for (let i = 0; i < position.count; i++) position.setY(i, height(position.getX(i), position.getZ(i)));
+
+ const random = createRandom(20261115);
+ const colors = new Float32Array(position.count * 3);
+ const color = new THREE.Color();
+ for (let i = 0; i < position.count; i += 3) {
+  const x = (position.getX(i) + position.getX(i + 1) + position.getX(i + 2)) / 3;
+  const z = (position.getZ(i) + position.getZ(i + 1) + position.getZ(i + 2)) / 3;
+  const y = (position.getY(i) + position.getY(i + 1) + position.getY(i + 2)) / 3;
+  const onHill = Math.hypot(x - HILL.x, z - HILL.z) < HILL.r;
+  if (y < WATER_LEVEL - 0.5) color.copy(BED);
+  else if (y < WATER_LEVEL + 0.14) color.copy(MUD);
+  else if (onHill && y > 0.12) {
+   // En la colina: la senda, clara; el talud, oscuro y a rayas.
+   height(x, z);
+   const lane = hill.path;
+   const band = Math.floor(y / 0.42) % 2 === 0;
+   color.copy(band ? HILL_SLOPE : HILL_STRIPE).lerp(HILL_PATH, lane > 0.5 ? 1 : 0);
+  } else {
+   // Páramo: manchas grandes de dos tonos y algún triángulo suelto más claro.
+   const patch = noise2(x * 0.085 + 3.1, z * 0.085 - 1.7) * 0.7 + noise2(x * 0.3, z * 0.3 + 9) * 0.3;
+   color.copy(MOOR[patch > 0.6 ? 1 : patch < 0.36 ? 2 : 0]);
+   if (noise2(x * 1.7 + 5, z * 1.7) > 0.84) color.copy(MOOR[3]);
+  }
+  color.multiplyScalar(0.92 + random() * 0.16);
+  for (let k = 0; k < 3; k++) color.toArray(colors, (i + k) * 3);
+ }
+ geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+ geometry.computeVertexNormals();
+ geometry.computeBoundingSphere();
+ return geometry;
+}

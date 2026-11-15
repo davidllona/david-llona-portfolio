@@ -110,6 +110,15 @@ export function welcomePose(aspect) {
  return pose;
 }
 
+// El viaje entre mundos (ver worlds/travel.js y Ship.jsx).
+//  · phase: "idle" (no se viaja), "leaving" (la nave se aleja de la órbita y la
+//    pantalla se cubre), "loading" (el otro mundo se monta y se compila, tapado)
+//    o "arriving" (ya se ve: la nave está en su órbita y va a bajar);
+//  · to: a qué mundo; towards: hacia dónde queda en el cielo de la órbita;
+//  · canLeave: la nave está en órbita, lista para salir (lo escribe Ship.jsx).
+//  · spot(id): dónde está ese mundo en el cielo de la órbita (lo pone worlds/orbit/OrbitSky.jsx).
+export const voyage = { phase: "idle", to: null, towards: null, canLeave: false, spot: null };
+
 // Avisos puntuales de la escena a la interfaz: "hint", "toast", "open",
 // "score", "flash"…
 export const events = new EventTarget();
@@ -165,6 +174,6 @@ export function releaseMovement() {
 
 // Ayuda para depurar desde la consola del navegador; no se incluye en producción.
 if (import.meta.env.DEV) {
- window.__world = { input, player, woody, rig, game, interactables, ui3d };
+ window.__world = { input, player, woody, rig, game, interactables, ui3d, voyage };
  import("../dev/probe.js"); // rayos contra la escena, para las pruebas
 }

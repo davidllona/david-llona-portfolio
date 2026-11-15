@@ -6,10 +6,13 @@ import * as THREE from "three";
 export const warmSources = new Set();
 
 // `source`: { x, y, z, color?, power?, reach?, flicker? }. Devuelve la función que la retira.
+// (La función lleva en `.source` la fuente apuntada: quien la mueva —el farolillo de Woody— escribe ahí su sitio.)
 export function addWarmSource(source) {
  const entry = { color: "#ffb66b", power: 1, reach: 11, flicker: 0.06, phase: Math.random() * 100, ...source };
  warmSources.add(entry);
- return () => warmSources.delete(entry);
+ const stop = () => warmSources.delete(entry);
+ stop.source = entry;
+ return stop;
 }
 
 // Las dos luces generales de la escena: la de ambiente (cielo/suelo) y el sol o

@@ -67,7 +67,7 @@ const orbit = await t.evaluate(() => {
  // Puntos de la costa (a 50 m de la plataforma, en ocho rumbos), ya curvados.
  const coast = [];
  for (let i = 0; i < 8; i++) coast.push(s.bendPoint(Math.cos((i * Math.PI) / 4) * 50, 0, Math.sin((i * Math.PI) / 4) * 50));
- return { visible: s.group.visible, radius: s.radius, names: s.names, seen, fog: w.scene.fog.density, shadows, culled, coast, bend: w.rig.bend };
+ return { visible: s.group.visible, radius: s.radius, names: s.names, open: s.open, seen, fog: w.scene.fog.density, shadows, culled, coast, bend: w.rig.bend };
 });
 check(orbit.shadows.length > 0 && orbit.shadows.every((auto) => !auto), "en órbita el mapa de sombras no se rehace en cada fotograma");
 check(orbit.bend === 1 && orbit.fog < 1e-5 && orbit.culled === 0, `el mundo está cerrado en esfera, sin niebla y sin nada descartado por encuadre (curva ${orbit.bend.toFixed(2)}, niebla ${orbit.fog.toExponential(1)})`);
@@ -128,7 +128,7 @@ const sky = await t.evaluate(() => {
 });
 const bodies = Object.values(sky).flat();
 check(sky["luna de la órbita"]?.length === 1 && bodies.length === 5 && bodies.every((b) => b.front && inside(b.x, b.y) && b.opacity > 0.95), `la luna y los otros dos mundos, con su rótulo, están en la pantalla (${bodies.map((b) => `${b.x},${b.y}`).join(" · ")})`);
-check(orbit.names.length === 2 && orbit.names.every((name) => /\S/.test(name)), `los dos mundos cerrados llevan nombre provisional y «Próximamente» (${orbit.names.join(", ")})`);
+check(orbit.names.length === 2 && orbit.names.every((name) => /\S/.test(name)) && orbit.open.join() === "twisted", `los otros dos mundos llevan su nombre: The Twisted Moon se puede elegir como destino y The Cosmic Lab sigue en «Próximamente» (${orbit.names.join(", ")}; abiertos: ${orbit.open.join(", ")})`);
 // Gira despacio: la cámara rodea el planeta.
 const yaw0 = await t.evaluate(() => window.__world.rig.yaw);
 await wait(2000);

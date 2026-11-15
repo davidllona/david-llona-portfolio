@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { emit, events, releaseMovement, rig, ui } from "../experience/state";
+import { requestVoyage } from "../worlds/travel";
 
 const APPROACH = 750; // ms que tarda la cámara en acercarse antes de abrir la ficha
 
@@ -78,6 +79,19 @@ export function Modal() {
        <li key={tag}>{tag}</li>
       ))}
      </ul>
+    )}
+    {/* Lo pedido está en otro mundo: se viaja en el cohete. */}
+    {content.voyage && (
+     <button
+      type="button"
+      className="modal__link modal__voyage"
+      onClick={() => {
+       setContent(null);
+       requestVoyage(content.voyage);
+      }}
+     >
+      {content.action ?? "Viajar"} <span aria-hidden="true">→</span>
+     </button>
     )}
     {content.link && (
      <a className="modal__link" href={content.link} {...(content.download ? { download: "" } : { target: "_blank", rel: "noopener noreferrer" })}>

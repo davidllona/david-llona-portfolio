@@ -3,6 +3,7 @@
 Actualizado: 15 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
+**En curso: objetivo 20 — mundo 2, The Twisted Moon** (`docs/OBJETIVO-20.md`): bloque A (viaje entre mundos) hecho; bloque B (muestra de estilo) en curso. Ver «Objetivo 20».
 **En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **En curso: bloque 3** (errores de juego), a medias: ver su fila y «Bloque 3, lo que queda».
 **En curso: objetivo 19 — pulido final del mundo 1** (`docs/OBJETIVO-19.md`): los cuatro bloques (A, B, C y D) están hechos. David pidió rehacer la vista de planeta del bloque D («el planeta es la isla»): **retoque hecho, pendiente de su visto bueno** (ver «Retoque del bloque D»). Ver «Objetivo 19».
 **Objetivo 18 — pulido del mundo 1** (`docs/OBJETIVO-18.md`, 14-11-2026). **Sustituye a los bloques 4 a 7 del objetivo 16.** Ocho apartados, commit y push por apartado; paradas solo tras el 4 y tras el 8. **Los ocho están hechos: parada del apartado 8, pendiente del visto bueno de David** (batería completa y capturas en «Parada del apartado 8»). Ver «Objetivo 18».
@@ -10,6 +11,62 @@ Decidido por David el 13-11-2026: los pesos reales de los modelos mandan sobre l
 Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
 Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado.
 Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Contents/MacOS/Blender -b` (5.0.1). No hay ffmpeg: el audio también se convierte con Blender.
+
+## Objetivo 20 — Mundo 2: The Twisted Moon
+
+Encargo: `docs/OBJETIVO-20.md` (15-11-2026). Cinco bloques (A–E), commit y push por bloque; paradas tras el B (muestra de estilo) y tras el E. El mundo 3 (The Cosmic Lab) no se empieza.
+
+| Bloque | Estado |
+|---|---|
+| A. Viaje entre mundos | **Hecho** |
+| B. Muestra de estilo | En curso |
+| C. El resto del mundo | Sin empezar |
+| D. Contenido e interacciones | Sin empezar |
+| E. Vida, sonido y cierre | Sin empezar |
+
+**Bloque A, lo que hay** (`worlds/index.js`, `worlds/travel.js`, `worlds/orbit/OrbitSky.jsx`, `worlds/orbit/worldModels.js`, `experience/Experience.jsx`, `experience/Ship.jsx`, `experience/state.js` (`voyage`), `experience/theme.js` (`lockTheme`, `sunFrom`), `ui/TravelOverlay.jsx`, `ui/QuickMenu.jsx`, `ui/Modal.jsx`, `content/sections.js`, `worlds/twisted/`, `tests/e2e/travel.mjs`):
+- **Destino elegible desde la órbita.** En la vista orbital del mundo 1, The Twisted Moon ya no lleva «Próximamente»: su rótulo trae una pastilla clara («VIAJAR · TECLA V»; en táctil, «TOCA PARA VIAJAR») y late un poco. Se elige con un clic o un toque sobre el astro o su rótulo, o con la tecla V. The Cosmic Lab sigue cerrado. «Aterrizar» sigue en la E.
+- **El viaje** (`worlds/travel.js`): la nave pone el morro hacia el otro planeta y acelera hasta perderse (2,3 s) mientras la pantalla se cubre («Rumbo a THE TWISTED MOON · Quién soy»); con la pantalla cubierta se cambia de mundo; al destaparse, la nave está en la órbita del destino (el planeta nuevo, curvado en esfera como el primero), espera 1,5 s y baja sola. La vuelta es igual: desde la órbita del mundo 2 se elige The Living World.
+- **El mundo 2 se descarga solo cuando se viaja a él**: sus datos (`twisted/layout.js`, 4,9 kB) y su escena (7,8 kB por ahora) son trozos aparte del build; al entrar en el mundo 1 no se pide ninguno (lo comprueba `travel.mjs`). El cielo de la órbita, común a los dos mundos, es otro trozo (7,9 kB) que antes iba dentro de la escena del mundo 1.
+- **0 pipelines en caliente al aterrizar**: al cambiar de mundo se vuelve al estado de carga (`cover()` en `Experience.jsx`): el lienzo deja de componerse, lo del mundo anterior se desmonta, lo nuevo se monta por partes (`Staged`) y se compila por tandas con el mismo precalentamiento de la entrada; solo entonces se destapa. Medido: 0 pipelines desde que se destapa hasta después de aterrizar, a la ida y a la vuelta. El mundo 2 tarda unos 4,6 s en montarse y compilarse; volver al mundo 1, lo que su carga inicial.
+- **«Sobre mí»** (menú superior): en el mundo 1 abre una ficha («“Sobre mí” es ahora otro mundo») con el botón «Viajar a The Twisted Moon»: al pulsarlo la nave despega sola, llega a la órbita y sale hacia allí. En el mundo 2 es un sitio: Woody guía hasta la casa torcida. Y al revés: «Proyectos», «CV» y «Contacto», desde el mundo 2, ofrecen volver. Cada sección dice en qué mundo vive (`world` en `content/sections.js`).
+- **Siempre de noche**: cada mundo puede fijar su momento (`moment` en sus datos → `lockTheme`): en The Twisted Moon no hay botón de día y noche y la tecla N no hace nada; al volver al mundo 1 se recupera su hora (o lo elegido a mano). Cada mundo puede traer también de dónde viene su luna (`night.sunFrom`).
+- **Lo mínimo del mundo 2 para poder aterrizar** (lo demás es del bloque B): terreno con la colina en espiral, caminos, laguna alrededor, luna y niebla baja. `?world=twisted` (solo en desarrollo) abre directamente en él.
+- **Arreglado por el camino**: al cambiar de mundo el anterior no se desmontaba (dos hijos de React con la misma clave); se vio en la primera captura de la órbita, con los dos planetas superpuestos.
+- Sin comprobar: el viaje visto en movimiento por una persona (solo en fotogramas y por estado); un teléfono (el toque sobre el astro); el respaldo WebGL2; qué pasa sin conexión (el viaje se cancela y la nave se queda en órbita con un aviso: escrito, no probado).
+
+**Batería completa tras el bloque A** (15-11-2026, en primer plano, por tandas, Chrome sin ventana, servidor de desarrollo en el 5199):
+
+| Prueba | Bien | Fallos |
+|---|---|---|
+| `errors` | 8 | 0 |
+| `living` | 46 | 0 |
+| `characters` | 20 | 0 |
+| `portfolio` | 27 | 0 |
+| `progress` | 26 | 0 |
+| `motion` | 10 | 0 |
+| `camera` | 30 | 0 |
+| `woody` | 37 | 0 |
+| `rocket` | 26 | 0 |
+| `terrain` | 3 | 0 |
+| `life` | 11 | 0 |
+| `football` | 63 | 0 |
+| `sounds` | 28 | 0 |
+| `travel` (nueva) | 31 | 0 |
+| **`npm run e2e` (las catorce)** | **366** | **0** |
+| `hora` | 21 | 0 |
+| `basket` | 20 | 0 |
+| `garden` | 6 | 0 |
+| `birds` | 4 | 0 |
+| `run` | 19 | 0 |
+| `hill` | 29 | 0 |
+| `collisions` | 4 | 0 |
+| `welcome` | 21 | 0 |
+| `loader` | 13 | **1** (la de siempre: primer pintado a 196 ms, objetivo 100; la pantalla de carga no se toca) |
+| `tests/perf/entrada.mjs` | 0 pipelines en caliente al entrar y al despegar | — |
+
+- Comprobaciones cambiadas porque medían lo de antes: `living` y `portfolio` (el botón «Sobre mí» ofrece el viaje en vez de abrir la ficha con las áreas), `rocket` (The Twisted Moon es un destino abierto).
+- Capturas: `capturas/25-mundo2/A/` (la oferta, la órbita del mundo 1 con el destino abierto, la salida, la pantalla del viaje, la órbita del mundo 2, la bajada, en tierra y la vuelta).
 
 ## La hora del mundo sigue la hora del visitante
 
@@ -480,6 +537,7 @@ Comprobado (lo confirma David el 14-11-2026): el recorrido de 3 minutos de Woody
 
 ```
 npm run dev -- --port 5199     # http://localhost:5199
+node tests/e2e/travel.mjs      # viaje entre mundos: destino en la órbita, la pantalla del viaje, el mundo 2 se descarga y se compila solo entonces (0 pipelines en caliente), aterrizaje y vuelta; «capturas» las saca (incluida en e2e)
 node tests/e2e/hora.mjs        # la hora del mundo: cada hora su momento, atardecer propio, franjas por mes, cambio gradual, botón y tecla N; «capturas» saca la misma vista a cuatro horas
 node tests/e2e/welcome.mjs     # pantalla previa al aterrizaje: la carga espera al planeta, indicación, ms del clic al descenso, luna, planeta, fugaces; capturas y secuencia
 node tests/e2e/descent.mjs     # el descenso tras el clic, una captura cada 200 ms
@@ -497,7 +555,7 @@ node tests/perf/carga.mjs      # pantalla de carga: tiempo hasta poder entrar, t
 node tests/perf/peso.mjs       # peso descargado en la primera visita (build de producción en el 5198)
 node tests/perf/fps.mjs        # fps en cinco puntos
 node tests/e2e/errors.mjs      # ninguna excepción de página y el lienzo dibujado: carga, bienvenida, estrella fugaz y mundo, sin ventana y con ventana (incluida en e2e)
-npm run e2e                    # 335 comprobaciones en Chrome sin ventana (con el servidor encendido)
+npm run e2e                    # 366 comprobaciones en Chrome sin ventana (con el servidor encendido)
 node tests/e2e/sounds.mjs      # sonido uno por uno: señal medida de cada bucle, golpes, silencio; graba el recorrido (incluida en e2e)
 node tests/e2e/football.mjs    # fútbol de principio a fin, con fotogramas de cada tiro (incluida en e2e)
 node tests/e2e/woody.mjs       # bocadillos, ritmo, descanso, cuestas y ruta guiada (incluida en e2e)
@@ -515,7 +573,7 @@ node tests/e2e/look.mjs tests/e2e/views.json   # las 12 vistas fijas, de día y 
 
 **Windows**: las pruebas buscan Chrome solas en Mac, Windows y Linux (`tests/chrome.mjs`; la variable `CHROME` manda) y lanzan WebGPU sobre Direct3D. Las capturas van a la carpeta temporal salvo que se indique `E2E_SHOTS`; `E2E_HEADFUL=1` abre Chrome con ventana. Blender no está en el PATH: `"C:/Program Files/Blender Foundation/Blender 5.0/blender.exe" -b` (5.0.1). Git: `.gitattributes` fija LF en todo el texto y marca los binarios; en la copia de Windows, `core.autocrlf=false` y `core.filemode=false` (los `.glb` «modificados» tras copiar desde el Mac eran solo el bit de permisos).
 
-Atajos de desarrollo: `?world=cosmic` abre el planeta antiguo; `?webgl=0` simula un navegador sin GPU (solo sale un aviso con LinkedIn y correo); `?backend=webgl` fuerza el respaldo WebGL2.
+Atajos de desarrollo: `?world=twisted` abre directamente en The Twisted Moon; `?world=cosmic` abre el planeta antiguo; `?webgl=0` simula un navegador sin GPU (solo sale un aviso con LinkedIn y correo); `?backend=webgl` fuerza el respaldo WebGL2.
 
 **Textos de Woody**: `src/content/woody.js` (bienvenida, una frase por zona, menú y frases de guía). Se editan ahí, sin tocar código.
 

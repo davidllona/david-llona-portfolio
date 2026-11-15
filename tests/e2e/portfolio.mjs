@@ -38,13 +38,12 @@ for (const [label, place] of PLACES) {
  await t.shot(`menu-${place}-llegada`);
 }
 
-// «Sobre mí» no tiene sitio en este mundo: su botón abre la ficha sin mover a nadie.
+// «Sobre mí» no tiene sitio en este mundo (vive en The Twisted Moon): su botón ofrece el viaje, sin mover a nadie.
 await t.put(0, 7.5, { settle: 900 });
 await press(t, "Sobre mí");
 await wait(600);
 check((await count(t, ".modal")) === 1 && (await t.woody()).mode !== "guide" && /\S/.test((await t.text(".modal__title")) ?? ""), `«Sobre mí» abre su ficha desde el menú, sin guiado: «${await t.text(".modal__title")}»`);
-const aboutTags = await count(t, ".modal__tag, .modal__tags li, .modal__tags span");
-check(aboutTags > 0, `y trae las áreas de trabajo (${aboutTags})`);
+check(/Twisted Moon/.test((await t.text(".modal__voyage")) ?? ""), `y ofrece viajar a The Twisted Moon («${((await t.text(".modal__voyage")) ?? "").trim()}»)`);
 await page.keyboard.press("Escape");
 await wait(500);
 check((await count(t, ".modal")) === 0, "Esc la cierra");

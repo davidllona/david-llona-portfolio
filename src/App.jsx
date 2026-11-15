@@ -18,6 +18,7 @@ import { StartOverlay } from "./ui/StartOverlay";
 import { Flash } from "./ui/Flash";
 import { ThemeToggle } from "./ui/ThemeToggle";
 import { TouchControls } from "./ui/TouchControls";
+import { TravelOverlay } from "./ui/TravelOverlay";
 import { WoodyMenu } from "./ui/WoodyMenu";
 import { hasWebGL } from "./ui/webgl";
 
@@ -96,6 +97,7 @@ function App() {
    <ErrorBoundary>
     <Experience active={active} lowPower={lowPower} onReady={onReady} />
     <Flash />
+    <TravelOverlay />
     <StartOverlay
      visible={!active}
      intro={!entered}

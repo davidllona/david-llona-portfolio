@@ -1095,6 +1095,7 @@ function soundSources(x, z) {
 export const living = {
  id: "living",
  name: "The Living World",
+ planet: true, // al subir con la nave, el mundo se cierra en esfera (ver experience/environment/bend.js)
  spawn: SPAWN,
  waterLevel: WATER_LEVEL,
  height,

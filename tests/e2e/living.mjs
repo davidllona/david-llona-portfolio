@@ -98,10 +98,10 @@ const signs = SIGNPOSTS.map((sign) => sign.text);
 check(!signs.includes("SOBRE MÍ") && signs.length === 8, `no queda ningún cartel «SOBRE MÍ» (${signs.join(", ")})`);
 const corner = await t.evaluate(() => Boolean(window.__world.scene.getObjectByName("rincón de la casa del árbol")) && Boolean(window.__world.scene.getObjectByName("casa del árbol")));
 check(corner, "la casa del árbol sigue en su sitio, con su rincón (banco, tocón, arriate, leña)");
-// «Sobre mí» se lee desde el menú superior.
+// «Sobre mí» vive en The Twisted Moon: su botón ofrece el viaje (tests/e2e/travel.mjs lo hace entero).
 await t.evaluate(() => [...document.querySelectorAll(".quick button")].find((b) => b.textContent === "Sobre mí").click());
 await wait(500);
-check(Boolean(await title()), `el botón «Sobre mí» del menú abre su texto: «${await title()}»`);
+check(Boolean(await title()) && /Twisted Moon/.test((await t.text(".modal__voyage")) ?? ""), `el botón «Sobre mí» del menú ofrece viajar a su mundo: «${await title()}»`);
 await close();
 // Observatorio: el telescopio cambia a noche y de vuelta.
 await t.put(OBSERVATORY.x, OBSERVATORY.z + 3.0, { withWoody: false, settle: 500 });

@@ -94,7 +94,9 @@ export const current = Object.fromEntries([
 const SUN_DAY = new THREE.Vector3(-0.42, 0.78, 0.46).normalize();
 const SUN_DUSK = new THREE.Vector3(-0.8, 0.33, 0.36).normalize();
 const SUN_DAWN = new THREE.Vector3(0.8, 0.36, 0.3).normalize();
-const SUN_NIGHT = new THREE.Vector3(0.38, 0.7, -0.6).normalize();
+const SUN_NIGHT_DEFAULT = new THREE.Vector3(0.38, 0.7, -0.6).normalize();
+// (Cada planeta puede traer su luna en otro sitio: `night.sunFrom` en su paleta.)
+const SUN_NIGHT = SUN_NIGHT_DEFAULT.clone();
 const low = new THREE.Vector3();
 // En la bienvenida, la luna queda detrás del islote, a la izquierda.
 const SUN_WELCOME = new THREE.Vector3(-0.46, 0.72, -0.52).normalize();
@@ -121,6 +123,9 @@ export const uniforms = {
 // (el atardecer entero, si no lo trae) se toma de la paleta por defecto.
 export function setPalette(themes) {
  parsed = parse({ day: { ...THEMES.day, ...themes?.day }, dusk: { ...THEMES.dusk, ...themes?.dusk }, night: { ...THEMES.night, ...themes?.night } });
+ const from = themes?.night?.sunFrom;
+ if (from) SUN_NIGHT.set(...from).normalize();
+ else SUN_NIGHT.copy(SUN_NIGHT_DEFAULT);
 }
 
 // Las ráfagas viven en el sistema de viento; se reexporta por comodidad.
@@ -173,22 +178,40 @@ export function skyAt(hour, month) {
 // cuánto de atardecer (los dos de 0 a 1); `dawn`, cuánto de amanecer.
 const start = typeof window === "undefined" ? { at: 0, dawn: 0, name: "day" } : skyAt(clock().hour, clock().month);
 const shown = (sky) => (sky.name === "dawn" ? "dusk" : sky.name);
-export const theme = { name: shown(start), manual: null, at: start.at, mix: ramp(start.at - 1), dusk: 1 - Math.abs(start.at - 1), dawn: start.dawn, band: start.name };
+// `lock`: el momento fijo del planeta en que se está (The Twisted Moon: siempre
+// de noche); manda sobre la hora y sobre lo elegido a mano, que se conserva
+// para cuando se vuelva.
+export const theme = { name: shown(start), manual: null, lock: null, at: start.at, mix: ramp(start.at - 1), dusk: 1 - Math.abs(start.at - 1), dawn: start.dawn, band: start.name };
 const announce = () => {
  if (typeof document !== "undefined") document.documentElement.dataset.momento = theme.name;
 };
 announce();
 if (import.meta.env?.DEV && typeof window !== "undefined") Object.assign((window.__world ??= {}), { theme, sky: { skyAt, bands, current } }); // para las pruebas automáticas
 
-// Elige un momento a mano.
+// Elige un momento a mano. (En un planeta de momento fijo no se puede.)
 export function setTheme(name) {
+ if (theme.lock) return;
  theme.manual = theme.name = name;
  announce();
 }
 // El siguiente: día → atardecer → noche → día.
 export function nextTheme() {
+ if (theme.lock) return theme.name;
  setTheme(ORDER[(ORDER.indexOf(theme.name) + 1) % ORDER.length]);
  return theme.name;
+}
+// Fija el momento del planeta (o lo suelta, con `null`). Se hace al cambiar de
+// mundo, con la pantalla tapada: no hay transición, se llega ya así.
+export function lockTheme(name) {
+ theme.lock = name ?? null;
+ let at = ORDER.indexOf(theme.lock ?? theme.manual);
+ if (at < 0) {
+  const sky = skyAt(clock().hour, clock().month);
+  at = sky.at;
+  theme.name = shown(sky);
+ } else theme.name = ORDER[at];
+ theme.at = at;
+ announce();
 }
 
 // Cosas que brillan más de noche (farolas, cristales, ventanas…).
@@ -214,7 +237,7 @@ export function registerGlow(material, day, night, property = "emissiveIntensity
 // Avanza la transición y actualiza todo lo compartido. Se llama en cada fotograma.
 export function updateTheme(delta, elapsed) {
  // Hacia dónde: lo elegido a mano o, si no, lo que marque el reloj.
- let target = ORDER.indexOf(theme.manual), dawn = 0;
+ let target = ORDER.indexOf(theme.lock ?? theme.manual), dawn = 0;
  if (target < 0) {
   const { hour, month } = clock();
   const sky = skyAt(hour, month);

@@ -1,27 +1,34 @@
-import { aboutCard } from "../content/about";
+import { useEffect, useState } from "react";
 import { CV } from "../content/cv";
-import { SECTIONS } from "../content/sections";
-import { emit } from "../experience/state";
+import { SECTIONS, TRAVEL_OFFER } from "../content/sections";
+import { emit, events } from "../experience/state";
+import { world } from "../worlds";
 import { AchievementsButton } from "./Achievements";
 
 // Menú superior, siempre a la vista mientras se explora. Cada botón lleva a su
-// sitio dentro del mundo: Woody va delante y te espera. No abre ninguna página
-// aparte. El CV, además, se puede descargar desde aquí sin moverse. «Sobre mí»
-// no tiene sitio en este mundo: su botón abre la ficha, la misma del juego.
+// sitio: si está en este mundo, Woody va delante y te espera; si está en otro
+// («Sobre mí» vive en The Twisted Moon; proyectos, CV y contacto, en The Living
+// World), se ofrece viajar hasta allí en el cohete. No abre ninguna página
+// aparte. El CV, además, se puede descargar desde aquí sin moverse.
 export function QuickMenu({ onAchievements }) {
- const go = (event, place) => {
+ // (Se vuelve a pintar al cambiar de mundo: cambia a dónde lleva cada botón.)
+ const [, refresh] = useState(0);
+ useEffect(() => {
+  const onWorld = () => refresh((value) => value + 1);
+  events.addEventListener("world", onWorld);
+  return () => events.removeEventListener("world", onWorld);
+ }, []);
+ const here = (section) => section.world === world.id;
+ const go = (event, section) => {
   event.currentTarget.blur();
-  emit("guide", { to: place, asked: true });
- };
- const read = (event) => {
-  event.currentTarget.blur();
-  emit("open", aboutCard());
+  if (here(section)) emit("guide", { to: section.place, asked: true });
+  else emit("open", { kind: "travel", eyebrow: section.label, ...TRAVEL_OFFER[section.world], voyage: section.world });
  };
  return (
   <nav className="quick" aria-label="Ir a cada zona del planeta">
    {SECTIONS.map((section) => (
     <span key={section.id} className="quick__item">
-     <button type="button" title={section.place ? `Ir a ${section.label} con Woody` : `Leer «${section.label}»`} onClick={(event) => (section.place ? go(event, section.place) : read(event))}>
+     <button type="button" title={here(section) ? `Ir a ${section.label} con Woody` : `${section.label}: viajar a su mundo`} onClick={(event) => go(event, section)}>
       {section.label}
      </button>
      {section.id === "cv" && CV.file && (

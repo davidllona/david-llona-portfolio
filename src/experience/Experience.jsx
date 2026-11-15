@@ -9,6 +9,8 @@ import { Woody } from "../characters/Woody";
 import { progress, stage } from "../ui/loaderControl";
 import { SCENES, world } from "../worlds";
 import { Staged } from "../worlds/Staged";
+import { voyageReady } from "../worlds/travel";
+import { events } from "./state";
 import { Interactions } from "./Interactions";
 import { Lights } from "./Lights";
 import { Player } from "./Player";
@@ -195,6 +197,19 @@ function hold(scene) {
   live.held.set(object, object.layers.mask);
   object.layers.mask = 0;
  });
+}
+
+// Cambio de mundo (el viaje en cohete; ver worlds/travel.js): se vuelve al
+// estado de carga. Con la pantalla ya cubierta, el lienzo deja de componerse y
+// de dibujarse, y el mundo nuevo se monta y se compila detrás, por tandas,
+// igual que el primero. Todo lo que quede en la escena se da por no compilado:
+// si algo suyo cambia con el mundo (la niebla, por ejemplo), se compila ahora y
+// no al destaparse.
+function cover() {
+ live.loading = true;
+ live.warmed = new WeakSet();
+ live.receiver = null;
+ if (live.canvas) live.canvas.style.visibility = "hidden";
 }
 
 // Fin de la carga: todo recupera su capa y la escena se dibuja con normalidad.
@@ -437,7 +452,18 @@ export function Experience({ active, lowPower, onReady }) {
  const [tier, setTier] = useState(0);
  const [built, setBuilt] = useState(false);
  const scene = useRef(null);
- const Scene = SCENES[world.id];
+ // El mundo en que se está. Cambia al viajar: lo propio del anterior se desmonta y se monta lo del nuevo.
+ const [worldId, setWorldId] = useState(world.id);
+ useEffect(() => {
+  const onWorld = () => {
+   cover();
+   setBuilt(false);
+   setWorldId(world.id);
+  };
+  events.addEventListener("world", onWorld);
+  return () => events.removeEventListener("world", onWorld);
+ }, []);
+ const Scene = SCENES[worldId];
 
  return (
   <Canvas
@@ -479,7 +505,7 @@ export function Experience({ active, lowPower, onReady }) {
        cambiar de mundo. */}
    {tier > 0 && (
     <Suspense fallback={null}>
-     <group key={world.id} ref={scene}>
+     <group key={worldId} ref={scene}>
       {/* De uno en uno, cediendo el turno entre cada cual (ver Staged). */}
       <Staged
        onDone={() => {
@@ -501,12 +527,15 @@ export function Experience({ active, lowPower, onReady }) {
      </group>
      {built && (
       <Ready
+       key={`listo-${worldId}`}
        last
        onProgress={progress}
        onReady={() => {
         // Primero se habilita la entrada y después se retira la pantalla: nunca al revés.
         onReady();
         stage("world");
+        // (Si se llegaba de otro mundo: ya se puede destapar.)
+        voyageReady();
        }}
       />
      )}

@@ -7,12 +7,13 @@ import { withSeeThrough } from "./environment/seeThrough";
 import { setBlast } from "./environment/wind";
 import { Exhaust } from "./Exhaust";
 import { lambert } from "./materials";
-import { ORBIT_VIEW, emit, player, rig } from "./state";
+import { ORBIT_VIEW, emit, events, player, rig, voyage } from "./state";
 import { materialColor, normalWorld, vec3 } from "three/tsl";
 import { addWarmSource } from "./lightSources";
 import { registerGlow, uniforms } from "./theme";
 import { Halos } from "../worlds/living/props/Halos";
 import { world } from "../worlds";
+import { travelTo, voyageDone } from "../worlds/travel";
 
 const PAD_COLOR = "#ffb238";
 
@@ -26,6 +27,9 @@ export const UNCULL_AT = 0.03; // curvatura a partir de la cual deja de descarta
 const IGNITION = 1.6; // s con los motores encendidos antes de levantarse
 const ASCENT = 7.4; // s de subida
 const DESCENT = 5.6;
+const DEPART = 2.3; // s que tarda en alejarse hacia otro mundo (lo que tarda en cubrirse la pantalla; ver worlds/travel.js)
+const DEPART_REACH = 420; // m que llega a alejarse en ese tiempo
+const ARRIVAL_PAUSE = 1.5; // s en la órbita del mundo al que se llega, antes de bajar
 const ORBIT_TURN = 0.05; // rad/s a los que la cámara rodea el planeta en órbita: se le ve girar muy despacio (una vuelta cada dos minutos)
 const NOZZLE = 0.45; // altura de la boca de la tobera sobre la base de la nave
 const BLAST_REACH = 11; // m alrededor de la plataforma en los que el empuje agita la vegetación
@@ -182,7 +186,9 @@ export function Ship() {
  const ship = useRef(null);
  const flame = useRef(null);
  const flare = useRef(null);
- const flight = useRef({ phase: "idle", time: 0, power: 0, gusts: 0, turn: 0 });
+ // (Si se llega de otro mundo, la nave nace ya en órbita, con el astronauta dentro, y baja sola.)
+ const flight = useRef(voyage.phase === "loading" ? { phase: "orbit", time: 0, power: 0.3, gusts: 1, turn: 0, arriving: 0, then: null } : { phase: "idle", time: 0, power: 0, gusts: 0, turn: 0, arriving: null, then: null });
+ const heading = useMemo(() => ({ from: new THREE.Vector3(), along: new THREE.Vector3(), nose: new THREE.Quaternion(), start: new THREE.Quaternion() }), []);
  const orbitFocus = useMemo(() => new THREE.Vector3(...ORBIT_VIEW.focus), []);
  const turning = useMemo(() => new THREE.Quaternion(), []);
  const scene = useThree((state) => state.scene);
@@ -225,6 +231,55 @@ export function Ship() {
   Object.assign(flight.current, { phase: "descending", time: 0, gusts: 0, turn });
   emit("ship", { phase: "land" });
  };
+ // Sale de la órbita hacia otro mundo: pone el morro hacia él y acelera hasta
+ // perderse de vista mientras la pantalla se cubre (ver worlds/travel.js).
+ const depart = (to, towards) => {
+  if (flight.current.phase !== "orbit" || voyage.phase !== "idle") return;
+  travelTo(to, towards ?? voyage.spot?.(to) ?? null);
+ };
+ useEffect(() => {
+  const onVoyage = (event) => {
+   const state = flight.current;
+   const { phase } = event.detail ?? {};
+   if (phase === "leaving" && state.phase === "orbit") {
+    heading.from.copy(ship.current.position);
+    // (Sin saber dónde queda: hacia arriba y a la derecha de la vista.)
+    if (voyage.towards) heading.along.copy(voyage.towards).sub(heading.from).normalize();
+    else heading.along.set(0.6, 0.5, -0.62).normalize();
+    heading.start.copy(ship.current.quaternion);
+    heading.nose.setFromUnitVectors(UP, heading.along);
+    Object.assign(state, { phase: "departing", time: 0 });
+    emit("ship", { phase: "depart", to: event.detail.to });
+   } else if (phase === "failed" && state.phase === "departing") {
+    Object.assign(state, { phase: "orbit", time: 0 });
+    emit("toast", { text: "No se ha podido viajar. Inténtalo otra vez.", at: cards.above });
+   }
+  };
+  // Viaje pedido desde el menú: despega si está en tierra y, ya en órbita, sale.
+  const onRequest = (event) => {
+   const state = flight.current, to = event.detail?.to;
+   if (!to || to === world.id || voyage.phase !== "idle") return;
+   if (state.phase === "orbit") depart(to);
+   else if (state.phase === "idle") {
+    state.then = to;
+    launch();
+   } else if (state.phase !== "descending") state.then = to;
+  };
+  events.addEventListener("voyage", onVoyage);
+  events.addEventListener("voyage-request", onRequest);
+  // Recién llegada de otro mundo: el astronauta va dentro.
+  if (flight.current.arriving !== null) {
+   player.hidden = player.frozen = true;
+   world.shipCollider.active = false;
+  }
+  return () => {
+   events.removeEventListener("voyage", onVoyage);
+   events.removeEventListener("voyage-request", onRequest);
+   voyage.canLeave = false;
+  };
+  // (`depart` y `launch` solo leen referencias estables.)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, []);
 
  const GROUND_SIGN = useMemo(() => ({ x: SHIP.x, y: 3.3, z: SHIP.z + 2.9 }), [SHIP]);
  const click = useInteractable({
@@ -234,7 +289,7 @@ export function Ship() {
   radius: 6.2,
   priority: 2,
   hint: () => (flight.current.phase === "orbit" ? "Aterrizar" : "Subir a la nave"),
-  enabled: () => flight.current.phase === "idle" || flight.current.phase === "orbit",
+  enabled: () => voyage.phase === "idle" && (flight.current.phase === "idle" || flight.current.phase === "orbit"),
   action: () => (flight.current.phase === "orbit" ? land() : launch()),
  });
 
@@ -273,7 +328,8 @@ export function Ship() {
    progress = ease(Math.min(state.time / ASCENT, 1));
    if (state.time >= ASCENT) {
     state.phase = "orbit";
-    emit("toast", { text: "En órbita", at: cards.above });
+    state.time = 0;
+    if (!state.then) emit("toast", { text: "En órbita", at: cards.above });
    }
   } else if (state.phase === "descending") {
    state.time += dt;
@@ -287,16 +343,35 @@ export function Ship() {
     world.shipCollider.active = true;
     state.turn = 0;
     Object.assign(rig, { focus: null, distance: 1, tilt: 0, space: 0, bend: 0, yaw: 0, cards: null });
+    // (Si se venía de otro mundo, aquí acaba el viaje.)
+    if (voyage.phase === "arriving") voyageDone();
    }
   } else if (state.phase === "orbit") {
    progress = 1;
    state.turn += dt * ORBIT_TURN;
+   state.time += dt;
+   // Viaje pedido desde el menú: un momento en órbita y sale hacia el otro mundo.
+   if (state.then && state.time > 0.9) {
+    const to = state.then;
+    state.then = null;
+    depart(to);
+   }
+   // Recién llegada de otro mundo: en cuanto se destapa la pantalla, un respiro para ver el planeta y baja.
+   if (state.arriving !== null && voyage.phase === "arriving" && state.arriving > ARRIVAL_PAUSE) {
+    state.arriving = null;
+    land();
+   }
+  } else if (state.phase === "departing") {
+   progress = 1;
+   state.time += dt;
   }
+  voyage.canLeave = state.phase === "orbit" && voyage.phase === "idle" && state.arriving === null;
   const height = progress * ALTITUDE;
   // Último tramo: de subir por el eje a quedar en órbita, tumbada, delante del planeta.
   const wide = Math.pow(Math.min(1, Math.max(0, (progress - 0.55) / 0.45)), 1.6);
   const flying = state.phase !== "idle";
-  const thrusting = state.phase === "igniting" || state.phase === "ascending" || state.phase === "descending";
+  const leaving = state.phase === "departing";
+  const thrusting = state.phase === "igniting" || state.phase === "ascending" || state.phase === "descending" || leaving;
 
   // Potencia de los motores: sube durante el encendido, a tope al despegar y
   // al frenar la caída; en órbita queda un piloto.
@@ -304,11 +379,11 @@ export function Ship() {
   state.power += (wanted - state.power) * Math.min(1, dt * 6);
 
   // Posición: en el encendido vibra un poco; en órbita deriva en círculo.
-  const drift = state.phase === "orbit" ? 1 : progress * progress;
+  const drift = state.phase === "orbit" || leaving ? 1 : progress * progress;
   const tremble = state.phase === "igniting" ? 0.022 * ignition : state.phase === "ascending" ? 0.03 * Math.max(0, 1 - progress * 8) : 0;
   // En órbita la cámara rodea despacio el planeta (se le ve girar) y la nave va
   // con ella, por delante; al bajar, las dos deshacen la vuelta.
-  const around = state.phase === "orbit" ? state.turn : state.phase === "descending" ? state.turn * progress * progress : 0;
+  const around = state.phase === "orbit" || leaving ? state.turn : state.phase === "descending" ? state.turn * progress * progress : 0;
   // (Tumbada, el morro mira al este: se retrasa media eslora para que sea su centro, y no su base, lo que queda en el centro de la vista.)
   const offX = Math.sin(time * 0.3) * 0.8 * drift + Math.sin(time * 71) * tremble - smooth(wide) * 4;
   const offZ = wide * ORBIT_VIEW.ship[2] + Math.cos(time * 0.3) * 0.8 * drift + Math.cos(time * 63) * tremble;
@@ -320,15 +395,24 @@ export function Ship() {
   // Sube derecha y, al entrar en órbita, se tumba.
   if (flying) ship.current.quaternion.setFromAxisAngle(UP, around).multiply(turning.identity().slerp(LYING, smooth(wide)));
   else ship.current.quaternion.identity();
+  // Rumbo a otro mundo: gira el morro hacia él y acelera hasta perderse de vista.
+  if (leaving) {
+   const t = Math.min(1, state.time / DEPART);
+   ship.current.quaternion.copy(heading.start).slerp(heading.nose, smooth(Math.min(1, t * 2.6)));
+   ship.current.position.copy(heading.from).addScaledVector(heading.along, Math.pow(Math.max(0, t - 0.16) / 0.84, 2.6) * DEPART_REACH);
+   rig.shake = Math.max(rig.shake, 0.16 * (1 - t));
+  }
 
   // El mundo se curva con la altura: plano en tierra, esfera cerrada a media subida.
-  if (flying) rig.bend = world.id === "living" ? smooth(Math.min(1, progress / CLOSED_AT)) : 0;
+  if (flying) rig.bend = world.planet ? smooth(Math.min(1, progress / CLOSED_AT)) : 0;
   // Curvado, lo que three descarta por quedar fuera de cuadro en el mundo plano
   // puede estar a la vista (y al revés): mientras dura, no se descarta nada.
   // (Con la curva apenas empezada nada se ha movido aún ni medio metro: se
   // espera a `UNCULL_AT`, que dibujarlo todo cuesta y la cámara sigue cerca.)
-  if (rig.bend > UNCULL_AT && !uncull.current) {
-   uncull.current = [];
+  // (Al llegar de otro mundo la nave se monta antes que parte del planeta: se repasa al destaparse.)
+  const fresh = state.arriving === 0 && voyage.phase === "arriving";
+  if (rig.bend > UNCULL_AT && (!uncull.current || fresh)) {
+   uncull.current ??= [];
    scene.traverse((object) => {
     if (!object.frustumCulled || !(object.isMesh || object.isLine || object.isPoints)) return;
     object.frustumCulled = false;
@@ -344,7 +428,9 @@ export function Ship() {
    // último tramo deja de mirarle a él para mirar al planeta entero, con la
    // nave delante (ver `ORBIT_VIEW`). Todo es continuo: no hay corte.
    const above = Math.min(1, Math.max(0, (progress - 0.3) / 0.7));
-   focus.set(ship.current.position.x, ship.current.position.y + 2.6, ship.current.position.z).lerp(orbitFocus, wide);
+   // (Cuando sale hacia otro mundo, la cámara se queda con el planeta.)
+   if (leaving) focus.copy(orbitFocus);
+   else focus.set(ship.current.position.x, ship.current.position.y + 2.6, ship.current.position.z).lerp(orbitFocus, wide);
    rig.focus = focus;
    // En el encendido se retira un poco para que quepan la nave y el humo.
    // (En el fotograma en que se levanta, `ignition` aún vale 1 y la fase ya es la subida: no se suman las dos cosas.)
@@ -366,6 +452,8 @@ export function Ship() {
    const rumble = state.phase === "igniting" ? 0.1 + ignition * 0.12 : state.phase === "orbit" ? 0 : 0.26 * Math.max(0, 1 - progress * 3.2);
    rig.shake = Math.max(rig.shake, rumble);
   }
+
+  if (state.arriving !== null && voyage.phase === "arriving") state.arriving += dt;
 
   // Llama: crece con la potencia y tiembla.
   flame.current.visible = state.power > 0.03;
