@@ -20,8 +20,8 @@ export const ZONE_LINES = {
  nave: "La nave. Súbete y verás el planeta entero desde arriba.",
  // The Twisted Moon.
  "luna-nave": "Esto es The Twisted Moon. Aquí siempre es de noche… pero yo llevo farol.",
- "casa-torcida": "La casa torcida. Dentro está su historia: acércate a la puerta.",
- colina: "La colina en espiral. Se sube por la senda, dando vueltas.",
+ "casa-tronco": "La casa del tronco. Dentro está su historia: acércate a la puerta.",
+ torre: "La torre del reloj. Marca tu hora, la de verdad.",
 };
 
 // Menú del botón «Woody»: a dónde sabe llevar y cómo se le pide.
@@ -30,7 +30,8 @@ export const MENU = [
  { place: "cohete", ask: "Llévame al cohete" },
  { place: "contacto", ask: "¿Dónde está Contacto?" },
  // The Twisted Moon.
- { place: "casa-torcida", ask: "Llévame a la casa torcida" },
+ { place: "casa-tronco", ask: "Llévame a su historia" },
+ { place: "torre", ask: "Súbeme a la torre del reloj" },
 ];
 export const MENU_FOLLOW = "Acompáñame";
 export const MENU_MUTE = "Silenciar consejos";
@@ -47,6 +48,7 @@ export const GUIDE = {
   cohete: "El cohete.",
   contacto: "Contacto, al otro lado del río.",
   cv: "Aquí tienes el CV.",
-  "casa-torcida": "La casa torcida. Aquí empieza su historia.",
+  "casa-tronco": "La casa del tronco. Aquí empieza su historia.",
+  torre: "La torre del reloj. Mira qué luna.",
  },
 };

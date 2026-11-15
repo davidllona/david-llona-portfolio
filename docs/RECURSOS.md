@@ -67,3 +67,16 @@ Ya en uso desde antes (no están en la lista de este objetivo): los cinco árbol
   hará falta descargarlos (hoy esos tres son sintetizados).
 - Solo hay pasos grabados sobre **hierba**. Sobre camino, piedra, madera, arena y agua los pasos siguen
   siendo los sintetizados.
+
+## Mundo 2 · The Twisted Moon (objetivo 21)
+
+Originales en `assets-externos/mundo2/` (fuera de git). Conversión de modelos: `tools/assets/twisted.py`.
+
+| Recurso | Archivo origen | Triángulos | Optimizado en el repo | Dónde se usa | Estado |
+|---|---|---|---|---|---|
+| «Big ben landmark clock tower» (slabdsgn) | `big-ben-landmark-clock-tower/1.gltf` (+ blend) | 116.080 | `public/models/twisted/torre.glb` (7.599, 127 kB) | Torre del reloj, en la cima | **en uso** (C1); falta la hora real y darle carácter (C2) |
+| «Stylized Treehouse Cottage» (TurboSquid) | `stylized-treehouse-cottage/[FBX] House FBX/House FBX.FBX` (+ obj, texturas) | 6.001 (5.245 sin la peana) | `public/models/twisted/casa-tronco.glb` (3.600, 100 kB) | Casa sobre tronco: «Sobre mí» | **en uso** (C1), sin pulir: colores leídos de su textura, cara a cara |
+| «Whimsical Toon Cottage with Stone Roof» (TurboSquid) | `whimsical-toon-cottage-…/[BLEND] cartoon_house_v2/cartoon_house_v2.blend` (el FBX viene en texto y Blender no lo lee) | 13.760 (54.320 con sus modificadores) | `public/models/twisted/casita.glb` (5.000, 87 kB) | Casita de abajo | **en uso, provisional**: sale blanca (su textura de color no se lee desde el .blend); pendiente del C2 |
+| «Greenhouse» (spacepixelcreative) | `greenhouse/Green House.glb` (+ blend, obj, png) | 102.396 en 44 piezas | — | — | **sin usar todavía**: el del juego es provisional, hecho a mano; se decide en el C2 |
+| «Stylized Fern Plant» (TurboSquid) | `stylized-fern-plant/[BLEND] carton_fern/carton_fern.blend` | 6.336 | — | — | **sin usar todavía** (C2). Ojo: las hojas son tarjetas con textura recortada; con colores planos puede no servir |
+| Música y efectos (ocho) | ver `docs/CREDITOS.md` | — | — | — | **sin usar todavía** (C3) |

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { breathe, busy, Staged } from "../Staged";
+import { Buildings } from "./Buildings";
 import { CollarLantern } from "./CollarLantern";
 import { Fixtures } from "./Fixtures";
 import { Flora } from "./Flora";
@@ -8,6 +9,7 @@ import { House } from "./House";
 import twisted from "./layout";
 import { Night } from "./Night";
 import { Space } from "./Space";
+import { Structures } from "./Structures";
 import { Terrain } from "./Terrain";
 
 // En este mundo Woody lleva un farolillo al cuello. (Se apunta aquí, y no en los
@@ -38,9 +40,11 @@ export default function TwistedScene({ onBuilt }) {
   <Staged onDone={onBuilt}>
    <Night />
    <Terrain />
+   <Structures />
+   <Buildings />
+   <House />
    <Flora />
    <Fixtures />
-   <House />
    <Space />
   </Staged>
  );

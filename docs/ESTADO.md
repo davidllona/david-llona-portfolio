@@ -3,7 +3,7 @@
 Actualizado: 15 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
-**En curso: objetivo 21 — The Twisted Moon, que se parezca a las imágenes de referencia** (`docs/OBJETIVO-21.md`; sustituye al bloque C del objetivo 20): **parado en el paso 0.1, faltan las tres imágenes** en `docs/referencias/mundo2/`. Los recursos de Envato ya están en `assets-externos/mundo2/`. Ver «Objetivo 21».
+**En curso: objetivo 21 — The Twisted Moon, que se parezca a las imágenes de referencia** (`docs/OBJETIVO-21.md`; sustituye al bloque C del objetivo 20): bloque C1 (composición de la isla) hecho; **parada del C1, pendiente del visto bueno de David**. Los bloques C2 y C3 no se empiezan hasta entonces. Ver «Objetivo 21».
 **Objetivo 20 — mundo 2, The Twisted Moon** (`docs/OBJETIVO-20.md`): bloques A (viaje entre mundos) y B (muestra de estilo) hechos; **parada del bloque B, pendiente del visto bueno de David**. Los bloques C, D y E no se empiezan hasta entonces. Ver «Objetivo 20».
 **En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **En curso: bloque 3** (errores de juego), a medias: ver su fila y «Bloque 3, lo que queda».
 **En curso: objetivo 19 — pulido final del mundo 1** (`docs/OBJETIVO-19.md`): los cuatro bloques (A, B, C y D) están hechos. David pidió rehacer la vista de planeta del bloque D («el planeta es la isla»): **retoque hecho, pendiente de su visto bueno** (ver «Retoque del bloque D»). Ver «Objetivo 19».
@@ -19,13 +19,67 @@ Encargo: `docs/OBJETIVO-21.md` (15-11-2026). **Sustituye al bloque C del objetiv
 
 | Paso | Estado |
 |---|---|
-| 0.1 Imágenes de referencia | **FALTAN: parado a la espera.** `docs/referencias/mundo2/` (`ref-1.png`, `ref-2.png`, `ref-3.png`) no existe. El encargo dice que sin ellas se para y se piden |
+| 0.1 Imágenes de referencia | **Hecho.** Estaban en Descargas; copiadas a `docs/referencias/mundo2/` (`ref-1.png`, `ref-2.png`, `ref-3.png`, 896 × 1200) |
 | 0.2 Recursos de Envato | **Hecho.** Los trece zips estaban en Descargas; movidos a `assets-externos/mundo2/` (fuera de git) y descomprimidos, cada uno en su carpeta. No falta ninguno |
-| 0.3 Observatorio y casa del árbol del mundo 1 | Sin empezar |
-| 0.4 Presupuesto | Sin empezar |
-| C1. Composición de la isla | Sin empezar (espera a las imágenes) |
+| 0.3 Observatorio y casa del árbol del mundo 1 | Colocados (los mismos archivos, con un velo morado); el recoloreado fino, en el C2 |
+| 0.4 Presupuesto | Torre: 7.599 triángulos (tope 8.000). Casa sobre tronco: colores planos, sin texturas. Helecho: sin hacer (C2) |
+| C1. Composición de la isla | **Hecho. Parada: pendiente del visto bueno de David.** Capturas: `capturas/26-mundo2/C1/` |
 | C2. Edificios y vegetación | Sin empezar |
 | C3. Luz, agua, vida y sonido | Sin empezar |
+
+**Bloque C1, lo que hay** — composición de la isla, **parada: pendiente del visto bueno de David** (`worlds/twisted/`: `layout.js` (rehecho), `ground.js`, `Terrain.jsx`, `Structures.jsx`, `Buildings.jsx`, `House.jsx`, `Night.jsx`, `models.js`; `experience/Player.jsx` (miradores); `tools/assets/twisted.py`; `tests/e2e/twisted.mjs`, `twisted-walk.mjs`, `luna.mjs`):
+- **La colina en espiral ya no existe.** La isla es más pequeña (unos 29 m de radio) y sube **en cuatro alturas** hacia el fondo: abajo (0 m), la plataforma del cohete, la casita y el invernadero; primera terraza (3,6 m), la casa sobre tronco al este y la del alquimista al oeste; segunda (7,2 m), un pico a cada lado —observatorio y casa del árbol— y el macizo central; cima (10,8 m), la torre del reloj. El borde de la isla es un cortado de 1,9 m sobre el mar.
+- **Acantilados de roca morada facetada**: todo lo empinado de la malla (rejilla de 0,5 m) se pinta de roca, cada cara un tono; lo llano, césped verde azulado oscuro. No se trepan ni se saltan: cualquier punto en pendiente fuerte está vedado, se llegue subiendo o bajando.
+- **Cinco escaleras de piedra** (dos de abajo a la primera terraza, dos de la primera a la segunda y la de la cima): por debajo son rampas lisas —es lo que se pisa— y encima van los peldaños, en una sola malla. **Cuatro puentes**: dos colgantes de cuerda y tablas entre los picos y el macizo (se comban en el centro) y dos pasarelas de tablones, sobre el río y sobre el arroyo. A un puente solo se entra por sus extremos (quien anda por debajo no «sube» a él) y por los lados no se sale.
+- **Agua**: nace en el macizo, cae a una poza en la primera terraza, corre hasta su borde, cae otra vez y baja en río hasta saltar al mar por el oeste: **tres cascadas**, provisionales (láminas turquesa con vetas que corren). Mar oscuro con **espuma turquesa que brilla** pegada a la orilla (una línea firme y dos que van y vienen).
+- **Edificios colocados, sin pulir**: torre del reloj (Envato, 116.080 → 7.599 triángulos, repintada en piedra morada, esfera encendida), observatorio y casa del árbol (los mismos archivos del mundo 1, con un velo morado en el material), casa sobre tronco (Envato, 3.600 triángulos, colores planos leídos de su textura, sin textura), casita (Envato, 5.000 triángulos; **sale blanca**: su textura no se ha leído bien, queda para el C2), invernadero (**hecho a mano por ahora**: el de Envato trae 102.000 triángulos en 44 piezas y hay que verlo con calma; se decide en el C2) y la casa del alquimista.
+- **Decisión sobre «Sobre mí»**: pasa a **la casa sobre tronco** (es la que en las imágenes tiene la puerta encendida y se ve desde la plataforma). Ante su puerta, E abre el texto real. **La casa torcida del bloque B se queda**, más pequeña, como **casa del alquimista**, con las ventanas en violeta.
+- **Luna creciente**, enorme (5,8° de radio: más de un cuarto del alto de la pantalla), blanca azulada, con halo, al norte, 12° a la derecha de la torre y a 17° sobre el horizonte. Su lado en sombra apenas se adivina.
+- **Miradores** (`VIEWPOINTS` en `layout.js`; `lookout` en los datos del mundo; lo aplica `Player.jsx`, solo si el mundo los trae): en la plataforma, al pie de la torre y junto al observatorio la cámara baja y mira algo por encima del astronauta, despacio; entran en cuadro el cielo y la luna. Al alejarse vuelve sola.
+- **La luna no entra en el borde superior del encuadre «la mayor parte del tiempo», y no puede**: la cámara de juego mira 39° hacia abajo y su borde superior queda 19° por debajo del horizonte; cualquier cosa que esté en el cielo cae fuera, se ponga donde se ponga. Hoy se ve en los tres miradores y al bajar con la nave. Para verla andando por toda la isla habría que inclinar la cámara en todo este mundo: **es decisión de David**.
+- **Paleta**: sombras moradas (relleno violeta, no índigo), roca morada, césped verde azulado, turquesa en agua y espuma, cálidos en faroles y esfera, violeta en el alquimista y el invernadero.
+- **Se recorre entero andando.** `twisted-walk.mjs` (sin navegador) inunda la isla en una rejilla de 25 cm desde la llegada con las reglas de los personajes: se alcanzan los 54 sitios (puertas, miradores, pie y alto de cada escalera, extremos y centro de cada puente y los 22 puntos de guía), se pisan las cuatro alturas, no hay escalones de más de 90 cm entre casillas vecinas, nadie acaba en el mar y los 22 tramos de la red de guía de Woody están despejados. `twisted.mjs` lo hace con el astronauta de verdad: cruza la pasarela, sube una escalera, cruza un puente colgante, empuja contra un borde y contra una baranda sin caerse, y sigue a Woody hasta la casa sobre tronco.
+- **Arreglado por el camino — un atasco de verdad**: en el codo interior de una escalera la altura daba un salto de 31 cm (cada tramo «tiraba» de su lado) y el astronauta, siguiendo a Woody, se quedaba clavado en el rincón. Ahora lo andado se mezcla entre tramos con continuidad y las escaleras van en curva suave.
+- **Rendimiento** (2880 × 1620, sin límite): mundo 2, 213 · 224 · 237 · 237 · 243 fps (llegada, río, terraza, historia, cima); mundo 1, 94 · 98 · 98 · 95 · 95. 0 pipelines en caliente al aterrizar y en todo el paseo.
+- **Peso**: datos del mundo 2, 12,0 kB (5,0 comprimido); escena, 38,7 kB (15,0 comprimido); modelos propios, 322 kB (torre 130, casa sobre tronco 103, casita 89), más el observatorio y la casa del árbol, que ya estaban. El mundo 1 no cambia.
+- **Lo que NO se parece todavía a las imágenes** (se ve en `hoja-comparativa.jpg`): falta toda la vegetación (sauces, copas moradas, helechos, setas, enredaderas: es el C2), los edificios están sin pulir y la torre es un Big Ben liso, sin el aire torcido de las referencias; el río es una cinta recta y demasiado encendida; la isla de las referencias es más abrupta y apretada que esta, que tiene que dejar sitio para andar; la postal usa un objetivo más abierto que el del juego (58° en vez de 40°) porque con el del juego no caben a la vez la isla vista desde arriba y la luna, y aun así la luna asoma solo por abajo.
+- **Fallo intermitente sin identificar**: una pasada de `twisted.mjs` de ocho dio un fallo que no llegué a ver cuál era (solo contaba fallos); las cuatro siguientes, limpias. Además, la comprobación del guiado de Woody falló una vez por culpa de la propia prueba (iba en línea recta contra el costado de la escalera) y está corregida.
+- Sin comprobar: nada visto en movimiento por una persona; un teléfono y la calidad baja; el respaldo WebGL2; los miradores con el zoom al máximo.
+- Capturas: `capturas/26-mundo2/C1/` — `hoja-comparativa.jpg` (la postal junto a ref-1, ref-2 y ref-3), `hoja-postales.jpg` (tres ángulos), `hoja-juego.jpg` (diez puntos con la cámara de juego), `hoja-orbita.jpg` y las sueltas (también cada punto desde arriba). `node tests/e2e/luna.mjs` las rehace.
+
+**Batería completa tras el bloque C1** (15-11-2026, en primer plano, en tandas de cinco, Chrome sin ventana, servidor de desarrollo en el 5199):
+
+| Prueba | Bien | Fallos |
+|---|---|---|
+| `errors` | 8 | 0 |
+| `living` | 46 | 0 |
+| `characters` | 20 | 0 |
+| `portfolio` | 27 | 0 |
+| `progress` | 26 | 0 |
+| `motion` | 10 | 0 |
+| `camera` | 30 | 0 |
+| `woody` | 37 | 0 |
+| `rocket` | 26 | 0 |
+| `terrain` | 3 | 0 |
+| `life` | 11 | 0 |
+| `football` | 63 | 0 |
+| `sounds` | 28 | 0 |
+| `travel` | 31 | 0 |
+| `twisted` (rehecha) | 23 | 0 (ver el intermitente de arriba) |
+| `twisted-walk` (nueva, sin navegador) | 6 | 0 |
+| **`npm run e2e` (las dieciséis)** | **395** | **0** |
+| `hora` | 21 | 0 |
+| `basket` | 20 | 0 |
+| `garden` | 6 | 0 |
+| `birds` | 4 | 0 |
+| `run` | 19 | 0 |
+| `hill` | 29 | 0 |
+| `collisions` | 4 | 0 |
+| `welcome` | 21 | 0 |
+| `loader` | 13 | **1** (la de siempre: primer pintado a 172 ms, objetivo 100; la pantalla de carga no se toca) |
+| `tests/perf/entrada.mjs` | 0 pipelines en caliente al entrar y al despegar | — |
+
+Respuestas de David a las tres dudas de la preparación (15-11-2026): probar «wooden stairs climbing» en los puentes y, si suena a escalera, dejarlo para las escaleras de piedra y hacer para los puentes crujidos cortos con ese mismo audio recortado; para `?musica=2` y `?musica=3`, la versión en bucle con melodía y, si no la hay, la entera; licencias, como las del mundo 1.
 
 **Lo que trae cada recurso** (visto al descomprimir, sin abrirlo todavía en Blender):
 - Torre del reloj (`big-ben-landmark-clock-tower`): `1.gltf` y `1.blend`, 4,7 MB.
@@ -618,8 +672,10 @@ Comprobado (lo confirma David el 14-11-2026): el recorrido de 3 minutos de Woody
 ```
 npm run dev -- --port 5199     # http://localhost:5199
 node tests/e2e/travel.mjs      # viaje entre mundos: destino en la órbita, la pantalla del viaje, el mundo 2 se descarga y se compila solo entonces (0 pipelines en caliente), aterrizaje y vuelta; «capturas» las saca (incluida en e2e)
-node tests/e2e/twisted.mjs     # mundo 2: noche fija, luna, colina en espiral (se sube por la senda), casa torcida y su puerta, apoyos, colisiones, Woody con farolillo y guiando, 0 pipelines en caliente; «fps» mide además (incluida en e2e)
-node tests/e2e/luna.mjs        # capturas del mundo 2: cada punto con la cámara de juego, a la altura del jugador y desde arriba, y la órbita; no comprueba nada
+node tests/e2e/twisted.mjs     # mundo 2: noche fija, luna creciente, edificios en su terraza, miradores, pasarela, escalera, puente colgante, acantilado, la casa sobre tronco y su puerta, Woody con farolillo y guiando, 0 pipelines en caliente; «fps» mide además (incluida en e2e)
+node tests/e2e/twisted-walk.mjs # mundo 2, sin navegador: desde la llegada se alcanza andando cada sitio de la isla; «mapa» la dibuja en texto (incluida en e2e)
+node tests/e2e/luna.mjs        # capturas del mundo 2: la vista postal (como las referencias), cada punto con la cámara de juego y desde arriba, y la órbita; no comprueba nada
+"C:/Program Files/Blender Foundation/Blender 5.0/blender.exe" -b -P tools/assets/twisted.py   # convierte los modelos del mundo 2 (assets-externos/mundo2/ → public/models/twisted/); «-- mirar» solo dice qué trae cada uno
 node tests/e2e/hora.mjs        # la hora del mundo: cada hora su momento, atardecer propio, franjas por mes, cambio gradual, botón y tecla N; «capturas» saca la misma vista a cuatro horas
 node tests/e2e/welcome.mjs     # pantalla previa al aterrizaje: la carga espera al planeta, indicación, ms del clic al descenso, luna, planeta, fugaces; capturas y secuencia
 node tests/e2e/descent.mjs     # el descenso tras el clic, una captura cada 200 ms
@@ -637,7 +693,7 @@ node tests/perf/carga.mjs      # pantalla de carga: tiempo hasta poder entrar, t
 node tests/perf/peso.mjs       # peso descargado en la primera visita (build de producción en el 5198)
 node tests/perf/fps.mjs        # fps en cinco puntos
 node tests/e2e/errors.mjs      # ninguna excepción de página y el lienzo dibujado: carga, bienvenida, estrella fugaz y mundo, sin ventana y con ventana (incluida en e2e)
-npm run e2e                    # 385 comprobaciones en Chrome sin ventana (con el servidor encendido)
+npm run e2e                    # 395 comprobaciones en Chrome sin ventana (con el servidor encendido)
 node tests/e2e/sounds.mjs      # sonido uno por uno: señal medida de cada bucle, golpes, silencio; graba el recorrido (incluida en e2e)
 node tests/e2e/football.mjs    # fútbol de principio a fin, con fotogramas de cada tiro (incluida en e2e)
 node tests/e2e/woody.mjs       # bocadillos, ritmo, descanso, cuestas y ruta guiada (incluida en e2e)

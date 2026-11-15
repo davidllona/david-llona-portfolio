@@ -455,6 +455,133 @@ export function createHouse() {
  };
 }
 
+// ── Escaleras de piedra ─────────────────────────────────────────────────────
+// Peldaños a lo largo de cada rampa: losas gruesas, cada una algo descolocada,
+// que bajan hasta el suelo (donde la escalera va exenta hacen de macizo), y un
+// bordillo a cada lado. `stairs`: las de layout.js. Todo en una sola malla.
+export function createStairs(stairs) {
+ const random = randomFrom(0.271);
+ const parts = [];
+ for (const stair of stairs) {
+  const TREAD = 0.46, count = Math.round(stair.length / TREAD);
+  for (let i = 0; i < count; i++) {
+   const s = ((i + 0.5) / count) * stair.length;
+   // Dónde cae ese tramo de la rampa y hacia dónde sube.
+   let k = 0;
+   while (k < stair.lengths.length - 2 && s > stair.lengths[k + 1]) k++;
+   const t = (s - stair.lengths[k]) / (stair.lengths[k + 1] - stair.lengths[k]);
+   const [ax, az] = stair.through[k], [bx, bz] = stair.through[k + 1];
+   const x = ax + (bx - ax) * t, z = az + (bz - az) * t, yaw = Math.atan2(bx - ax, bz - az);
+   // (El peldaño queda a ras de la rampa por su canto alto: se pisa la rampa, no el escalón.)
+   const top = stair.from + (stair.to - stair.from) * ((i + 1) / count) - 0.02;
+   const tall = 2.4;
+   parts.push(piece(box(stair.width + 0.1, tall, stair.length / count + 0.05), { bottom: STONE.dark, top: i % 2 ? STONE.light : STONE.mid, jitter: 0.02, vary: 0.1, seed: i + 1, position: [x, top - tall / 2, z], rotation: [0, yaw + (random() - 0.5) * 0.05, (random() - 0.5) * 0.02] }));
+   // Bordillos: un sillar a cada lado cada dos peldaños.
+   if (i % 2 === 0) {
+    for (const side of [-1, 1]) {
+     const ox = Math.cos(yaw) * side * (stair.width / 2 + 0.16), oz = -Math.sin(yaw) * side * (stair.width / 2 + 0.16);
+     parts.push(piece(box(0.3, tall + 0.34, (stair.length / count) * 2 + 0.06), { bottom: STONE.dark, top: STONE.mid, jitter: 0.03, vary: 0.12, seed: i + 40, position: [x + ox, top - tall / 2 + 0.2, z + oz], rotation: [0, yaw, 0] }));
+    }
+   }
+  }
+ }
+ return merge(parts);
+}
+
+// ── Puentes ─────────────────────────────────────────────────────────────────
+// Los colgantes: tablas sueltas sobre dos maromas, pasamanos de cuerda que se
+// comban y cuatro postes torcidos. Las pasarelas: tablones sobre dos vigas,
+// con una baranda baja. `deck(bridge, t)`: la altura del tablero (layout.js).
+const ROPE = "#b9a27a";
+export function createBridges(bridges, deck) {
+ const random = randomFrom(0.613);
+ const parts = [];
+ for (const bridge of bridges) {
+  const yaw = Math.atan2(bridge.ux, bridge.uz);
+  const at = (t, side = 0, lift = 0) => [bridge.from[0] + bridge.ux * bridge.length * t - bridge.uz * side, deck(bridge, t) + lift, bridge.from[1] + bridge.uz * bridge.length * t + bridge.ux * side];
+  const planks = Math.round(bridge.length / (bridge.rope ? 0.36 : 0.42));
+  for (let i = 0; i < planks; i++) {
+   const t = (i + 0.5) / planks, [x, y, z] = at(t);
+   const slope = Math.atan2(deck(bridge, t + 0.02) - deck(bridge, t - 0.02), bridge.length * 0.04);
+   parts.push(piece(box(bridge.width + (bridge.rope ? 0.1 : 0.3), bridge.rope ? 0.06 : 0.1, bridge.rope ? 0.27 : 0.36), { color: i % 3 ? WOOD.mid : "#4a3b50", vary: 0.14, seed: i + 3, position: [x, y - 0.05, z], rotation: [-slope + (random() - 0.5) * 0.05, yaw + (random() - 0.5) * (bridge.rope ? 0.1 : 0.04), (random() - 0.5) * (bridge.rope ? 0.07 : 0.02)] }));
+  }
+  const half = bridge.width / 2 + 0.06;
+  for (const side of [-half, half]) {
+   const line = (lift, sag) => Array.from({ length: 9 }, (_, k) => {
+    const t = k / 8, [x, y, z] = at(t, side, lift);
+    return [x, y - Math.sin(t * Math.PI) * sag, z];
+   });
+   if (bridge.rope) {
+    // Maroma bajo las tablas y pasamanos de cuerda, que se comba más que el tablero.
+    parts.push(piece(tube(line(-0.1, 0), () => 0.035, { sides: 4, segments: 10 }), { color: ROPE }));
+    parts.push(piece(tube(line(1.02, 0.34), () => 0.028, { sides: 4, segments: 10 }), { color: ROPE }));
+    // Tirantes del pasamanos al tablero.
+    for (let k = 1; k < 8; k++) {
+     const t = k / 8, [x, y, z] = at(t, side), high = 1.02 - Math.sin(t * Math.PI) * 0.34;
+     parts.push(piece(box(0.018, high, 0.018), { color: ROPE, position: [x, y + high / 2, z] }));
+    }
+    // Postes en los extremos, cada uno vencido a su manera.
+    for (const end of [0, 1]) {
+     const [x, y, z] = at(end ? 1.02 : -0.02, side);
+     parts.push(piece(tube([[0, -0.5, 0], [(random() - 0.5) * 0.14, 0.5, (random() - 0.5) * 0.14], [(random() - 0.5) * 0.3, 1.36, (random() - 0.5) * 0.3]], (t) => 0.085 - t * 0.03, { sides: 5, segments: 4 }), { bottom: WOOD.dark, top: WOOD.mid, position: [x, y, z] }));
+    }
+   } else {
+    // Viga bajo los tablones y baranda baja sobre montantes.
+    parts.push(piece(tube(line(-0.16, 0), () => 0.07, { sides: 4, segments: 6 }), { color: WOOD.dark }));
+    parts.push(piece(tube(line(0.62, 0), () => 0.035, { sides: 4, segments: 6 }), { color: WOOD.mid }));
+    for (let k = 0; k <= 3; k++) {
+     const [x, y, z] = at(k / 3, side);
+     parts.push(piece(box(0.09, 0.82, 0.09), { bottom: WOOD.dark, top: WOOD.mid, position: [x, y + 0.26, z], rotation: [(random() - 0.5) * 0.12, yaw, (random() - 0.5) * 0.12] }));
+    }
+   }
+  }
+ }
+ return merge(parts);
+}
+
+// ── Invernadero de cristal ──────────────────────────────────────────────────
+// Zócalo de piedra, armazón de hierro a dos aguas y, aparte, los paños de
+// cristal (`glass`), que dejan ver lo que brilla dentro. Fachada hacia +Z.
+export function createGreenhouse({ width, depth }) {
+ const wall = 1.9, ridge = 3.3, w = width / 2, d = depth / 2;
+ const frame = [piece(box(width + 0.3, 0.36, depth + 0.3), { bottom: STONE.dark, top: STONE.mid, jitter: 0.02, position: [0, 0.18, 0] })];
+ const bar = (from, to, thick = 0.07) => {
+  const a = new THREE.Vector3(...from), b = new THREE.Vector3(...to), length = a.distanceTo(b);
+  const made = piece(box(thick, length, thick), { color: IRON });
+  made.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()));
+  made.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+  return made;
+ };
+ const BAYS = 4;
+ for (let i = 0; i <= BAYS; i++) {
+  const z = -d + (depth * i) / BAYS;
+  frame.push(bar([-w, 0.3, z], [-w, wall, z]), bar([w, 0.3, z], [w, wall, z]), bar([-w, wall, z], [0, ridge, z]), bar([w, wall, z], [0, ridge, z]));
+ }
+ for (const x of [-w, w]) frame.push(bar([x, wall, -d], [x, wall, d]), bar([x, 1.1, -d], [x, 1.1, d], 0.045));
+ frame.push(bar([0, ridge, -d], [0, ridge, d], 0.09), bar([-w / 2, (wall + ridge) / 2, -d], [-w / 2, (wall + ridge) / 2, d], 0.045), bar([w / 2, (wall + ridge) / 2, -d], [w / 2, (wall + ridge) / 2, d], 0.045));
+ // Testeros: travesaño, parteluz y, delante, el hueco de la puerta.
+ for (const z of [-d, d]) frame.push(bar([-w, wall, z], [w, wall, z]), bar([0, wall, z], [0, ridge, z], 0.045), bar([-0.6, 0.3, z], [-0.6, wall, z], 0.05), bar([0.6, 0.3, z], [0.6, wall, z], 0.05));
+ // Remate en la cumbrera: un rizo de hierro.
+ frame.push(piece(tube([[0, ridge, d], [0, ridge + 0.3, d + 0.1], [0, ridge + 0.5, d - 0.1], [0, ridge + 0.4, d - 0.26], [0, ridge + 0.28, d - 0.16]], (t) => 0.035 - t * 0.02, { sides: 4, segments: 8 }), { color: IRON }));
+ // Cristal: paredes, testeros y las dos aguas.
+ const pane = (corners) => {
+  const geometry = new THREE.BufferGeometry();
+  const [a, b, c, e] = corners;
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute([...a, ...b, ...c, ...a, ...c, ...e], 3));
+  return piece(geometry, {});
+ };
+ const glass = [
+  pane([[-w, 0.36, -d], [-w, 0.36, d], [-w, wall, d], [-w, wall, -d]]),
+  pane([[w, 0.36, d], [w, 0.36, -d], [w, wall, -d], [w, wall, d]]),
+  pane([[-w, wall, d], [0, ridge, d], [0, ridge, -d], [-w, wall, -d]]),
+  pane([[w, wall, -d], [0, ridge, -d], [0, ridge, d], [w, wall, d]]),
+  pane([[-w, 0.36, -d], [w, 0.36, -d], [w, wall, -d], [-w, wall, -d]]),
+  pane([[-w, wall, -d], [w, wall, -d], [0, ridge, -d], [0, ridge, -d]]),
+  pane([[-w, wall, d], [w, wall, d], [0, ridge, d], [0, ridge, d]]),
+ ];
+ return { frame: merge(frame), glass: merge(glass) };
+}
+
 // ── Farolillo de Woody ──────────────────────────────────────────────────────
 // Pequeño, colgado del cuello: un sombrerete, cuatro montantes y la base. El cristal va aparte.
 export function createCollarLantern() {

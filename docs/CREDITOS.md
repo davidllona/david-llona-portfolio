@@ -103,3 +103,25 @@ El estado de cada uno, al día, está en `docs/RECURSOS.md`.
 | «Orange and White Koi» | TurboSquid (licencia de TurboSquid) | Kois del jardín: solo la forma, simplificada y con colores planos |
 | «Stylized Arched Road Bridge with Railings» | TurboSquid (licencia de TurboSquid) | Puente rojo del jardín |
 | «Japan Lamp» | nixxdsgn | Faroles del jardín |
+
+### Mundo 2 · The Twisted Moon (objetivo 21)
+
+Descargados de Envato con la cuenta de David (15-11-2026); ningún ZIP trae archivo de licencia. Originales en `assets-externos/mundo2/` (fuera de git). El estado de cada uno, en `docs/RECURSOS.md`.
+
+| Original | Autor | Para qué | Estado |
+|---|---|---|---|
+| «Big ben landmark clock tower» | slabdsgn | Torre del reloj, en la cima | En uso: `public/models/twisted/torre.glb`, repintada |
+| «Stylized Treehouse Cottage» | TurboSquid (licencia de TurboSquid) | Casa sobre tronco («Sobre mí») | En uso: `casa-tronco.glb`, solo la forma, con colores planos; no se distribuye ninguna textura |
+| «Whimsical Toon Cottage with Stone Roof» | TurboSquid (licencia de TurboSquid) | Casita de cuento | En uso, provisional: `casita.glb` (sin color todavía) |
+| «Greenhouse» | spacepixelcreative | Invernadero | Sin usar todavía (el del juego es provisional, hecho a mano) |
+| «Stylized Fern Plant» | TurboSquid (licencia de TurboSquid) | Helechos | Sin usar todavía |
+| «Mysterious Fairy Tale Waltz» | ereymusic | Música del mundo 2 (opción 1) | Sin usar todavía |
+| «Curious Mystery Box» | SCOREWIZARDS | Música (opción 2) | Sin usar todavía |
+| «Quirky Music Box» | AudioAgent | Música (opción 3) | Sin usar todavía |
+| «Crickets Night Ambience Loop» | OhmLab | Grillos de fondo | Sin usar todavía |
+| «Classic Clock Tower Chime» | HollywoodEdge | Campanadas de la torre | Sin usar todavía |
+| «Magic Sparkle Twinkle Shimmer» | AetherFX | Destello mágico | Sin usar todavía |
+| «Wooden Bridge Footsteps» | FxProSound | Pasos de madera | Sin usar todavía |
+| «Owl Hoot 1» | HollywoodEdge | Búho lejano | Sin usar todavía |
+
+Del mundo 1 se reutilizan en este, tal cual: «Small observatory with telescope dome» (kerismaker) y «Cartoon treehouse with ladder access» (permadicreative).

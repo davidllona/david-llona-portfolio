@@ -5,7 +5,7 @@
 //  · The Twisted Moon: quién soy («Sobre mí», convertido en un paseo).
 export const SECTIONS = [
  { id: "proyectos", label: "Proyectos", world: "living", place: "proyectos" },
- { id: "sobre-mi", label: "Sobre mí", world: "twisted", place: "casa-torcida" },
+ { id: "sobre-mi", label: "Sobre mí", world: "twisted", place: "casa-tronco" },
  { id: "cv", label: "CV", world: "living", place: "cv" },
  { id: "contacto", label: "Contacto", world: "living", place: "contacto" },
 ];

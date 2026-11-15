@@ -1,114 +1,25 @@
 // Mundo 2 · The Twisted Moon. «Quién soy», convertido en un paseo: una isla de
-// cuento gótico donde siempre es de noche. Forma de la isla, altura del
-// terreno, dónde está cada cosa y con qué se choca: todo lo que se ve y todo lo
-// que se pisa sale de este archivo. Metros; Y hacia arriba; «norte» es −Z
-// (arriba en pantalla).
+// cuento gótico —acogedor, no de miedo— donde siempre es de noche. Forma de la
+// isla, altura del terreno, dónde está cada cosa y con qué se choca: todo lo
+// que se ve y todo lo que se pisa sale de este archivo. Metros; Y hacia arriba;
+// «norte» es −Z (arriba en pantalla).
+//
+// La isla es pequeña y sube en terrazas hacia el fondo (norte): abajo, delante,
+// la plataforma del cohete; arriba del todo, en el centro, la torre del reloj.
+// Entre terraza y terraza, acantilados de roca que no se trepan: se sube por
+// escaleras de piedra y se cruza de un pico a otro por puentes colgantes.
 
-export const WATER_LEVEL = -0.3; // la laguna negra que rodea la isla
-const MAX_WADE = -0.82; // hasta dónde se mete el astronauta
+export const WATER_LEVEL = -1.9; // el mar, al pie del acantilado de la isla
+const SEA_BED = -4.4;
 const MAX_SLOPE = 1.15; // pendiente a partir de la cual es pared
+export const STEP = 3.6; // lo que sube cada terraza
+export const LEVELS = [0, STEP, STEP * 2, STEP * 3];
 
 const smooth = (edge0, edge1, value) => {
  const t = Math.min(1, Math.max(0, (value - edge0) / (edge1 - edge0)));
  return t * t * (3 - 2 * t);
 };
 const TAU = Math.PI * 2;
-
-// ── Relieve ─────────────────────────────────────────────────────────────────
-// Radio de la orilla en cada dirección: un círculo con ondulaciones. Unos 46 m,
-// como la isla del primer mundo: al subir con la nave se cierra igual en planeta.
-export const shoreRadius = (angle) => 45.5 + 2.6 * Math.sin(3 * angle + 1.1) + 1.8 * Math.sin(5 * angle + 0.4) + 1.3 * Math.sin(2 * angle + 2.2);
-
-// La colina en espiral, al fondo (norte): un cono al que le da vueltas una
-// senda en rampa, como la concha de un caracol. La senda arranca al pie, por
-// el sur, y sube en el sentido de las agujas del reloj hasta la cima.
-export const HILL = { x: 2, z: -29.5, r: 12, height: 9.6, turns: 3.25 };
-// Altura de la colina en (x, z) y, en `hill.path`, cuánto de senda hay ahí (1 en
-// el centro de la rampa, 0 en el talud).
-export const hill = { path: 0 };
-function hillHeight(x, z) {
- const dx = x - HILL.x, dz = z - HILL.z;
- const r = Math.hypot(dx, dz);
- hill.path = 0;
- if (r >= HILL.r) return 0;
- // Vuelta alrededor de la colina, de −0,5 a 0,5, con el 0 mirando al sur.
- let turn = Math.atan2(dz, dx) / TAU - 0.25;
- turn -= Math.round(turn);
- // Coordenada de la espiral: vale un entero justo sobre el eje de la senda.
- const s = (1 - r / HILL.r) * HILL.turns - turn;
- const lap = Math.floor(s + 0.5), across = s - lap; // `across`: de −0,5 a 0,5 entre un talud y el siguiente
- // La senda es casi llana a lo ancho; entre vuelta y vuelta, un talud empinado.
- const step = 0.5 * Math.sign(across) * Math.pow(Math.abs(2 * across), 3.4);
- const edge = smooth(HILL.r, HILL.r - 2.4, r);
- hill.path = (1 - smooth(0.2, 0.36, Math.abs(across))) * edge;
- return Math.max(0, ((lap + step + turn) / HILL.turns) * HILL.height) * edge;
-}
-
-// ── Sitios ──────────────────────────────────────────────────────────────────
-export const COLORS = { nave: "#ff9a3c" };
-export const SPAWN = { x: 0, z: 7.5 };
-export const PAD = { x: 0, z: 0, padRadius: 4.6, color: "#3b3856" }; // plataforma del cohete, en el centro (es el eje del planeta)
-// Parada 1 · La casa torcida. `turn`: hacia dónde mira su fachada (0 = al sur, a la cámara).
-export const HOUSE = { x: -13.6, z: -11.2, turn: 0.42, width: 5.2, depth: 4.6 };
-// Delante de la puerta (donde se lee su historia).
-const front = (site, away) => ({ x: site.x + Math.sin(site.turn) * away, z: site.z + Math.cos(site.turn) * away });
-export const HOUSE_DOOR = front(HOUSE, HOUSE.depth / 2 + 1.5);
-
-// Explanadas: alrededor de cada sitio el suelo se allana.
-const FLATS = [
- { x: PAD.x, z: PAD.z, r: PAD.padRadius + 2.6 },
- { x: HOUSE.x, z: HOUSE.z, r: 5.4 },
-];
-
-// Caminos que serpentean. Cada uno pasa por sus puntos en curva suave.
-const TRAILS = [
- // De la plataforma a la casa torcida.
- { width: 1.7, through: [[-4.3, -1.5], [-6.6, -0.5], [-8.9, -1.7], [-9.6, -4.1], [-8.2, -5.9], [-8.7, -8.0], [HOUSE_DOOR.x + 0.5, HOUSE_DOOR.z + 0.3]] },
- // Al sur, hacia donde irán las demás paradas.
- { width: 1.7, through: [[0.2, 4.6], [1.1, 7.6], [-0.5, 10.6], [-1.6, 13.4], [-0.2, 16.4], [1.4, 18.6]] },
- // Al norte, hasta el pie de la colina en espiral.
- { width: 1.5, through: [[0.4, -4.6], [1.9, -7.2], [0.3, -10.0], [-0.4, -12.8], [1.2, -15.2], [HILL.x, HILL.z + HILL.r - 0.6]] },
-];
-// Curva de Catmull-Rom por los puntos dados, en tramos cortos.
-function curve(points, steps = 7) {
- const out = [];
- const at = (i) => points[Math.min(points.length - 1, Math.max(0, i))];
- for (let i = 0; i < points.length - 1; i++) {
-  const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
-  for (let k = 0; k < steps; k++) {
-   const t = k / steps, t2 = t * t, t3 = t2 * t;
-   out.push([0, 1].map((c) => 0.5 * (2 * p1[c] + (-p0[c] + p2[c]) * t + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * t2 + (-p0[c] + 3 * p1[c] - 3 * p2[c] + p3[c]) * t3)));
-  }
- }
- out.push(points[points.length - 1]);
- return out;
-}
-export const PATHS = TRAILS.map((trail) => ({ width: trail.width, points: curve(trail.through) }));
-// Plazoletas de tierra pisada: alrededor de la plataforma y ante la puerta de la casa.
-const YARDS = [
- { x: PAD.x, z: PAD.z, r: PAD.padRadius + 1.5 },
- { x: HOUSE_DOOR.x, z: HOUSE_DOOR.z, r: 1.7 },
-];
-
-function toSegment(x, z, ax, az, bx, bz) {
- const dx = bx - ax, dz = bz - az;
- const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1)));
- return Math.hypot(x - (ax + dx * t), z - (az + dz * t));
-}
-// Distancia al borde del camino más cercano: negativa dentro, positiva fuera.
-export function pathEdge(x, z) {
- let best = Infinity;
- for (const yard of YARDS) best = Math.min(best, Math.hypot(x - yard.x, z - yard.z) - yard.r);
- for (const path of PATHS) {
-  const points = path.points;
-  for (let i = 0; i < points.length - 1; i++) {
-   // (Descarte rápido: los tramos son cortos.)
-   if (Math.abs(x - points[i][0]) > best + 3 || Math.abs(z - points[i][1]) > best + 3) continue;
-   best = Math.min(best, toSegment(x, z, points[i][0], points[i][1], points[i + 1][0], points[i + 1][1]) - path.width / 2);
-  }
- }
- return best;
-}
 
 // Ruido suave y repetible.
 export function noise2(x, z) {
@@ -124,40 +35,276 @@ export function noise2(x, z) {
  return top * (1 - sz) + bottom * sz;
 }
 
-// Altura del suelo: páramo de lomas suaves, la colina en espiral al norte y la
-// orilla que baja a la laguna.
-export function height(x, z) {
- const r = Math.hypot(x, z);
- const shore = shoreRadius(Math.atan2(z, x));
- let moor = 0.34 * Math.sin(x * 0.19 + 1.3) * Math.cos(z * 0.16 - 0.4) + 0.2 * Math.sin((x + z) * 0.31 + 0.7) + 0.44; // (siempre por encima de la laguna: no quedan charcos)
- for (const flat of FLATS) moor *= smooth(flat.r, flat.r + 3.5, Math.hypot(x - flat.x, z - flat.z));
- // (Al pie de la colina el páramo se allana: la senda arranca a ras.)
- moor *= smooth(HILL.r - 1, HILL.r + 3, Math.hypot(x - HILL.x, z - HILL.z));
- return moor + hillHeight(x, z) - 2.9 * smooth(shore - 3, shore + 6, r);
+// ── La isla y sus terrazas ──────────────────────────────────────────────────
+// La plataforma del cohete está en el origen (es el eje del planeta en que se
+// cierra el mundo al subir con la nave); la isla se extiende hacia el norte.
+export const ISLAND = { x: 0, z: -17 };
+export const shoreRadius = (angle) => 28.5 + 2.2 * Math.sin(3 * angle + 1.1) + 1.5 * Math.sin(5 * angle + 0.4);
+// Cuánto se está dentro de la isla (m hasta su borde; negativo, en el mar).
+export function islandEdge(x, z) {
+ const dx = x - ISLAND.x, dz = z - ISLAND.z;
+ return shoreRadius(Math.atan2(dz, dx)) - Math.hypot(dx, dz);
+}
+// Cada terraza es la unión de unos discos [x, z, radio], con el borde algo mordido.
+const TERRACES = [
+ // Primera: la mitad de atrás de la isla, en tres bloques.
+ [[-13, -23, 9.5], [0, -29, 12.5], [13, -23, 9.5]],
+ // Segunda: un pico a cada lado (observatorio y casa del árbol) y el macizo central.
+ [[-16.5, -26.5, 5], [16.5, -27, 5], [0, -33, 6.8]],
+ // Tercera: la cima, con la torre del reloj.
+ [[0, -35, 4.3]],
+];
+// m hasta el borde de la terraza `level` (1 a 3); negativo, fuera.
+export function terraceEdge(level, x, z) {
+ let inside = -Infinity;
+ for (const [cx, cz, r] of TERRACES[level - 1]) inside = Math.max(inside, r - Math.hypot(x - cx, z - cz));
+ return inside + (noise2(x * 0.31 + 5.3, z * 0.31 - 2.7) - 0.5) * 1.0;
 }
 
-// ¿Está vedado este punto? Lo están el agua honda y los taludes: los de la
-// colina no se trepan, se sube por su senda.
-function blocked(x, z, _fromY, agent) {
- const here = height(x, z);
- if (here <= MAX_WADE) return true;
+// ── Escaleras ───────────────────────────────────────────────────────────────
+// Rampas con peldaños: cada una sigue sus puntos y sube de una altura a otra.
+// Se pisa la rampa (lisa); los peldaños son solo lo que se ve.
+export const STAIRS = [
+ { id: "oeste", width: 2.4, from: LEVELS[0], to: LEVELS[1], through: [[-9.2, -11.8], [-11, -14.4], [-10, -17.6]] },
+ { id: "este", width: 2.4, from: LEVELS[0], to: LEVELS[1], through: [[11.5, -9.2], [13.4, -12.6], [13, -16.2]] },
+ { id: "macizo", width: 2.2, from: LEVELS[1], to: LEVELS[2], through: [[-3.4, -20.4], [-4.3, -24], [-2.6, -27.6]] },
+ { id: "pico", width: 2.0, from: LEVELS[1], to: LEVELS[2], through: [[-11.2, -20.2], [-13.2, -23.2], [-15.2, -24.9]] },
+ { id: "cima", width: 2.0, from: LEVELS[2], to: LEVELS[3], through: [[4.7, -29.4], [5.5, -32.8], [3.1, -35.4]] },
+].map((stair) => {
+ // (En curva suave, a tramos cortos: sin codos bruscos.)
+ const through = curve(stair.through, 5);
+ const lengths = [0];
+ for (let i = 1; i < through.length; i++) lengths.push(lengths[i - 1] + Math.hypot(through[i][0] - through[i - 1][0], through[i][1] - through[i - 1][1]));
+ return { ...stair, ends: [stair.through[0], stair.through[stair.through.length - 1]], through, lengths, length: lengths[lengths.length - 1] };
+});
+function toSegment(x, z, ax, az, bx, bz) {
+ const dx = bx - ax, dz = bz - az;
+ const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1)));
+ return { d: Math.hypot(x - (ax + dx * t), z - (az + dz * t)), t };
+}
+// Altura de la escalera en (x, z), o null si ahí no hay ninguna.
+export function stairHeight(x, z) {
+ for (const stair of STAIRS) {
+  // Lo andado se mezcla entre los tramos que alcanzan el punto, cada uno con
+  // más peso cuanto más cerca: en el codo de la escalera la altura no da saltos
+  // (con «el tramo más cercano» sí los daba, y uno se quedaba clavado en el rincón).
+  let weight = 0, along = 0;
+  for (let i = 0; i < stair.through.length - 1; i++) {
+   const [ax, az] = stair.through[i], [bx, bz] = stair.through[i + 1];
+   if (Math.abs(x - (ax + bx) / 2) > 6 || Math.abs(z - (az + bz) / 2) > 6) continue;
+   const { d, t } = toSegment(x, z, ax, az, bx, bz);
+   if (d >= stair.width / 2) continue;
+   const w = (stair.width / 2 - d) ** 2;
+   weight += w;
+   along += w * (stair.lengths[i] + (stair.lengths[i + 1] - stair.lengths[i]) * t);
+  }
+  if (weight > 0) return stair.from + (stair.to - stair.from) * (along / weight / stair.length);
+ }
+ return null;
+}
+
+// ── Agua dulce ──────────────────────────────────────────────────────────────
+// Nace en el macizo, cae a una poza en la primera terraza, corre hasta su
+// borde, cae otra vez y baja en río, por delante, hasta saltar al mar por el oeste.
+export const POND = { x: 2, z: -23, r: 2.7, level: 1 }; // poza de la primera terraza
+export const POOL = { x: 2.7, z: -13.4, r: 2.3, level: 0 }; // poza al pie de la segunda cascada
+export const STREAM = [[2, -21], [2.5, -17.2]]; // arroyo de la poza al borde de la terraza
+export const RIVER = [[2.7, -12.4], [0, -10.6], [-5, -9], [-11, -6.4], [-17, -3], [-23.6, 0.6], [-26.6, 2.2]];
+const DEPTH = 0.42; // lo que se hunde el cauce
+export const WATERFALLS = [
+ { x: 1.9, z: -25.9, top: LEVELS[2], bottom: LEVELS[1], width: 2.4, turn: 0 }, // del macizo a la poza
+ { x: 2.6, z: -15.9, top: LEVELS[1], bottom: LEVELS[0], width: 2.2, turn: 0 }, // de la terraza al río
+ { x: -27.2, z: 2.6, top: LEVELS[0], bottom: WATER_LEVEL, width: 2.4, turn: -1.05 }, // del río al mar
+];
+function toLine(x, z, points) {
+ let best = Infinity;
+ for (let i = 0; i < points.length - 1; i++) best = Math.min(best, toSegment(x, z, points[i][0], points[i][1], points[i + 1][0], points[i + 1][1]).d);
+ return best;
+}
+// Cuánto cauce hay en (x, z): 1 en el eje del agua, 0 fuera.
+export function waterBed(x, z) {
+ const river = 1 - smooth(0.55, 1.5, toLine(x, z, RIVER));
+ const stream = 1 - smooth(0.4, 1.1, toLine(x, z, STREAM));
+ const pond = 1 - smooth(POND.r - 0.9, POND.r, Math.hypot(x - POND.x, z - POND.z));
+ const pool = 1 - smooth(POOL.r - 0.9, POOL.r, Math.hypot(x - POOL.x, z - POOL.z));
+ return Math.max(river, stream, pond, pool);
+}
+
+// Altura del terreno, sin puentes.
+export function ground(x, z) {
+ const edge = islandEdge(x, z);
+ if (edge < -1.2) return SEA_BED;
+ let h = stairHeight(x, z);
+ if (h === null) {
+  h = 0;
+  for (let level = 1; level <= 3; level++) h += STEP * smooth(-0.5, 0.5, terraceEdge(level, x, z));
+  h -= DEPTH * waterBed(x, z);
+  // (Un poco de vida en lo llano: no llega a notarse al andar.)
+  h += (noise2(x * 0.5 + 1.7, z * 0.5 + 8.2) - 0.5) * 0.12;
+ }
+ // El borde de la isla es un cortado que cae al mar.
+ return SEA_BED + (h - SEA_BED) * smooth(-1.2, -0.1, edge);
+}
+
+// ── Puentes ─────────────────────────────────────────────────────────────────
+// Colgantes, de cuerda y tablas, entre los picos; y pasarelas de tablones
+// sobre el agua. `sag`: lo que se comba el colgante en el centro (negativo: se arquea).
+export const BRIDGES = [
+ { id: "observatorio", rope: true, from: [-12.4, -27.2], to: [-5.4, -29.7], y: LEVELS[2], width: 1.5, sag: 0.55 },
+ { id: "casa-arbol", rope: true, from: [5.5, -29.9], to: [12.4, -27.8], y: LEVELS[2], width: 1.5, sag: 0.55 },
+ { id: "rio", from: [-7.1, -5.9], to: [-8.6, -10.2], y: LEVELS[0], width: 1.9, sag: -0.42 },
+ { id: "arroyo", from: [0.1, -19], to: [4.3, -19.1], y: LEVELS[1], width: 1.7, sag: -0.22 },
+].map((bridge) => {
+ const dx = bridge.to[0] - bridge.from[0], dz = bridge.to[1] - bridge.from[1], length = Math.hypot(dx, dz);
+ return { ...bridge, length, ux: dx / length, uz: dz / length };
+});
+// Altura del tablero en lo que va de recorrido `t` (0 a 1).
+export const bridgeDeck = (bridge, t) => bridge.y + 0.06 - Math.sin(Math.min(1, Math.max(0, t)) * Math.PI) * bridge.sag;
+// El puente que hay en (x, z) y su altura ahí, o null.
+export function bridgeAt(x, z) {
+ for (const bridge of BRIDGES) {
+  const px = x - bridge.from[0], pz = z - bridge.from[1];
+  const along = px * bridge.ux + pz * bridge.uz, across = Math.abs(-px * bridge.uz + pz * bridge.ux);
+  if (along < -0.25 || along > bridge.length + 0.25 || across > bridge.width / 2) continue;
+  return { bridge, y: bridgeDeck(bridge, along / bridge.length) };
+ }
+ return null;
+}
+
+// Altura que pisan los personajes.
+export function height(x, z) {
+ return bridgeAt(x, z)?.y ?? ground(x, z);
+}
+
+// ¿Está vedado este punto? Lo están el mar, los acantilados (cualquier punto en
+// pendiente fuerte, se llegue subiendo o bajando) y entrar a un puente si no
+// es por sus extremos (quien anda por debajo no «sube» a él).
+function blocked(x, z, fromY, agent) {
+ const deck = bridgeAt(x, z);
+ if (deck) return fromY !== undefined && Math.abs(fromY - deck.y) > 1;
+ const here = ground(x, z);
+ if (here < WATER_LEVEL + 0.5) return true;
  if (agent?.prop) return false;
  const e = 0.25;
- const slope = Math.hypot(height(x + e, z) - height(x - e, z), height(x, z + e) - height(x, z - e)) / (2 * e);
+ const slope = Math.hypot(ground(x + e, z) - ground(x - e, z), ground(x, z + e) - ground(x, z - e)) / (2 * e);
  return slope >= MAX_SLOPE;
 }
 
-// Qué se pisa en (x, z), para el sonido de los pasos y el color del suelo.
-export function surface(x, z) {
- const here = height(x, z);
- if (here < WATER_LEVEL + 0.12) return "mud";
- if (Math.hypot(x - PAD.x, z - PAD.z) < PAD.padRadius) return "stone";
- if (pathEdge(x, z) < 0) return "path";
- hillHeight(x, z);
- if (hill.path > 0.5) return "path";
- return "moor";
+// ── Sitios ──────────────────────────────────────────────────────────────────
+export const COLORS = { nave: "#ff9a3c" };
+export const SPAWN = { x: 0, z: 7.5 };
+export const PAD = { x: 0, z: 0, padRadius: 4.6, color: "#6a6588" }; // plataforma circular de piedra, delante
+// Edificios. `turn`: hacia dónde mira su fachada (0 = al sur, a la cámara);
+// `size`: lado mayor en planta, en metros; `solid`: su huella (ancho y fondo)
+// o su radio, para chocar.
+export const BUILDINGS = {
+ // La torre del reloj, en la cima: el icono de este mundo.
+ torre: { model: "torre", painted: true, x: 0, z: -36, turn: 0, size: 4.1, solid: [3.9, 3.9] },
+ // El observatorio, en el pico del oeste (el mismo modelo del mundo 1).
+ observatorio: { model: "observatorio", from: "living", x: -17.4, z: -27.4, turn: 0.5, size: 6.2, solid: 2.8 },
+ // La casa del árbol, en el pico del este (el mismo modelo del mundo 1).
+ "casa-arbol": { model: "casa-arbol", from: "living", x: 17.2, z: -27.8, turn: -0.4, size: 7.6, solid: 1.6 },
+ // La casa sobre tronco, en la primera terraza, al este: aquí se lee «Sobre mí».
+ "casa-tronco": { model: "casa-tronco", x: 16, z: -21.2, turn: -0.5, size: 9, solid: 2 },
+ // Casita de cuento, abajo, al oeste, entre el río y el acantilado.
+ casita: { model: "casita", x: -17.6, z: -9.2, turn: 0.35, size: 5.2, solid: [4.8, 5] },
+};
+// La casa del alquimista (la casa torcida, hecha a mano), en la primera terraza, al oeste: luz morada.
+export const HOUSE = { x: -18, z: -18.2, turn: 0.5, scale: 0.62, width: 5.2, depth: 4.6 };
+// El invernadero de cristal, abajo, al este.
+export const GREENHOUSE = { x: 14.2, z: -2.6, turn: -0.3, width: 3.6, depth: 5.2 };
+const front = (site, away) => ({ x: site.x + Math.sin(site.turn) * away, z: site.z + Math.cos(site.turn) * away });
+// Ante la puerta de la casa sobre tronco (donde se lee su historia).
+export const STORY_DOOR = front(BUILDINGS["casa-tronco"], 3.5);
+export const HOUSE_DOOR = front(HOUSE, (HOUSE.depth / 2) * HOUSE.scale + 1.3);
+
+// Miradores: sitios donde la cámara se inclina hacia el horizonte y entran en
+// cuadro la luna y el cielo. `r`: radio en que hace efecto del todo (y se va
+// perdiendo en otro tanto).
+export const VIEWPOINTS = [
+ { id: "plataforma", x: PAD.x, z: PAD.z + 3, r: 5.5 },
+ { id: "torre", x: 0.4, z: -32.6, r: 2.6 },
+ { id: "observatorio", x: -15.4, z: -24.6, r: 2.4 },
+];
+
+// Caminos empedrados que serpentean. Cada uno pasa por sus puntos en curva suave.
+const TRAILS = [
+ // De la plataforma, hacia el norte, a la pasarela del río y a la escalera del oeste.
+ { width: 1.7, through: [[-3.6, -2.9], [-5.6, -4.2], [-7.1, -5.9]] },
+ { width: 1.7, through: [[-8.6, -10.2], [-9.2, -11.8]] },
+ // A la casita.
+ { width: 1.4, through: [[-9, -11.2], [-12, -10.6], [-14.6, -8.4]] },
+ // De la plataforma al invernadero y a la escalera del este.
+ { width: 1.7, through: [[4.4, -1.4], [7.4, -2.6], [9.6, -5.2], [11.4, -9]] },
+ { width: 1.4, through: [[9, -4], [11.8, -3.6]] },
+ // Al sur, hasta la punta de la isla.
+ { width: 1.6, through: [[0.2, 4.6], [0.8, 7.2], [-0.2, 9.4]] },
+ // Primera terraza: de la escalera del oeste a la casa del alquimista, a la escalera del pico y a la del macizo.
+ { width: 1.5, through: [[-10, -17.8], [-12.6, -18.6], [-15.4, -17]] },
+ { width: 1.5, through: [[-10, -17.8], [-10.8, -19.4], [-11.2, -20.2]] },
+ { width: 1.6, through: [[-10, -17.8], [-6.6, -19], [-3.4, -20.2]] },
+ // Y por la pasarela del arroyo hasta la casa sobre tronco y la escalera del este.
+ { width: 1.6, through: [[-3.4, -20.2], [-1.4, -19.2], [0.1, -19]] },
+ { width: 1.6, through: [[4.3, -19.1], [8, -18.2], [11, -17.8], [13, -16.4]] },
+ { width: 1.5, through: [[11, -17.8], [13, -19], [STORY_DOOR.x, STORY_DOOR.z]] },
+ // Arriba: de la escalera a los dos puentes y a la escalera de la cima.
+ { width: 1.5, through: [[-2.6, -27.8], [-3.6, -29], [-5.4, -29.7]] },
+ { width: 1.5, through: [[-2.6, -27.8], [1.4, -28.8], [4.6, -29.3]] },
+ { width: 1.4, through: [[4.6, -29.3], [5.5, -29.9]] },
+ // En los picos y en la cima.
+ { width: 1.4, through: [[-12.4, -27.2], [-14.4, -26.2], [-15.2, -25]] },
+ { width: 1.4, through: [[12.4, -27.8], [14.2, -26.2]] },
+ { width: 1.5, through: [[3.1, -35.6], [1.6, -34.2], [0.2, -33.6]] },
+];
+// Curva de Catmull-Rom por los puntos dados, en tramos cortos.
+function curve(points, steps = 6) {
+ const out = [];
+ const at = (i) => points[Math.min(points.length - 1, Math.max(0, i))];
+ for (let i = 0; i < points.length - 1; i++) {
+  const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+  for (let k = 0; k < steps; k++) {
+   const t = k / steps, t2 = t * t, t3 = t2 * t;
+   out.push([0, 1].map((c) => 0.5 * (2 * p1[c] + (-p0[c] + p2[c]) * t + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * t2 + (-p0[c] + 3 * p1[c] - 3 * p2[c] + p3[c]) * t3)));
+  }
+ }
+ out.push(points[points.length - 1]);
+ return out;
 }
-const FOOTING = { mud: "sand", stone: "stone", path: "path", moor: "grass" };
+export const PATHS = TRAILS.map((trail) => ({ width: trail.width, points: curve(trail.through) }));
+// Plazoletas empedradas: alrededor de la plataforma y ante las puertas.
+const YARDS = [
+ { x: PAD.x, z: PAD.z, r: PAD.padRadius + 1.3 },
+ { x: STORY_DOOR.x, z: STORY_DOOR.z, r: 1.6 },
+ { x: HOUSE_DOOR.x, z: HOUSE_DOOR.z, r: 1.4 },
+ { x: 0.2, z: -33.4, r: 1.7 },
+];
+// Distancia al borde del camino más cercano: negativa dentro, positiva fuera.
+export function pathEdge(x, z) {
+ let best = Infinity;
+ for (const yard of YARDS) best = Math.min(best, Math.hypot(x - yard.x, z - yard.z) - yard.r);
+ for (const path of PATHS) {
+  const points = path.points;
+  for (let i = 0; i < points.length - 1; i++) {
+   if (Math.abs(x - points[i][0]) > best + 3 || Math.abs(z - points[i][1]) > best + 3) continue;
+   best = Math.min(best, toSegment(x, z, points[i][0], points[i][1], points[i + 1][0], points[i + 1][1]).d - path.width / 2);
+  }
+ }
+ return best;
+}
+
+// Pendiente del terreno en (x, z).
+export function slopeAt(x, z, e = 0.3) {
+ return Math.hypot(ground(x + e, z) - ground(x - e, z), ground(x, z + e) - ground(x, z - e)) / (2 * e);
+}
+// Qué se pisa en (x, z), para el sonido de los pasos.
+export function surface(x, z) {
+ if (bridgeAt(x, z)) return "wood";
+ if (stairHeight(x, z) !== null || Math.hypot(x - PAD.x, z - PAD.z) < PAD.padRadius) return "stone";
+ if (waterBed(x, z) > 0.6) return "water";
+ if (pathEdge(x, z) < 0) return "path";
+ return "grass";
+}
+const FOOTING = { wood: "wood", stone: "stone", water: "sand", path: "path", grass: "grass" };
 
 // ── Generador aleatorio con semilla: el mundo sale igual en cada visita ──────
 export function createRandom(seed) {
@@ -171,52 +318,59 @@ export function createRandom(seed) {
 }
 
 // ── Lo plantado ─────────────────────────────────────────────────────────────
-// Árboles sin hojas, de ramas rizadas. `kind`: cuál de las tres formas;
-// `scale`: tamaño; `turn`: giro.
+// Árboles sin hojas, de ramas rizadas. `kind`: cuál de las tres formas.
 export const TREES = [
- { x: -19.6, z: -7.4, kind: 0, scale: 1.12, turn: 0.4 },
- { x: -8.2, z: -13.4, kind: 1, scale: 0.96, turn: 2.1 },
- { x: 6.9, z: -6.4, kind: 2, scale: 1.05, turn: 4.0 },
- { x: -5.6, z: 4.9, kind: 1, scale: 0.84, turn: 5.3 },
- // En la cima de la colina, recortado contra la luna.
- { x: HILL.x, z: HILL.z, kind: 0, scale: 1.35, turn: 1.2 },
+ { x: -5.6, z: 5.4, kind: 1, scale: 0.8, turn: 5.3 },
+ { x: 7.4, z: 4.4, kind: 2, scale: 0.86, turn: 4.0 },
+ { x: -21.5, z: -5.2, kind: 0, scale: 0.95, turn: 0.4 },
+ { x: 19.6, z: -8.4, kind: 2, scale: 0.9, turn: 1.4 },
+ { x: -6.2, z: -23.2, kind: 1, scale: 0.8, turn: 2.1 },
+ { x: 8.2, z: -24.4, kind: 0, scale: 0.84, turn: 3.2 },
+ { x: -20.4, z: -24.2, kind: 2, scale: 0.7, turn: 1.2 },
+ { x: -3.4, z: -37.2, kind: 0, scale: 0.72, turn: 4.4 },
 ];
 // Farolas dobladas. `turn`: hacia dónde cuelga el farol.
-export const LAMPS = [{ x: -7.3, z: -3.2, turn: 2.5 }];
+export const LAMPS = [
+ { x: -4.4, z: -7.4, turn: 0.4 },
+ { x: 8.6, z: -6.6, turn: 2.6 },
+ { x: -8.2, z: -19.6, turn: 4.4 },
+ { x: 9.4, z: -16.6, turn: 1.2 },
+ { x: 1.8, z: -30.6, turn: 5.2 },
+];
 // Verja de hierro desigual: tramos entre dos puntos.
 export const FENCES = [
- { from: [-16.9, -5.9], to: [-12.6, -5.2] },
- { from: [-8.6, -10.4], to: [-7.6, -7.4] },
+ { from: [-21.4, -15.4], to: [-18.4, -14.2] },
+ { from: [-20.6, -11.6], to: [-17.4, -12.4] },
 ];
-
 // Balizas de la zona de aterrizaje: postes a rayas con una bola encendida, entre camino y camino.
-export const BEACONS = [0.72, 2.3, 3.75, 5.5].map((angle, i) => ({ x: PAD.x + Math.cos(angle) * (PAD.padRadius + 1.75), z: PAD.z + Math.sin(angle) * (PAD.padRadius + 1.75), turn: angle + 1.2 + i }));
-// Lascas de piedra clavadas en el páramo.
+export const BEACONS = [0.6, 2.5, 4.55, 5.25].map((angle, i) => ({ x: PAD.x + Math.cos(angle) * (PAD.padRadius + 1.7), z: PAD.z + Math.sin(angle) * (PAD.padRadius + 1.7), turn: angle + 1.2 + i }));
+// Lascas de piedra, al pie de los cortados y sueltas.
 export const SHARDS = [
- { x: -3.4, z: -9.9, scale: 1.1, turn: 0.4 },
- { x: 4.6, z: -12.6, scale: 0.9, turn: 2.2 },
- { x: -15.2, z: -1.9, scale: 0.8, turn: 4.1 },
- { x: 10.2, z: 2.6, scale: 1.0, turn: 1.3 },
- { x: -21.8, z: -13.2, scale: 1.25, turn: 5.2 },
- { x: 12.4, z: -12.2, scale: 1.05, turn: 3.0 },
- { x: -11.2, z: 6.2, scale: 0.85, turn: 0.9 },
+ { x: -3.6, z: -13.6, scale: 1.1, turn: 0.4 },
+ { x: 7.2, z: -13.4, scale: 0.9, turn: 2.2 },
+ { x: -15.6, z: -13.2, scale: 1.0, turn: 4.1 },
+ { x: 17.6, z: -13.2, scale: 1.1, turn: 1.3 },
+ { x: -8.4, z: -26.2, scale: 0.8, turn: 5.2 },
+ { x: 9.2, z: -27.4, scale: 0.85, turn: 3.0 },
+ { x: 9.4, z: 3.4, scale: 0.7, turn: 0.9 },
 ];
-// ¿Queda libre este punto para plantar algo menudo? Ni camino, ni agua, ni colina, ni pegado a nada.
+// ¿Queda libre este punto para plantar algo menudo? Llano, seco, fuera de caminos y de todo.
 function open(x, z, margin = 0.5) {
- if (height(x, z) < 0.02 || pathEdge(x, z) < margin) return false;
- if (Math.hypot(x - HILL.x, z - HILL.z) < HILL.r + 0.3) return false;
- if (Math.hypot(x - HOUSE.x, z - HOUSE.z) < 4.6) return false;
+ if (islandEdge(x, z) < 1.4 || slopeAt(x, z) > 0.3 || stairHeight(x, z) !== null || bridgeAt(x, z)) return false;
+ if (waterBed(x, z) > 0 || pathEdge(x, z) < margin) return false;
+ for (const site of Object.values(BUILDINGS)) if (Math.hypot(x - site.x, z - site.z) < site.size * 0.56) return false;
+ if (Math.hypot(x - HOUSE.x, z - HOUSE.z) < 3.4 || Math.hypot(x - GREENHOUSE.x, z - GREENHOUSE.z) < 3.8) return false;
  return ![...TREES, ...SHARDS].some((one) => Math.hypot(x - one.x, z - one.z) < 1.1);
 }
-// Matojos secos: a corros, por todo el páramo.
+// Matojos: a corros, por toda la isla.
 export const TUFTS = (() => {
  const random = createRandom(20261120);
  const tufts = [];
- for (let tries = 0; tufts.length < 900 && tries < 9000; tries++) {
-  const angle = random() * TAU, radius = Math.sqrt(random()) * 43;
-  const cx = Math.cos(angle) * radius, cz = Math.sin(angle) * radius;
+ for (let tries = 0; tufts.length < 700 && tries < 9000; tries++) {
+  const angle = random() * TAU, radius = Math.sqrt(random()) * 29;
+  const cx = ISLAND.x + Math.cos(angle) * radius, cz = ISLAND.z + Math.sin(angle) * radius;
   // Donde el ruido dice «claro» no nace nada: quedan calvas.
-  if (noise2(cx * 0.11 + 7, cz * 0.11) < 0.42) continue;
+  if (noise2(cx * 0.14 + 7, cz * 0.14) < 0.4) continue;
   for (let k = 0; k < 4; k++) {
    const x = cx + (random() - 0.5) * 2.2, z = cz + (random() - 0.5) * 2.2;
    if (open(x, z, 0.25)) tufts.push({ x, z, scale: 0.7 + random() * 0.9, turn: random() * TAU });
@@ -227,39 +381,50 @@ export const TUFTS = (() => {
 
 // ── Colisiones ──────────────────────────────────────────────────────────────
 const turned = (site, px, pz) => [site.x + px * Math.cos(site.turn) + pz * Math.sin(site.turn), site.z - px * Math.sin(site.turn) + pz * Math.cos(site.turn)];
+const box = (site, width, depth) => ({ poly: [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sz]) => turned(site, (sx * width) / 2, (sz * depth) / 2)), r: 0.12 });
 export const shipCollider = { x: PAD.x, z: PAD.z, r: 2.3, active: true };
 export const colliders = [
- // La casa: su planta (algo menos que el alero) y el porche.
- { poly: [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sz]) => turned(HOUSE, (sx * HOUSE.width) / 2, (sz * HOUSE.depth) / 2)), r: 0.12 },
+ ...Object.values(BUILDINGS).map((site) => (Array.isArray(site.solid) ? box(site, site.solid[0], site.solid[1]) : { x: site.x, z: site.z, r: site.solid })),
+ box(HOUSE, HOUSE.width * HOUSE.scale, HOUSE.depth * HOUSE.scale),
+ box(GREENHOUSE, GREENHOUSE.width, GREENHOUSE.depth),
  ...TREES.map((tree) => ({ x: tree.x, z: tree.z, r: 0.5 * tree.scale })),
  ...LAMPS.map((lamp) => ({ x: lamp.x, z: lamp.z, r: 0.22 })),
  ...BEACONS.map((beacon) => ({ x: beacon.x, z: beacon.z, r: 0.16 })),
  ...SHARDS.map((shard) => ({ x: shard.x + 0.05 * shard.scale, z: shard.z + 0.05 * shard.scale, r: 0.62 * shard.scale })),
  ...FENCES.map((fence) => ({ x: fence.from[0], z: fence.from[1], bx: fence.to[0], bz: fence.to[1], r: 0.14 })),
+ // Barandillas de los puentes: por los lados no se sale.
+ ...BRIDGES.flatMap((bridge) =>
+  [-1, 1].map((side) => {
+   const ox = -bridge.uz * side * (bridge.width / 2 + 0.12), oz = bridge.ux * side * (bridge.width / 2 + 0.12);
+   // (Algo más cortas que el tablero: en los extremos se entra y se sale en diagonal sin tropezar.)
+   const inset = 0.45;
+   return { x: bridge.from[0] + ox + bridge.ux * inset, z: bridge.from[1] + oz + bridge.uz * inset, bx: bridge.to[0] + ox - bridge.ux * inset, bz: bridge.to[1] + oz - bridge.uz * inset, r: 0.1 };
+  }),
+ ),
  shipCollider,
 ];
 
 // La noche de este mundo (ver experience/theme.js). No hay día ni atardecer:
-// las tres franjas llevan la misma paleta. Luna fría, baja y al fondo (por el
-// noroeste): recorta las siluetas y tiende sombras largas hacia la cámara; la
-// luz cálida la ponen los faroles y las ventanas.
+// las tres franjas llevan la misma paleta. Luna fría al fondo, a la derecha de
+// la torre: recorta las siluetas y tiende sombras largas hacia la cámara.
+// Sombras moradas, no negras; la luz cálida la ponen las ventanas y los faroles.
 const NIGHT = {
- hemiSky: "#6f78dc",
- hemiGround: "#3b2d6a",
- hemiPower: 1.2,
- sun: "#cfdcff",
- sunPower: 2.3,
- sunFrom: [-0.4, 0.42, -0.82],
- fog: "#2a2152",
- fogDensity: 0.0105,
- background: "#2a2152",
- skyTop: "#070a24",
- skyHorizon: "#51358a",
- waterShallow: "#3a2f6e",
- waterDeep: "#0d0b24",
+ hemiSky: "#8a78e0",
+ hemiGround: "#4a2f78",
+ hemiPower: 1.25,
+ sun: "#cfe0ff",
+ sunPower: 2.5,
+ sunFrom: [0.24, 0.5, -0.83],
+ fog: "#2c2360",
+ fogDensity: 0.0085,
+ background: "#2c2360",
+ skyTop: "#0a1238",
+ skyHorizon: "#3b3a8c",
+ waterShallow: "#1f6f8a",
+ waterDeep: "#101742",
  glow: 1,
  bloom: 0.95,
- shadow: 0.86,
+ shadow: 0.84,
 };
 
 // El mundo, con la interfaz que usan el jugador, Woody, la nave y los objetos.
@@ -272,15 +437,21 @@ const twisted = {
  spawn: SPAWN,
  waterLevel: WATER_LEVEL,
  height,
- ground: height,
+ ground,
  blocked,
  surface: (x, z) => FOOTING[surface(x, z)] ?? "grass",
  soundSources: () => ({}),
+ // Miradores: cuánto se inclina ahí la cámara hacia el horizonte (0 = nada, 1 = del todo).
+ lookout: (x, z) => {
+  let most = 0;
+  for (const spot of VIEWPOINTS) most = Math.max(most, 1 - smooth(spot.r, spot.r * 2, Math.hypot(x - spot.x, z - spot.z)));
+  return most;
+ },
  // Zonas de las que Woody dice algo la primera vez que se entra (content/woody.js).
  zones: [
   { id: "luna-nave", x: PAD.x, z: PAD.z, r: PAD.padRadius + 1.4 },
-  { id: "casa-torcida", x: HOUSE_DOOR.x, z: HOUSE_DOOR.z, r: 4.2 },
-  { id: "colina", x: HILL.x, z: HILL.z + HILL.r, r: 3.4 },
+  { id: "casa-tronco", x: STORY_DOOR.x, z: STORY_DOOR.z, r: 3.4 },
+  { id: "torre", x: 0.2, z: -33.2, r: 3 },
  ],
  areas: [],
  colliders,
@@ -291,18 +462,53 @@ const twisted = {
  guide: {
   nodes: {
    cohete: [0, 6.6],
-   "cruce-oeste": [-5.4, -0.6],
-   "senda-casa-a": [-9.3, -2.6],
-   "senda-casa-b": [-8.4, -6.6],
-   "casa-torcida": [HOUSE_DOOR.x + 0.4, HOUSE_DOOR.z + 0.5],
+   "cruce-oeste": [-4.4, -3.4],
+   "pasarela-sur": [-7.1, -5.6],
+   "pasarela-norte": [-8.85, -10.9],
+   "escalera-oeste-pie": [-9.3, -12],
+   "escalera-oeste-medio": [-11, -14.4],
+   "escalera-oeste-alto": [-10, -18],
+   "terraza-centro": [-3.6, -20],
+   "arroyo-oeste": [0, -19],
+   "arroyo-este": [4.4, -19.1],
+   "terraza-este": [11, -17.8],
+   "casa-tronco": [STORY_DOOR.x, STORY_DOOR.z],
+   "cruce-este": [5.2, -1.8],
+   invernadero: [9.4, -4.8],
+   "escalera-este-pie": [11.5, -8.9],
+   "escalera-este-medio": [13.4, -12.6],
+   "escalera-este-alto": [13, -16.5],
+   "macizo-medio": [-4.3, -24],
+   "macizo-alto": [-2.6, -27.9],
+   "cima-pie": [4.7, -29.2],
+   "cima-medio": [5.5, -32.8],
+   torre: [2.4, -34.8],
   },
   links: [
    ["cohete", "cruce-oeste"],
-   ["cruce-oeste", "senda-casa-a"],
-   ["senda-casa-a", "senda-casa-b"],
-   ["senda-casa-b", "casa-torcida"],
+   ["cruce-oeste", "pasarela-sur"],
+   ["pasarela-sur", "pasarela-norte"],
+   ["pasarela-norte", "escalera-oeste-pie"],
+   ["escalera-oeste-pie", "escalera-oeste-medio"],
+   ["escalera-oeste-medio", "escalera-oeste-alto"],
+   ["escalera-oeste-alto", "terraza-centro"],
+   ["terraza-centro", "arroyo-oeste"],
+   ["arroyo-oeste", "arroyo-este"],
+   ["arroyo-este", "terraza-este"],
+   ["terraza-este", "casa-tronco"],
+   ["cohete", "cruce-este"],
+   ["cruce-este", "invernadero"],
+   ["invernadero", "escalera-este-pie"],
+   ["escalera-este-pie", "escalera-este-medio"],
+   ["escalera-este-medio", "escalera-este-alto"],
+   ["escalera-este-alto", "terraza-este"],
+   ["terraza-centro", "macizo-medio"],
+   ["macizo-medio", "macizo-alto"],
+   ["macizo-alto", "cima-pie"],
+   ["cima-pie", "cima-medio"],
+   ["cima-medio", "torre"],
   ],
-  places: [{ id: "casa-torcida" }, { id: "cohete" }],
+  places: [{ id: "casa-tronco" }, { id: "torre" }, { id: "cohete" }],
  },
  themes: { day: NIGHT, dusk: NIGHT, night: NIGHT },
 };

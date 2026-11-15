@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "e2e": "node tests/e2e/errors.mjs && node tests/e2e/living.mjs && node tests/e2e/characters.mjs && node tests/e2e/portfolio.mjs && node tests/e2e/progress.mjs && node tests/e2e/motion.mjs && node tests/e2e/camera.mjs && node tests/e2e/woody.mjs && node tests/e2e/rocket.mjs && node tests/e2e/terrain.mjs && node tests/e2e/life.mjs && node tests/e2e/football.mjs && node tests/e2e/sounds.mjs && node tests/e2e/travel.mjs && node tests/e2e/twisted.mjs"
+    "e2e": "node tests/e2e/errors.mjs && node tests/e2e/living.mjs && node tests/e2e/characters.mjs && node tests/e2e/portfolio.mjs && node tests/e2e/progress.mjs && node tests/e2e/motion.mjs && node tests/e2e/camera.mjs && node tests/e2e/woody.mjs && node tests/e2e/rocket.mjs && node tests/e2e/terrain.mjs && node tests/e2e/life.mjs && node tests/e2e/football.mjs && node tests/e2e/sounds.mjs && node tests/e2e/travel.mjs && node tests/e2e/twisted.mjs && node tests/e2e/twisted-walk.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

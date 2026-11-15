@@ -25,6 +25,8 @@ const TURN_RESPONSE = 13;
 // arriba; el usuario la acerca y la aleja con la rueda o el pellizco (`rig.zoom`).
 const CAMERA_DISTANCE = 13.4; // m hasta el punto que mira
 const CAMERA_PITCH = (39 * Math.PI) / 180;
+// En un mirador: cuánto de su altura pierde la cámara y cuánto sube el punto al que mira (m).
+const LOOKOUT = { drop: 0.8, rise: 2.4 };
 const CAMERA = { height: CAMERA_DISTANCE * Math.sin(CAMERA_PITCH), back: CAMERA_DISTANCE * Math.cos(CAMERA_PITCH), lookAhead: 0.5, lookUp: 1.0, response: 4.5, fov: 40 };
 
 
@@ -44,6 +46,7 @@ export function Player({ active }) {
   tilt: 0,
   yaw: 0,
   lift: 1,
+  out: 0, // cuánto se ha inclinado hacia el horizonte en un mirador (0 a 1)
   started: false,
  });
  const reducedMotion = useMemo(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches, []);
@@ -152,7 +155,12 @@ export function Player({ active }) {
   const shake = reducedMotion ? 0 : rig.shake * rig.shake;
   // (La altura se cuenta desde el punto al que se mira, para que la inclinación sea la dicha.)
   const lookUp = rig.focus ? 0 : CAMERA.lookUp;
-  const offsetY = lookUp + CAMERA.height * state.distance * state.lift;
+  // Miradores (los mundos que los traen; ver `lookout` en worlds/twisted/layout.js):
+  // la cámara baja y mira algo por encima del astronauta, hacia el horizonte:
+  // entran en cuadro el cielo y la luna. Llega y se va despacio.
+  const out = !rig.focus && rig.intro === 0 && world.lookout ? world.lookout(position.x, position.z) : 0;
+  state.out += (out - state.out) * (state.started ? 1 - Math.exp(-1.6 * dt) : 1);
+  const offsetY = lookUp + CAMERA.height * state.distance * state.lift * (1 - LOOKOUT.drop * state.out);
   const offsetZ = CAMERA.back * state.distance * (1 - state.tilt * 0.82);
   camera.position.set(
    state.focus.x + Math.sin(state.yaw) * offsetZ + (Math.random() - 0.5) * shake,
@@ -160,7 +168,7 @@ export function Player({ active }) {
    state.focus.z + Math.cos(state.yaw) * offsetZ,
   );
   // Se mira a la altura del pecho del astronauta, no a sus pies.
-  look.set(state.focus.x, state.focus.y + lookUp, state.focus.z);
+  look.set(state.focus.x, state.focus.y + lookUp + LOOKOUT.rise * state.out, state.focus.z);
   // Bienvenida: la cámara está en el islote y, al entrar, viaja hasta aquí.
   if (rig.intro > 0) {
    const pose = welcomePose(aspect);
