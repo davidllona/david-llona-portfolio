@@ -33,9 +33,7 @@ const info = () =>
   return { calls: render.calls, drawCalls: render.drawCalls, triangles: render.triangles };
  });
 const setNight = async (night) => {
- const isNight = await t.evaluate(() => document.querySelector(".theme-toggle")?.getAttribute("aria-pressed") === "true");
- if (night !== isNight) await t.page.keyboard.press("KeyN");
- await wait(2600);
+ await t.moment(night ? "night" : "day");
 };
 
 if (!only || only === "medida") {

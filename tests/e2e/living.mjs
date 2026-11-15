@@ -108,12 +108,12 @@ await t.put(OBSERVATORY.x, OBSERVATORY.z + 3.0, { withWoody: false, settle: 500 
 check(/Telescopio/.test(await prompt()), `observatorio: "${await prompt()}"`);
 await use();
 await wait(1800);
-const night = await t.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("color-scheme") + "|" + localStorage.getItem("planeta-tema"));
-check(/night/.test(night), `el telescopio pone la noche (${night})`);
+const night = await t.evaluate(() => document.documentElement.dataset.momento);
+check(night === "night", `el telescopio pone la noche (${night})`);
 await t.shot("living-noche-meseta");
 await use();
 await wait(600);
-check((await t.evaluate(() => localStorage.getItem("planeta-tema"))) === "day", "y otra vez devuelve el día");
+check((await t.evaluate(() => document.documentElement.dataset.momento)) === "day", "y otra vez devuelve el día");
 // Contacto: tres terminales con su enlace.
 for (const [i, name] of ["LinkedIn", "GitHub", "Email"].entries()) {
  await t.put(CONTACT.terminals[i].x, CONTACT.terminals[i].z + 1.5, { withWoody: false, settle: 400 });

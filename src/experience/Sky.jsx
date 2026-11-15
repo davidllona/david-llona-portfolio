@@ -5,7 +5,7 @@ import { hash, instanceIndex, mix, positionLocal, sin, smoothstep, uniform, vec3
 import { unlit } from "./materials";
 import { createGlowTexture } from "./textures";
 import { rig } from "./state";
-import { current, registerGlow, sunDirection, uniforms } from "./theme";
+import { current, registerGlow, sunDirection, theme, uniforms } from "./theme";
 
 const FLAT = { flat: true };
 
@@ -44,7 +44,7 @@ function Stars({ count }) {
    mesh.current.setMatrixAt(i, helper.matrix);
   }
   mesh.current.instanceMatrix.needsUpdate = true;
-  const stop = registerGlow(shown, 0, 1, "value");
+  const stop = registerGlow(shown, 0, 1, "value", { by: "night" }); // (al atardecer aún no hay estrellas)
   return () => {
    stop();
    material.dispose();
@@ -87,12 +87,12 @@ export function Sky({ stars = 3000 }) {
   halo.current.position.copy(orb.current.position);
   orb.current.quaternion.copy(camera.quaternion);
   halo.current.quaternion.copy(camera.quaternion);
-  // De día es un sol cálido y grande; de noche, una luna fría.
-  const night = current.glow;
-  orb.current.material.color.setRGB(2.4 - night * 0.9, 2.1 - night * 0.3, 1.5 + night * 0.9);
+  // De día es un sol cálido y grande; al atardecer, más grande y naranja; de noche, una luna fría.
+  const night = theme.mix, dusk = theme.dusk;
+  orb.current.material.color.setRGB(2.4 - night * 0.9 + dusk * 0.5, 2.1 - night * 0.3 - dusk * 0.9, 1.5 + night * 0.9 - dusk * 1.0);
   halo.current.material.color.copy(current.sun);
-  halo.current.material.opacity = 0.5 - night * 0.15;
-  orb.current.scale.setScalar((30 - night * 8) * 5);
+  halo.current.material.opacity = 0.5 - night * 0.15 + dusk * 0.3;
+  orb.current.scale.setScalar((30 - night * 8 + dusk * 12) * 5);
   // El cielo acompaña a la cámara cuando rodea el planeta en órbita: las estrellas no se arremolinan.
   group.current.rotation.y = rig.space > 0 ? rig.viewYaw : 0;
   // En la bienvenida la luna es la del islote (Welcome.jsx): esta no se ve.

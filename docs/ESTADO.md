@@ -11,6 +11,54 @@ Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
 Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado.
 Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Contents/MacOS/Blender -b` (5.0.1). No hay ffmpeg: el audio también se convierte con Blender.
 
+## La hora del mundo sigue la hora del visitante
+
+Hecho el 15-11-2026 (`experience/theme.js`, `ui/ThemeToggle.jsx`, `experience/Sky.jsx`, `audio/Sounds.jsx`, `worlds/living/layout.js` (paleta `dusk`), `tests/e2e/hora.mjs`, `tests/e2e/common.mjs`). **Pendiente del visto bueno de David.**
+- Al entrar, el mundo 1 se muestra según el reloj del navegador del visitante (sin pedir ubicación ni permisos): de día por la mañana y a mediodía, atardecer por la tarde, de noche por la noche y un amanecer suave.
+- **Atardecer: estado propio**, al mismo nivel que el día y la noche, con su paleta en `layout.js`: sol bajo y dorado por el oeste (21° sobre el horizonte: sombras largas), cielo naranja en el horizonte y violeta arriba, niebla melocotón, agua que devuelve el cielo; farolas y ventanas a medio encender (brillo 0,42). El **amanecer** es el atardecer recorrido al revés, más suave y con el sol por el este.
+- Los tres van en fila —día (0), atardecer (1), noche (2)— y el momento actual es un punto de esa fila (`theme.at`); entre dos se mezclan sus paletas. Así el cambio de franja es gradual: el atardecer tarda 45 min en llegar y la noche otros 45 en caer.
+- **Franjas** (`bands` en `theme.js`), en los equinoccios: amanecer 7:00–8:00, día hasta las 17:30, atardecer hasta las 20:30, noche. Con el mes se corren de forma aproximada: en junio anochece a las 21:45 y amanece a las 6:00; en diciembre, a las 19:15 y a las 8:00.
+- **A mano**: el botón de arriba a la izquierda (y la tecla N) recorren día → atardecer → noche y esa elección manda sobre la hora hasta que se recarga la página; ya no se guarda de una visita a otra. El botón tiene tres iconos (sol, medio sol sobre el horizonte, luna). El telescopio sigue poniendo la noche y devolviendo el día.
+- **Sonido**: pájaros de día, los dos a la vez al atardecer (pájaros al 55 %, grillos al 50 %), grillos de noche; al amanecer, casi solo pájaros.
+- **Para probar**: `?hora=18:45` fija la hora (también en producción) y `?mes=6` el mes (admite decimales: 3.7 es el equinoccio de marzo).
+- La pantalla de carga y la bienvenida no cambian (`welcome` 21 de 21). Las estrellas no salen hasta que oscurece.
+- **Las pruebas parten siempre del mediodía** (`common.mjs` añade `?hora=12:00` si la prueba no pide otra) y cambian de momento con `t.moment("night")`, que pulsa N las veces que haga falta.
+- **Sin hacer**: «el mundo 2 será siempre de noche» (no existe todavía; cuando exista, basta con fijarle `theme.manual`). El planeta antiguo (`?world=cosmic`) usa el atardecer por defecto de `theme.js`, sin ajustar.
+- Sin comprobar: el paso de una franja a otra visto en tiempo real (solo por cálculo: de un minuto al siguiente el cielo se mueve como mucho 0,033 de 2); el atardecer visto por una persona en movimiento; un teléfono.
+- El encargo llegó cortado en «Entrega: la»; se ha entregado la misma vista a cuatro horas y una hoja del atardecer en cuatro sitios.
+
+**Pruebas tras los dos retoques** (15-11-2026, en primer plano, de dos en dos, Chrome sin ventana, contra el servidor del 5173):
+
+| Prueba | Bien | Fallos |
+|---|---|---|
+| `hora` (nueva) | 21 | 0 |
+| `errors` | 8 | 0 |
+| `living` | 46 | 0 |
+| `characters` | 20 | 0 |
+| `portfolio` | 27 | 0 |
+| `progress` | 26 | 0 |
+| `motion` | 10 | 0 |
+| `camera` | 30 | 0 |
+| `woody` | 37 | 0 |
+| `rocket` | 26 | 0 |
+| `terrain` | 3 | 0 |
+| `life` | 11 | 0 |
+| `football` | 63 | 0 |
+| `sounds` | 28 | 0 (una nueva: pájaros y grillos a la vez al atardecer) |
+| **`npm run e2e` (las trece)** | **335** | **0** |
+| `basket` | 20 | 0 |
+| `garden` | 6 | 0 |
+| `birds` | 4 | 0 |
+| `run` | 19 | 0 |
+| `hill` | 29 | 0 |
+| `collisions` | 4 | 0 |
+| `welcome` | 21 | 0 |
+| `loader` | 13 | **1** (la de siempre: primer pintado a 168 ms, objetivo 100; la pantalla de carga no se toca) |
+| `tests/perf/entrada.mjs` (entrando al atardecer) | 0 pipelines en caliente al entrar y al despegar | — |
+
+- Fps en tierra (2880 × 1620, sin límite): mediodía 71 · 74 · 73 · 73 · 72; atardecer 72 · 74 · 72 · 74 · 73; noche 75 · 81 · 81 · 78 · 80; amanecer 79 · 82 · 75 · 80 · 71.
+- Capturas: `capturas/24-final/hora/` — `hoja-horas.jpg` (la misma vista a las 7:30, 12:00, 18:45 y 23:00), `hoja-atardecer.jpg` (aldea, estanque, llegada y playa al atardecer) y las sueltas.
+
 ## Objetivo 19
 
 Pulido final del mundo 1 (`docs/OBJETIVO-19.md`, 14-11-2026). Cuatro bloques, commit y push por bloque; paradas tras el B y tras el D. El porfolio tendrá tres mundos; este es el primero. Del segundo (estilo Tim Burton) y del tercero (alienígena) no se construye nada todavía.
@@ -70,7 +118,7 @@ Pulido final del mundo 1 (`docs/OBJETIVO-19.md`, 14-11-2026). Cuatro bloques, co
 - La vista de la órbita sale ahora del radio (`orbitView` en `state.js`): cámara 20° fuera del eje (antes 14°), a 152 m del centro; el planeta ocupa unas tres cuartas partes del alto. Los topes de la subdivisión de caras largas también salen del radio (71 geometrías).
 - **Gira muy despacio**: la cámara rodea el planeta a 0,05 rad/s (una vuelta cada dos minutos; antes 0,035).
 - **Rótulos**: en vuelo los coloca la nave (`rig.cards`). El cohete queda a la vista en el centro; «Aterrizar», debajo de él; el aviso «En órbita» y el logro, encima. `rocket.mjs` lo comprueba (26 comprobaciones).
-- Pruebas: `rocket` 26, `errors` 8, `living` 46, `camera` 30, `woody` 37 (una pasada de tres falló «y la baja contigo», en la rampa; no se repitió), `entrada.mjs` (0 pipelines en caliente al entrar y al despegar). **No se ha pasado la batería completa** tras este retoque.
+- Pruebas: `rocket` 26, `errors` 8, `living` 46, `camera` 30, `woody` 37 (una pasada de cuatro falló «y la baja contigo», en la rampa; no se repitió), `entrada.mjs` (0 pipelines en caliente al entrar y al despegar). La batería completa se pasó después, con el retoque de la hora: ver «La hora del mundo».
 - Fps (2880 × 1620, sin límite): día, subida 88 de media y 72 en el peor medio segundo, órbita 89; noche, 79 / 68 y 87. 0 pipelines en caliente en subida, órbita y bajada.
 - Capturas: `capturas/24-final/retoque-D2/` — `orbita-32-dia.jpg`, `orbita-32-noche.jpg`, las alternativas `alternativa-30-*.jpg` y `alternativa-34-*.jpg`, y `hoja-radios.jpg` (las tres juntas, de día y de noche).
 - El servidor de desarrollo del 5199 no estaba en marcha; había uno en el 5173 (`npm run dev` a secas, no lanzado por esta sesión) y las pruebas se han pasado contra él con `E2E_URL=http://localhost:5173/`.
@@ -432,6 +480,7 @@ Comprobado (lo confirma David el 14-11-2026): el recorrido de 3 minutos de Woody
 
 ```
 npm run dev -- --port 5199     # http://localhost:5199
+node tests/e2e/hora.mjs        # la hora del mundo: cada hora su momento, atardecer propio, franjas por mes, cambio gradual, botón y tecla N; «capturas» saca la misma vista a cuatro horas
 node tests/e2e/welcome.mjs     # pantalla previa al aterrizaje: la carga espera al planeta, indicación, ms del clic al descenso, luna, planeta, fugaces; capturas y secuencia
 node tests/e2e/descent.mjs     # el descenso tras el clic, una captura cada 200 ms
 node tests/e2e/loader.mjs      # pantalla de carga: peso, primer pintado, pies sin patinar, móvil; fotogramas del bucle y del fundido
@@ -448,7 +497,7 @@ node tests/perf/carga.mjs      # pantalla de carga: tiempo hasta poder entrar, t
 node tests/perf/peso.mjs       # peso descargado en la primera visita (build de producción en el 5198)
 node tests/perf/fps.mjs        # fps en cinco puntos
 node tests/e2e/errors.mjs      # ninguna excepción de página y el lienzo dibujado: carga, bienvenida, estrella fugaz y mundo, sin ventana y con ventana (incluida en e2e)
-npm run e2e                    # 333 comprobaciones en Chrome sin ventana (con el servidor encendido)
+npm run e2e                    # 335 comprobaciones en Chrome sin ventana (con el servidor encendido)
 node tests/e2e/sounds.mjs      # sonido uno por uno: señal medida de cada bucle, golpes, silencio; graba el recorrido (incluida en e2e)
 node tests/e2e/football.mjs    # fútbol de principio a fin, con fotogramas de cada tiro (incluida en e2e)
 node tests/e2e/woody.mjs       # bocadillos, ritmo, descanso, cuestas y ruta guiada (incluida en e2e)
@@ -472,7 +521,7 @@ Atajos de desarrollo: `?world=cosmic` abre el planeta antiguo; `?webgl=0` simula
 
 **Fútbol**: E junto al campo para entrar. Se apunta con el ratón (o el dedo) sobre la portería, se mantiene pulsado para cargar, se mueve de lado mientras se carga para dar efecto y se suelta para chutar (Espacio también carga; A/D dan efecto). 1–4 cambian de modo, B pone o quita la barrera, R reinicia, Esc sale.
 
-Controles: WASD o flechas, Espacio saltar, Shift correr, E usar, G menú de Woody, N día/noche, M sonido, Esc pausa. Con el ratón se hace clic en los objetos; la rueda (o el pellizco en móvil) acerca y aleja la cámara.
+Controles: WASD o flechas, Espacio saltar, Shift correr, E usar, G menú de Woody, N día/atardecer/noche, M sonido, Esc pausa. Con el ratón se hace clic en los objetos; la rueda (o el pellizco en móvil) acerca y aleja la cámara.
 
 Capturas de comparación (fuera de git), mismas 12 vistas de día y de noche: `capturas/0-antes/` (antes del pulido), `capturas/1-webgpu/` (tras la migración) y `capturas/4-rediseno/` (ahora). Además: `capturas/2-bienvenida/` (portada en escritorio y móvil, y el descenso), `capturas/3-aldea/` y `capturas/movimiento/`.
 

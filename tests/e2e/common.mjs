@@ -72,7 +72,8 @@ export async function open({ mobile = false, viewport, query = "", uncapped = fa
    // Sin almacenamiento no hay nada que limpiar.
   }
  }, tips);
- await page.goto(BASE + query, { waitUntil: "load", timeout: 60000 });
+ // El mundo sigue la hora del visitante: las pruebas la fijan (mediodía, salvo que pidan otra) para no depender de cuándo se pasan.
+ await page.goto(BASE + (/[?&]hora=/.test(query) ? query : `${query}${query.includes("?") ? "&" : "?"}hora=12:00`), { waitUntil: "load", timeout: 60000 });
  const startedAt = Date.now();
  await page.waitForFunction(() => !document.querySelector("#loader"), { timeout: 90000 });
  // La bienvenida ya se ve; se espera además a que el planeta esté listo para entrar (si lo hay).
@@ -164,6 +165,13 @@ export async function open({ mobile = false, viewport, query = "", uncapped = fa
    for (const key of held) await page.keyboard.up(key);
    if (run) await page.keyboard.up("ShiftLeft");
    return arrived;
+  },
+  // Pone el momento del día pedido («day», «dusk» o «night») con la tecla N, como lo haría una persona. Devuelve el que queda.
+  moment: async (name, settle = 2600) => {
+   const now = () => page.evaluate(() => document.documentElement.dataset.momento);
+   for (let i = 0; i < 3 && (await now()) !== name; i++) await page.keyboard.press("KeyN");
+   await wait(settle);
+   return now();
   },
   hold: async (code, ms) => {
    await page.keyboard.down(code);

@@ -134,8 +134,13 @@ after = await sampled();
 check((after.pop ?? 0) - (before.pop ?? 0) === 2, `cada botón de la interfaz hace «pop» (${(after.pop ?? 0) - (before.pop ?? 0)} en dos clics)`);
 
 // ── De noche: grillos; fundido con los pájaros ───────────────────────────────
+// ── Al atardecer: los dos a la vez ───────────────────────────────────────────
+await mark("atardece: pájaros y grillos a la vez");
+await t.moment("dusk", 3200);
+const dusk = await heard(2.4);
+check(dusk.pajaros.heard > 0.0012 && dusk.grillos.heard > 0.0012, `al atardecer se oyen los pájaros (${f(dusk.pajaros.heard)}) y los grillos (${f(dusk.grillos.heard)})`);
 await mark("anochece: los pájaros se funden con los grillos");
-await page.keyboard.press("KeyN");
+await t.moment("night", 0);
 const fadeLevels = [];
 for (let i = 0; i < 6; i++) {
  await wait(450);
@@ -167,8 +172,7 @@ await wait(900);
 const back = await audio(() => ({ master: window.__world.audio.master(), level: window.__world.audio.level() }));
 check(back.master > 0.5 && back.level > 0.001, `al activarlo vuelve todo (volumen ${back.master.toFixed(2)}, señal ${f(back.level)})`);
 await mark("sonido de vuelta");
-await page.keyboard.press("KeyN"); // otra vez de día
-await wait(1500);
+await t.moment("day", 1500); // otra vez de día
 
 // ── Fútbol: poste y red ──────────────────────────────────────────────────────
 const cz = (PITCH.z0 + PITCH.z1) / 2;

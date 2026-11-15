@@ -151,7 +151,6 @@ await t.evaluate(() => Object.assign(window.__world.rig, { distance: 2.2, lift: 
 await wait(1500);
 await shot("pista-alto-dia");
 await t.evaluate(() => Object.assign(window.__world.rig, { distance: 1, lift: 1 }));
-await page.keyboard.press("KeyN");
-await wait(2600);
+await t.moment("night");
 await shot("pista-noche");
 await t.done();

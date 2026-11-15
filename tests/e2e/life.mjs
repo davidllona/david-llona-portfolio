@@ -81,14 +81,12 @@ for (let i = 0; i < 3; i++) {
  await t.shot(`hojas-y-polen-${i}`);
  await wait(500);
 }
-await t.page.keyboard.press("KeyN");
-await wait(2800);
+await t.moment("night", 2800);
 for (let i = 0; i < 3; i++) {
  await t.shot(`luciernagas-${i}`);
  await wait(500);
 }
-await t.page.keyboard.press("KeyN");
-await wait(2600);
+await t.moment("day");
 await t.evaluate(() => (window.__world.rig.zoom = 1));
 
 // ── «El bosque despierta» ────────────────────────────────────────────────────

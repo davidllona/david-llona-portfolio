@@ -45,11 +45,7 @@ fs.mkdirSync(folder, { recursive: true });
 const t = await open({ viewport: { width: 1600, height: 900 } });
 await t.enter();
 for (const moment of moments) {
- const isNight = await t.evaluate(() => document.querySelector(".theme-toggle")?.getAttribute("aria-pressed") === "true");
- if ((moment === "noche") !== isNight) {
-  await t.page.keyboard.press("KeyN");
-  await wait(2500);
- }
+ await t.moment({ dia: "day", atardecer: "dusk", noche: "night" }[moment], 2500);
  for (const name of points) {
   const [x, z] = POINTS[name];
   await t.put(x, z, { settle: 300 });

@@ -24,9 +24,7 @@ await t.put(0, 12, { settle: 300 });
 await t.hold("KeyS", 500);
 await wait(6500); // que se retire el logro de «Primeros pasos»
 for (const night of [false, true]) {
- const isNight = await t.evaluate(() => document.querySelector(".theme-toggle")?.getAttribute("aria-pressed") === "true");
- if (night !== isNight) await t.page.keyboard.press("KeyN");
- await wait(2600);
+ await t.moment(night ? "night" : "day");
  for (const [name, x, z, look, distance] of spots) {
   await t.evaluate((look, distance) => Object.assign(window.__world.rig, { focus: look ? { x: look[0], y: look[1], z: look[2] } : null, distance, zoom: 1 }), look, distance);
   await t.put(x, z, { withWoody: false, settle: 2300 });

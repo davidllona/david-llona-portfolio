@@ -1176,7 +1176,7 @@ export const living = {
   // («Sobre mí» ya no es un sitio de este mundo: se lee desde el menú superior.)
   places: [{ id: "proyectos" }, { id: "cohete" }, { id: "contacto" }, { id: "cv" }],
  },
- // Colores de día y de noche de este planeta (ver experience/theme.js).
+ // Colores de día, de atardecer y de noche de este planeta (ver experience/theme.js).
  themes: {
   // Día: sol cálido y relleno frío del cielo. La sombra no recibe sol, pero sí
   // ese relleno azulado: nunca es negra. Niebla clara a lo lejos.
@@ -1196,6 +1196,27 @@ export const living = {
    glow: 0,
    bloom: 0.3,
    shadow: 0.88,
+  },
+  // Atardecer: sol bajo y dorado por el oeste (sombras largas), relleno
+  // rosado del cielo y sombra malva; cielo naranja en el horizonte y violeta
+  // arriba, niebla melocotón, agua que devuelve el cielo. Farolas y ventanas
+  // empiezan a encenderse.
+  dusk: {
+   hemiSky: "#ffc4a6",
+   hemiGround: "#6f4a86",
+   hemiPower: 1.0,
+   sun: "#ffa24e",
+   sunPower: 3.0,
+   fog: "#f2a07c",
+   fogDensity: 0.0088,
+   background: "#f2a07c",
+   skyTop: "#6b4fa8",
+   skyHorizon: "#ffa66a",
+   waterShallow: "#7fcdc6",
+   waterDeep: "#3a6fae",
+   glow: 0.42,
+   bloom: 0.6,
+   shadow: 0.84,
   },
   // Noche azul y profunda: la luna recorta las siluetas desde el fondo y la
   // luz cálida la ponen las farolas y las ventanas.

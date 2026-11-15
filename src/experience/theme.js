@@ -4,9 +4,14 @@ import { MeshLambertNodeMaterial } from "three/webgpu";
 import { startGust, withWind } from "./environment/wind";
 import { rig } from "./state";
 
-// Día y noche. No cambian los materiales: cambian las luces, la niebla, el
-// fondo y cuánto brillan las cosas luminosas, así que pasar de uno a otro es
-// solo mezclar unos valores en cada fotograma.
+// Día, atardecer y noche. No cambian los materiales: cambian las luces, la
+// niebla, el fondo y cuánto brillan las cosas luminosas, así que pasar de uno
+// a otro es solo mezclar unos valores en cada fotograma.
+//
+// Los tres están en fila —día (0), atardecer (1), noche (2)— y el momento
+// actual es un punto de esa fila (`theme.at`): entre dos de ellos se mezclan
+// sus paletas. El amanecer es el atardecer recorrido al revés, más suave y con
+// el sol al otro lado.
 export const THEMES = {
  day: {
   hemiSky: "#fff0d9",
@@ -24,6 +29,23 @@ export const THEMES = {
   glow: 0,
   bloom: 0.5,
   shadow: 1,
+ },
+ dusk: {
+  hemiSky: "#ffb48c",
+  hemiGround: "#7a3f7c",
+  hemiPower: 1.2,
+  sun: "#ff9a52",
+  sunPower: 2.2,
+  fog: "#e8845e",
+  fogDensity: 0.0085,
+  background: "#e8845e",
+  skyTop: "#5a3f96",
+  skyHorizon: "#ff9a5e",
+  waterShallow: "#7ab8d8",
+  waterDeep: "#3a4f9e",
+  glow: 0.45,
+  bloom: 0.65,
+  shadow: 0.9,
  },
  night: {
   hemiSky: "#6672ff",
@@ -44,6 +66,7 @@ export const THEMES = {
  },
 };
 const SPACE = new THREE.Color("#05041a");
+const ORDER = ["day", "dusk", "night"];
 
 const COLOR_KEYS = ["hemiSky", "hemiGround", "sun", "fog", "background", "skyTop", "skyHorizon", "waterShallow", "waterDeep"];
 const NUMBER_KEYS = ["hemiPower", "sunPower", "glow", "fogDensity", "bloom", "shadow"];
@@ -63,11 +86,16 @@ export const current = Object.fromEntries([
  ...NUMBER_KEYS.map((key) => [key, parsed.day[key]]),
 ]);
 
-// De dónde viene la luz principal: el sol de día (suroeste, alto) y la luna de
-// noche (desde el fondo, a contraluz: recorta siluetas y deja las caras que
-// miran a la cámara para las luces cálidas).
+// De dónde viene la luz principal: el sol de día (suroeste, alto), el del
+// atardecer (bajo, por el oeste: sombras largas hacia el este), el del
+// amanecer (bajo, por el este) y la luna de noche (desde el fondo, a
+// contraluz: recorta siluetas y deja las caras que miran a la cámara para las
+// luces cálidas).
 const SUN_DAY = new THREE.Vector3(-0.42, 0.78, 0.46).normalize();
+const SUN_DUSK = new THREE.Vector3(-0.8, 0.33, 0.36).normalize();
+const SUN_DAWN = new THREE.Vector3(0.8, 0.36, 0.3).normalize();
 const SUN_NIGHT = new THREE.Vector3(0.38, 0.7, -0.6).normalize();
+const low = new THREE.Vector3();
 // En la bienvenida, la luna queda detrás del islote, a la izquierda.
 const SUN_WELCOME = new THREE.Vector3(-0.46, 0.72, -0.52).normalize();
 const MOON_WELCOME = new THREE.Color("#dbe8ff");
@@ -84,67 +112,137 @@ export const uniforms = {
  uSkyHorizon: uniform(current.skyHorizon),
  uSunDirection: uniform(sunDirection),
  uSunColor: uniform(current.sun),
- uNight: uniform(0), // 0 de día, 1 de noche
+ uNight: uniform(0), // 0 de día y al atardecer, 1 de noche
  uGlow: uniform(0),
  uSpace: uniform(0), // 0 en tierra, 1 en órbita
 };
 
-// Cambia la paleta de día y de noche (al llegar a otro planeta).
+// Cambia la paleta (al llegar a otro planeta). Lo que el planeta no defina
+// (el atardecer entero, si no lo trae) se toma de la paleta por defecto.
 export function setPalette(themes) {
- // Lo que el planeta no defina se toma de la paleta por defecto.
- parsed = parse({ day: { ...THEMES.day, ...themes?.day }, night: { ...THEMES.night, ...themes?.night } });
+ parsed = parse({ day: { ...THEMES.day, ...themes?.day }, dusk: { ...THEMES.dusk, ...themes?.dusk }, night: { ...THEMES.night, ...themes?.night } });
 }
 
 // Las ráfagas viven en el sistema de viento; se reexporta por comodidad.
 export { startGust };
 
-const STORAGE_KEY = "planeta-tema";
-function stored() {
- try {
-  return window.localStorage.getItem(STORAGE_KEY);
- } catch {
-  return null; // almacenamiento bloqueado (modo privado, etc.)
+// ── La hora ─────────────────────────────────────────────────────────────────
+// El mundo se muestra según la hora local del visitante: la del reloj de su
+// navegador, sin pedir ubicación ni permisos. `?hora=18:45` (y `?mes=6`) la
+// fijan para probarlo sin esperar.
+const asked = typeof window === "undefined" ? null : new URLSearchParams(window.location.search);
+const fixedHour = (() => {
+ const found = /^(\d{1,2})(?::(\d{2}))?$/.exec(asked?.get("hora") ?? "");
+ return found && Number(found[1]) < 24 ? Number(found[1]) + Number(found[2] ?? 0) / 60 : null;
+})();
+const fixedMonth = Number(asked?.get("mes")) >= 1 && Number(asked?.get("mes")) <= 12 ? Number(asked.get("mes")) : null;
+// La hora (0–24, con decimales) y el mes (1–12) de ahora.
+export function clock() {
+ const now = new Date();
+ return { hour: fixedHour ?? now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600, month: fixedMonth ?? now.getMonth() + 1 + now.getDate() / 31 };
+}
+// Franjas del día. En los equinoccios: amanecer de 7:00 a 8:00, día hasta las
+// 17:30, atardecer hasta las 20:30 y noche. Con el mes se corren, de forma
+// aproximada: en junio anochece hora y cuarto más tarde y amanece una hora
+// antes; en diciembre, al revés.
+export function bands(month) {
+ const season = Math.cos(((month - 6.7) / 12) * Math.PI * 2); // 1 a finales de junio, −1 a finales de diciembre
+ return { dawn: 7 - season, day: 8 - season, dusk: 17.5 + season * 1.25, night: 20.5 + season * 1.25 };
+}
+const TURN = 0.75; // h que tarda en llegar el atardecer y, después, en caer la noche
+const ramp = (x) => Math.min(1, Math.max(0, x));
+// Dónde cae una hora en la fila día (0) · atardecer (1) · noche (2), cuánto
+// tiene de amanecer (0–1) y cómo se llama su franja. Es continua: dentro de
+// cada franja el cambio va llegando poco a poco, nunca de golpe.
+export function skyAt(hour, month) {
+ const b = bands(month);
+ if (hour >= b.dawn && hour < b.day) {
+  // Amanecer: de la noche al día pasando por el color del atardecer.
+  const k = (hour - b.dawn) / (b.day - b.dawn);
+  return { at: 2 - 2 * k, dawn: 1, name: "dawn" };
  }
+ if (hour >= b.day && hour < b.dusk) return { at: 0, dawn: 0, name: "day" };
+ if (hour >= b.dusk && hour < b.night) return { at: ramp((hour - b.dusk) / TURN) + ramp((hour - (b.night - TURN)) / TURN), dawn: 0, name: "dusk" };
+ return { at: 2, dawn: 0, name: "night" };
 }
 
-// `mix`: 0 = día, 1 = noche. Avanza poco a poco hacia el tema elegido.
-export const theme = { name: stored() === "night" ? "night" : "day", mix: stored() === "night" ? 1 : 0 };
+// `name`: el momento que se muestra (día, atardecer o noche; el amanecer
+// cuenta como atardecer). `manual`: el elegido a mano con el botón, la tecla N
+// o el telescopio, que manda sobre la hora hasta que se recarga la página.
+// `at`: el punto actual de la fila; `mix`, cuánto hay de noche y `dusk`,
+// cuánto de atardecer (los dos de 0 a 1); `dawn`, cuánto de amanecer.
+const start = typeof window === "undefined" ? { at: 0, dawn: 0, name: "day" } : skyAt(clock().hour, clock().month);
+const shown = (sky) => (sky.name === "dawn" ? "dusk" : sky.name);
+export const theme = { name: shown(start), manual: null, at: start.at, mix: ramp(start.at - 1), dusk: 1 - Math.abs(start.at - 1), dawn: start.dawn, band: start.name };
+const announce = () => {
+ if (typeof document !== "undefined") document.documentElement.dataset.momento = theme.name;
+};
+announce();
+if (import.meta.env?.DEV && typeof window !== "undefined") Object.assign((window.__world ??= {}), { theme, sky: { skyAt, bands, current } }); // para las pruebas automáticas
 
+// Elige un momento a mano.
 export function setTheme(name) {
- theme.name = name;
- try {
-  window.localStorage.setItem(STORAGE_KEY, name);
- } catch {
-  // Sin almacenamiento, el tema simplemente no se recuerda.
- }
+ theme.manual = theme.name = name;
+ announce();
+}
+// El siguiente: día → atardecer → noche → día.
+export function nextTheme() {
+ setTheme(ORDER[(ORDER.indexOf(theme.name) + 1) % ORDER.length]);
+ return theme.name;
 }
 
-// Materiales que brillan más de noche (farolas, cristales, ventanas…).
+// Cosas que brillan más de noche (farolas, cristales, ventanas…).
 const glowing = new Set();
-// Registra un material: `property` vale `day` de día y `night` de noche.
+// Registra un material: `property` vale `day` de día y `night` de noche; al
+// atardecer, lo que diga el brillo de su paleta (empiezan a encenderse). Con
+// `by: "night"` sigue a la noche y no al brillo (las estrellas: no salen hasta
+// que oscurece).
 // El brillo propio tiene tope: por encima, farolas y ventanas se queman a blanco
 // con el resplandor del posproceso y pierden su color.
 const GLOW_LIMIT = { day: 0.9, night: 1.3 };
-export function registerGlow(material, day, night, property = "emissiveIntensity") {
+export function registerGlow(material, day, night, property = "emissiveIntensity", { by = "glow" } = {}) {
  if (property === "emissiveIntensity") {
   day = Math.min(day, GLOW_LIMIT.day);
   night = Math.min(night, GLOW_LIMIT.night);
  }
- const entry = { material, day, night, property };
+ const entry = { material, day, night, property, by };
  glowing.add(entry);
- material[property] = day + (night - day) * theme.mix;
+ material[property] = day + (night - day) * (by === "night" ? uniforms.uNight.value : current.glow);
  return () => glowing.delete(entry);
 }
 
 // Avanza la transición y actualiza todo lo compartido. Se llama en cada fotograma.
 export function updateTheme(delta, elapsed) {
- const target = theme.name === "night" ? 1 : 0;
- theme.mix += (target - theme.mix) * Math.min(1, delta * 3);
- if (Math.abs(target - theme.mix) < 0.001) theme.mix = target;
- // En la bienvenida es de noche; al entrar amanece (o no, si se dejó en noche).
- const t = Math.max(theme.mix, rig.intro * rig.intro * (3 - 2 * rig.intro));
- for (const key of COLOR_KEYS) current[key].copy(parsed.day[key]).lerp(parsed.night[key], t);
- for (const key of NUMBER_KEYS) current[key] = parsed.day[key] + (parsed.night[key] - parsed.day[key]) * t;
+ // Hacia dónde: lo elegido a mano o, si no, lo que marque el reloj.
+ let target = ORDER.indexOf(theme.manual), dawn = 0;
+ if (target < 0) {
+  const { hour, month } = clock();
+  const sky = skyAt(hour, month);
+  target = sky.at;
+  dawn = sky.dawn;
+  theme.band = sky.name;
+  if (shown(sky) !== theme.name) {
+   theme.name = shown(sky);
+   announce();
+  }
+ }
+ theme.at += (target - theme.at) * Math.min(1, delta * 2.2);
+ if (Math.abs(target - theme.at) < 0.001) theme.at = target;
+ theme.dawn += (dawn - theme.dawn) * Math.min(1, delta * 2.2);
+ // En la bienvenida es de noche; al entrar amanece (o no, si es de noche).
+ const at = theme.at + (2 - theme.at) * rig.intro * rig.intro * (3 - 2 * rig.intro);
+ const t = ramp(at - 1); // cuánto hay de noche
+ const evening = 1 - Math.abs(at - 1); // cuánto de atardecer
+ theme.mix = t;
+ theme.dusk = evening;
+ const from = at <= 1 ? parsed.day : parsed.dusk, to = at <= 1 ? parsed.dusk : parsed.night, k = at <= 1 ? at : at - 1;
+ // (El amanecer es un atardecer más suave: a medio camino del día.)
+ const soft = evening * theme.dawn * 0.35;
+ for (const key of COLOR_KEYS) current[key].copy(from[key]).lerp(to[key], k).lerp(parsed.day[key], soft);
+ for (const key of NUMBER_KEYS) {
+  current[key] = from[key] + (to[key] - from[key]) * k;
+  current[key] += (parsed.day[key] - current[key]) * soft;
+ }
 
  // Al subir con la nave (y en el islote de la bienvenida), el cielo es espacio.
  const space = Math.max(rig.space, rig.intro);
@@ -154,9 +252,12 @@ export function updateTheme(delta, elapsed) {
  // (Desde la órbita se mira hacia abajo: ahí el cielo es todo «horizonte», y también es espacio.)
  current.skyHorizon.lerp(SPACE, Math.max(space * 0.85, rig.space));
  current.fogDensity *= 1 - space * 0.8;
- // En órbita no queda niebla: el planeta se ve entero, a casi un kilómetro.
+ // En órbita no queda niebla: el planeta se ve entero.
  current.fogDensity *= (1 - rig.space) ** 2;
- sunDirection.copy(SUN_DAY).lerp(SUN_NIGHT, t).lerp(SUN_WELCOME, rig.intro).normalize();
+ low.copy(SUN_DUSK).lerp(SUN_DAWN, theme.dawn);
+ if (at <= 1) sunDirection.copy(SUN_DAY).lerp(low, at);
+ else sunDirection.copy(low).lerp(SUN_NIGHT, at - 1);
+ sunDirection.lerp(SUN_WELCOME, rig.intro).normalize();
  // En el islote la luna manda menos luz de ambiente: las siluetas se recortan.
  current.hemiPower *= 1 - rig.intro * 0.5;
  current.sunPower *= 1 + rig.intro * 2.1;
@@ -167,7 +268,7 @@ export function updateTheme(delta, elapsed) {
  uniforms.uTime.value = elapsed;
  uniforms.uGlow.value = current.glow;
  uniforms.uSpace.value = space;
- for (const { material, day, night, property } of glowing) material[property] = day + (night - day) * t;
+ for (const { material, day, night, property, by } of glowing) material[property] = day + (night - day) * (by === "night" ? t : current.glow);
 }
 
 // Devuelve una versión de `material` (Lambert) que se mece con el viento global.

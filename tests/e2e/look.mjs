@@ -15,9 +15,7 @@ await t.enter();
 for (const [name, x, z, night, distance] of views) {
  await t.put(x, z, { settle: 100 });
  await t.evaluate((distance) => (window.__world.rig.distance = distance ?? 1), distance);
- const isNight = await t.evaluate(() => document.querySelector(".theme-toggle")?.getAttribute("aria-pressed") === "true");
- if (Boolean(night) !== isNight) await t.page.keyboard.press("KeyN");
- await wait(2200);
+ await t.moment(night ? "night" : "day", 2200);
  await t.shot(name);
 }
 await t.done();

@@ -93,13 +93,15 @@ export function Sounds({ active }) {
   const timer = window.setInterval(() => {
    const { x, z } = player.position;
    const hidden = player.hidden; // dentro del cohete
-   const night = theme.mix;
+   // Pájaros de día y grillos de noche; al atardecer se oyen los dos (los
+   // pájaros se van recogiendo y los grillos empiezan); al amanecer, casi solo pájaros.
+   const night = theme.mix, evening = theme.dusk * (1 - theme.dawn * 0.7);
    // Desde la nave, el planeta se oye apagado y sin agua.
    const outside = hidden ? 0.25 : 1;
    setAmbience({
     wind: hidden ? 0.2 : 0.6 + night * 0.3,
-    birds: (1 - night) * outside,
-    crickets: night * outside,
+    birds: Math.max(0, 1 - night - evening * 0.45) * outside,
+    crickets: Math.min(1, night + evening * 0.5) * outside,
     sources: hidden ? {} : (world.soundSources?.(x, z) ?? {}),
    });
    // Mientras no llegan los bucles grabados (o en un mundo sin ellos), trinos y grillos sintetizados.
