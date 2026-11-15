@@ -57,7 +57,8 @@ export function seeThroughOrder(a, b) {
 // Se llama una vez por fotograma, con la cámara ya colocada.
 export function updateSeeThrough(camera, size) {
  point.copy(player.position).setY(player.position.y + 1).applyMatrix4(camera.matrixWorldInverse);
- view.depth.value = player.hidden ? -1e4 : point.z;
+ // (Con el astronauta dentro de la nave no hay nada que dejar ver: sin hueco. Desde la órbita la nave pasa justo por delante de donde quedó.)
+ view.depth.value = player.hidden ? 1e4 : point.z;
  point.applyMatrix4(camera.projectionMatrix);
  view.screen.value.set(point.x * 0.5 + 0.5, 0.5 - point.y * 0.5);
  view.aspect.value = size.width / size.height;

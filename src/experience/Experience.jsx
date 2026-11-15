@@ -19,6 +19,7 @@ import { current } from "./theme";
 import { WarmLights } from "./WarmLights";
 import { WorldUi } from "./ui3d/WorldUi";
 import { Bursts } from "./effects/Bursts";
+import { splitLongFaces } from "./environment/bend";
 import { seeThroughOrder } from "./environment/seeThrough";
 import { Welcome } from "./Welcome";
 
@@ -435,6 +436,7 @@ export function Experience({ active, lowPower, onReady }) {
  // Niveles de carga: 0 = solo la bienvenida; 1 = también el planeta.
  const [tier, setTier] = useState(0);
  const [built, setBuilt] = useState(false);
+ const scene = useRef(null);
  const Scene = SCENES[world.id];
 
  return (
@@ -477,10 +479,13 @@ export function Experience({ active, lowPower, onReady }) {
        cambiar de mundo. */}
    {tier > 0 && (
     <Suspense fallback={null}>
-     <group key={world.id}>
+     <group key={world.id} ref={scene}>
       {/* De uno en uno, cediendo el turno entre cada cual (ver Staged). */}
       <Staged
        onDone={() => {
+        // Montado el mundo y antes de compilarlo: las caras largas se parten para que puedan curvarse con él.
+        const split = splitLongFaces(scene.current);
+        if (import.meta.env.DEV) window.__world.split = split; // para las pruebas automáticas
         stage("built");
         setBuilt(true);
        }}

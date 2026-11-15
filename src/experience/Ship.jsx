@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useInteractable } from "./interact";
+import { keepFlat } from "./environment/bend";
 import { withSeeThrough } from "./environment/seeThrough";
 import { setBlast } from "./environment/wind";
 import { Exhaust } from "./Exhaust";
@@ -15,11 +16,13 @@ import { world } from "../worlds";
 
 const PAD_COLOR = "#ffb238";
 
-// La órbita: muy por encima de la isla y algo al sur de ella (la nave sube
-// trazando un arco, como un cohete de verdad), justo por donde mira la cámara
-// de la órbita: se la ve delante del planeta entero.
-const ALTITUDE = 440; // m a los que se queda en órbita
-const DOWNRANGE = 163; // m hacia el sur a los que queda, al final del arco
+// El viaje: la nave sube a plomo por el eje del planeta mientras el mundo se
+// curva bajo ella y, en el último tramo, se tumba y se coloca en órbita:
+// delante del planeta entero, de costado, justo por donde mira la cámara
+// (`ORBIT_VIEW`). El planeta es pequeño (44 m de radio): no hace falta ir lejos.
+const ALTITUDE = 75; // m que sube por el eje
+const CLOSED_AT = 0.5; // fracción de la subida a la que el mundo ya es una esfera cerrada
+export const UNCULL_AT = 0.03; // curvatura a partir de la cual deja de descartarse lo que queda fuera de cuadro
 const IGNITION = 1.6; // s con los motores encendidos antes de levantarse
 const ASCENT = 7.4; // s de subida
 const DESCENT = 5.6;
@@ -27,7 +30,10 @@ const ORBIT_TURN = 0.035; // rad/s a los que la cámara rodea el planeta en órb
 const NOZZLE = 0.45; // altura de la boca de la tobera sobre la base de la nave
 const BLAST_REACH = 11; // m alrededor de la plataforma en los que el empuje agita la vegetación
 
-const UP = new THREE.Vector3(0, 1, 0), ACROSS = new THREE.Vector3(1, 0, 0);
+const UP = new THREE.Vector3(0, 1, 0);
+// En órbita la nave va tumbada, con el morro hacia el este y el ojo de buey hacia la cámara.
+const LYING = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -1.18).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2));
+const smooth = (t) => t * t * (3 - 2 * t);
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 // Perfil del casco (radio, altura): panzudo abajo y afilado arriba. Se tornea
@@ -179,6 +185,11 @@ export function Ship() {
  const flight = useRef({ phase: "idle", time: 0, power: 0, gusts: 0, turn: 0 });
  const orbitFocus = useMemo(() => new THREE.Vector3(...ORBIT_VIEW.focus), []);
  const turning = useMemo(() => new THREE.Quaternion(), []);
+ const scene = useThree((state) => state.scene);
+ // Lo que deja de descartarse por encuadre mientras el mundo está curvado (ver abajo).
+ const uncull = useRef(null);
+ // La nave no se curva con el mundo (a su altura se ensancharía): va rígida.
+ useEffect(() => keepFlat(ship.current), []);
  const focus = useMemo(() => new THREE.Vector3(), []);
  // De dónde sale el escape en cada fotograma (lo lee Exhaust.jsx).
  const exhaust = useMemo(() => ({ x: SHIP.x, y: NOZZLE, z: SHIP.z, thrust: 0, ground: 0.2, radius: SHIP.padRadius }), [SHIP]);
@@ -229,7 +240,9 @@ export function Ship() {
    player.hidden = player.frozen = false;
    world.shipCollider.active = true;
    setBlast(0, 0, 0, 1, 0);
-   Object.assign(rig, { focus: null, distance: 1, tilt: 0, space: 0, yaw: 0 });
+   Object.assign(rig, { focus: null, distance: 1, tilt: 0, space: 0, bend: 0, yaw: 0 });
+   uncull.current?.forEach((object) => (object.frustumCulled = true));
+   uncull.current = null;
   },
   [],
  );
@@ -269,16 +282,15 @@ export function Ship() {
     player.hidden = player.frozen = false;
     world.shipCollider.active = true;
     state.turn = 0;
-    Object.assign(rig, { focus: null, distance: 1, tilt: 0, space: 0, yaw: 0 });
+    Object.assign(rig, { focus: null, distance: 1, tilt: 0, space: 0, bend: 0, yaw: 0 });
    }
   } else if (state.phase === "orbit") {
    progress = 1;
    state.turn += dt * ORBIT_TURN;
   }
   const height = progress * ALTITUDE;
-  // El arco: sube casi a plomo y se va tumbando hacia el sur.
-  const south = progress * progress * DOWNRANGE;
-  const lean = Math.atan2(2 * progress * DOWNRANGE, ALTITUDE) * Math.min(1, progress * 4);
+  // Último tramo: de subir por el eje a quedar en órbita, tumbada, delante del planeta.
+  const wide = Math.pow(Math.min(1, Math.max(0, (progress - 0.55) / 0.45)), 1.6);
   const flying = state.phase !== "idle";
   const thrusting = state.phase === "igniting" || state.phase === "ascending" || state.phase === "descending";
 
@@ -293,24 +305,42 @@ export function Ship() {
   // En órbita la cámara rodea despacio el planeta (se le ve girar) y la nave va
   // con ella, por delante; al bajar, las dos deshacen la vuelta.
   const around = state.phase === "orbit" ? state.turn : state.phase === "descending" ? state.turn * progress * progress : 0;
-  const offX = Math.sin(time * 0.3) * 3 * drift + Math.sin(time * 71) * tremble;
-  const offZ = south + Math.cos(time * 0.3) * 3 * drift + Math.cos(time * 63) * tremble;
+  // (Tumbada, el morro mira al este: se retrasa media eslora para que sea su centro, y no su base, lo que queda en el centro de la vista.)
+  const offX = Math.sin(time * 0.3) * 0.8 * drift + Math.sin(time * 71) * tremble - smooth(wide) * 4;
+  const offZ = wide * ORBIT_VIEW.ship[2] + Math.cos(time * 0.3) * 0.8 * drift + Math.cos(time * 63) * tremble;
   ship.current.position.set(
    SHIP.x + offX * Math.cos(around) + offZ * Math.sin(around),
-   height + (flying ? Math.sin(time * 1.7) * 0.25 * drift : 0) + Math.abs(Math.sin(time * 57)) * tremble * 0.6,
+   height + (ORBIT_VIEW.ship[1] - height) * wide + (flying ? Math.sin(time * 1.7) * 0.25 * drift : 0) + Math.abs(Math.sin(time * 57)) * tremble * 0.6,
    SHIP.z - offX * Math.sin(around) + offZ * Math.cos(around),
   );
-  // Gira despacio sobre su eje y apunta hacia donde va.
-  if (flying) ship.current.quaternion.setFromAxisAngle(UP, around).multiply(turning.setFromAxisAngle(ACROSS, lean)).multiply(turning.setFromAxisAngle(UP, time * 0.25 * drift));
+  // Sube derecha y, al entrar en órbita, se tumba.
+  if (flying) ship.current.quaternion.setFromAxisAngle(UP, around).multiply(turning.identity().slerp(LYING, smooth(wide)));
   else ship.current.quaternion.identity();
+
+  // El mundo se curva con la altura: plano en tierra, esfera cerrada a media subida.
+  if (flying) rig.bend = world.id === "living" ? smooth(Math.min(1, progress / CLOSED_AT)) : 0;
+  // Curvado, lo que three descarta por quedar fuera de cuadro en el mundo plano
+  // puede estar a la vista (y al revés): mientras dura, no se descarta nada.
+  // (Con la curva apenas empezada nada se ha movido aún ni medio metro: se
+  // espera a `UNCULL_AT`, que dibujarlo todo cuesta y la cámara sigue cerca.)
+  if (rig.bend > UNCULL_AT && !uncull.current) {
+   uncull.current = [];
+   scene.traverse((object) => {
+    if (!object.frustumCulled || !(object.isMesh || object.isLine || object.isPoints)) return;
+    object.frustumCulled = false;
+    uncull.current.push(object);
+   });
+  } else if (rig.bend === 0 && uncull.current) {
+   uncull.current.forEach((object) => (object.frustumCulled = true));
+   uncull.current = null;
+  }
 
   if (flying) {
    // La cámara sigue al cohete mientras sube, alejándose cada vez más, y en el
    // último tramo deja de mirarle a él para mirar al planeta entero, con la
    // nave delante (ver `ORBIT_VIEW`). Todo es continuo: no hay corte.
-   const wide = Math.pow(Math.min(1, Math.max(0, (progress - 0.55) / 0.45)), 1.6);
    const above = Math.min(1, Math.max(0, (progress - 0.3) / 0.7));
-   focus.set(ship.current.position.x, height + 2.6, ship.current.position.z).lerp(orbitFocus, wide);
+   focus.set(ship.current.position.x, ship.current.position.y + 2.6, ship.current.position.z).lerp(orbitFocus, wide);
    rig.focus = focus;
    // En el encendido se retira un poco para que quepan la nave y el humo.
    // (En el fotograma en que se levanta, `ignition` aún vale 1 y la fase ya es la subida: no se suman las dos cosas.)

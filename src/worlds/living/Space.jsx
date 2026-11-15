@@ -2,30 +2,32 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { useFrame } from "@react-three/fiber";
-import { attribute, mix, normalWorld, uniform, vec3 } from "three/tsl";
+import { mix, normalView, normalWorld, positionViewDirection, smoothstep, uniform, vec3 } from "three/tsl";
+import { PLANET, bendPoint, uClosed } from "../../experience/environment/bend";
 import { celestial, createMoon } from "../../experience/intro/skyModels";
 import { unlit } from "../../experience/materials";
 import { ORBIT_VIEW, rig } from "../../experience/state";
 import { createGlowTexture } from "../../experience/textures";
-import { current, uniforms } from "../../experience/theme";
+import { current, sunDirection, uniforms } from "../../experience/theme";
 import { fontReady } from "../../ui/fonts";
 import { randomFrom, tube } from "./kit/geometry";
 
-// El planeta visto desde la nave. La isla es de verdad su polo: debajo de ella
-// hay un globo low poly (océano, otras masas de tierra, nubes y halo de
-// atmósfera) al que no se llega andando y que solo se dibuja en vuelo. No hay
-// cambio de escena ni fundido: al subir, el mar plano que rodea la isla se
-// deshace (water/Water.jsx) y lo que asoma debajo es el océano de este globo,
-// del mismo color; la niebla se retira y la curva del planeta va apareciendo.
-// Es el mismo planeta de la pantalla de bienvenida (mismos mares, arenas,
-// prados y bosques: `createGlobe` en intro/skyModels.js), a tamaño real.
-//
-// Con él, en el cielo de la órbita: la luna y, a lo lejos, los otros dos
-// mundos del porfolio como destinos todavía cerrados. Solo son astros con su
-// rótulo: de esos mundos no hay nada construido.
-const PLANET = { radius: 170, pole: -4.6 }; // el polo queda por debajo del fondo del mar: nada lo atraviesa
-// Hasta dónde llega la isla sobre el globo (ángulo desde el polo): ahí dentro todo es mar, sin nubes.
-const ISLAND = { sea: 0.6, shore: 0.78, sky: 0.66 };
+// Lo que el planeta necesita para verse como tal desde la nave. EL PLANETA ES
+// LA ISLA: no hay otro modelo. Al subir, el mundo entero se curva (ver
+// experience/environment/bend.js) hasta cerrarse en una esfera de 44 m de
+// radio, con la isla ocupando casi todo el hemisferio que se ve y su mar
+// alrededor, hasta el borde. Aquí solo va lo que le falta a esa esfera:
+//  · un fondo de mar opaco, que se curva con todo lo demás y la cierra por
+//    debajo del agua (que es translúcida) hasta el antípoda;
+//  · la sombra del lado de noche y el halo de la atmósfera;
+//  · el cielo de la órbita: estrellas, la luna y, a lo lejos, los otros dos
+//    mundos del porfolio como destinos todavía cerrados. Solo son astros con
+//    su rótulo: de esos mundos no hay nada construido.
+const SEA_FLOOR = -4.7; // m: por debajo del fondo de la isla
+const SEA_REACH = 150; // m: como el mar (water/Water.jsx)
+const AIR = 11; // m sobre el suelo hasta donde llega la sombra de la noche: por encima de árboles y casas
+const FLAT = { flat: true }; // (lo que no se curva con el mundo)
+const COARSE = { coarse: true }; // (ya viene en anillos: no hay que partirlo más; ver `splitLongFaces`)
 
 const wobble = (p, scale, seed = 0) => {
  const x = p.x * scale + seed, y = p.y * scale + seed * 1.7, z = p.z * scale - seed;
@@ -57,96 +59,26 @@ function faceted(geometry, paint, extra) {
  return geometry;
 }
 
-// ── El globo ────────────────────────────────────────────────────────────────
-// Relieve de un punto de la esfera unidad: positivo = tierra. Alrededor del
-// polo (donde está la isla de verdad) siempre es mar.
-function landAt(p) {
- const fromPole = Math.acos(Math.min(1, Math.max(-1, p.y)));
- return wobble(p, 1.35, 5) + wobble(p, 2.9, 1) * 0.45 + wobble(p, 6.2, 8) * 0.16 + 0.07 - (1 - smooth(ISLAND.sea, ISLAND.shore, fromPole)) * 2;
+// Fondo del mar: un disco en anillos, bajo el agua. Sin curvar tiene el color
+// del horizonte (no se distingue); curvado, el del mar hondo.
+function createSeaBed() {
+ return new THREE.RingGeometry(34, SEA_REACH, 96, 30).rotateX(-Math.PI / 2);
 }
-function createGlobe() {
- const random = randomFrom(0.37);
- const geometry = new THREE.IcosahedronGeometry(1, 18);
- const points = geometry.attributes.position;
- const point = new THREE.Vector3();
- for (let i = 0; i < points.count; i++) {
-  point.fromBufferAttribute(points, i).normalize();
-  point.multiplyScalar(1 + Math.max(0, landAt(point)) * 0.035);
-  points.setXYZ(i, point.x, point.y, point.z);
- }
- const sand = new THREE.Color("#ecd9a0"), meadow = new THREE.Color("#63b858"), forest = new THREE.Color("#3a8d4b"), hill = new THREE.Color("#9db564");
- const unit = new THREE.Vector3();
- // El mar no lleva color propio: el material le pone el del agua del momento
- // (día o noche). Aquí solo va su matiz (rojo) y cuánto de orilla tiene (verde).
- return faceted(
-  geometry,
-  (centre, colour) => {
-   unit.copy(centre).normalize();
-   const h = landAt(unit);
-   const shade = 0.93 + random() * 0.14;
-   if (h < 0) {
-    colour.setRGB(shade, smooth(-0.2, 0, h), 0);
-    return 1;
-   }
-   if (h < 0.035) colour.copy(sand);
-   else colour.copy(meadow).lerp(forest, smooth(0, 0.5, wobble(unit, 4.3, 12) + 0.15)).lerp(hill, smooth(0.3, 0.55, h));
-   colour.multiplyScalar(shade);
-   return 0;
-  },
-  "sea",
- );
+function createSeaBedMaterial() {
+ const material = unlit();
+ material.colorNode = mix(uniform(current.background), uniforms.uWaterDeep.mul(0.78), uClosed);
+ return material;
 }
-// Cuánto de lejos de la isla queda cada vértice del globo (0 junto a ella, 1 pasado su mar).
-function markFar(geometry) {
- const points = geometry.attributes.position;
- const far = new Float32Array(points.count);
- const point = new THREE.Vector3();
- for (let i = 0; i < points.count; i++) far[i] = smooth(ISLAND.sea, ISLAND.shore + 0.25, Math.acos(Math.min(1, point.fromBufferAttribute(points, i).normalize().y)));
- geometry.setAttribute("far", new THREE.BufferAttribute(far, 1));
- return geometry;
-}
-// Nubes: los trozos de una esfera algo mayor donde «hay nube», en bandas de
-// este a oeste. Ninguna sobre la isla.
-function createClouds() {
- const source = new THREE.IcosahedronGeometry(1.06, 11);
- const points = source.attributes.position;
- const kept = [];
- const centre = new THREE.Vector3(), corner = new THREE.Vector3();
- for (let i = 0; i < points.count; i += 3) {
-  centre.set(0, 0, 0);
-  for (let k = 0; k < 3; k++) centre.add(corner.fromBufferAttribute(points, i + k));
-  centre.divideScalar(3).normalize();
-  const cover = wobble(new THREE.Vector3(centre.x * 0.7, centre.y * 2.6, centre.z * 0.7), 2.1, 4) + wobble(centre, 5.5, 9) * 0.3;
-  if (cover > 0.34 && Math.acos(centre.y) > ISLAND.sky) for (let k = 0; k < 3; k++) kept.push(points.getX(i + k), points.getY(i + k), points.getZ(i + k));
- }
- source.dispose();
- const geometry = new THREE.BufferGeometry();
- geometry.setAttribute("position", new THREE.Float32BufferAttribute(kept, 3));
- return faceted(geometry, (_, colour) => colour.set("#ffffff"));
-}
-
-// Material del globo: la luz del sol (o de la luna) del momento, calculada al
-// dibujar. En el polo vale exactamente 1: ahí el océano del globo tiene que
-// casar con el mar plano de la isla, que no recibe luces. Cerca del suelo se
-// confunde con el horizonte y va tomando su color al subir.
-function createGlobeMaterial(shown, { clouds = false } = {}) {
- const material = unlit({ fog: false, transparent: clouds, depthWrite: !clouds });
- const { uSunDirection, uWaterDeep, uWaterShallow, uNight } = uniforms;
- const horizon = uniform(current.background);
- const facing = normalWorld.dot(uSunDirection).max(0).div(uSunDirection.y.max(0.3));
- const light = facing.mul(0.82).add(0.2).min(1.12);
- const paint = attribute("color", "vec3");
- if (clouds) {
-  material.colorNode = mix(horizon, mix(vec3(1), vec3(0.5, 0.58, 0.86), uNight).mul(light), shown);
-  material.opacityNode = shown.mul(0.9);
-  return material;
- }
- const sea = mix(uWaterDeep, uWaterShallow, paint.g.mul(0.55)).mul(paint.r);
- // (De noche el agua de la isla es casi negra. Lejos de ella el océano se aclara un punto, como a la luz de la luna: que el planeta no sea un disco negro.)
- const moonlit = mix(vec3(1), vec3(1.5, 1.9, 2.3), uNight.mul(attribute("far", "float")));
- // De noche la tierra se queda en penumbra azulada, como la isla.
- const land = paint.mul(mix(vec3(1), vec3(0.3, 0.38, 0.62), uNight));
- material.colorNode = mix(horizon, mix(land, sea.mul(moonlit), attribute("sea", "float")).mul(light), shown);
+// Sombra del lado de noche: una esfera algo mayor que el planeta, transparente
+// donde da la luz y oscura donde no llega. La luz de la isla viene de muy
+// arriba (su lado de noche quedaría detrás, donde no se mira): para esta
+// sombra se tumba, y así se ve caer por el borde contrario al sol.
+function createShadeMaterial(shown, from) {
+ const material = unlit({ transparent: true, depthWrite: false, fog: false });
+ material.userData.flat = true;
+ material.colorNode = vec3(0.012, 0.016, 0.06);
+ // (Hacia su propio borde se desvanece: lo que oscurece es el planeta, no un disco a su alrededor.)
+ material.opacityNode = smoothstep(0.12, -0.42, normalWorld.dot(from)).mul(0.8).mul(shown).mul(smoothstep(0.12, 0.5, normalView.dot(positionViewDirection)));
  return material;
 }
 
@@ -293,6 +225,7 @@ function OrbitStars({ shown, count = 900 }) {
  const mesh = useRef(null);
  const material = useMemo(() => {
   const one = unlit({ transparent: true, depthWrite: false, fog: false });
+  one.userData.flat = true;
   one.colorNode = vec3(0.86, 0.9, 1.0);
   one.opacityNode = shown;
   return one;
@@ -340,7 +273,7 @@ function ClosedWorld({ spot, geometry, material, labels, spin }) {
    {/* El rótulo, debajo del astro en la pantalla. */}
    <mesh ref={label} position={VIEW.above.clone().multiplyScalar(-spot.radius * 1.75)}>
     <planeGeometry args={[spot.radius * 3.5, (spot.radius * 3.5 * 320) / 1024]} />
-    <meshBasicMaterial map={texture} transparent opacity={0} depthWrite={false} fog={false} toneMapped={false} />
+    <meshBasicMaterial map={texture} transparent opacity={0} depthWrite={false} fog={false} toneMapped={false} userData={FLAT} />
    </mesh>
   </group>
  );
@@ -349,28 +282,29 @@ function ClosedWorld({ spot, geometry, material, labels, spin }) {
 export function Space() {
  const group = useRef(null);
  const sky = useRef(null);
- const clouds = useRef(null);
+ const shade = useRef(null);
  const air = useRef(null);
  const moon = useRef(null);
  const stars = useRef(null);
  const labels = useMemo(() => [], []);
  const facing = useMemo(() => new THREE.Quaternion(), []);
- const shown = useMemo(() => uniform(0), []);
+ const shaded = useMemo(() => uniform(0), []);
+ const shadeFrom = useMemo(() => uniform(new THREE.Vector3(0, 1, 0)), []);
  const starlight = useMemo(() => uniform(0), []);
  const glow = useMemo(() => createGlowTexture(), []);
- const models = useMemo(() => ({ globe: markFar(createGlobe()), clouds: createClouds(), moon: createMoon(), twisted: createTwistedWorld(), alien: createAlienWorld() }), []);
- const material = useMemo(
-  () => ({
-   globe: createGlobeMaterial(shown),
-   clouds: createGlobeMaterial(shown, { clouds: true }),
+ const models = useMemo(() => ({ bed: createSeaBed(), shade: new THREE.IcosahedronGeometry(1, 6), moon: createMoon(), twisted: createTwistedWorld(), alien: createAlienWorld() }), []);
+ const material = useMemo(() => {
+  const all = {
+   bed: createSeaBedMaterial(),
+   shade: createShadeMaterial(shaded, shadeFrom),
    moon: celestial(LIGHT, { ambient: 0.22, strength: 0.95, contrast: 1.6 }),
    twisted: celestial(LIGHT, { ambient: 0.3, strength: 0.9 }),
    alien: celestial(LIGHT, { ambient: 0.34, strength: 0.9 }),
-  }),
-  [shown],
- );
+  };
+  for (const key of ["moon", "twisted", "alien"]) all[key].userData.flat = true;
+  return all;
+ }, [shaded, shadeFrom]);
  const moonAt = useMemo(() => placeInView(SKY.moon), []);
- const centre = PLANET.pole - PLANET.radius;
  useEffect(
   () => () => {
    glow.dispose();
@@ -380,18 +314,26 @@ export function Space() {
   [glow, models, material],
  );
  useEffect(() => {
-  if (import.meta.env.DEV) window.__world.space = { group: group.current, sky: sky.current, shown, radius: PLANET.radius, centre, names: [SKY.twisted.name, SKY.alien.name] }; // para las pruebas automáticas
- }, [shown, centre]);
+  if (import.meta.env.DEV) window.__world.space = { group: group.current, sky: sky.current, radius: PLANET.radius, bendPoint, names: [SKY.twisted.name, SKY.alien.name] }; // para las pruebas automáticas
+ }, []);
 
  useFrame(({ camera, clock }) => {
-  // Solo existe en vuelo. Aparece con la altura: primero es horizonte, luego planeta.
+  // Solo existe en vuelo.
   const space = rig.space;
-  group.current.visible = space > 0.004;
+  group.current.visible = space > 0.004 || rig.bend > 0;
   if (!group.current.visible) return;
-  shown.value = smooth(0.08, 0.75, space);
-  clouds.current.rotation.y = clock.elapsedTime * 0.012;
+  // La sombra y el halo siguen a la esfera mientras se cierra: su centro está
+  // a un radio (el de ese momento) bajo el polo. Solo se ven con ella ya casi cerrada.
+  const closing = smooth(0.6, 1, rig.bend);
+  const radius = PLANET.radius / Math.max(rig.bend, 0.05);
+  shade.current.visible = air.current.visible = closing > 0;
+  shade.current.position.y = air.current.position.y = -radius;
+  shade.current.scale.setScalar(radius + AIR);
+  shaded.value = closing;
+  shadeFrom.value.set(sunDirection.x, 0.3, sunDirection.z).normalize();
+  air.current.scale.setScalar(radius * 2.75);
   air.current.quaternion.copy(camera.quaternion);
-  air.current.material.opacity = smooth(0.35, 1, space) * (0.5 - current.glow * 0.16);
+  air.current.material.opacity = closing * (0.42 - current.glow * 0.14);
   // El cielo de la órbita acompaña a la cámara cuando esta rodea el planeta:
   // luna y mundos lejanos se quedan en su sitio de la pantalla y lo que gira es el planeta.
   sky.current.rotation.y = rig.viewYaw ?? 0;
@@ -412,14 +354,12 @@ export function Space() {
 
  return (
   <group ref={group} visible={false}>
-   <group position={[0, centre, 0]}>
-    <mesh name="planeta" geometry={models.globe} material={material.globe} scale={PLANET.radius} frustumCulled={false} />
-    <mesh ref={clouds} name="nubes del planeta" geometry={models.clouds} material={material.clouds} scale={PLANET.radius} frustumCulled={false} renderOrder={1} />
-    <mesh ref={air} name="atmósfera" scale={PLANET.radius * 2.9}>
-     <planeGeometry />
-     <meshBasicMaterial map={glow} color="#4fa8ff" transparent opacity={0} depthWrite={false} fog={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-    </mesh>
-   </group>
+   <mesh name="fondo del mar" geometry={models.bed} material={material.bed} position-y={SEA_FLOOR} frustumCulled={false} userData={COARSE} />
+   <mesh ref={shade} name="sombra de la noche" geometry={models.shade} material={material.shade} frustumCulled={false} renderOrder={6} />
+   <mesh ref={air} name="atmósfera" frustumCulled={false}>
+    <planeGeometry />
+    <meshBasicMaterial map={glow} color="#4fa8ff" transparent opacity={0} depthWrite={false} fog={false} toneMapped={false} blending={THREE.AdditiveBlending} userData={FLAT} />
+   </mesh>
    <group ref={stars}>
     <OrbitStars shown={starlight} />
    </group>

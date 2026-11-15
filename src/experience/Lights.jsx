@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
+import { PLANET, uClosed, uCurve } from "./environment/bend";
 import { trailAt, updateTrail } from "./environment/trail";
 import { startGust, updateWind, windDebug } from "./environment/wind";
 import { sceneLights } from "./lightSources";
@@ -10,6 +11,7 @@ import { current, sunDirection, updateTheme } from "./theme";
 if (import.meta.env.DEV) window.__world.env = { ...windDebug, startGust, trailAt };
 
 const SHADOW_REACH = 38; // m alrededor del jugador con sombras
+const PLANET_SHADOW_REACH = 70; // en vuelo, con el mundo cerrado en planeta: la isla entera
 const islet = { x: WELCOME.origin[0], y: WELCOME.origin[1], z: WELCOME.origin[2] };
 
 // Dos luces para toda la escena: una ambiente (cielo/suelo) y el sol con
@@ -50,9 +52,20 @@ export function Lights({ shadowMapSize }) {
   // (Mientras se ve la bienvenida, en el islote: allí las sombras son las de la luna.)
   const welcome = rig.intro === 1;
   const focus = welcome ? islet : (rig.focus ?? player.position);
-  const texel = (SHADOW_REACH * 2) / shadowMapSize;
-  const x = Math.round(focus.x / texel) * texel;
-  const z = Math.round(focus.z / texel) * texel;
+  // El mundo se curva con la nave (ver environment/bend.js). Curvado se ve la
+  // isla entera: las sombras pasan de rodear al jugador a cubrirla toda.
+  uCurve.value = rig.bend / PLANET.radius;
+  uClosed.value = Math.min(1, rig.bend / 0.3);
+  const reach = SHADOW_REACH + (PLANET_SHADOW_REACH - SHADOW_REACH) * rig.bend;
+  const lens = sun.current.shadow.camera;
+  if (lens.right !== reach) {
+   lens.left = lens.bottom = -reach;
+   lens.right = lens.top = reach;
+   lens.updateProjectionMatrix();
+  }
+  const texel = (reach * 2) / shadowMapSize;
+  const x = Math.round((focus.x * (1 - rig.bend)) / texel) * texel;
+  const z = Math.round((focus.z * (1 - rig.bend)) / texel) * texel;
   const y = welcome ? focus.y : 0;
   sun.current.position.set(x + sunDirection.x * 90, y + sunDirection.y * 90, z + sunDirection.z * 90);
   sun.current.shadow.intensity = current.shadow;
@@ -60,9 +73,10 @@ export function Lights({ shadowMapSize }) {
   sun.current.target.updateMatrixWorld();
   // En vuelo, de lejos, las sombras ya no se distinguen y rehacer su mapa en
   // cada fotograma es lo que más cuesta (unas 150 llamadas de dibujo): se
-  // rehace uno de cada tres desde los 90 m de altura y uno de cada ocho arriba.
-  // El mapa y su matriz se renuevan a la vez, así que entre medias casan.
-  const every = rig.space >= 1 ? 8 : rig.space > 0.5 ? 3 : 1;
+  // rehace uno de cada tres en cuanto el mundo empieza a curvarse (ahí se
+  // dibuja entero, sin descartar nada por encuadre) y uno de cada ocho
+  // arriba. El mapa y su matriz se renuevan a la vez, así que entre medias casan.
+  const every = rig.space >= 1 ? 8 : rig.bend > 0 ? 3 : 1;
   const shadow = sun.current.shadow;
   shadow.autoUpdate = every === 1;
   if (every > 1 && (shadowTurn.current = (shadowTurn.current + 1) % every) === 0) shadow.needsUpdate = true;

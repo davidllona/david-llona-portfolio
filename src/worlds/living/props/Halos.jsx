@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { attribute, positionGeometry, uniform } from "three/tsl";
 import { MeshBasicNodeMaterial } from "three/webgpu";
+import { bendWorld } from "../../../experience/environment/bend";
 import { createGlowTexture } from "../../../experience/textures";
 import { registerGlow } from "../../../experience/theme";
 
@@ -27,7 +28,9 @@ export function Halos({ points, size = 1.4, color = "#ffb060", night = 0.55 }) {
  const material = useMemo(() => {
   const one = new MeshBasicNodeMaterial({ map: glow, color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, fog: false });
   // El plano se levanta sobre los ejes de la cámara: siempre se ve de frente.
-  one.positionNode = attribute("centre", "vec3").add(basis.right.mul(positionGeometry.x.mul(size))).add(basis.up.mul(positionGeometry.y.mul(size)));
+  // (Su centro se curva con el mundo; el plano no: sigue de cara a la cámara. Ver environment/bend.js.)
+  one.userData.flat = true;
+  one.positionNode = bendWorld(attribute("centre", "vec3")).add(basis.right.mul(positionGeometry.x.mul(size))).add(basis.up.mul(positionGeometry.y.mul(size)));
   return one;
  }, [glow, color, size, basis]);
  useEffect(() => {

@@ -1,10 +1,10 @@
 # Estado del universo de tres planetas
 
-Actualizado: 14 de noviembre de 2026 · rama `estacion-espacial`.
+Actualizado: 15 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
 **En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **En curso: bloque 3** (errores de juego), a medias: ver su fila y «Bloque 3, lo que queda».
-**En curso: objetivo 19 — pulido final del mundo 1** (`docs/OBJETIVO-19.md`): los cuatro bloques (A, B, C y D) están hechos: **parada del bloque D, pendiente del visto bueno de David** (batería completa, fotogramas del despegue y fps en «Parada del bloque D»). Ver «Objetivo 19».
+**En curso: objetivo 19 — pulido final del mundo 1** (`docs/OBJETIVO-19.md`): los cuatro bloques (A, B, C y D) están hechos. David pidió rehacer la vista de planeta del bloque D («el planeta es la isla»): **retoque hecho, pendiente de su visto bueno** (ver «Retoque del bloque D»). Ver «Objetivo 19».
 **Objetivo 18 — pulido del mundo 1** (`docs/OBJETIVO-18.md`, 14-11-2026). **Sustituye a los bloques 4 a 7 del objetivo 16.** Ocho apartados, commit y push por apartado; paradas solo tras el 4 y tras el 8. **Los ocho están hechos: parada del apartado 8, pendiente del visto bueno de David** (batería completa y capturas en «Parada del apartado 8»). Ver «Objetivo 18».
 Decidido por David el 13-11-2026: los pesos reales de los modelos mandan sobre la ficha (reducir «Japan Lamp», puente, observatorio y cabaña hasta que no bajen los fps y dar el número final de triángulos de cada uno); los pasos fuera de la hierba y los sonidos de baloncesto se quedan sintetizados hasta que él avise.
 Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
@@ -20,7 +20,7 @@ Pulido final del mundo 1 (`docs/OBJETIVO-19.md`, 14-11-2026). Cuatro bloques, co
 | A. Errores visibles (ocho puntos) | **Hecho** (commit `519149f`; el orden de dibujado del recorte, afinado en el commit del bloque B) |
 | B. Animación de correr | **Hecho. Parada: pendiente de visto bueno.** Capturas: `capturas/24-final/parada-B/` (`hoja-A-dia.jpg`, `hoja-A-noche.jpg`, `hoja-carrera.jpg`) |
 | C. «Sobre mí» sale de este mundo | **Hecho** |
-| D. Despegue: que se vea un planeta | **Hecho** (commit `cb163cc` y el de los arreglos de la parada). **Parada: pendiente de visto bueno.** Capturas: `capturas/24-final/parada-D/` (`hoja-despegue-dia.jpg`, `hoja-despegue-noche.jpg`, `hoja-casa-arbol.jpg`) |
+| D. Despegue: que se vea un planeta | **Rehecho el 15-11-2026** a petición de David: el planeta es la isla, curvada de verdad. **Parada: pendiente de visto bueno.** Capturas: `capturas/24-final/retoque-D/` (`hoja-despegue-dia.jpg`, `hoja-despegue-noche.jpg`, `orbita-dia.jpg`, `orbita-noche.jpg`); la casa del árbol, en `parada-D/hoja-casa-arbol.jpg` |
 
 **Bloque A, lo que hay:**
 1. **Aro de visibilidad** (`experience/environment/seeThrough.js`): recorte circular limpio alrededor del astronauta, con el borde fundido por mezcla de verdad; sin tramado. Igual en casas, árboles, rocas, pozo, cohete, torii, casa de té, observatorio y casa del árbol. Los materiales siguen en la lista de opacos del renderer (mezcla «a medida» sin declararse translúcidos) y se dibujan después del resto de lo opaco; el césped, después de ellos (`seeThroughOrder`, `drawAfterSeeThrough`). Sacarlos a la lista de translúcidos costaba 6 fps y dejaba 27 pipelines sin precalentar. En el borde fundido lo que se ve detrás es el suelo, no el césped ni otro árbol: no se nota.
@@ -51,15 +51,63 @@ Pulido final del mundo 1 (`docs/OBJETIVO-19.md`, 14-11-2026). Cuatro bloques, co
 - Colisiones rehorneadas (838 obstáculos de 202 mallas). Pruebas: `living` 46 (junto a la casa no se ofrece «Sobre mí», no queda cartel, el botón del menú abre la ficha), `portfolio` 27 (la ficha se abre sin guiado y trae las áreas), `progress`, `woody`, `terrain`, `birds`, `collisions`, `errors`.
 - Capturas: `capturas/24-final/parada-D/hoja-casa-arbol.jpg` (día y noche).
 
-**Bloque D, lo que hay** (`worlds/living/Space.jsx`, `experience/Ship.jsx`, `experience/state.js` (`ORBIT_VIEW`), `experience/Sky.jsx`, `experience/theme.js`, `experience/Lights.jsx`, `tests/e2e/rocket.mjs`):
-- **La isla es el polo de un planeta de verdad**: debajo hay un globo low poly de 170 m de radio (océano, otras masas de tierra, nubes en bandas y halo de atmósfera) que solo se dibuja en vuelo. No hay cambio de escena ni fundido: al subir, la niebla se retira, el mar plano se deshace y lo que asoma es el océano del globo, del mismo color. Mismos mares, arenas, prados y bosques que el planeta de la bienvenida.
-- **La cámara se aleja mucho más**: la órbita está a 440 m (antes 34) y la cámara llega a 72 veces la distancia de juego (antes 13); la nave sube en arco hacia el sur y queda delante del planeta, que cabe entero (550 px de lado a lado a 1440 × 900). En órbita la cámara lo rodea despacio (0,035 rad/s): se le ve girar.
-- **En el cielo de la órbita**: la luna y los otros dos mundos como destinos cerrados, cada uno con su rótulo y «PRÓXIMAMENTE»: **THE TWISTED MOON** (morados y grises, crestas en espiral y colinas enroscadas) y **THE COSMIC LAB** (turquesa, magenta y verde ácido, vainas y zarcillos). Nombres provisionales. Solo son astros: de esos mundos no hay nada construido.
-- **Al aterrizar, el camino inverso**; en tierra no queda nada del espacio (ni planeta, ni giro; vuelve la niebla).
-- **0 pipelines en caliente** al despegar, en órbita y al bajar, de día y de noche; ningún hueco de más de 40 ms entre fotogramas en la subida ni en la bajada.
-- Sin comprobar: el despegue visto en movimiento por una persona (solo en fotogramas y por medida); un teléfono; el respaldo WebGL2. De noche el planeta queda bastante oscuro lejos de la isla (lo decide David con la hoja).
+**Bloque D, lo que hay** (rehecho el 15-11-2026; `experience/environment/bend.js`, `experience/Ship.jsx`, `experience/state.js` (`ORBIT_VIEW`, `rig.bend`), `experience/Lights.jsx`, `experience/Sky.jsx`, `experience/environment/seeThrough.js`, `worlds/living/Space.jsx`, `worlds/living/water/Water.jsx`, `worlds/living/props/Halos.jsx`, `experience/ui3d/WorldUi.jsx`, `experience/Experience.jsx`, `tests/e2e/rocket.mjs`):
+- **El planeta es la isla.** Fuera el globo de 170 m con otros continentes, hielo y nubes. Al subir, el mundo entero se curva de verdad: cada vértice de la escena se enrolla sobre una esfera cuyo radio baja de infinito (suelo plano) a **44 m** (`PLANET.radius`), con el eje en la plataforma de la nave. La isla (unos 50 m de radio) ocupa casi todo el hemisferio que se ve y su mar la rodea como un anillo hasta el borde. Son los mismos árboles, casas, cohete, río, pistas y luces, en 3D: no hay otro modelo ni textura.
+- **Cómo**: un único punto para todos los materiales (`setupModelViewProjection` de los materiales de nodos de three, sustituido en `bend.js`). Solo se curva la posición en pantalla; la luz, las sombras, la niebla y la espuma se siguen calculando en plano, así que andando no cambia nada (con curvatura 0 el sombreador devuelve el punto tal cual). Quedan fuera, con `material.userData.flat`: el cielo, los astros de la órbita, las tarjetas de la interfaz y la nave.
+- **Transición continua**: `rig.bend` va de 0 a 1 durante la primera mitad de la subida (`CLOSED_AT` en `Ship.jsx`) y vuelve a 0 al aterrizar. No hay corte ni cambio de escena.
+- **La nave va rígida** (curvada, a su altura se ensancharía): sube a plomo por el eje y en el último tramo se tumba y queda en órbita en el centro de la vista, de costado, a 60 m de la cámara, con el planeta detrás.
+- **El mar** llega en anillos hasta 150 m (algo más de media vuelta al planeta) y casa vértice a vértice con la rejilla de la isla; curvado deja de fundirse con el horizonte y conserva su espuma en la orilla. Debajo, un **fondo de mar** opaco cierra la esfera (el agua es translúcida).
+- **Sombra del lado de noche** (una esfera algo mayor que el planeta, oscura donde no da el sol; se usa la dirección del sol tumbada para que caiga por el borde que se ve) y **halo de atmósfera** suave. La luna y los otros dos mundos (THE TWISTED MOON, THE COSMIC LAB, «PRÓXIMAMENTE»), como estaban.
+- **Las caras largas se parten al montar el mundo** (`splitLongFaces`): un triángulo solo se curva por sus vértices, y la losa del campo de fútbol (22 m) o la de la pista se hundían más de un metro bajo el suelo curvo. Lo tendido (losas, líneas, manchas de luz) se parte a 1,2 m; el resto, a 6,5 m. 56 geometrías; el terreno y los modelos no se tocan.
+- **Mientras el mundo está curvado no se descarta nada por encuadre** (lo que three da por fuera de cuadro en el mundo plano puede estar a la vista) y las sombras cubren la isla entera (70 m alrededor del centro en vez de 38 alrededor del jugador), rehaciéndose uno de cada tres fotogramas en la subida y uno de cada ocho en órbita.
+- **Tres cosas de three r183 que hay que saber** (todas en `bend.js`): (1) reutiliza el sombreador entre materiales «iguales» sin mirar `userData`: lo rígido lleva su propia clave (`customProgramCacheKey`); (2) los uniformes «de objeto» de un material corriente y quieto no se reenvían si nada suyo cambia: la curvatura va en el grupo de uniformes del render (`renderGroup`), o las losas se quedaban planas flotando sobre el planeta; (3) el pase de sombras usa otro material (`isShadowPassMaterial`): no se curva.
+- **Hueco de visión**: con el astronauta dentro de la nave ya no se recorta nada (`seeThrough.js`); en órbita la nave pasa por delante de donde quedó y salía medio borrada.
+- **No hecho**: guardar la imagen de referencia. `docs/referencias/` no existe en el repositorio y la imagen adjunta al encargo era la captura del estado anterior, no la referencia; se ha trabajado con la descripción.
+- Sin comprobar: el despegue visto en movimiento por una persona (solo en fotogramas y por medida); un teléfono; el respaldo WebGL2 (`?backend=webgl`); la calidad baja; el planeta antiguo (`?world=cosmic`) no se curva (su nave no está en el centro) y desde su órbita se sigue viendo plano.
 
-**Parada del bloque D — batería completa** (14-11-2026, en primer plano, de dos en dos, Chrome sin ventana, servidor de desarrollo en el 5199). La sesión anterior se cortó en mitad de la batería y dejó su tanda corriendo sola; se paró antes de empezar.
+**Retoque del bloque D — pruebas y medidas** (15-11-2026, en primer plano, de dos en dos, Chrome sin ventana, servidor de desarrollo en el 5199):
+
+| Prueba | Bien | Fallos |
+|---|---|---|
+| `errors` | 8 | 0 |
+| `living` | 46 | 0 |
+| `characters` | 20 | 0 |
+| `portfolio` | 27 | 0 |
+| `progress` | 26 | 0 |
+| `motion` | 10 | 0 |
+| `camera` | 30 | 0 |
+| `woody` | 37 | 0 |
+| `rocket` | 25 | 0 |
+| `terrain` | 3 | 0 |
+| `life` | 11 | 0 |
+| `football` | 63 | 0 |
+| `sounds` | 27 | 0 |
+| **`npm run e2e` (las trece)** | **333** | **0** |
+| `basket` | 20 | 0 |
+| `garden` | 6 | 0 |
+| `birds` | 4 | 0 |
+| `run` | 19 | 0 |
+| `hill` | 29 | 0 |
+| `collisions` | 4 | 0 |
+| `welcome` | 21 | 0 |
+| `loader` | 13 | **1** (la de siempre: primer pintado a 180 ms, objetivo 100; la pantalla de carga no se toca) |
+| `tests/perf/entrada.mjs` | 0 pipelines en caliente al entrar y al despegar; despegue sin tareas largas ni huecos | — |
+
+- `rocket.mjs` está adaptada al diseño nuevo (25 comprobaciones): la curva sube de 0 a 1 sin saltos, en órbita el mundo es una esfera cerrada sin niebla, no existe otro modelo de planeta, el disco cabe en pantalla (544 px), la costa queda entre el 90 % y el 102 % de su radio, dentro del disco hay planeta hasta el borde y fuera cielo, la nave se ve delante, y al aterrizar el suelo vuelve a ser plano.
+- **Fps** (2880 × 1620, sin límite; por tramos de medio segundo, el peor es el que cuenta). Dos pasadas, con el equipo a dos ritmos distintos:
+
+| | Junto a la nave | Subida: media / peor medio segundo | Órbita | Bajada: media / peor medio segundo |
+|---|---|---|---|---|
+| Día, pasada lenta | 69 | 85 / 66 | 89 | 81 / 66 |
+| Noche, pasada lenta | 64 | 83 / 66 | 86 | 77 / 62 |
+| Día, pasada rápida | 89 | 113 / 90 | 119 | 108 / 86 |
+| Noche, pasada rápida | 84 | 133 / 80 | 145 | 134 / 106 |
+
+- El peor tramo del vuelo es siempre el de pegado al suelo (los mismos fps que andando). **0 pipelines en caliente** en la subida, en órbita y en la bajada, de día y de noche; ningún hueco de más de 40 ms entre fotogramas. En tierra: 73 · 77 · 74 · 74 · 72 (pasada lenta) y 117 · 125 · 121 · 118 · 122 (rápida): la curvatura no cuesta nada andando.
+- **Arreglado por el camino**: al levantarse la nave había 3 s a 52–58 fps (se dejaba de descartar por encuadre con las sombras aún a ritmo completo). Ahora el descarte se retira con la curva ya en 0,03 y las sombras se espacian desde el despegue.
+- Hubo otras dos sesiones abiertas a la vez sobre este mismo encargo (copias reanudadas de la conversación), que editaron `bend.js` y `tests/e2e/rocket.mjs` en paralelo. Se retiraron al avisarlas; sus cambios (el uniforme en `renderGroup`, la adaptación de `rocket.mjs`) se revisaron y se conservan. La batería y las medidas de arriba son posteriores, con una sola sesión.
+
+**Parada del bloque D — batería completa** (versión anterior, la del globo de 170 m; sustituida por el retoque de arriba) (14-11-2026, en primer plano, de dos en dos, Chrome sin ventana, servidor de desarrollo en el 5199). La sesión anterior se cortó en mitad de la batería y dejó su tanda corriendo sola; se paró antes de empezar.
 
 | Prueba | Bien | Fallos |
 |---|---|---|
@@ -390,12 +438,12 @@ node tests/perf/carga.mjs      # pantalla de carga: tiempo hasta poder entrar, t
 node tests/perf/peso.mjs       # peso descargado en la primera visita (build de producción en el 5198)
 node tests/perf/fps.mjs        # fps en cinco puntos
 node tests/e2e/errors.mjs      # ninguna excepción de página y el lienzo dibujado: carga, bienvenida, estrella fugaz y mundo, sin ventana y con ventana (incluida en e2e)
-npm run e2e                    # 329 comprobaciones en Chrome sin ventana (con el servidor encendido)
+npm run e2e                    # 333 comprobaciones en Chrome sin ventana (con el servidor encendido)
 node tests/e2e/sounds.mjs      # sonido uno por uno: señal medida de cada bucle, golpes, silencio; graba el recorrido (incluida en e2e)
 node tests/e2e/football.mjs    # fútbol de principio a fin, con fotogramas de cada tiro (incluida en e2e)
 node tests/e2e/woody.mjs       # bocadillos, ritmo, descanso, cuestas y ruta guiada (incluida en e2e)
 node tests/e2e/camera.mjs      # cámara, zoom, tarjeta «E», postes y oclusión, cohete incluido (incluida en e2e)
-node tests/e2e/rocket.mjs      # despegue: escala, empuje, cámara, aceleración, planeta entero en órbita con la luna y los dos mundos cerrados, y aterrizaje; saca la serie de fotogramas (incluida en e2e)
+node tests/e2e/rocket.mjs      # despegue: escala, empuje, cámara, aceleración, el mundo curvándose hasta cerrarse en planeta, la isla llenando el disco, la luna y los dos mundos cerrados, y aterrizaje; saca la serie de fotogramas (incluida en e2e)
 node tests/e2e/terrain.mjs     # objetos que flotan, hundidos o bajo el agua (incluida en e2e); «lista» y «capturas» como argumento
 node tests/perf/entrada.mjs    # tirones y pipelines compilados en caliente al entrar y al despegar
 node tests/e2e/life.mjs        # polvo, salpicaduras, hojas, polen, luciérnagas y «El bosque despierta»; saca fotogramas (incluida en e2e)

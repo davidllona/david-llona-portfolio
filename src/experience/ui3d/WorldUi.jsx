@@ -34,6 +34,7 @@ const elastic = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 + Math.pow(2, -9 * t) * Math
 function useCard(width, height) {
  const card = useMemo(() => createCard(width, height), [width, height]);
  const material = useMemo(() => new THREE.MeshBasicMaterial({ map: card.texture, transparent: true, depthTest: false, depthWrite: false, toneMapped: false, fog: false }), [card]);
+ material.userData.flat = true; // (las tarjetas no se curvan con el mundo: ver environment/bend.js)
  useEffect(
   () => () => {
    card.texture.dispose();

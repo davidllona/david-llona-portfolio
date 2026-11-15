@@ -1,4 +1,6 @@
 import { MeshBasicNodeMaterial, MeshLambertNodeMaterial } from "three/webgpu";
+// (Al cargarse deja puesta la curvatura del mundo en todos los materiales, antes de que se compile ninguno.)
+import "./environment/bend";
 
 // Materiales de nodos (TSL) del proyecto. El renderer es WebGPU con respaldo
 // WebGL2: los materiales clásicos de three (MeshLambertMaterial…) siguen

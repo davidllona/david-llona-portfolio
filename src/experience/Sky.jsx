@@ -7,6 +7,8 @@ import { createGlowTexture } from "./textures";
 import { rig } from "./state";
 import { current, registerGlow, sunDirection, uniforms } from "./theme";
 
+const FLAT = { flat: true };
+
 // Generador con semilla: las estrellas salen siempre en el mismo sitio.
 function seeded(seed) {
  let state = seed;
@@ -20,6 +22,7 @@ function Stars({ count }) {
  const { material, shown } = useMemo(() => {
   const shown = uniform(0);
   const material = unlit({ transparent: true, depthWrite: false, fog: false });
+  material.userData.flat = true; // (el cielo no se curva con el mundo: ver environment/bend.js)
   const seed = hash(instanceIndex);
   const twinkle = sin(uniforms.uTime.mul(seed.mul(1.7).add(0.5)).add(seed.mul(60))).mul(0.3).add(0.7);
   material.colorNode = vec3(0.86, 0.9, 1.0);
@@ -66,6 +69,7 @@ export function Sky({ stars = 3000 }) {
  const glow = useMemo(() => createGlowTexture(), []);
  const dome = useMemo(() => {
   const material = unlit({ side: THREE.BackSide, depthWrite: false, fog: false });
+  material.userData.flat = true;
   material.colorNode = mix(uniforms.uSkyHorizon, uniforms.uSkyTop, smoothstep(-0.05, 0.55, positionLocal.normalize().y));
   return material;
  }, []);
@@ -103,11 +107,11 @@ export function Sky({ stars = 3000 }) {
    <Stars count={stars} />
    <mesh ref={orb}>
     <circleGeometry args={[1, 20]} />
-    <meshBasicMaterial toneMapped={false} fog={false} depthWrite={false} />
+    <meshBasicMaterial toneMapped={false} fog={false} depthWrite={false} userData={FLAT} />
    </mesh>
    <mesh ref={halo} scale={950}>
     <planeGeometry />
-    <meshBasicMaterial map={glow} transparent depthWrite={false} fog={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+    <meshBasicMaterial map={glow} transparent depthWrite={false} fog={false} toneMapped={false} blending={THREE.AdditiveBlending} userData={FLAT} />
    </mesh>
   </group>
  );

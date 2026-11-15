@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { attribute, cameraPosition, float, fract, max, mix, positionGeometry, positionWorld, pow, sin, smoothstep, step, texture, varying, vec2, vec3 } from "three/tsl";
 import { noiseTexture } from "../../../experience/environment/noise";
+import { uClosed } from "../../../experience/environment/bend";
 import { trailPush } from "../../../experience/environment/trail";
 import { unlit } from "../../../experience/materials";
 import { uniforms } from "../../../experience/theme";
@@ -22,7 +23,7 @@ import { POND, RIVER, SCATTER, WATERFALL, WATER_LEVEL, groundHeight } from "../l
 // (El agua como «color liso + detalles que siguen la profundidad» es la idea
 // de folio-2025, de Bruno Simon, MIT; el código y el aspecto son propios.)
 function createMaterial() {
- const { uTime, uWaterShallow, uWaterDeep, uSkyHorizon, uSunColor, uSpace, uNight } = uniforms;
+ const { uTime, uWaterShallow, uWaterDeep, uSkyHorizon, uSunColor, uNight } = uniforms;
  const fall = vec2(WATERFALL.x, WATERFALL.z + 1.5);
  const bed = attribute("depth", "float");
  const flow = attribute("flow", "vec2");
@@ -118,8 +119,9 @@ function createMaterial() {
  color = mix(color, mix(vec3(1), vec3(0.42, 0.56, 0.86), uNight), foam.mul(mix(0.94, 0.7, uNight)));
 
  let alpha = max(mix(0.78, 0.97, deep), foam);
- // El mar se funde con el horizonte; desde la nave se recoge alrededor de la isla.
- alpha = alpha.mul(smoothstep(170, 105, fromCentre)).mul(uSpace.mul(smoothstep(60, 94, fromCentre)).oneMinus());
+ // El mar se funde con el horizonte. Al subir con la nave el mundo se curva
+ // y el mar se cierra en una esfera: entonces llega entero hasta el antípoda.
+ alpha = alpha.mul(mix(smoothstep(170, 105, fromCentre), float(1), uClosed));
  // Donde el fondo asoma por encima del agua no se pinta nada.
  alpha = alpha.mul(step(-0.03, depth));
 
@@ -132,6 +134,7 @@ function createMaterial() {
 
 const GRID = 116; // metros de lado del plano detallado
 const CELLS_PER_SIDE = 232; // celdas de medio metro: orillas finas
+const SEA_REACH = 150; // m hasta donde llega el mar: algo más de media vuelta al planeta (π × 44 m)
 
 // Dirección y fuerza de la corriente en (x, z): se nota en el cauce y se apaga
 // al llegar al mar abierto. Devuelve además por dónde va ese punto del río:
@@ -186,11 +189,33 @@ function createGeometries() {
  inner.setAttribute("course", new THREE.BufferAttribute(course, 2));
  inner.setAttribute("rock", new THREE.BufferAttribute(rock, 1));
 
- // Fuera: mar abierto, siempre profundo. Es un marco que encaja con la rejilla.
+ // Fuera: mar abierto, siempre profundo. Es un marco que encaja con la
+ // rejilla vértice a vértice (sale de cada uno de los de su borde) y llega, en
+ // anillos, hasta donde el planeta se cierra por detrás: al curvarse el mundo
+ // tiene que doblarse con él, sin grietas en la unión.
  const half = GRID / 2;
- const shape = new THREE.Shape().absarc(0, 0, 175, 0, Math.PI * 2);
- shape.holes.push(new THREE.Path().moveTo(-half, -half).lineTo(-half, half).lineTo(half, half).lineTo(half, -half).closePath());
- const outer = new THREE.ShapeGeometry(shape, 48).rotateX(-Math.PI / 2);
+ const step = GRID / CELLS_PER_SIDE;
+ const rim = [];
+ for (let i = 0; i < CELLS_PER_SIDE; i++) rim.push([-half + i * step, -half]);
+ for (let i = 0; i < CELLS_PER_SIDE; i++) rim.push([half, -half + i * step]);
+ for (let i = 0; i < CELLS_PER_SIDE; i++) rim.push([half - i * step, half]);
+ for (let i = 0; i < CELLS_PER_SIDE; i++) rim.push([-half, half - i * step]);
+ const RINGS = 18;
+ const points = [], index = [];
+ rim.forEach(([x, z]) => {
+  const from = Math.hypot(x, z);
+  for (let ring = 0; ring <= RINGS; ring++) {
+   const reach = from + (SEA_REACH - from) * (ring / RINGS) ** 1.3;
+   points.push((x / from) * reach, 0, (z / from) * reach);
+  }
+ });
+ for (let i = 0; i < rim.length; i++) {
+  const a = i * (RINGS + 1), b = ((i + 1) % rim.length) * (RINGS + 1);
+  for (let ring = 0; ring < RINGS; ring++) index.push(a + ring, b + ring, a + ring + 1, b + ring, b + ring + 1, a + ring + 1); // (cara hacia arriba)
+ }
+ const outer = new THREE.BufferGeometry();
+ outer.setAttribute("position", new THREE.Float32BufferAttribute(points, 3));
+ outer.setIndex(index);
  const count = outer.attributes.position.count;
  outer.setAttribute("depth", new THREE.BufferAttribute(new Float32Array(count).fill(3), 1));
  outer.setAttribute("flow", new THREE.BufferAttribute(new Float32Array(count * 2), 2));
