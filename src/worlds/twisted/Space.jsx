@@ -38,7 +38,7 @@ export function Space() {
   const material = unlit({ transparent: true, depthWrite: false, fog: false });
   material.userData.flat = true;
   material.colorNode = vec3(0.02, 0.012, 0.05);
-  material.opacityNode = smoothstep(0.2, -0.4, normalWorld.dot(shadeFrom)).mul(0.72).mul(shaded).mul(smoothstep(0.12, 0.5, normalView.dot(positionViewDirection)));
+  material.opacityNode = smoothstep(0.2, -0.4, normalWorld.dot(shadeFrom)).mul(0.5).mul(shaded).mul(smoothstep(0.12, 0.5, normalView.dot(positionViewDirection)));
   return material;
  }, [shaded, shadeFrom]);
  useEffect(

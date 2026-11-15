@@ -129,7 +129,7 @@ export function noise2(x, z) {
 export function height(x, z) {
  const r = Math.hypot(x, z);
  const shore = shoreRadius(Math.atan2(z, x));
- let moor = 0.34 * Math.sin(x * 0.19 + 1.3) * Math.cos(z * 0.16 - 0.4) + 0.2 * Math.sin((x + z) * 0.31 + 0.7) + 0.12;
+ let moor = 0.34 * Math.sin(x * 0.19 + 1.3) * Math.cos(z * 0.16 - 0.4) + 0.2 * Math.sin((x + z) * 0.31 + 0.7) + 0.44; // (siempre por encima de la laguna: no quedan charcos)
  for (const flat of FLATS) moor *= smooth(flat.r, flat.r + 3.5, Math.hypot(x - flat.x, z - flat.z));
  // (Al pie de la colina el páramo se allana: la senda arranca a ras.)
  moor *= smooth(HILL.r - 1, HILL.r + 3, Math.hypot(x - HILL.x, z - HILL.z));
@@ -189,6 +189,42 @@ export const FENCES = [
  { from: [-8.6, -10.4], to: [-7.6, -7.4] },
 ];
 
+// Balizas de la zona de aterrizaje: postes a rayas con una bola encendida, entre camino y camino.
+export const BEACONS = [0.72, 2.3, 3.75, 5.5].map((angle, i) => ({ x: PAD.x + Math.cos(angle) * (PAD.padRadius + 1.75), z: PAD.z + Math.sin(angle) * (PAD.padRadius + 1.75), turn: angle + 1.2 + i }));
+// Lascas de piedra clavadas en el páramo.
+export const SHARDS = [
+ { x: -3.4, z: -9.9, scale: 1.1, turn: 0.4 },
+ { x: 4.6, z: -12.6, scale: 0.9, turn: 2.2 },
+ { x: -15.2, z: -1.9, scale: 0.8, turn: 4.1 },
+ { x: 10.2, z: 2.6, scale: 1.0, turn: 1.3 },
+ { x: -21.8, z: -13.2, scale: 1.25, turn: 5.2 },
+ { x: 12.4, z: -12.2, scale: 1.05, turn: 3.0 },
+ { x: -11.2, z: 6.2, scale: 0.85, turn: 0.9 },
+];
+// ¿Queda libre este punto para plantar algo menudo? Ni camino, ni agua, ni colina, ni pegado a nada.
+function open(x, z, margin = 0.5) {
+ if (height(x, z) < 0.02 || pathEdge(x, z) < margin) return false;
+ if (Math.hypot(x - HILL.x, z - HILL.z) < HILL.r + 0.3) return false;
+ if (Math.hypot(x - HOUSE.x, z - HOUSE.z) < 4.6) return false;
+ return ![...TREES, ...SHARDS].some((one) => Math.hypot(x - one.x, z - one.z) < 1.1);
+}
+// Matojos secos: a corros, por todo el páramo.
+export const TUFTS = (() => {
+ const random = createRandom(20261120);
+ const tufts = [];
+ for (let tries = 0; tufts.length < 900 && tries < 9000; tries++) {
+  const angle = random() * TAU, radius = Math.sqrt(random()) * 43;
+  const cx = Math.cos(angle) * radius, cz = Math.sin(angle) * radius;
+  // Donde el ruido dice «claro» no nace nada: quedan calvas.
+  if (noise2(cx * 0.11 + 7, cz * 0.11) < 0.42) continue;
+  for (let k = 0; k < 4; k++) {
+   const x = cx + (random() - 0.5) * 2.2, z = cz + (random() - 0.5) * 2.2;
+   if (open(x, z, 0.25)) tufts.push({ x, z, scale: 0.7 + random() * 0.9, turn: random() * TAU });
+  }
+ }
+ return tufts;
+})();
+
 // ── Colisiones ──────────────────────────────────────────────────────────────
 const turned = (site, px, pz) => [site.x + px * Math.cos(site.turn) + pz * Math.sin(site.turn), site.z - px * Math.sin(site.turn) + pz * Math.cos(site.turn)];
 export const shipCollider = { x: PAD.x, z: PAD.z, r: 2.3, active: true };
@@ -197,6 +233,8 @@ export const colliders = [
  { poly: [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sz]) => turned(HOUSE, (sx * HOUSE.width) / 2, (sz * HOUSE.depth) / 2)), r: 0.12 },
  ...TREES.map((tree) => ({ x: tree.x, z: tree.z, r: 0.5 * tree.scale })),
  ...LAMPS.map((lamp) => ({ x: lamp.x, z: lamp.z, r: 0.22 })),
+ ...BEACONS.map((beacon) => ({ x: beacon.x, z: beacon.z, r: 0.16 })),
+ ...SHARDS.map((shard) => ({ x: shard.x + 0.05 * shard.scale, z: shard.z + 0.05 * shard.scale, r: 0.62 * shard.scale })),
  ...FENCES.map((fence) => ({ x: fence.from[0], z: fence.from[1], bx: fence.to[0], bz: fence.to[1], r: 0.14 })),
  shipCollider,
 ];
@@ -206,9 +244,9 @@ export const colliders = [
 // noroeste): recorta las siluetas y tiende sombras largas hacia la cámara; la
 // luz cálida la ponen los faroles y las ventanas.
 const NIGHT = {
- hemiSky: "#6b74d6",
- hemiGround: "#241a44",
- hemiPower: 1.05,
+ hemiSky: "#6f78dc",
+ hemiGround: "#3b2d6a",
+ hemiPower: 1.2,
  sun: "#cfdcff",
  sunPower: 2.3,
  sunFrom: [-0.4, 0.42, -0.82],

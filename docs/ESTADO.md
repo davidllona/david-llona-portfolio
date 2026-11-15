@@ -3,7 +3,7 @@
 Actualizado: 15 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
-**En curso: objetivo 20 — mundo 2, The Twisted Moon** (`docs/OBJETIVO-20.md`): bloque A (viaje entre mundos) hecho; bloque B (muestra de estilo) en curso. Ver «Objetivo 20».
+**En curso: objetivo 20 — mundo 2, The Twisted Moon** (`docs/OBJETIVO-20.md`): bloques A (viaje entre mundos) y B (muestra de estilo) hechos; **parada del bloque B, pendiente del visto bueno de David**. Los bloques C, D y E no se empiezan hasta entonces. Ver «Objetivo 20».
 **En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **En curso: bloque 3** (errores de juego), a medias: ver su fila y «Bloque 3, lo que queda».
 **En curso: objetivo 19 — pulido final del mundo 1** (`docs/OBJETIVO-19.md`): los cuatro bloques (A, B, C y D) están hechos. David pidió rehacer la vista de planeta del bloque D («el planeta es la isla»): **retoque hecho, pendiente de su visto bueno** (ver «Retoque del bloque D»). Ver «Objetivo 19».
 **Objetivo 18 — pulido del mundo 1** (`docs/OBJETIVO-18.md`, 14-11-2026). **Sustituye a los bloques 4 a 7 del objetivo 16.** Ocho apartados, commit y push por apartado; paradas solo tras el 4 y tras el 8. **Los ocho están hechos: parada del apartado 8, pendiente del visto bueno de David** (batería completa y capturas en «Parada del apartado 8»). Ver «Objetivo 18».
@@ -19,7 +19,7 @@ Encargo: `docs/OBJETIVO-20.md` (15-11-2026). Cinco bloques (A–E), commit y pus
 | Bloque | Estado |
 |---|---|
 | A. Viaje entre mundos | **Hecho** |
-| B. Muestra de estilo | En curso |
+| B. Muestra de estilo | **Hecho. Parada: pendiente del visto bueno de David.** Capturas: `capturas/25-mundo2/B/` |
 | C. El resto del mundo | Sin empezar |
 | D. Contenido e interacciones | Sin empezar |
 | E. Vida, sonido y cierre | Sin empezar |
@@ -34,6 +34,61 @@ Encargo: `docs/OBJETIVO-20.md` (15-11-2026). Cinco bloques (A–E), commit y pus
 - **Lo mínimo del mundo 2 para poder aterrizar** (lo demás es del bloque B): terreno con la colina en espiral, caminos, laguna alrededor, luna y niebla baja. `?world=twisted` (solo en desarrollo) abre directamente en él.
 - **Arreglado por el camino**: al cambiar de mundo el anterior no se desmontaba (dos hijos de React con la misma clave); se vio en la primera captura de la órbita, con los dos planetas superpuestos.
 - Sin comprobar: el viaje visto en movimiento por una persona (solo en fotogramas y por estado); un teléfono (el toque sobre el astro); el respaldo WebGL2; qué pasa sin conexión (el viaje se cancela y la nave se queda en órbita con un aviso: escrito, no probado).
+
+**Bloque B, lo que hay** — muestra de estilo, **parada: pendiente del visto bueno de David** (`worlds/twisted/`: `layout.js`, `ground.js`, `Terrain.jsx`, `Night.jsx`, `models.js`, `materials.js`, `Flora.jsx`, `Fixtures.jsx`, `House.jsx`, `CollarLantern.jsx`, `Space.jsx`, `Scene.jsx`; `characters/Woody.jsx`; `tests/e2e/twisted.mjs`, `tests/e2e/luna.mjs`):
+- **Todo hecho a mano** con el kit low-poly del proyecto (`living/kit/geometry.js`); no se ha descargado ningún modelo, textura ni sonido. Es una inspiración de estilo (cuento gótico): no hay personajes, escenarios ni diseños de ninguna película.
+- **Noche fija**: luna fría y baja por el noroeste (la luz viene de 25° sobre el horizonte: sombras largas, hacia la cámara), cielo azul tinta arriba y morado en el horizonte, relleno violeta. Paleta en `layout.js` (`NIGHT`).
+- **Luna enorme** (`Night.jsx`): un astro facetado con cráteres, 11° de radio en el cielo, a 13° sobre el horizonte, al norte: la colina y la casa se recortan contra ella. Desde la cámara de juego (que mira hacia abajo) no entra en cuadro; se ve en el descenso de la nave, a la altura del jugador y en su reflejo en la laguna. Desde la órbita se retira y queda la luna del cielo orbital.
+- **Niebla a ras de suelo**, sin dibujar nada: va en el nodo de niebla de la escena, así que la reciben todos los materiales. Su techo (1,7 m de media) sube y baja a bancos que derivan despacio; lo que se atraviesa de ella depende de lo rasante que se mire (desde arriba es un velo; a ras de suelo, a lo lejos, se lo traga todo). Tiene su propio color, más pálido que la niebla del fondo. Se quita sola al salir de este mundo.
+- **Terreno**: isla de unos 46 m de radio (como la del mundo 1: al subir se cierra igual en planeta) rodeada por una **laguna negra** con el reflejo de la luna roto en escamas y una línea pálida en la orilla. Páramo facetado en morados y grises azulados, con matojos secos (918, una llamada de dibujo) y lascas de piedra. **Caminos que serpentean**, pintados en cada píxel con la distancia a su borde horneada en una textura (borde nítido, reborde oscuro).
+- **Colina en espiral**, al norte: un cono de 9,6 m al que le da tres vueltas y cuarto una senda en rampa; entre vuelta y vuelta, un talud a franjas que no se trepa. Lleva malla propia en anillos (la senda sale limpia). **Se sube andando por la senda** hasta la cima, donde hay un árbol rizado recortado contra la luna.
+- **Árboles sin hojas de ramas rizadas**: tres formas, cinco ejemplares (cuatro alrededor de la zona de aterrizaje y la casa y el de la cima), con instancias.
+- **Farola doblada**: poste de hierro en ese que acaba en cayado, la parte baja a rayas blancas y negras, farol colgando. Alumbra de verdad, con halo y un charco de luz cálida muy marcado.
+- **Zona de aterrizaje**: la plataforma del cohete sobre una plazoleta de tierra pisada, cuatro balizas a rayas con una bola encendida, y tres caminos que salen de ella (a la casa, al sur y a la colina).
+- **La casa torcida** (parada 1), completa por fuera, en una sola malla: zócalo de piedra, planta baja que se abre hacia arriba, piso que vuela y se inclina al otro lado, entramado, tejado de aguja a franjas que se retuerce y dobla la punta, chimenea en zigzag con el remate a rayas, torreón con su gorro vencido, ocho ventanas distintas encendidas en naranja (una con la contraventana descolgada), buhardilla redonda en **verde ácido**, puerta en ojiva con escalones, **toldo a rayas** y farol. Verja de hierro desigual a los lados. Ante la puerta, **E abre «Sobre mí» con su texto real** (`content/about.js`).
+- **Woody lleva un farolillo al cuello** (`CollarLantern.jsx`): cuelga bajo su garganta, se balancea al andar y alumbra de verdad (luz, halo y charco que van con él). Lo monta `Woody.jsx` si el mundo lo trae (`woodyWears`); en el mundo 1 no hay nada.
+- **Luz**: luna fría como principal; charcos cálidos del farol de la puerta, la ventana, la farola, las balizas y el farolillo; luces de verdad las más cercanas (el reparto de siempre, `WarmLights`). Bloom solo en lo que emite: la luna no llega al umbral.
+- **Desde la órbita**: el planeta es la isla curvada (misma técnica que el mundo 1), con su sombra del lado sin luna y un halo violeta.
+- **Colisiones** (a mano, en `layout.js`; se hornearán en el bloque C): la casa, los árboles, la farola, las balizas, las lascas y la verja.
+- **Rendimiento** (2880 × 1620, sin límite, este equipo): 238 · 260 · 259 · 265 · 254 fps en una pasada y 190 · 184 · 197 · 201 · 186 en otra (llegada, casa, puerta, colina, páramo). 0 pipelines en caliente al aterrizar y en todo el paseo de la prueba (la ficha, las luces que cambian de sitio, Woody guiando, la colina).
+- **Peso** (build de producción): datos del mundo 2, 5,9 kB (2,9 comprimido); escena, 29,9 kB (11,9 comprimido). Ningún recurso descargado. El trozo principal no cambia (2.011 kB).
+- **Pendiente del bloque B (para decidir en la parada)**: el nombre «The Twisted Moon» es provisional; el tono del suelo y del cielo (más azul o más gris); si la luna debe verse también con la cámara de juego (habría que bajarla, y eso cambia cómo se juega).
+- Sin comprobar: todo en movimiento visto por una persona (solo capturas y medidas); un teléfono y la calidad baja; el respaldo WebGL2 (la niebla baja es un nodo: debería valer igual, no probado); el balanceo del farolillo de Woody (solo en capturas, quieto).
+- Capturas: `capturas/25-mundo2/B/` — `hoja-arriba.jpg` (desde arriba: llegada, casa, colina, vista), `hoja-jugador.jpg` (a la altura del jugador: seis vistas), `hoja-juego.jpg` (cámara de juego) y `hoja-orbita.jpg` (la subida y la órbita); debajo, las 24 sueltas. `node tests/e2e/luna.mjs` las rehace.
+
+**Batería completa tras el bloque B** (15-11-2026, en primer plano, por tandas, Chrome sin ventana, servidor de desarrollo en el 5199):
+
+| Prueba | Bien | Fallos |
+|---|---|---|
+| `errors` | 8 | 0 |
+| `living` | 46 | 0 |
+| `characters` | 20 | 0 |
+| `portfolio` | 27 | 0 |
+| `progress` | 26 | 0 |
+| `motion` | 10 | 0 |
+| `camera` | 30 | 0 |
+| `woody` | 37 | 0 |
+| `rocket` | 26 | 0 |
+| `terrain` | 3 | 0 |
+| `life` | 11 | 0 |
+| `football` | 63 | 0 |
+| `sounds` | 28 | 0 |
+| `travel` | 31 | 0 |
+| `twisted` (nueva) | 19 | 0 |
+| **`npm run e2e` (las quince)** | **385** | **0** |
+| `hora` | 21 | 0 |
+| `basket` | 20 | 0 |
+| `garden` | 6 | 0 |
+| `birds` | 4 | 0 |
+| `run` | 19 | 0 |
+| `hill` | 29 | 0 |
+| `collisions` | 4 | 0 |
+| `welcome` | 21 | 0 |
+| `loader` | 13 | **1** (la de siempre: primer pintado a 196 ms, objetivo 100; la pantalla de carga no se toca) |
+| `tests/perf/entrada.mjs` | 0 pipelines en caliente al entrar y al despegar | — |
+
+- Fps del mundo 1 en esta tanda (`tests/perf/fps.mjs`): llegada 95 · proyectos 98 · estanque 97 · meseta 97 · pista 96 (2880 × 1620, sin límite): el mundo 1 no ha perdido nada.
+- La última tanda de la batería pasó de los 10 minutos de una orden y el sistema la dejó terminar sola en segundo plano (solo quedaban las dos medidas de fps); no se lanzó nada más hasta que acabó. Para la próxima: las medidas de fps, en una orden aparte.
 
 **Batería completa tras el bloque A** (15-11-2026, en primer plano, por tandas, Chrome sin ventana, servidor de desarrollo en el 5199):
 
@@ -538,6 +593,8 @@ Comprobado (lo confirma David el 14-11-2026): el recorrido de 3 minutos de Woody
 ```
 npm run dev -- --port 5199     # http://localhost:5199
 node tests/e2e/travel.mjs      # viaje entre mundos: destino en la órbita, la pantalla del viaje, el mundo 2 se descarga y se compila solo entonces (0 pipelines en caliente), aterrizaje y vuelta; «capturas» las saca (incluida en e2e)
+node tests/e2e/twisted.mjs     # mundo 2: noche fija, luna, colina en espiral (se sube por la senda), casa torcida y su puerta, apoyos, colisiones, Woody con farolillo y guiando, 0 pipelines en caliente; «fps» mide además (incluida en e2e)
+node tests/e2e/luna.mjs        # capturas del mundo 2: cada punto con la cámara de juego, a la altura del jugador y desde arriba, y la órbita; no comprueba nada
 node tests/e2e/hora.mjs        # la hora del mundo: cada hora su momento, atardecer propio, franjas por mes, cambio gradual, botón y tecla N; «capturas» saca la misma vista a cuatro horas
 node tests/e2e/welcome.mjs     # pantalla previa al aterrizaje: la carga espera al planeta, indicación, ms del clic al descenso, luna, planeta, fugaces; capturas y secuencia
 node tests/e2e/descent.mjs     # el descenso tras el clic, una captura cada 200 ms
@@ -555,7 +612,7 @@ node tests/perf/carga.mjs      # pantalla de carga: tiempo hasta poder entrar, t
 node tests/perf/peso.mjs       # peso descargado en la primera visita (build de producción en el 5198)
 node tests/perf/fps.mjs        # fps en cinco puntos
 node tests/e2e/errors.mjs      # ninguna excepción de página y el lienzo dibujado: carga, bienvenida, estrella fugaz y mundo, sin ventana y con ventana (incluida en e2e)
-npm run e2e                    # 366 comprobaciones en Chrome sin ventana (con el servidor encendido)
+npm run e2e                    # 385 comprobaciones en Chrome sin ventana (con el servidor encendido)
 node tests/e2e/sounds.mjs      # sonido uno por uno: señal medida de cada bucle, golpes, silencio; graba el recorrido (incluida en e2e)
 node tests/e2e/football.mjs    # fútbol de principio a fin, con fotogramas de cada tiro (incluida en e2e)
 node tests/e2e/woody.mjs       # bocadillos, ritmo, descanso, cuestas y ruta guiada (incluida en e2e)

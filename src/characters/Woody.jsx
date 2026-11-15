@@ -234,16 +234,21 @@ export function Woody({ active }) {
   }
  });
 
+ // Lo que lleva puesto en este mundo (en The Twisted Moon, un farolillo al cuello).
+ const Wears = world.woodyWears;
  return (
-  <group ref={group} rotation-order="YXZ" {...click}>
-   {/* El frente del modelo es +Z; el del juego, -Z. */}
-   <primitive object={scene} scale={SCALE} rotation-y={Math.PI} />
-   {/* Zona de clic algo mayor que el perro. */}
-   <mesh position-y={0.6}>
-    <cylinderGeometry args={[0.75, 0.75, 1.3, 8]} />
-    <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-   </mesh>
-  </group>
+  <>
+   <group ref={group} rotation-order="YXZ" {...click}>
+    {/* El frente del modelo es +Z; el del juego, -Z. */}
+    <primitive object={scene} scale={SCALE} rotation-y={Math.PI} />
+    {/* Zona de clic algo mayor que el perro. */}
+    <mesh position-y={0.6}>
+     <cylinderGeometry args={[0.75, 0.75, 1.3, 8]} />
+     <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>
+   </group>
+   {Wears && <Wears neck={bones.neck} />}
+  </>
  );
 }
 
