@@ -3,7 +3,8 @@
 Actualizado: 15 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
-**En curso: objetivo 20 — mundo 2, The Twisted Moon** (`docs/OBJETIVO-20.md`): bloques A (viaje entre mundos) y B (muestra de estilo) hechos; **parada del bloque B, pendiente del visto bueno de David**. Los bloques C, D y E no se empiezan hasta entonces. Ver «Objetivo 20».
+**En curso: objetivo 21 — The Twisted Moon, que se parezca a las imágenes de referencia** (`docs/OBJETIVO-21.md`; sustituye al bloque C del objetivo 20): **parado en el paso 0.1, faltan las tres imágenes** en `docs/referencias/mundo2/`. Los recursos de Envato ya están en `assets-externos/mundo2/`. Ver «Objetivo 21».
+**Objetivo 20 — mundo 2, The Twisted Moon** (`docs/OBJETIVO-20.md`): bloques A (viaje entre mundos) y B (muestra de estilo) hechos; **parada del bloque B, pendiente del visto bueno de David**. Los bloques C, D y E no se empiezan hasta entonces. Ver «Objetivo 20».
 **En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **En curso: bloque 3** (errores de juego), a medias: ver su fila y «Bloque 3, lo que queda».
 **En curso: objetivo 19 — pulido final del mundo 1** (`docs/OBJETIVO-19.md`): los cuatro bloques (A, B, C y D) están hechos. David pidió rehacer la vista de planeta del bloque D («el planeta es la isla»): **retoque hecho, pendiente de su visto bueno** (ver «Retoque del bloque D»). Ver «Objetivo 19».
 **Objetivo 18 — pulido del mundo 1** (`docs/OBJETIVO-18.md`, 14-11-2026). **Sustituye a los bloques 4 a 7 del objetivo 16.** Ocho apartados, commit y push por apartado; paradas solo tras el 4 y tras el 8. **Los ocho están hechos: parada del apartado 8, pendiente del visto bueno de David** (batería completa y capturas en «Parada del apartado 8»). Ver «Objetivo 18».
@@ -11,6 +12,30 @@ Decidido por David el 13-11-2026: los pesos reales de los modelos mandan sobre l
 Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
 Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado.
 Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Contents/MacOS/Blender -b` (5.0.1). No hay ffmpeg: el audio también se convierte con Blender.
+
+## Objetivo 21 — The Twisted Moon: que se parezca a las imágenes de referencia
+
+Encargo: `docs/OBJETIVO-21.md` (15-11-2026). **Sustituye al bloque C del objetivo 20**; los bloques A y B de aquel quedan aprobados como base técnica. Tres bloques (C1 composición de la isla, C2 edificios y vegetación, C3 luz, agua, vida y sonido); paradas tras el C1 y tras el C3. Fuera: bloques D y E y el mundo 3.
+
+| Paso | Estado |
+|---|---|
+| 0.1 Imágenes de referencia | **FALTAN: parado a la espera.** `docs/referencias/mundo2/` (`ref-1.png`, `ref-2.png`, `ref-3.png`) no existe. El encargo dice que sin ellas se para y se piden |
+| 0.2 Recursos de Envato | **Hecho.** Los trece zips estaban en Descargas; movidos a `assets-externos/mundo2/` (fuera de git) y descomprimidos, cada uno en su carpeta. No falta ninguno |
+| 0.3 Observatorio y casa del árbol del mundo 1 | Sin empezar |
+| 0.4 Presupuesto | Sin empezar |
+| C1. Composición de la isla | Sin empezar (espera a las imágenes) |
+| C2. Edificios y vegetación | Sin empezar |
+| C3. Luz, agua, vida y sonido | Sin empezar |
+
+**Lo que trae cada recurso** (visto al descomprimir, sin abrirlo todavía en Blender):
+- Torre del reloj (`big-ben-landmark-clock-tower`): `1.gltf` y `1.blend`, 4,7 MB.
+- Invernadero (`greenhouse`): `.glb`, `.obj`, `.blend` y una textura `.png`, 31 MB.
+- Casa sobre tronco (`stylized-treehouse-cottage`): FBX y OBJ con tres texturas `.jpg`, 28 MB.
+- Casita de cuento (`whimsical-toon-cottage-with-stone-roof`): FBX, OBJ y `.blend` con un color base y siete mapas más, 22 MB.
+- Helecho (`stylized-fern-plant`): FBX, OBJ y `.blend` con textura `.tga`, 21 MB.
+- Música: `mysterious-fairy-tale-waltz` (mp3 y wav), `curious-mystery-box` (wav: entera, bucle, cortes de 60, 30 y 15 s y cuatro pistas sueltas), `quirky-music-box` (entera y corta, con y sin melodía).
+- Efectos: grillos (mp3 y wav), campanada de torre, cuatro destellos mágicos, pasos sobre madera (el archivo se llama «wooden stairs climbing») y búho, todos en wav.
+- Ningún zip trae archivo de licencia: son de la cuenta de Envato de David, como los del mundo 1. Se anotarán en `RECURSOS.md` y `CREDITOS.md` al integrarlos.
 
 ## Objetivo 20 — Mundo 2: The Twisted Moon
 
