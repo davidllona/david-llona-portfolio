@@ -25,9 +25,12 @@ const POINTS = {
  observatorio: [BUILDINGS.observatorio.x + 2, BUILDINGS.observatorio.z + 2.6],
  // Junto a la orilla del suroeste: el camino de la luna sobre el mar.
  orilla: [-5, 9.6],
+ // Para las capturas de cerca: al pie de la torre, junto a las cascadas y delante del invernadero.
+ torre: [2.6, -32.4],
+ cascadas: [4.4, -12.6],
 };
 // `lift`: altura de la cámara (1 = la del juego); `distance`: cuánto se aleja.
-const VIEWS = { juego: null, alto: { lift: 1.5, distance: 3.4 } };
+const VIEWS = { juego: null, alto: { lift: 1.5, distance: 3.4 }, cerca: { lift: 0.45, distance: 0.55 } };
 
 const folder = (process.argv[2] ?? "capturas/26-mundo2/C1") + "/";
 const pick = (arg, all) => (arg && arg !== "-" ? arg.split(",") : all);

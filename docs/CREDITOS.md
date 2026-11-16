@@ -115,13 +115,13 @@ Descargados de Envato con la cuenta de David (15-11-2026); ningún ZIP trae arch
 | «Whimsical Toon Cottage with Stone Roof» | TurboSquid (licencia de TurboSquid) | Casita de cuento | En uso: `casita.glb`, solo la forma, pintada a mano; no se distribuye ninguna textura |
 | «Greenhouse» | spacepixelcreative | Invernadero | No se usa (el del juego es hecho a mano) |
 | «Stylized Fern Plant» | TurboSquid (licencia de TurboSquid) | Helechos | En uso: `helecho.glb`, solo la forma; no se distribuye ninguna textura |
-| «Mysterious Fairy Tale Waltz» | ereymusic | Música del mundo 2 (opción 1) | Sin usar todavía |
-| «Curious Mystery Box» | SCOREWIZARDS | Música (opción 2) | Sin usar todavía |
-| «Quirky Music Box» | AudioAgent | Música (opción 3) | Sin usar todavía |
-| «Crickets Night Ambience Loop» | OhmLab | Grillos de fondo | Sin usar todavía |
-| «Classic Clock Tower Chime» | HollywoodEdge | Campanadas de la torre | Sin usar todavía |
-| «Magic Sparkle Twinkle Shimmer» | AetherFX | Destello mágico | Sin usar todavía |
-| «Wooden Bridge Footsteps» | FxProSound | Pasos de madera | Sin usar todavía |
-| «Owl Hoot 1» | HollywoodEdge | Búho lejano | Sin usar todavía |
+| «Mysterious Fairy Tale Waltz» | ereymusic | Música del mundo 2 (opción 1) | En uso (C3): `public/sounds/twisted/` |
+| «Curious Mystery Box» | SCOREWIZARDS | Música (opción 2) | En uso (C3): `public/sounds/twisted/` |
+| «Quirky Music Box» | AudioAgent | Música (opción 3) | En uso (C3): `public/sounds/twisted/` |
+| «Crickets Night Ambience Loop» | OhmLab | Grillos de fondo | En uso (C3): `public/sounds/twisted/` |
+| «Classic Clock Tower Chime» | HollywoodEdge | Campanadas de la torre | En uso (C3): `public/sounds/twisted/` |
+| «Magic Sparkle Twinkle Shimmer» | AetherFX | Destello mágico | En uso (C3): `public/sounds/twisted/` |
+| «Wooden Bridge Footsteps» | FxProSound | Pasos de madera | En uso (C3): `public/sounds/twisted/` |
+| «Owl Hoot 1» | HollywoodEdge | Búho lejano | En uso (C3): `public/sounds/twisted/` |
 
 Del mundo 1 se reutilizan en este, tal cual: «Small observatory with telescope dome» (kerismaker) y «Cartoon treehouse with ladder access» (permadicreative).

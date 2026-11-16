@@ -208,6 +208,17 @@ if (process.argv.includes("fps")) {
  }
  console.log("fps (2880 × 1620, sin límite): " + line.join(" · "));
  await r.browser.close();
+ // Calidad baja: la del móvil (pantalla táctil), a 844 × 390 con densidad 2, sin límite.
+ const low = await open({ mobile: true, uncapped: true, query: "?world=twisted" });
+ await low.enter();
+ const quality = await low.evaluate(() => window.__world.renderer.getPixelRatio());
+ const lowLine = [];
+ for (const [name, x, z] of [["llegada", 0, 7.5], ["río", -6, -4.4], ["terraza", -6.4, -19], ["cima", 0.6, -33.2]]) {
+  await low.put(x, z, { settle: 2600 });
+  lowLine.push(`${name} ${await low.fps(3)}`);
+ }
+ console.log(`fps en calidad baja (móvil, 844 × 390, densidad de píxel ${quality}, sin límite): ` + lowLine.join(" · "));
+ await low.browser.close();
  process.exit(process.exitCode ?? 0);
 }
 await t.done();

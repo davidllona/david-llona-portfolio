@@ -1,0 +1,77 @@
+{
+ "musica-1": {
+  "file": "sounds/twisted/musica-1.mp3",
+  "bytes": 1143266,
+  "duration": 95.2,
+  "loop": [
+   0.25,
+   94.7
+  ]
+ },
+ "musica-2": {
+  "file": "sounds/twisted/musica-2.mp3",
+  "bytes": 1913461,
+  "duration": 159.384,
+  "loop": [
+   0.25,
+   158.8842
+  ]
+ },
+ "musica-3": {
+  "file": "sounds/twisted/musica-3.mp3",
+  "bytes": 2493379,
+  "duration": 207.7,
+  "loop": [
+   0.25,
+   207.2
+  ]
+ },
+ "grillos-noche": {
+  "file": "sounds/twisted/grillos-noche.mp3",
+  "bytes": 182482,
+  "duration": 22.75,
+  "loop": [
+   0.25,
+   22.25
+  ]
+ },
+ "campanada": {
+  "file": "sounds/twisted/campanada.mp3",
+  "bytes": 42624,
+  "duration": 4.2
+ },
+ "destello-1": {
+  "file": "sounds/twisted/destello-1.mp3",
+  "bytes": 20681,
+  "duration": 2.0
+ },
+ "destello-2": {
+  "file": "sounds/twisted/destello-2.mp3",
+  "bytes": 20681,
+  "duration": 2.0
+ },
+ "destello-3": {
+  "file": "sounds/twisted/destello-3.mp3",
+  "bytes": 20681,
+  "duration": 2.0
+ },
+ "destello-4": {
+  "file": "sounds/twisted/destello-4.mp3",
+  "bytes": 20681,
+  "duration": 2.0
+ },
+ "pasos-madera": {
+  "file": "sounds/twisted/pasos-madera.mp3",
+  "bytes": 60648,
+  "duration": 6.0,
+  "slots": 10,
+  "slot": 0.6,
+  "lead": 0.05,
+  "length": 0.46
+ },
+ "buho": {
+  "file": "sounds/twisted/buho.mp3",
+  "bytes": 30554,
+  "duration": 3.753
+ }
+}

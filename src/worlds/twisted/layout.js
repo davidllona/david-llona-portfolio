@@ -529,6 +529,28 @@ export const TUFTS = (() => {
  return tufts;
 })();
 
+// Luciérnagas: corros que rondan por toda la isla, a poca altura (cada una se
+// mueve alrededor de su sitio; el movimiento lo calcula el sombreador).
+export const FIREFLIES = clusters(20261141, 30, 4, 3.2, 0, (random) => ({ lift: 0.5 + random() * 1.8, phase: random() * 100 }));
+// Dónde suena la campana: en lo alto de la torre.
+export const BELL = { x: 0, z: -36, y: LEVELS[3] + 12 };
+
+// De dónde viene el sonido del agua para quien está en (x, z): el mar (la orilla
+// que queda enfrente) y la cascada más cercana. Usa los mismos bucles grabados
+// del primer mundo (ver audio/engine.js).
+function soundSources(x, z) {
+ const dx = x - ISLAND.x, dz = z - ISLAND.z, angle = Math.atan2(dz, dx), shore = shoreRadius(angle), r = Math.hypot(dx, dz);
+ let fall = null;
+ for (const one of WATERFALLS) {
+  const d = Math.hypot(x - one.x, z - one.z);
+  if (!fall || d < fall.d) fall = { d, dx: one.x - x, dz: one.z - z };
+ }
+ return {
+  mar: { d: Math.max(0, shore - 1.5 - r), dx: ISLAND.x + Math.cos(angle) * shore - x, dz: ISLAND.z + Math.sin(angle) * shore - z, reach: 6, far: 26 },
+  cascada: { ...fall, reach: 5, far: 26, gain: 0.8 },
+ };
+}
+
 // ── Colisiones ──────────────────────────────────────────────────────────────
 const turned = (site, px, pz) => [site.x + px * Math.cos(site.turn) + pz * Math.sin(site.turn), site.z - px * Math.sin(site.turn) + pz * Math.cos(site.turn)];
 const box = (site, width, depth) => ({ poly: [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sz]) => turned(site, (sx * width) / 2, (sz * depth) / 2)), r: 0.12 });
@@ -595,7 +617,8 @@ const twisted = {
  ground,
  blocked,
  surface: (x, z) => FOOTING[surface(x, z)] ?? "grass",
- soundSources: () => ({}),
+ soundSources,
+ ownAmbience: true, // trae su propio ambiente (grillos, música): los grillos del primer mundo callan
  // Miradores: cuánto se inclina ahí la cámara hacia el horizonte (0 = nada, 1 = del todo).
  lookout: (x, z) => {
   let most = 0;

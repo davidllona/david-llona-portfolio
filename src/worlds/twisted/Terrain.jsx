@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { attribute, cameraPosition, color, float, mix, normalize, positionLocal, positionWorld, pow, reflect, sin, smoothstep, texture, uv, vec2, vec3 } from "three/tsl";
+import { attribute, cameraPosition, color, float, floor, fract, mix, normalize, positionGeometry, positionLocal, positionWorld, pow, reflect, sin, smoothstep, texture, uv, vec2, vec3 } from "three/tsl";
 import { MeshLambertNodeMaterial } from "three/webgpu";
 import { uClosed } from "../../experience/environment/bend";
 import { noiseTexture } from "../../experience/environment/noise";
@@ -50,6 +50,10 @@ function createSeaMaterial() {
  const material = unlit();
  const pos = positionWorld.xz;
  const shore = attribute("shore", "float"); // m hasta el borde de la isla
+ // Oleaje: el mar sube y baja despacio; pegado a la isla, casi nada.
+ const at = positionGeometry.xz;
+ const lift = sin(at.x.mul(0.31).add(uTime.mul(0.8))).add(sin(at.y.mul(0.37).sub(uTime.mul(0.6)).add(at.x.mul(0.11)))).mul(0.07).mul(smoothstep(0.5, 6, shore));
+ material.positionNode = positionLocal.add(vec3(0, lift, 0));
  const drift = vec2(uTime.mul(0.012), uTime.mul(-0.008));
  const rippleA = texture(noiseTexture, pos.mul(0.23).add(drift)).r.sub(0.5);
  const rippleB = texture(noiseTexture, pos.mul(0.41).sub(drift.mul(1.7))).g.sub(0.5);
@@ -64,7 +68,15 @@ function createSeaMaterial() {
  const second = smoothstep(0.24, 0.06, wobble.sub(breath).abs());
  const third = smoothstep(0.2, 0.05, wobble.sub(breath.mul(1.9).add(0.6)).abs()).mul(0.5);
  const foam = firm.max(second).max(third).mul(smoothstep(-0.2, 0.2, shore));
- const body = mix(uWaterShallow, uWaterDeep, smoothstep(0.5, 9, shore));
+ // Olas facetadas: el agua se parte en triángulos grandes (una rejilla
+ // inclinada), cada uno de su tono, que cambian despacio con el oleaje.
+ const cellAt = pos.mul(0.42).add(vec2(pos.y.mul(0.21), 0));
+ const cell = floor(cellAt), inside = fract(cellAt);
+ const half = inside.x.greaterThan(inside.y).select(float(0.5), float(0));
+ const facet = fract(sin(cell.x.mul(12.9898).add(cell.y.mul(78.233)).add(half.mul(37.7))).mul(43758.5453));
+ const swell = sin(facet.mul(6.28).add(uTime.mul(0.6))).mul(0.5).add(0.5);
+ const facets = mix(float(0.84), float(1.16), facet.mul(0.6).add(swell.mul(0.4))).mul(smoothstep(0.6, 3, shore)).add(smoothstep(3, 0.6, shore));
+ const body = mix(uWaterShallow, uWaterDeep, smoothstep(0.5, 9, shore)).mul(facets);
  // Camino de la luna: cuánto apunta este punto, visto desde la cámara, hacia
  // donde está la luna; las escamas salen de las mismas ondas.
  const away = positionWorld.xz.sub(cameraPosition.xz);
@@ -183,7 +195,8 @@ export function Terrain() {
  const fresh = useMemo(createFreshWater, []);
  const pools = useMemo(createPools, []);
  const falls = useMemo(createFalls, []);
- const flow = useMemo(() => ({ river: createFlowMaterial(0.16, 0.55, 0.55), pool: createFlowMaterial(0.025, 0.6, 0.5), fall: createFlowMaterial(0.9, 0.95, 0.15) }), []);
+ // (Las cascadas brillan en turquesa: por encima del umbral del resplandor.)
+ const flow = useMemo(() => ({ river: createFlowMaterial(0.16, 0.55, 0.55), pool: createFlowMaterial(0.025, 0.6, 0.5), fall: createFlowMaterial(0.9, 1.3, 0.08) }), []);
  // Fondo del mar: cierra el planeta por debajo.
  const bed = useMemo(() => new THREE.RingGeometry(0.3, WATER_REACH, 96, 30).rotateX(-Math.PI / 2), []);
  const bedMaterial = useMemo(() => {

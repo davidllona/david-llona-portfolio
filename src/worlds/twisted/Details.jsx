@@ -63,9 +63,10 @@ export function Details() {
 // Humo de chimenea: bocanadas suaves que suben, se abren y se deshacen. Cada
 // bocanada es una mancha de cara a la cámara; el movimiento lo calcula el
 // sombreador (no hay nada que actualizar en cada fotograma salvo la cámara).
-// `sources`: [[x, y, z], …], las bocas de las chimeneas.
-const PUFFS = 7; // por chimenea
-export function Smoke({ sources }) {
+// `sources`: [[x, y, z], …], las bocas de las chimeneas. Con otros ajustes es
+// también la espuma al pie de las cascadas (`color`, `speed`, `rise`, `size`,
+// `opacity`, `puffs`, `additive`).
+export function Smoke({ sources, name = "humo", color = "#a49bd0", speed = 0.13, rise = 3.2, size: big = 1.3, opacity = 0.3, puffs: PUFFS = 7, additive = false, spread = 1 }) {
  const glow = useMemo(() => createGlowTexture(), []);
  const basis = useMemo(() => ({ right: uniform(new THREE.Vector3(1, 0, 0)), up: uniform(new THREE.Vector3(0, 1, 0)) }), []);
  const geometry = useMemo(() => {
@@ -79,19 +80,19 @@ export function Smoke({ sources }) {
   instanced.instanceCount = sources.length * PUFFS;
   instanced.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
   return instanced;
- }, [sources]);
+ }, [sources, PUFFS]);
  const material = useMemo(() => {
-  const one = new MeshBasicNodeMaterial({ map: glow, color: "#a49bd0", transparent: true, depthWrite: false });
+  const one = new MeshBasicNodeMaterial({ map: glow, color, transparent: true, depthWrite: false, ...(additive ? { blending: THREE.AdditiveBlending, toneMapped: false } : {}) });
   one.userData.flat = true;
   const seed = hash(instanceIndex);
   // Edad de la bocanada (0 al salir, 1 al deshacerse): cada una va desfasada.
-  const age = fract(uniforms.uTime.mul(0.13).add(seed));
-  const drift = vec3(sin(age.mul(5).add(seed.mul(20))).mul(0.35).add(age.mul(0.9)), age.mul(3.2), sin(age.mul(4).add(seed.mul(9))).mul(0.25));
-  const size = age.mul(1.3).add(0.35);
+  const age = fract(uniforms.uTime.mul(speed).add(seed));
+  const drift = vec3(sin(age.mul(5).add(seed.mul(20))).mul(0.35 * spread).add(age.mul(0.9 * spread)), age.mul(rise), sin(age.mul(4).add(seed.mul(9))).mul(0.25 * spread));
+  const size = age.mul(big).add(0.35);
   one.positionNode = bendWorld(attribute("origin", "vec3").add(drift)).add(basis.right.mul(positionGeometry.x.mul(size))).add(basis.up.mul(positionGeometry.y.mul(size)));
-  one.opacityNode = sin(age.mul(Math.PI)).mul(float(0.3));
+  one.opacityNode = sin(age.mul(Math.PI)).mul(float(opacity));
   return one;
- }, [glow, basis]);
+ }, [glow, basis, color, speed, rise, big, opacity, additive, spread]);
  useEffect(
   () => () => {
    glow.dispose();
@@ -104,5 +105,5 @@ export function Smoke({ sources }) {
   basis.right.value.setFromMatrixColumn(camera.matrixWorld, 0);
   basis.up.value.setFromMatrixColumn(camera.matrixWorld, 1);
  });
- return <mesh name="humo" geometry={geometry} material={material} frustumCulled={false} renderOrder={4} />;
+ return <mesh name={name} geometry={geometry} material={material} frustumCulled={false} renderOrder={4} />;
 }

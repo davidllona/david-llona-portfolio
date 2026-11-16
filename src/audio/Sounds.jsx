@@ -98,10 +98,12 @@ export function Sounds({ active }) {
    const night = theme.mix, evening = theme.dusk * (1 - theme.dawn * 0.7);
    // Desde la nave, el planeta se oye apagado y sin agua.
    const outside = hidden ? 0.25 : 1;
+   // (Un mundo con ambiente propio —The Twisted Moon— trae sus grillos: los de aquí callan.)
+   const own = world.ownAmbience ? 0 : 1;
    setAmbience({
     wind: hidden ? 0.2 : 0.6 + night * 0.3,
-    birds: Math.max(0, 1 - night - evening * 0.45) * outside,
-    crickets: Math.min(1, night + evening * 0.5) * outside,
+    birds: Math.max(0, 1 - night - evening * 0.45) * outside * own,
+    crickets: Math.min(1, night + evening * 0.5) * outside * own,
     sources: hidden ? {} : (world.soundSources?.(x, z) ?? {}),
    });
    // Mientras no llegan los bucles grabados (o en un mundo sin ellos), trinos y grillos sintetizados.

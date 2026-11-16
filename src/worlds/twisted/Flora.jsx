@@ -2,6 +2,8 @@ import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
 import { Instances } from "../../experience/Instances";
+import { withSeeThrough } from "../../experience/environment/seeThrough";
+import { withWind } from "../../experience/environment/wind";
 import { lambert } from "../../experience/materials";
 import { BIG_TREES, FERNS, FLOWERS, MUSHROOMS, SHARDS, TREES, TUFTS, VINES, height } from "./layout";
 import { solid } from "./materials";
@@ -52,7 +54,9 @@ export function Flora() {
  const material = useMemo(
   () => ({
    wood: solid(),
-   crown: solid({ side: THREE.DoubleSide }),
+   // Las copas se mecen con el viento: el sauce, con sus tiras, mucho más que los demás.
+   willow: withSeeThrough(withWind(lambert({ side: THREE.DoubleSide }), { flex: 0.5, power: 2.2, cap: 5.4 })),
+   crown: withSeeThrough(withWind(lambert({ side: THREE.DoubleSide }), { flex: 0.14, power: 2, cap: 6 })),
    stone: solid(),
    low: lambert({ side: THREE.DoubleSide }),
    // El sombrero de las setas brilla con su color (por encima del umbral del resplandor: lleva halo).
@@ -85,7 +89,7 @@ export function Flora() {
  return (
   <>
    {models.curly.map((model, kind) => items.curly[kind].length > 0 && <Instances key={kind} name={`árbol rizado ${kind + 1}`} rests={0} geometry={model} material={material.wood} items={items.curly[kind]} castShadow receiveShadow />)}
-   <Instances name="sauce" rests={0} geometry={models.willow} material={material.crown} items={items.big.willow} colored castShadow receiveShadow />
+   <Instances name="sauce" rests={0} geometry={models.willow} material={material.willow} items={items.big.willow} colored castShadow receiveShadow />
    <Instances name="árbol de copa ancha" rests={0} geometry={models.broad} material={material.crown} items={items.big.broad} colored castShadow receiveShadow />
    <Instances name="árbol en espiral" rests={0} geometry={models.spiral} material={material.crown} items={items.big.spiral} colored castShadow receiveShadow />
    <Instances name="lasca de piedra" rests={0} geometry={models.shard} material={material.stone} items={items.shards} castShadow receiveShadow />

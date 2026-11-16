@@ -45,7 +45,10 @@ export function useInteractable(definition) {
  return clickable(() => {
   const current = entry.current;
   if (current.enabled && !current.enabled()) return;
-  if (current.anywhere || distanceTo(current) <= current.radius * 1.6) current.action();
+  if (current.anywhere || distanceTo(current) <= current.radius * 1.6) {
+   current.action();
+   emit("interact", {});
+  }
   else {
    const at = read(current.position);
    emit("toast", { text: "Acércate para usarlo", at: { x: at.x, y: (at.y ?? 0) + (current.height ?? 2.3), z: at.z } });

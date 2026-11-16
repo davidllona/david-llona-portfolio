@@ -452,6 +452,100 @@ export function setAmbience({ wind: breeze = 0, birds = 0, crickets = 0, sources
  }
 }
 
+// ── Sonidos propios de un mundo ─────────────────────────────────────────────
+// Lo que trae un mundo que se descarga aparte (The Twisted Moon: su música,
+// sus grillos, la campana de la torre…). No van en `sampleData.json`: los pide
+// el propio mundo al llegar (`loadExtra`) y se quedan en memoria por si se vuelve.
+const extra = {}; // nombre → datos (archivo, bucle, casillas)
+export function loadExtra(files) {
+ if (!context) return Promise.resolve(false);
+ return Promise.all(
+  Object.entries(files).map(async ([name, info]) => {
+   extra[name] = info;
+   if (buffers.has(name)) return;
+   try {
+    const response = await fetch(import.meta.env.BASE_URL + info.file);
+    if (!response.ok) throw new Error(String(response.status));
+    buffers.set(name, await context.decodeAudioData(await response.arrayBuffer()));
+   } catch (error) {
+    console.warn(`Sonido «${name}» no disponible:`, error);
+   }
+  }),
+ ).then(() => true);
+}
+
+// Dispara una muestra suelta. `x, z`: suena desde ese punto (como `play`);
+// `pan`: o, sin posición, hacia qué lado (−1 a 1). Respeta el silencio.
+export function playSample(name, { x, z, gain = 1, rate = 1, offset = 0, duration, pan } = {}) {
+ stats.played[`muestra:${name}`] = (stats.played[`muestra:${name}`] ?? 0) + 1;
+ if (!context || context.state !== "running" || settings.muted || !buffers.has(name)) return false;
+ let out = master;
+ if (x !== undefined || pan !== undefined) {
+  const level = context.createGain();
+  let side = pan ?? 0;
+  if (x !== undefined) {
+   const dx = x - player.position.x, dz = z - player.position.z, distance = Math.hypot(dx, dz);
+   if (distance > 60) return false;
+   level.gain.value = 1 / (1 + (distance / 12) ** 2);
+   side = panTowards(dx, dz);
+  }
+  const panner = context.createStereoPanner?.();
+  if (panner) {
+   panner.pan.value = side;
+   level.connect(panner).connect(master);
+  } else level.connect(master);
+  out = level;
+ }
+ return sample(out, context.currentTime, name, { gain, rate, offset, duration });
+}
+
+// Bucles propios de un mundo (la música, los grillos): entran y salen fundiéndose.
+const extraLoops = {}; // nombre → { source, gain }
+export function startExtraLoop(name, volume, fadeIn = 3) {
+ if (!context || extraLoops[name] || !buffers.has(name)) return false;
+ const source = context.createBufferSource();
+ source.buffer = buffers.get(name);
+ source.loop = true;
+ if (extra[name]?.loop) [source.loopStart, source.loopEnd] = extra[name].loop;
+ const gain = context.createGain();
+ gain.gain.setValueAtTime(0.0001, context.currentTime);
+ gain.gain.linearRampToValueAtTime(volume, context.currentTime + fadeIn);
+ source.connect(gain).connect(master);
+ source.start(0, source.loopStart || 0);
+ extraLoops[name] = { source, gain };
+ if (import.meta.env.DEV) extraLoops[name].meter = meter(gain);
+ return true;
+}
+export function stopExtraLoop(name, fadeOut = 2) {
+ const loop = extraLoops[name];
+ if (!loop) return;
+ delete extraLoops[name];
+ const time = context.currentTime;
+ loop.gain.gain.cancelScheduledValues(time);
+ loop.gain.gain.setValueAtTime(loop.gain.gain.value, time);
+ loop.gain.gain.linearRampToValueAtTime(0.0001, time + fadeOut);
+ loop.source.stop(time + fadeOut + 0.05);
+}
+
+// Un sonido de pasos grabado propio de un mundo (los pasos de madera de los
+// puentes de The Twisted Moon): mientras está puesto, sustituye al sintetizado
+// de ese suelo. `name`: la muestra, con sus casillas (`slots`, `slot`, `length`).
+export function setStepSound(id, name) {
+ if (!name) {
+  delete SAMPLED[id];
+  return;
+ }
+ let last = -1;
+ SAMPLED[id] = (out, time, strength) => {
+  const info = extra[name];
+  if (!info || !buffers.has(name)) return false;
+  let index = Math.floor(Math.random() * (info.slots - 1));
+  if (index >= last) index += 1;
+  last = index;
+  return sample(out, time, name, { offset: index * info.slot, duration: info.length + 0.06, gain: 0.35 + 0.45 * strength, rate: vary(1, 0.05) });
+ };
+}
+
 // ── Para las pruebas (solo en desarrollo) ───────────────────────────────────
 // Medidores de señal real: lo que de verdad sale por cada bucle y por la salida.
 function meter(node) {
@@ -472,6 +566,7 @@ function instrument(output) {
   level, // señal en la salida (RMS de los últimos 46 ms)
   loaded: () => Object.fromEntries([...buffers].map(([name, buffer]) => [name, +buffer.duration.toFixed(2)])),
   loops: () => Object.fromEntries(Object.entries(loops).map(([name, loop]) => [name, { set: +loop.level.toFixed(3), side: +loop.side.toFixed(2), heard: +loop.meter().toFixed(4) }])),
+  extraLoops: () => Object.fromEntries(Object.entries(extraLoops).map(([name, loop]) => [name, { set: +loop.gain.gain.value.toFixed(3), heard: +loop.meter().toFixed(4) }])),
   master: () => master.gain.value,
   // La salida como flujo, para grabarla.
   tap: () => {

@@ -3,7 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { world } from "../worlds";
 import { distanceTo, read } from "./interact";
 import { isSpeaking, skipSpeech } from "./speech";
-import { input, interactables, setHint, ui } from "./state";
+import { emit, input, interactables, setHint, ui } from "./state";
 
 const point = new THREE.Vector3();
 const anchor = { x: 0, y: 0, z: 0 };
@@ -44,7 +44,10 @@ export function Interactions({ active }) {
   } else setHint(null);
   if (input.actionQueued) {
    input.actionQueued = false;
-   if (best) best.action();
+   if (best) {
+    best.action();
+    emit("interact", { x: best.sign ? undefined : read(best.position).x, z: best.sign ? undefined : read(best.position).z });
+   }
    else if (active && isSpeaking()) skipSpeech();
   }
  });
