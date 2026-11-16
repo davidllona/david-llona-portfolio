@@ -244,9 +244,9 @@ export const PAD = { x: 0, z: 0, padRadius: 4.6, color: "#6a6588" }; // platafor
 // o su radio, para chocar.
 export const BUILDINGS = {
  // La torre del reloj, en la cima: el icono de este mundo.
- torre: { model: "torre", painted: true, x: 0, z: -36, turn: 0, size: 4.1, solid: [3.9, 3.9] },
- // El observatorio, en el pico del oeste (el mismo modelo del mundo 1).
- observatorio: { model: "observatorio", from: "living", saturation: 0.1, x: -17.4, z: -27.4, turn: 0.5, size: 6.2, solid: 2.8 },
+ torre: { own: true, painted: true, x: 0, z: -36, turn: 0, size: 4.1, solid: [3.9, 3.9] },
+ // El observatorio, en el pico del oeste (el mismo modelo del mundo 1, repintado: piedra, cobre y latón; ver Buildings.jsx).
+ observatorio: { model: "observatorio", from: "living", painted: true, x: -17.4, z: -27.4, turn: 0.5, size: 6.2, solid: 2.8 },
  // La casa del árbol, en el pico del este (el mismo modelo del mundo 1).
  "casa-arbol": { model: "casa-arbol", from: "living", saturation: 0.3, x: 17.2, z: -27.8, turn: -0.4, size: 7.6, solid: 1.6 },
  // La casa sobre tronco, en la primera terraza, al este: aquí se lee «Sobre mí».
@@ -392,20 +392,22 @@ export const FENCES = [
 // Árboles grandes, de copa: `kind` dice la forma —sauce llorón, copa ancha,
 // espiral— y `tint`, el color de su copa (cada copia lleva el suyo).
 export const BIG_TREES = [
- { kind: "willow", x: -23.5, z: -17.5, scale: 1.05, turn: 0.6, tint: "#8f6cc0" },
- { kind: "willow", x: 21.5, z: -12.5, scale: 1.0, turn: 2.4, tint: "#4f9a9b" },
- { kind: "willow", x: -12.5, z: 3.5, scale: 0.9, turn: 4.1, tint: "#4f9a9b" },
- { kind: "willow", x: -6.8, z: -25.5, scale: 0.8, turn: 1.3, tint: "#8f6cc0" },
- { kind: "willow", x: 10.5, z: -33.5, scale: 0.85, turn: 5.2, tint: "#4f9a9b" },
- { kind: "broad", x: -21, z: -29, scale: 1.1, turn: 0.3, tint: "#9a6cb4" },
- { kind: "broad", x: -14.5, z: -21.6, scale: 0.75, turn: 2.0, tint: "#7c5aa8" },
- { kind: "broad", x: 9.6, z: -21.5, scale: 0.78, turn: 4.4, tint: "#9a6cb4" },
- { kind: "broad", x: -9.5, z: 6.8, scale: 0.9, turn: 3.3, tint: "#7c5aa8" },
- { kind: "broad", x: 21.6, z: -31, scale: 1.0, turn: 1.1, tint: "#9a6cb4" },
- { kind: "spiral", x: 12.6, z: 4.2, scale: 0.95, turn: 0.4, tint: "#7b5aa6" },
- { kind: "spiral", x: -15, z: 1.2, scale: 0.85, turn: 2.6, tint: "#6c56a0" },
- { kind: "spiral", x: 6.5, z: -37.8, scale: 0.8, turn: 4.9, tint: "#7b5aa6" },
- { kind: "spiral", x: -9.8, z: -35.6, scale: 0.85, turn: 1.7, tint: "#6c56a0" },
+ // (Objetivo 22: todos en los bordes de acantilado y al fondo, detrás de las
+ // terrazas; delante de la cámara y junto a los caminos no queda ninguno.)
+ { kind: "willow", x: -24.2, z: -17.0, scale: 1.15, turn: 0.6, tint: "#b3a2d4" },
+ { kind: "willow", x: 26.2, z: -22.6, scale: 1.2, turn: 2.4, tint: "#7fbdb6" },
+ { kind: "willow", x: -26.0, z: -11.5, scale: 1.0, turn: 4.1, tint: "#b98ca8" },
+ { kind: "willow", x: -21.8, z: -32.8, scale: 1.35, turn: 1.3, tint: "#7fbdb6" },
+ { kind: "willow", x: 17.0, z: -35.9, scale: 1.35, turn: 5.2, tint: "#b3a2d4" },
+ { kind: "broad", x: -21, z: -21.5, scale: 1.0, turn: 0.3, tint: "#a58cc4" },
+ { kind: "broad", x: 29.2, z: -17, scale: 1.1, turn: 2.0, tint: "#6fa8a4" },
+ { kind: "broad", x: -14.8, z: -42.6, scale: 1.35, turn: 4.4, tint: "#8f7bb8" },
+ { kind: "broad", x: 13.1, z: -39.7, scale: 1.3, turn: 3.3, tint: "#a58cc4" },
+ { kind: "broad", x: -26.1, z: -5.4, scale: 0.95, turn: 1.1, tint: "#6fa8a4" },
+ { kind: "spiral", x: 26.6, z: -5.1, scale: 1.0, turn: 0.4, tint: "#8d7bb5" },
+ { kind: "spiral", x: -8.7, z: -43.9, scale: 1.25, turn: 2.6, tint: "#7fa3ad" },
+ { kind: "spiral", x: 8.1, z: -42.0, scale: 1.25, turn: 4.9, tint: "#8d7bb5" },
+ { kind: "spiral", x: 21.4, z: -1.4, scale: 0.9, turn: 1.7, tint: "#7fa3ad" },
 ];
 // Radio del tronco de cada forma (para chocar), a escala 1.
 export const TRUNK = { willow: 0.5, broad: 0.55, spiral: 0.42 };
@@ -417,7 +419,7 @@ export const SHARDS = [
  { x: 7.2, z: -13.4, scale: 0.9, turn: 2.2 },
  { x: -15.6, z: -13.2, scale: 1.0, turn: 4.1 },
  { x: 17.6, z: -13.2, scale: 1.1, turn: 1.3 },
- { x: -8.4, z: -26.2, scale: 0.8, turn: 5.2 },
+ { x: -8.4, z: -26.2, scale: 1.25, turn: 5.2 },
  { x: 9.2, z: -27.4, scale: 0.85, turn: 3.0 },
  { x: 9.4, z: 3.4, scale: 0.7, turn: 0.9 },
 ];
@@ -612,6 +614,7 @@ const twisted = {
  planet: true, // al subir con la nave, el mundo se cierra en esfera
  moment: "night", // siempre de noche
  ownMoon: true, // trae su propia luna, enorme (Sky.jsx no dibuja la suya)
+ woodyStaysUp: true, // Woody descansa sentado, no tumbado: echado, y negro, desde arriba era una mancha
  spawn: SPAWN,
  waterLevel: WATER_LEVEL,
  height,

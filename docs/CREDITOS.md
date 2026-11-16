@@ -110,7 +110,7 @@ Descargados de Envato con la cuenta de David (15-11-2026); ningún ZIP trae arch
 
 | Original | Autor | Para qué | Estado |
 |---|---|---|---|
-| «Big ben landmark clock tower» | slabdsgn | Torre del reloj, en la cima | En uso: `public/models/twisted/torre.glb`, repintada |
+| «Big ben landmark clock tower» | slabdsgn | Torre del reloj, en la cima | **Retirada** en el objetivo 22: la torre es ahora propia, hecha a mano (`src/worlds/twisted/tower.js`) |
 | «Stylized Treehouse Cottage» | TurboSquid (licencia de TurboSquid) | Casa sobre tronco («Sobre mí») | En uso: `casa-tronco.glb`, solo la forma, con colores planos; no se distribuye ninguna textura |
 | «Whimsical Toon Cottage with Stone Roof» | TurboSquid (licencia de TurboSquid) | Casita de cuento | En uso: `casita.glb`, solo la forma, pintada a mano; no se distribuye ninguna textura |
 | «Greenhouse» | spacepixelcreative | Invernadero | No se usa (el del juego es hecho a mano) |

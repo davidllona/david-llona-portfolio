@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
+import { color, normalView, uniform, vec3 } from "three/tsl";
+import { MeshLambertNodeMaterial } from "three/webgpu";
 import { keepFlat } from "../../experience/environment/bend";
 import { addWarmSource } from "../../experience/lightSources";
 import { lambert } from "../../experience/materials";
@@ -14,6 +16,7 @@ import { height } from "./layout";
 // garganta, se balancea al andar y alumbra de verdad: un charco de luz cálida
 // que va con él. (Lo monta characters/Woody.jsx si el mundo lo trae: `woodyWears`.)
 const at = new THREE.Vector3();
+const moonRim = uniform(0); // cuánto contorno de luna lleva Woody (1 en este mundo; 0 fuera)
 export function CollarLantern({ neck }) {
  const group = useRef(null);
  const halo = useRef(null);
@@ -25,7 +28,7 @@ export function CollarLantern({ neck }) {
  useEffect(() => {
   // (Va con Woody, que no se curva con el planeta: tampoco su farol.)
   keepFlat(group.current);
-  const stop = addWarmSource({ x: 0, y: 0, z: 0, power: 0.72, reach: 6.5, flicker: 0.08, color: "#ffa552" });
+  const stop = addWarmSource({ x: 0, y: 0, z: 0, power: 1.05, reach: 6.5, flicker: 0.08, color: "#ffa552" });
   swing.current.source = stop.source;
   return () => {
    stop();
@@ -36,6 +39,36 @@ export function CollarLantern({ neck }) {
    material.light.dispose();
   };
  }, [model, glow, material]);
+ // Woody es negro y aquí es de noche: se le da un contorno de luz de luna,
+ // fría, en lo que mira de refilón a la cámara y hacia arriba. Solo en este
+ // mundo: al llegar se le ponen unos materiales que lo llevan y, al irse, el
+ // contorno se apaga (`moonRim`) pero los materiales se quedan: devolverle los
+ // de antes obligaría a compilar en caliente al volver al otro mundo.
+ useEffect(() => {
+  if (!neck) return undefined;
+  let root = neck;
+  while (root.parent && !root.userData.materials) root = root.parent;
+  const made = (root.userData.moonlit ??= new Map());
+  const lit = (from) => {
+   if (!from.isMeshLambertMaterial || from.isNodeMaterial) return from;
+   if (!made.has(from)) {
+    const material = new MeshLambertNodeMaterial({ color: from.color, flatShading: true });
+    const n = normalView.normalize();
+    const rim = n.z.abs().oneMinus().pow(2).mul(n.y.mul(0.5).add(0.75).clamp(0, 1));
+    material.emissiveNode = color(from.emissive).mul(from.emissiveIntensity).add(vec3(0.3, 0.46, 0.95).mul(rim).mul(0.85).mul(moonRim));
+    material.name = from.name;
+    made.set(from, material);
+   }
+   return made.get(from);
+  };
+  root.traverse((node) => {
+   if (node.isMesh) node.material = Array.isArray(node.material) ? node.material.map(lit) : lit(node.material);
+  });
+  moonRim.value = 1;
+  return () => {
+   moonRim.value = 0;
+  };
+ }, [neck]);
  useFrame(({ camera, clock }, delta) => {
   if (!neck) return;
   const state = swing.current;
@@ -59,7 +92,8 @@ export function CollarLantern({ neck }) {
   halo.current.quaternion.copy(camera.quaternion);
   const ground = height(at.x, at.z);
   floor.current.position.set(at.x, ground + 0.06, at.z);
-  if (state.source) Object.assign(state.source, { x: at.x, y: at.y + 0.1, z: at.z });
+  // (La luz, algo por encima y por delante del farol: le da en la cara y en el lomo, no solo en la tripa.)
+  if (state.source) Object.assign(state.source, { x: at.x - Math.sin(woody.facing) * 0.25, y: at.y + 0.62, z: at.z - Math.cos(woody.facing) * 0.25 });
  });
  return (
   <>

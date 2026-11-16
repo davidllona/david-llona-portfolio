@@ -12,8 +12,8 @@ export const IRON = "#1d1c2b";
 export const BONE = "#e9e2d2"; // blanco hueso
 export const BARK = { dark: "#191624", mid: "#2b2640", light: "#453d62" };
 export const STONE = { dark: "#3a3752", mid: "#5a5674", light: "#807a9c" };
-export const WALL = { dark: "#3d335c", mid: "#54487f", light: "#6a5d98" };
-export const ROOF = { a: "#272040", b: "#4d3f7c" };
+export const WALL = { dark: "#494462", mid: "#625c80", light: "#7e779c" };
+export const ROOF = { a: "#22203a", b: "#423d63" };
 export const WOOD = { dark: "#241d2e", mid: "#3a2e42" };
 export const WARM = "#ffa64a"; // ventanas y faroles
 export const ACID = "#b8ff4a"; // el verde ácido, con cuentagotas
@@ -166,12 +166,23 @@ export function createDryTuft() {
  return merge(blades);
 }
 export function createShard() {
- const shard = new THREE.CylinderGeometry(0.2, 0.52, 1.5, 5, 2).translate(0, 0.7, 0);
- return merge([
-  piece(shard, { bottom: STONE.dark, top: STONE.light, jitter: 0.09, vary: 0.12, seed: 3, rotation: [0.08, 0, -0.16] }),
-  piece(new THREE.CylinderGeometry(0.12, 0.34, 0.8, 5, 1).translate(0, 0.36, 0), { bottom: STONE.dark, top: STONE.mid, jitter: 0.06, vary: 0.12, seed: 8, position: [0.52, 0, 0.18], rotation: [-0.1, 0.6, 0.24] }),
-  piece(new THREE.DodecahedronGeometry(0.26, 0), { color: STONE.dark, jitter: 0.05, vary: 0.12, seed: 5, position: [-0.42, 0.1, 0.3], scale: [1, 0.6, 1] }),
- ]);
+ // Roca suelta: tres bultos facetados de pizarra y una lasca clavada de canto,
+ // con una costra de musgo arriba y unas setas pequeñas.
+ const lump = (r, position, scale, seed) => piece(new THREE.IcosahedronGeometry(r, 1), { bottom: STONE.dark, top: STONE.light, jitter: r * 0.17, vary: 0.16, seed, position, scale });
+ const moss = (r, position, seed) => piece(new THREE.IcosahedronGeometry(r, 1), { bottom: "#22473c", top: "#427c64", jitter: r * 0.12, vary: 0.12, seed, position, scale: [1, 0.3, 0.92] });
+ const parts = [
+  lump(0.64, [0, 0.4, 0], [1, 0.86, 0.9], 3),
+  lump(0.44, [0.6, 0.24, 0.22], [1.1, 0.74, 1], 8),
+  lump(0.3, [-0.52, 0.16, 0.34], [1, 0.7, 1.1], 5),
+  piece(new THREE.CylinderGeometry(0.1, 0.34, 1.35, 6, 3).translate(0, 0.62, 0), { bottom: STONE.dark, top: STONE.light, jitter: 0.07, vary: 0.14, seed: 11, position: [-0.2, 0.1, -0.38], rotation: [-0.18, 0.4, 0.2] }),
+  moss(0.4, [0.02, 0.88, 0.02], 21),
+  moss(0.26, [0.62, 0.52, 0.24], 22),
+ ];
+ for (const [x, y, z, size, tint] of [[0.2, 0.96, 0.12, 1, "#bfe6ea"], [-0.12, 0.95, -0.1, 0.7, "#cdb9ee"], [0.7, 0.58, 0.3, 0.8, "#bfe6ea"]]) {
+  parts.push(piece(new THREE.CylinderGeometry(0.018 * size, 0.026 * size, 0.14 * size, 5).translate(0, 0.07 * size, 0), { color: "#d9d4e8", position: [x, y, z] }));
+  parts.push(piece(new THREE.SphereGeometry(0.075 * size, 7, 3, 0, Math.PI * 2, 0, Math.PI / 2), { color: tint, position: [x, y + 0.12 * size, z], scale: [1, 0.75, 1] }));
+ }
+ return merge(parts);
 }
 
 // ── La casa torcida ─────────────────────────────────────────────────────────
@@ -439,7 +450,8 @@ export function createHouse() {
   onDoor(new THREE.ConeGeometry(0.19, 0.22, 5), { color: IRON, position: [lampAt[0], lampAt[1] + 0.24, lampAt[2]], rotation: [0, 0, 0.1] }),
   onDoor(new THREE.CylinderGeometry(0.13, 0.08, 0.05, 5), { color: IRON, position: [lampAt[0], lampAt[1] - 0.16, lampAt[2]] }),
  );
- warm.push(onDoor(box(0.2, 0.28, 0.2), { position: lampAt }));
+ // (El farol, cálido; las ventanas, violetas: va aparte.)
+ const lantern = [onDoor(box(0.2, 0.28, 0.2), { position: lampAt })];
  const lamp = new THREE.Vector3(...lampAt).applyAxisAngle(new THREE.Vector3(0, 1, 0), door.yaw).add(new THREE.Vector3(...door.position));
 
  return {
@@ -447,6 +459,7 @@ export function createHouse() {
   // Los cristales, aparte: se encienden.
   warm: merge(warm),
   acid: merge(acid),
+  lantern: merge(lantern),
   // Dónde alumbra, en los ejes de la casa: el farol de la puerta y las ventanas de la fachada.
   lamp: lamp.toArray(),
   door: door.position,

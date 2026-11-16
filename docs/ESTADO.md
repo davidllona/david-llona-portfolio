@@ -3,7 +3,7 @@
 Actualizado: 16 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
-**En curso: objetivo 22 — pulido visual de The Twisted Moon** (`docs/OBJETIVO-22.md`; C2 y C3 del objetivo 21 aprobados como base): bloque 1 (color y luz) hecho; siguen el 2 (piezas que no se leen) y el 3 (órbita). Ver «Objetivo 22» abajo.
+**En curso: objetivo 22 — pulido visual de The Twisted Moon** (`docs/OBJETIVO-22.md`; C2 y C3 del objetivo 21 aprobados como base): bloques 1 (color y luz) y 2 (piezas que no se leen) hechos; sigue el 3 (órbita). Ver «Objetivo 22» abajo.
 **Objetivo 21 — The Twisted Moon, que se parezca a las imágenes de referencia** (`docs/OBJETIVO-21.md`; sustituye al bloque C del objetivo 20): bloques C1 (aprobado), C2 y C3 hechos; **parada del C3, pendiente del visto bueno de David** (informe en «Objetivo 21»). Ver «Objetivo 21».
 **Objetivo 20 — mundo 2, The Twisted Moon** (`docs/OBJETIVO-20.md`): bloques A (viaje entre mundos) y B (muestra de estilo) hechos; **parada del bloque B, pendiente del visto bueno de David**. Los bloques C, D y E no se empiezan hasta entonces. Ver «Objetivo 20».
 **En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **En curso: bloque 3** (errores de juego), a medias: ver su fila y «Bloque 3, lo que queda».
@@ -23,7 +23,7 @@ Capturas: `capturas/27-pulido-mundo2/` (fuera de git). **Las diez de siempre**, 
 | Bloque | Estado |
 |---|---|
 | 1. Color y luz | **Hecho** (16-11-2026). Hojas: `bloque1-antes-despues.jpg`, `bloque1-postal.jpg`; capturas en `b1/` |
-| 2. Piezas que no se leen | Pendiente |
+| 2. Piezas que no se leen | **Hecho** (16-11-2026). Hoja: `bloque2-antes-despues.jpg`; capturas en `b2/` |
 | 3. Vista desde la órbita | Pendiente |
 
 **Bloque 1, lo que hay** (`worlds/twisted/`: `layout.js`, `ground.js`, `Terrain.jsx`, `Night.jsx`, `Life.jsx`, `Details.jsx`, `Scene.jsx`, `Buildings.jsx`):
@@ -36,6 +36,17 @@ Capturas: `capturas/27-pulido-mundo2/` (fuera de git). **Las diez de siempre**, 
 7. **Luna**: solo el creciente con su halo; la parte en sombra no se dibuja.
 
 Batería al cerrar el bloque 1: diecisiete pruebas, 416 comprobaciones, 0 fallos.
+
+**Bloque 2, lo que hay** (`worlds/twisted/`: `tower.js` (nuevo), `Buildings.jsx`, `House.jsx`, `CollarLantern.jsx`, `Terrain.jsx`, `models.js`, `plants.js`, `layout.js`; y una línea en `characters/Woody.jsx`):
+1. **Woody**: contorno de luz de luna fría (materiales con borde encendido, solo en este mundo; al salir se apaga con un uniforme, sin cambiar de material: devolverle los antiguos compilaba un pipeline en caliente al volver al mundo 1). La luz de su farolillo, más fuerte (0,72 → 1,05) y colocada por encima y por delante: le da en la cara y en el lomo. En este mundo descansa sentado, no tumbado (`woodyStaysUp`): echado y visto desde arriba era la mancha plana.
+2. **Torre del reloj**: propia, hecha a mano (`tower.js`); el modelo descargado («Big ben…», `torre.glb`) se retira. Piedra en bloques desiguales (una pieza por bloque sobre un núcleo oscuro que hace de junta), cornisas, cuerpo del reloj con **cuatro esferas encendidas** y agujas en las cuatro (la hora del visitante), tejado de pizarra alto, puntiagudo y retorcido con cuatro buhardillas y la punta en rizo, seis ventanas con marco de piedra clara, arco y cruceta, puerta con montante encendido y farol de forja, y tres engranajes de latón. Halos ante ventanas y esferas, charco cálido a la puerta. La captura «torre de cerca» encuadra ahora la torre entera (`OWN_VIEWS` en `luna.mjs`).
+3. **Observatorio**: el mismo modelo, repintado al cargarlo (`RECOLOR` en `Buildings.jsx`): ladrillo → piedra gris morada, cúpula gris → cobre con cardenillo, telescopio → latón; y una ventana cálida con marco, hecha a mano.
+4. **Casa del alquimista**: paredes más claras y grises (se lee la silueta contra el cortado), ventanas violetas con halo, humo violeta por la chimenea (`humo violeta`), farolillo cálido en la puerta con su charco; la buhardilla verde ya no deslumbra en blanco.
+5. **Caminos**: piedras una a una (Voronoi en el sombreador del suelo), gris morado, con junta oscura y musgo en los bordes.
+6. **Rocas sueltas** (`createShard`): bultos facetados de pizarra con una lasca, costra de musgo y tres setas pequeñas. (La «roca morada junto al puente» era la copa de un sauce vista desde arriba: ya no está ahí.)
+7. **Árboles**: el sauce se rehace (copa pequeña y chata, 46 ramas colgantes en dos coronas, claras en la punta, que se mecen); a los de copa ancha les cuelgan tiras de musgo; tintes más claros (lavanda, verde azulado, malva). Los catorce árboles grandes pasan a los bordes de acantilado y al fondo, detrás de las terrazas: ninguno queda delante de la cámara ni junto a un camino.
+
+Batería al cerrar el bloque 2: diecisiete pruebas, 416 comprobaciones, 0 fallos (una, «0 pipelines en caliente al volver», falló a la primera por los materiales de Woody; corregido como se dice arriba).
 
 ## Objetivo 21 — The Twisted Moon: que se parezca a las imágenes de referencia
 

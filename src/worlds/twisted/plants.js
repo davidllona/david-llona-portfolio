@@ -41,17 +41,20 @@ export function createWillow() {
   crown.push(end);
  }
  crown.push([0, 5.1, 0]);
- crown.forEach(([x, y, z], i) => parts.push(piece(blob(1), { bottom: FOLIAGE.low, top: FOLIAGE.high, jitter: 0.14, vary: 0.12, seed: 4 + i, position: [x, y, z], scale: [1.35, 0.6, 1.35] })));
- // Cortina: tiras que cuelgan del borde de la copa, de largos distintos.
- const STRANDS = 42;
- for (let i = 0; i < STRANDS; i++) {
-  const a = (i / STRANDS) * Math.PI * 2 + random() * 0.12;
-  const [cx, cy, cz] = crown[i % 3];
-  const r = 1.0 + random() * 0.45, x0 = cx + Math.cos(a) * r, z0 = cz + Math.sin(a) * r, y0 = cy - 0.1;
-  const long = 2.0 + random() * 1.6, ox = Math.cos(a), oz = Math.sin(a);
-  const strand = blade([[x0, y0, z0], [x0 + ox * 0.2, y0 - long * 0.35, z0 + oz * 0.2], [x0 + ox * 0.28, y0 - long * 0.7, z0 + oz * 0.28], [x0 + ox * 0.22, y0 - long, z0 + oz * 0.22]], 0.38, { facing: a + Math.PI / 2, tipWidth: 0.06 });
-  parts.push(piece(strand, { bottom: FOLIAGE.high, top: FOLIAGE.low, vary: 0.1, seed: 20 + i }));
- }
+ // (Masas pequeñas y chatas: lo que se tiene que leer es la cortina, no una bola.)
+ crown.forEach(([x, y, z], i) => parts.push(piece(blob(1), { bottom: FOLIAGE.low, top: FOLIAGE.high, jitter: 0.12, vary: 0.12, seed: 4 + i, position: [x, y, z], scale: [1.05, 0.42, 1.05] })));
+ // Cortina: ramas colgantes, tiras largas y separadas (entre una y otra se ve
+ // el tronco), en dos coronas: la de fuera casi toca el suelo. Más oscuras
+ // arriba y claras en la punta, y cada una cae abriéndose un poco.
+ const strand = (a, r, [cx, cy, cz], long, width, seed) => {
+  const x0 = cx + Math.cos(a) * r, z0 = cz + Math.sin(a) * r, y0 = cy + 0.05;
+  const ox = Math.cos(a), oz = Math.sin(a), sway = (random() - 0.5) * 0.3;
+  const path = [[x0, y0, z0], [x0 + ox * 0.26, y0 - long * 0.3, z0 + oz * 0.26], [x0 + ox * 0.36 + sway * oz, y0 - long * 0.66, z0 + oz * 0.36 - sway * ox], [x0 + ox * 0.3 + sway * oz, y0 - long, z0 + oz * 0.3 - sway * ox]];
+  parts.push(piece(blade(path, width, { facing: a + Math.PI / 2, tipWidth: 0.05 }), { bottom: "#ffffff", top: "#8f899f", vary: 0.12, seed }));
+ };
+ const OUTER = 30, INNER = 16;
+ for (let i = 0; i < OUTER; i++) strand((i / OUTER) * Math.PI * 2 + random() * 0.1, 0.95 + random() * 0.4, crown[i % 3], 2.6 + random() * 1.5, 0.24 + random() * 0.08, 20 + i);
+ for (let i = 0; i < INNER; i++) strand((i / INNER) * Math.PI * 2 + 0.2 + random() * 0.2, 0.5 + random() * 0.3, crown[3], 2.2 + random() * 1.2, 0.22, 60 + i);
  return merge(parts);
 }
 
@@ -71,6 +74,12 @@ export function createBroadTree() {
   parts.push(piece(top, { bottom: FOLIAGE.low, top: FOLIAGE.high, jitter: 0.08, vary: 0.14, seed: 7 + i, position: [x, y, z], rotation: [random() * 0.2, random(), random() * 0.2] }));
   parts.push(piece(new THREE.ConeGeometry(r * 0.92, 0.7, 9), { color: "#6f6880", vary: 0.1, seed: 11 + i, position: [x, y - 0.55, z], rotation: [Math.PI, 0, 0] }));
   parts.push(piece(blob(1), { bottom: FOLIAGE.low, top: FOLIAGE.high, jitter: 0.1, vary: 0.12, seed: 14 + i, position: [x, y + 0.35, z], scale: [r * 0.6, 0.35, r * 0.6] }));
+  // Del canto de la copa cuelgan tiras de musgo, cortas y desiguales.
+  const hangs = Math.round(r * 5);
+  for (let k = 0; k < hangs; k++) {
+   const a = (k / hangs) * Math.PI * 2 + random(), long = 0.5 + random() * 0.9, hx = x + Math.cos(a) * r * 0.86, hz = z + Math.sin(a) * r * 0.86;
+   parts.push(piece(blade([[hx, y - 0.3, hz], [hx, y - 0.3 - long * 0.6, hz], [hx + Math.cos(a) * 0.05, y - 0.3 - long, hz + Math.sin(a) * 0.05]], 0.16, { facing: a + Math.PI / 2, tipWidth: 0.03 }), { bottom: "#ffffff", top: "#a7a1b6", vary: 0.1, seed: 40 + k }));
+  }
  });
  return merge(parts);
 }
@@ -178,69 +187,4 @@ export function createLanternPost() {
   piece(new THREE.ConeGeometry(0.11, 0.12, 5), { color: IRON, position: [gx, gy + 0.13, 0] }),
   piece(new THREE.CylinderGeometry(0.08, 0.06, 0.03, 5), { color: IRON, position: [gx, gy - 0.1, 0] }),
  ]);
-}
-
-// ── Lo que se le añade a la torre del reloj ─────────────────────────────────
-// La torre de Envato es un campanario recto, de juguete: aquí se le pone el
-// aire de cuento. `measure(y)` da su medio ancho y medio fondo a esa altura;
-// `top`, su altura; `face`, dónde está la esfera ({ y, r, front }). Devuelve
-// lo macizo (`body`) y lo encendido (`warm`), en metros, con la torre derecha
-// (la inclinación se le da entera, a todo junto).
-export function createTowerExtras({ measure, top, face }) {
- const random = randomFrom(0.731);
- const body = [], warm = [];
- const PURPLE = { stone: "#a497cc", dark: "#5a4d86", roof: "#2b2348", roof2: "#4b3d7c", gold: "#d6aa52" };
- // ── Aguja torcida, encima del tejado: sube, se vence y acaba en rizo con su bola dorada.
- const spire = [[0, 0, 0], [0.04, 0.9, 0.02], [0.22, 1.9, 0.06], [0.62, 2.7, 0.1], [1.05, 3.0, 0.12], [1.32, 2.78, 0.1], [1.26, 2.5, 0.08]];
- body.push(piece(tube(spire, (t) => 0.42 * (1 - t) ** 1.25 + 0.03, { sides: 4, segments: 18 }), { bottom: PURPLE.roof, top: PURPLE.roof2, vary: 0.08, position: [0, top - 0.55, 0] }));
- body.push(piece(new THREE.OctahedronGeometry(0.13, 0), { color: PURPLE.gold, position: [1.26, top - 0.55 + 2.42, 0.08] }));
- // ── Dos torrecillas en esquinas opuestas, cada una vencida hacia fuera, con su gorro torcido y una ventana encendida.
- const turret = (corner, height, lean) => {
-  const [hx, hz] = measure(height);
-  const x = corner[0] * (hx + 0.32), z = corner[1] * (hz + 0.32);
-  const out = Math.atan2(corner[1], corner[0]);
-  const tilt = [corner[1] * lean, 0, -corner[0] * lean];
-  const at = (dy) => [x + corner[0] * Math.sin(lean) * dy, height + dy, z + corner[1] * Math.sin(lean) * dy];
-  body.push(piece(new THREE.ConeGeometry(0.62, 1.1, 7), { color: PURPLE.dark, position: at(-0.55), rotation: [Math.PI + tilt[0], 0, tilt[2]] }));
-  body.push(piece(new THREE.CylinderGeometry(0.56, 0.6, 2.2, 7, 2), { bottom: PURPLE.dark, top: PURPLE.stone, jitter: 0.03, vary: 0.08, position: at(1.1), rotation: tilt }));
-  body.push(piece(new THREE.CylinderGeometry(0.74, 0.74, 0.14, 7), { color: PURPLE.roof, position: at(2.25), rotation: tilt }));
-  // Gorro en tres tramos, cada uno más ladeado.
-  [[0.72, 0.46, 0.9], [0.46, 0.22, 0.75], [0.22, 0.02, 0.7]].forEach(([low, high, tall], i) => {
-   const lift = 2.3 + i * 0.72, bend = (i + 1) * 0.18 * corner[0];
-   body.push(piece(new THREE.CylinderGeometry(high, low, tall, 7).translate(0, tall / 2, 0), { color: i % 2 ? PURPLE.roof2 : PURPLE.roof, vary: 0.08, seed: 30 + i, position: [at(lift)[0] + bend * 0.5, at(lift)[1], at(lift)[2]], rotation: [tilt[0], 0, tilt[2] - bend] }));
-  });
-  // La ventana, mirando hacia fuera de la torre (y a la cámara, si queda delante).
-  const facing = Math.abs(corner[1]) > 0 ? (corner[1] > 0 ? 0 : Math.PI) : out;
-  const [wx, wy, wz] = at(1.2);
-  warm.push(piece(new THREE.PlaneGeometry(0.32, 0.5), { position: [wx + Math.sin(facing) * 0.6, wy, wz + Math.cos(facing) * 0.6], rotation: [0, facing, 0] }));
-  body.push(piece(new THREE.BoxGeometry(0.44, 0.08, 0.14), { color: INK, position: [wx + Math.sin(facing) * 0.62, wy - 0.28, wz + Math.cos(facing) * 0.62], rotation: [0, facing, 0] }));
- };
- turret([1, 1], top * 0.56, 0.2);
- turret([-1, -1], top * 0.44, 0.24);
- // ── Balcón torcido bajo la esfera: losa, ménsulas y una baranda de barrotes desiguales.
- {
-  const y = face.y - face.r - 0.55;
-  const [hx, hz] = measure(y);
-  const z = (hz + 0.42) * face.front;
-  body.push(piece(new THREE.BoxGeometry(hx * 1.5, 0.14, 0.95), { bottom: PURPLE.dark, top: PURPLE.stone, jitter: 0.02, position: [0, y, z], rotation: [0, 0, 0.04] }));
-  for (const side of [-1, 1]) body.push(piece(new THREE.ConeGeometry(0.16, 0.6, 4), { color: PURPLE.dark, position: [side * hx * 0.55, y - 0.36, z - 0.1 * face.front], rotation: [Math.PI, 0, 0] }));
-  const posts = 7;
-  for (let i = 0; i < posts; i++) {
-   const x = -hx * 0.72 + (hx * 1.44 * i) / (posts - 1), tall = 0.62 + random() * 0.18;
-   body.push(piece(new THREE.BoxGeometry(0.05, tall, 0.05), { color: INK, position: [x, y + tall / 2, z + 0.42 * face.front], rotation: [(random() - 0.5) * 0.2, 0, (random() - 0.5) * 0.25] }));
-  }
-  body.push(piece(new THREE.BoxGeometry(hx * 1.55, 0.05, 0.06), { color: INK, position: [0, y + 0.7, z + 0.42 * face.front], rotation: [0, 0, 0.06] }));
-  // Puerta del balcón, encendida.
-  warm.push(piece(new THREE.PlaneGeometry(0.5, 0.8), { position: [0.05, y + 0.48, hz * face.front + 0.03 * face.front], rotation: [0, face.front > 0 ? 0 : Math.PI, 0.03] }));
- }
- // ── Ventanas encendidas en el fuste: dos en la fachada y una a cada lado, cada una a su altura y algo ladeada.
- for (const [side, u, height, lean] of [["front", -0.18, 0.24, 0.05], ["front", 0.22, 0.36, -0.07], ["right", 0.1, 0.3, 0.06], ["left", -0.05, 0.4, -0.05]]) {
-  const y = top * height;
-  const [hx, hz] = measure(y);
-  const position = side === "front" ? [u * hx * 2, y, (hz + 0.03) * face.front] : [(side === "right" ? 1 : -1) * (hx + 0.03), y, u * hz * 2];
-  const yaw = side === "front" ? (face.front > 0 ? 0 : Math.PI) : side === "right" ? Math.PI / 2 : -Math.PI / 2;
-  warm.push(piece(new THREE.PlaneGeometry(0.42, 0.72), { position, rotation: [0, yaw, lean] }));
-  body.push(piece(new THREE.BoxGeometry(0.56, 0.09, 0.12), { color: INK, position: [position[0], y - 0.4, position[2]], rotation: [0, yaw, lean] }));
- }
- return { body: merge(body), warm: merge(warm) };
 }

@@ -39,6 +39,9 @@ const TEN = ["llegada", "plataforma", "rio", "escalera", "puente", "invernadero"
 // `lift`: altura de la cámara (1 = la del juego); `distance`: cuánto se aleja.
 const VIEWS = { juego: null, alto: { lift: 1.5, distance: 3.4 }, cerca: { lift: 0.45, distance: 0.55 } };
 
+// La torre, de cerca: entera, desde el pie de su escalera (no pegada a la base).
+const OWN_VIEWS = { torre: { cerca: { lift: 0.5, distance: 1.75, focus: [BUILDINGS.torre.x, 8.4, BUILDINGS.torre.z] } } };
+
 const folder = (process.argv[2] ?? "capturas/26-mundo2/C1") + "/";
 const pick = (arg, all) => (arg && arg !== "-" ? arg.split(",") : all);
 const what = pick(process.argv[3], ["postal", ...Object.keys(POINTS), "orbita"]).flatMap((one) => (one === "diez" ? TEN : [one]));
@@ -77,10 +80,10 @@ if (places.length || what.includes("orbita")) {
   const [x, z] = POINTS[name];
   await t.put(x, z, { settle: 500 });
   for (const view of views) {
-   const setup = VIEWS[view];
+   const setup = OWN_VIEWS[name]?.[view] ?? VIEWS[view];
    await t.evaluate((setup) => {
     const w = window.__world, p = w.player.position;
-    w.rig.focus = setup ? { x: p.x, y: p.y + 1.2, z: p.z - 0.5 } : null;
+    w.rig.focus = setup ? (setup.focus ? { x: setup.focus[0], y: p.y + setup.focus[1], z: setup.focus[2] } : { x: p.x, y: p.y + 1.2, z: p.z - 0.5 }) : null;
     w.rig.lift = setup?.lift ?? 1;
     w.rig.distance = setup?.distance ?? 1;
    }, setup);

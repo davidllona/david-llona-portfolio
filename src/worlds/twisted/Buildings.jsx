@@ -14,10 +14,11 @@ import { Smoke } from "./Details";
 import { BUILDINGS, GREENHOUSE, HOUSE, STORY_DOOR, ground } from "./layout";
 import { glass, pool, solid } from "./materials";
 import { STONE, WARM, createGreenhouse } from "./models";
-import { createTowerExtras } from "./plants";
+import { TOWER, createTower } from "./tower";
+import { Halos } from "../living/props/Halos";
 import { merge, piece } from "../living/kit/geometry";
 
-// Los edificios de la isla. Salen de modelos descargados (docs/CREDITOS.md),
+// Los edificios de la isla. La torre del reloj es propia (tower.js); los demás salen de modelos descargados (docs/CREDITOS.md),
 // ya convertidos a una malla sin materiales ni texturas, con el color en los
 // vértices: los de este mundo, con tools/assets/twisted.py; el observatorio y
 // la casa del árbol son los mismos archivos del mundo 1. Aquí se les da la
@@ -54,12 +55,16 @@ function useConverted(site) {
   // (El color viene con cuatro componentes y normalizado: se queda en tres, en coma flotante.)
   const from = source.attributes.color;
   const colors = new Float32Array(from.count * 3);
-  for (let i = 0; i < from.count; i++) colors.set([from.getX(i), from.getY(i), from.getZ(i)], i * 3);
+  const recolor = RECOLOR[site.model], tone = new THREE.Color();
+  for (let i = 0; i < from.count; i++) {
+   if (recolor) recolor(from.getX(i), from.getY(i), from.getZ(i), source.attributes.position.getY(i), tone).toArray(colors, i * 3);
+   else colors.set([from.getX(i), from.getY(i), from.getZ(i)], i * 3);
+  }
   made.setAttribute("color", new THREE.BufferAttribute(colors, 3));
   made.computeVertexNormals();
   made.computeBoundingSphere();
   return made;
- }, [scene]);
+ }, [scene, site.model]);
  useEffect(() => () => geometry.dispose(), [geometry]);
  return geometry;
 }
@@ -75,84 +80,150 @@ function Building({ name, site, material, children }) {
 }
 
 // ── La torre del reloj ──────────────────────────────────────────────────────
-// La torre de Envato, de cuento: algo inclinada, con la aguja torcida, dos
-// torrecillas vencidas, un balcón bajo la esfera y ventanas encendidas (ver
-// `createTowerExtras`). Las agujas del reloj son propias y marcan la hora del
-// visitante (la de su navegador; `?hora=` la fija, como en el primer mundo).
+// Propia, de piedra, con tejado de pizarra retorcido (ver tower.js), y algo
+// inclinada. Las agujas de sus cuatro esferas marcan la hora del visitante (la
+// de su navegador; `?hora=` la fija, como en el primer mundo). La luz sale
+// hacia fuera: un halo ante cada ventana y cada esfera, y un charco cálido a la puerta.
 const LEAN = [-0.035, 0, 0.05];
 function Tower({ site, material }) {
- const geometry = useConverted(site);
- const hands = useRef({ hour: null, minute: null });
- // Medidas de la torre, en metros: medio ancho y medio fondo a cada altura, alto y dónde está la esfera.
- const shape = useMemo(() => {
-  const points = geometry.attributes.position, colors = geometry.attributes.color;
-  const size = site.size, STEP = 0.25;
-  const bands = new Map();
-  const glass = { min: new THREE.Vector3(Infinity, Infinity, Infinity), max: new THREE.Vector3(-Infinity, -Infinity, -Infinity), sum: new THREE.Vector3(), n: 0 };
-  let top = 0;
-  const p = new THREE.Vector3();
-  for (let i = 0; i < points.count; i++) {
-   p.fromBufferAttribute(points, i).multiplyScalar(size);
-   top = Math.max(top, p.y);
-   const band = Math.round(p.y / STEP);
-   const have = bands.get(band) ?? [0, 0];
-   bands.set(band, [Math.max(have[0], Math.abs(p.x)), Math.max(have[1], Math.abs(p.z))]);
-   if (Math.abs(colors.getX(i) - GLASS_RGB[0]) + Math.abs(colors.getY(i) - GLASS_RGB[1]) + Math.abs(colors.getZ(i) - GLASS_RGB[2]) < 0.04) {
-    glass.min.min(p);
-    glass.max.max(p);
-    glass.sum.add(p);
-    glass.n += 1;
-   }
-  }
-  const measure = (y) => {
-   for (let k = 0; k < 8; k++) for (const band of [Math.round(y / STEP) - k, Math.round(y / STEP) + k]) if (bands.has(band)) return bands.get(band);
-   return [1.5, 1.5];
-  };
-  const centre = glass.sum.divideScalar(Math.max(1, glass.n));
-  const face = { x: centre.x, y: (glass.min.y + glass.max.y) / 2, r: (glass.max.x - glass.min.x) / 2, front: centre.z >= 0 ? 1 : -1, z: centre.z >= 0 ? glass.max.z : glass.min.z };
-  return { measure, top, face };
- }, [geometry, site.size]);
- const extras = useMemo(() => createTowerExtras(shape), [shape]);
- const lit = useMemo(() => glass(WARM), []);
+ const model = useMemo(createTower, []);
+ const hands = useRef([]);
+ const lit = useMemo(() => ({ warm: glass(WARM), dial: glass("#ffd28a"), spill: pool("#ff9a3c", 0.55) }), []);
  const handGeometry = useMemo(() => {
-  const r = shape.face.r;
+  const r = TOWER.clockR;
   const blade = (length, width) => new THREE.BoxGeometry(width, length, 0.05).translate(0, length / 2 - width, 0);
-  return { hour: blade(r * 0.55, r * 0.09), minute: blade(r * 0.86, r * 0.06), pin: new THREE.CylinderGeometry(r * 0.08, r * 0.08, 0.08, 8).rotateX(Math.PI / 2) };
- }, [shape]);
- const handMaterial = useMemo(() => new THREE.MeshLambertMaterial({ color: "#1b1228" }), []);
+  return { hour: blade(r * 0.55, r * 0.1), minute: blade(r * 0.84, r * 0.065), pin: new THREE.CylinderGeometry(r * 0.08, r * 0.08, 0.08, 8).rotateX(Math.PI / 2) };
+ }, []);
+ const handMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: "#1b1228" }), []);
+ const y = ground(site.x, site.z) - 0.05;
+ // De los ejes de la torre (ya inclinada) a los del mundo.
+ const placed = useMemo(() => {
+  const lean = new THREE.Euler(...LEAN), up = new THREE.Vector3(0, 1, 0);
+  const toWorld = (at) => new THREE.Vector3(...at).applyEuler(lean).applyAxisAngle(up, site.turn).add(new THREE.Vector3(site.x, y, site.z)).toArray();
+  const door = toWorld([0.3, 0, 3.1]);
+  return {
+   warm: model.glows.filter((one) => one.tint === "warm").map((one) => toWorld(one.at)),
+   dials: model.glows.filter((one) => one.tint === "dial").map((one) => toWorld(one.at)),
+   door,
+   lamp: toWorld([1.02, 2.8, 2.5]),
+  };
+ }, [model, site, y]);
+ useEffect(() => {
+  const stop = [
+   addWarmSource({ x: placed.lamp[0], y: placed.lamp[1], z: placed.lamp[2], power: 1.0, reach: 7.5, flicker: 0.06, color: "#ffa552" }),
+   // (La esfera que mira al sur alumbra la fachada desde arriba.)
+   addWarmSource({ x: placed.dials[0][0], y: placed.dials[0][1] - 1.2, z: placed.dials[0][2] + 1.4, power: 0.8, reach: 9, flicker: 0.02, color: "#ffc27a" }),
+  ];
+  return () => stop.forEach((off) => off());
+ }, [placed]);
  useEffect(
   () => () => {
-   extras.body.dispose();
-   extras.warm.dispose();
-   lit.dispose();
-   Object.values(handGeometry).forEach((one) => one.dispose());
+   [model.body, model.warm, model.dial, ...Object.values(handGeometry)].forEach((one) => one.dispose());
+   Object.values(lit).forEach((one) => one.dispose());
    handMaterial.dispose();
   },
-  [extras, lit, handGeometry, handMaterial],
+  [model, lit, handGeometry, handMaterial],
  );
+ const plane = useMemo(() => new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), []);
+ useEffect(() => () => plane.dispose(), [plane]);
  useFrame(() => {
   // La hora del visitante: la aguja de las horas da una vuelta cada 12 h; la de los minutos, cada hora.
   const { hour } = clock();
   const minute = (hour % 1) * Math.PI * 2, hours = ((hour % 12) / 12) * Math.PI * 2;
-  if (hands.current.hour) hands.current.hour.rotation.z = -hours;
-  if (hands.current.minute) hands.current.minute.rotation.z = -minute;
+  for (const face of hands.current) {
+   if (face?.hour) face.hour.rotation.z = -hours;
+   if (face?.minute) face.minute.rotation.z = -minute;
+  }
   if (import.meta.env.DEV) window.__world.towerClock = { hour, hourAngle: hours, minuteAngle: minute }; // para las pruebas automáticas
  });
- const { face } = shape;
  return (
-  <group name="torre" userData={{ rests: 0 }} position={[site.x, ground(site.x, site.z) - 0.05, site.z]} rotation-y={site.turn}>
-   <group rotation={LEAN}>
-    <mesh geometry={geometry} material={material} scale={site.size} castShadow receiveShadow />
-    <mesh name="torre: aguja, torrecillas y balcón" geometry={extras.body} material={material} castShadow receiveShadow />
-    <mesh geometry={extras.warm} material={lit.material} />
-    {/* Agujas del reloj, sobre la esfera. */}
-    <group position={[face.x, face.y, face.z + 0.06 * face.front]} rotation-y={face.front > 0 ? 0 : Math.PI}>
-     <mesh ref={(node) => (hands.current.hour = node)} name="aguja de las horas" geometry={handGeometry.hour} material={handMaterial} position-z={0.02} />
-     <mesh ref={(node) => (hands.current.minute = node)} name="aguja de los minutos" geometry={handGeometry.minute} material={handMaterial} position-z={0.05} />
-     <mesh geometry={handGeometry.pin} material={handMaterial} position-z={0.06} />
+  <>
+   <group name="torre" userData={{ rests: 0 }} position={[site.x, y, site.z]} rotation-y={site.turn}>
+    <group rotation={LEAN}>
+     <mesh name="torre: piedra, tejado y buhardillas" geometry={model.body} material={material} castShadow receiveShadow />
+     <mesh geometry={model.warm} material={lit.warm.material} />
+     <mesh name="esferas del reloj" geometry={model.dial} material={lit.dial.material} />
+     {/* Agujas, sobre cada esfera. */}
+     {model.faces.map((face, i) => (
+      <group key={i} position={face.position} rotation-y={face.yaw}>
+       <mesh ref={(node) => ((hands.current[i] ??= {}).hour = node)} name="aguja de las horas" geometry={handGeometry.hour} material={handMaterial} position-z={0.02} />
+       <mesh ref={(node) => ((hands.current[i] ??= {}).minute = node)} name="aguja de los minutos" geometry={handGeometry.minute} material={handMaterial} position-z={0.05} />
+       <mesh geometry={handGeometry.pin} material={handMaterial} position-z={0.06} />
+      </group>
+     ))}
     </group>
    </group>
-  </group>
+   <mesh geometry={plane} material={lit.spill.material} position={[placed.door[0], ground(placed.door[0], placed.door[2]) + 0.07, placed.door[2]]} scale={4.4} renderOrder={2} />
+   <Halos points={placed.warm} size={1.5} color="#ffa24e" night={0.5} />
+   <Halos points={placed.dials} size={3.6} color="#ffc27a" night={0.42} />
+  </>
+ );
+}
+
+// ── El observatorio ─────────────────────────────────────────────────────────
+// El mismo modelo del mundo 1, repintado para este: allí es de ladrillo rojo
+// con franjas oscuras; aquí, base de piedra gris morada, cúpula de cobre con
+// cardenillo y telescopio de latón. (La lente del telescopio sigue encendida.)
+// `y`: altura del vértice, de 0 a 1,16 (el modelo mide 1 de lado).
+const mixed = (a, b, t) => a.clone().lerp(b, Math.min(1, Math.max(0, t)));
+const OBS_TONES = { stone: new THREE.Color("#9a96b2"), stoneDark: new THREE.Color("#6f6b88"), band: new THREE.Color("#3d3a55"), copper: new THREE.Color("#4aa08e"), copperLight: new THREE.Color("#8fd6bd"), brass: new THREE.Color("#d2a044"), brassLight: new THREE.Color("#e2bb62") };
+const RECOLOR = {
+ observatorio: (r, g, b, y, out) => {
+  const T = OBS_TONES;
+  if (Math.abs(r - GLASS_RGB[0]) + Math.abs(g - GLASS_RGB[1]) + Math.abs(b - GLASS_RGB[2]) < 0.04) return out.setRGB(r, g, b); // cristal: se queda
+  if (r > 0.75 && g < 0.5) return out.copy(T.stone); // ladrillo claro → piedra
+  if (r > 0.4 && g < 0.3) return out.copy(T.stoneDark); // ladrillo oscuro → piedra oscura
+  if (Math.abs(r - g) < 0.08 && r > 0.4 && r < 0.75) return out.copy(mixed(T.copper, T.copperLight, (y - 0.7) / 0.34)); // cúpula gris → cobre con cardenillo
+  if (r > 0.85 && g > 0.85) return out.copy(T.brassLight); // remates blancos → latón claro
+  if (r < 0.2 && g < 0.2 && b < 0.2) return out.copy(y > 0.9 ? T.brass : T.band); // lo negro: arriba es el telescopio (latón); abajo, zócalo y fajas
+  return out.setRGB(r, g, b);
+ },
+};
+// Una ventana cálida en el muro del observatorio (el modelo no trae): cristal, marco de piedra clara y alféizar.
+const OBS_WINDOW = { yaw: -0.2, y: 2.3, r: 2.56 };
+function ObservatoryWindow({ site, material }) {
+ const model = useMemo(() => {
+  const { yaw, y, r } = OBS_WINDOW, at = [Math.sin(yaw) * r, y, Math.cos(yaw) * r];
+  const part = (geometry, options, dx, dy, dz = 0) => {
+   const made = piece(geometry, { ...options, position: [dx, dy, dz] });
+   made.applyMatrix4(new THREE.Matrix4().makeRotationY(yaw)).translate(...at);
+   return made;
+  };
+  return {
+   frame: merge([
+    part(new THREE.BoxGeometry(0.12, 0.95, 0.16), { color: "#a39fb8" }, -0.36, 0),
+    part(new THREE.BoxGeometry(0.12, 0.95, 0.16), { color: "#a39fb8" }, 0.36, 0),
+    part(new THREE.TorusGeometry(0.36, 0.07, 4, 8, Math.PI), { color: "#a39fb8" }, 0, 0.45),
+    part(new THREE.BoxGeometry(0.98, 0.1, 0.3), { color: "#8d89a3" }, 0, -0.52, 0.05),
+    part(new THREE.BoxGeometry(0.04, 1.2, 0.04), { color: "#1d1c2b" }, 0, 0.15, 0.02),
+    part(new THREE.BoxGeometry(0.62, 0.04, 0.04), { color: "#1d1c2b" }, 0, 0.1, 0.02),
+   ]),
+   glass: merge([part(new THREE.PlaneGeometry(0.62, 0.9), {}, 0, 0), part(new THREE.CircleGeometry(0.31, 8, 0, Math.PI), {}, 0, 0.45)]),
+  };
+ }, []);
+ const lit = useMemo(() => glass(WARM), []);
+ const base = ground(site.x, site.z) - 0.05;
+ const halo = useMemo(() => {
+  const { yaw, y, r } = OBS_WINDOW, turn = site.turn + yaw;
+  return [[site.x + Math.sin(turn) * (r + 0.3), base + y, site.z + Math.cos(turn) * (r + 0.3)]];
+ }, [site, base]);
+ useEffect(() => {
+  const stop = addWarmSource({ x: halo[0][0], y: halo[0][1] - 0.3, z: halo[0][2], power: 0.7, reach: 6, flicker: 0.04, color: "#ffa552" });
+  return () => {
+   stop();
+   model.frame.dispose();
+   model.glass.dispose();
+   lit.dispose();
+  };
+ }, [model, lit, halo]);
+ return (
+  <>
+   <group position={[site.x, base, site.z]} rotation-y={site.turn}>
+    <mesh name="ventana del observatorio" geometry={model.frame} material={material} castShadow />
+    <mesh geometry={model.glass} material={lit.material} />
+   </group>
+   <Halos points={halo} size={1.7} color="#ffa24e" night={0.5} />
+  </>
  );
 }
 
@@ -269,7 +340,7 @@ export function Buildings() {
   const stop = [addWarmSource({ x: STORY_DOOR.x, y: y + 1.6, z: STORY_DOOR.z, power: 1.0, reach: 8, flicker: 0.05, color: "#ffa552" })];
   return () => stop.forEach((off) => off());
  }, []);
- const chimneys = useMemo(() => [chimneyTop(BUILDINGS.casita), alchemistChimney()], []);
+ const chimneys = useMemo(() => ({ casita: [chimneyTop(BUILDINGS.casita)], alchemist: [alchemistChimney()] }), []);
  return (
   <>
    {Object.entries(BUILDINGS).map(([name, site]) =>
@@ -280,8 +351,11 @@ export function Buildings() {
     ),
    )}
    <Chimney site={BUILDINGS.casita} material={material.plain} />
+   <ObservatoryWindow site={BUILDINGS.observatorio} material={material.plain} />
    <Greenhouse />
-   <Smoke sources={chimneys} />
+   <Smoke sources={chimneys.casita} />
+   {/* El del alquimista, violeta: algo se cuece ahí dentro. */}
+   <Smoke name="humo violeta" sources={chimneys.alchemist} color="#b884ff" opacity={0.46} size={1.5} rise={3.8} puffs={9} />
   </>
  );
 }

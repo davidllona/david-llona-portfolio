@@ -24,9 +24,29 @@ function createGroundMaterial() {
  const at = positionLocal.xz;
  const lane = texture(paths, at.sub(vec2(CENTRE[0], CENTRE[1])).div(SPAN).add(0.5)).r.sub(0.5).mul(EDGE_RANGE * 2); // metros al borde; negativo = dentro
  const edge = lane.add(texture(noiseTexture, at.mul(0.37)).r.sub(0.5).mul(0.3));
- // Adoquines: celdas de ruido, unas más claras que otras, con su junta.
- const cobble = texture(noiseTexture, at.mul(0.9)).g;
- const stone = mix(color("#514e68"), color("#76728e"), smoothstep(0.35, 0.65, cobble));
+ // Empedrado: piedras una a una (celdas de Voronoi sobre una rejilla
+ // descolocada), cada una de su gris morado, con la junta oscura entre ellas.
+ const cellAt = at.mul(2.3);
+ const base = floor(cellAt), within = fract(cellAt);
+ let first = float(8), second = float(8), tone = float(0);
+ for (let dz = -1; dz <= 1; dz++) {
+  for (let dx = -1; dx <= 1; dx++) {
+   const cell = base.add(vec2(dx, dz));
+   const a = fract(sin(cell.x.mul(127.1).add(cell.y.mul(311.7))).mul(43758.5453));
+   const b = fract(sin(cell.x.mul(269.5).add(cell.y.mul(183.3))).mul(43758.5453));
+   const to = vec2(dx, dz).add(vec2(a, b).mul(0.76).add(0.12)).sub(within);
+   const d = to.dot(to);
+   const closer = d.lessThan(first);
+   second = closer.select(first, second.min(d));
+   tone = closer.select(a, tone);
+   first = first.min(d);
+  }
+ }
+ const joint = smoothstep(0.05, 0.13, second.sqrt().sub(first.sqrt())); // 0 en la junta, 1 en la piedra
+ // Musgo en los bordes del camino: se come las juntas y mancha alguna piedra.
+ const moss = smoothstep(-0.5, -0.08, edge).mul(smoothstep(0.42, 0.62, texture(noiseTexture, at.mul(0.83)).g));
+ const slab = mix(mix(color("#4a4760"), color("#7b7792"), tone), color("#2a5446"), moss.mul(0.75));
+ const stone = mix(mix(color("#131226"), color("#1f4337"), moss), slab, joint);
  const rim = color("#14132a");
  const inside = smoothstep(0.03, -0.03, edge);
  const border = smoothstep(0.03, -0.03, edge.sub(0.1)).mul(smoothstep(-0.2, -0.06, edge));
