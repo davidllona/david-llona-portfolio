@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { CV } from "../content/cv";
 import { SECTIONS, TRAVEL_OFFER } from "../content/sections";
+import { CLOCK } from "../content/twisted";
 import { emit, events } from "../experience/state";
+import { quest } from "../game/moonQuest";
 import { world } from "../worlds";
 import { AchievementsButton } from "./Achievements";
 
@@ -16,7 +18,11 @@ export function QuickMenu({ onAchievements }) {
  useEffect(() => {
   const onWorld = () => refresh((value) => value + 1);
   events.addEventListener("world", onWorld);
-  return () => events.removeEventListener("world", onWorld);
+  events.addEventListener("quest", onWorld);
+  return () => {
+   events.removeEventListener("world", onWorld);
+   events.removeEventListener("quest", onWorld);
+  };
  }, []);
  const here = (section) => section.world === world.id;
  const go = (event, section) => {
@@ -38,6 +44,19 @@ export function QuickMenu({ onAchievements }) {
      )}
     </span>
    ))}
+   {/* Solo en The Twisted Moon: los engranajes del reloj que se llevan. */}
+   {world.id === "twisted" && (
+    <span className={`quick__gears${quest.running() ? " quick__gears--done" : ""}`} title="Engranajes del reloj de la torre" aria-label={`${CLOCK.counter}: ${quest.count()} de ${quest.total}`}>
+     <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="5" />
+      <path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4M5.3 5.3l2.8 2.8M15.9 15.9l2.8 2.8M18.7 5.3l-2.8 2.8M8.1 15.9l-2.8 2.8" />
+     </svg>
+     {CLOCK.counter}{" "}
+     <b>
+      {quest.count()}/{quest.total}
+     </b>
+    </span>
+   )}
    <AchievementsButton onOpen={onAchievements} />
   </nav>
  );

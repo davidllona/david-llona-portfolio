@@ -2,7 +2,9 @@ import { useEffect } from "react";
 import { isReady, loadExtra, playSample, setStepSound, startExtraLoop, stopExtraLoop } from "../../audio/engine";
 import { events, player, voyage } from "../../experience/state";
 import { clock } from "../../experience/theme";
+import { SPIN_AT } from "./clockwork";
 import { BELL, FIREFLIES, MUSHROOMS, height } from "./layout";
+import { quest } from "../../game/moonQuest";
 import soundData from "./soundData.json";
 
 // El sonido de The Twisted Moon (sus archivos se descargan solo aquí; ver
@@ -12,8 +14,8 @@ import soundData from "./soundData.json";
 //    Box») y `?musica=3` («Quirky Music Box»). Entra fundiéndose al llegar y
 //    se funde al irse.
 //  · Grillos de fondo, en bucle (los del primer mundo callan aquí).
-//  · Campanadas de la torre: dos al acercarse a ella y, en cada hora en punto
-//    real del visitante, tantas como la hora.
+//  · Campanadas de la torre, solo con el reloj en marcha: cuatro al arrancarlo,
+//    dos al acercarse a ella y, en cada hora en punto real del visitante, tantas como la hora.
 //  · Destello mágico al usar algo (E o clic) y al pasar junto a una seta o un corro de luciérnagas.
 //  · Pasos de madera en los puentes.
 //  · Un búho de vez en cuando, lejos y bajo.
@@ -52,8 +54,14 @@ export function TwistedSounds() {
    stopExtraLoop("grillos-noche", 2);
   };
   const onInteract = () => sparkle(0.5);
+  // El juego del reloj: un destello al ganar un engranaje y, al arrancar, cuatro campanadas (cuando los engranajes echan a girar).
+  const onQuest = (event) => {
+   if (event.detail?.type === "gear") sparkle(0.6);
+   else if (event.detail?.type === "start") later(SPIN_AT * 1000, () => live && strike(4, 0.6));
+  };
   events.addEventListener("voyage", onVoyage);
   events.addEventListener("interact", onInteract);
+  events.addEventListener("quest", onQuest);
 
   let lastHour = null, nearBell = false, bellAt = -1e9, owlAt = performance.now() + 18000 + Math.random() * 20000, touched = -1, touchedAt = 0;
   timer = window.setInterval(() => {
@@ -64,10 +72,11 @@ export function TwistedSounds() {
    const now = performance.now(), { x, z } = player.position;
    // Campanadas en cada hora en punto real (las oye toda la isla), y dos al llegar junto a la torre.
    const hour = Math.floor(clock().hour);
-   if (lastHour !== null && hour !== lastHour) strike(hour % 12 || 12, 0.4);
+   // (Con el reloj parado, la torre calla.)
+   if (lastHour !== null && hour !== lastHour && quest.running()) strike(hour % 12 || 12, 0.4);
    lastHour = hour;
    const close = Math.hypot(x - BELL.x, z - BELL.z) < 8;
-   if (close && !nearBell && now - bellAt > 60000) {
+   if (close && !nearBell && now - bellAt > 60000 && quest.running()) {
     bellAt = now;
     strike(2, 0.6);
    }
@@ -96,6 +105,7 @@ export function TwistedSounds() {
    pending.forEach((one) => window.clearTimeout(one));
    events.removeEventListener("voyage", onVoyage);
    events.removeEventListener("interact", onInteract);
+   events.removeEventListener("quest", onQuest);
    stopExtraLoop(MUSIC, 1);
    stopExtraLoop("grillos-noche", 1);
    setStepSound("step-wood", null);

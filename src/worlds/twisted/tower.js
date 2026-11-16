@@ -205,5 +205,7 @@ export function createTower() {
   glows.push({ at: on(yaw, u, y, out + 0.28), size: 1.4, tint: "warm" });
  });
 
- return { body: merge(body), warm: merge(warm), dial: merge(dial), faces, glows };
+ // Dónde encajan, al arrancar el reloj, los cuatro engranajes que se recogen por la isla: [x, y, z, radio].
+ const slots = [[-0.02, 7.86, 0.3], [0.78, 7.36, 0.34], [0.86, 6.42, 0.27], [-0.86, 6.36, 0.3]].map(([u, y, r]) => [...on(0, u, y, shaft(y) + 0.2), r]);
+ return { body: merge(body), warm: merge(warm), dial: merge(dial), faces, glows, slots };
 }

@@ -1,4 +1,4 @@
-// Los 22 logros. Cada uno se desbloquea con un hecho real del juego (ver
+// Los 24 logros. Cada uno se desbloquea con un hecho real del juego (ver
 // Tracker.jsx); ninguno por simple cercanía cuando pide completar una acción.
 //  · `goal`: cuántas veces hay que hacerlo (si es más de una, enseña progreso).
 //  · `ready`: su disparador ya existe en el juego. Los que aún no, se ven en
@@ -26,6 +26,9 @@ export const ACHIEVEMENTS = [
  { id: "medianoche-magica", name: "Medianoche mágica", description: "Presencia el evento de la torre del reloj.", group: "Eventos" },
  { id: "energia-cosmica", name: "Energía cósmica", description: "Activa el núcleo de The Cosmic Lab.", group: "Eventos" },
  { id: "mitologo", name: "Mitólogo", description: "Resuelve el puzle de las constelaciones.", group: "Eventos" },
+ // The Twisted Moon: el juego del reloj.
+ { id: "cuatro-engranajes", name: "Cuatro engranajes", description: "Reúne los cuatro engranajes de The Twisted Moon.", group: "Exploración", goal: 4, ready: true },
+ { id: "relojero", name: "Relojero", description: "Arranca el reloj de la torre.", group: "Eventos", ready: true },
 ];
 
 export const BY_ID = Object.fromEntries(ACHIEVEMENTS.map((achievement) => [achievement.id, achievement]));

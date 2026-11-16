@@ -69,7 +69,7 @@ export function Flora() {
    // Las copas se mecen con el viento: el sauce, con sus tiras, mucho más que los demás.
    willow: withSeeThrough(withWind(moonlit(lambert({ side: THREE.DoubleSide }), 0.3, 0.18), { flex: 0.5, power: 2.2, cap: 5.4 })),
    crown: withSeeThrough(withWind(moonlit(lambert({ side: THREE.DoubleSide }), 0.28, 0.18), { flex: 0.14, power: 2, cap: 6 })),
-   stone: moonlit(solid(), 0.12, 0.14),
+   stone: moonlit(solid(), 0.1, 0.07),
    low: moonlit(lambert({ side: THREE.DoubleSide }), 0.16, 0),
    // El sombrero de las setas brilla con su color (por encima del umbral del resplandor: lleva halo).
    glow: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),

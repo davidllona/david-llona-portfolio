@@ -63,7 +63,13 @@ before = await wood();
 await t.hold("KeyW", 1800);
 check((await wood()) > before + 1, `cruzando la pasarela suenan los pasos de madera (${(await wood()) - before})`);
 
-// Campanadas: al acercarse a la torre, dos.
+// Campanadas (con el reloj en marcha: aquí se arranca sin jugar): al acercarse a la torre, dos.
+await t.evaluate(() => {
+ const quest = window.__world.quest;
+ for (const id of quest.missing()) quest.collect(id);
+ quest.start();
+});
+await wait(12500); // (las cuatro del arranque)
 const chimes = () => t.evaluate(() => window.__world.audio.sampled.campanada ?? 0);
 before = await chimes();
 await t.put(BELL.x + 0.4, BELL.z + 3.6, { withWoody: false, settle: 5200 });

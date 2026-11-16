@@ -71,7 +71,14 @@ const kinds = { sauce: BIG_TREES.filter((one) => one.kind === "willow").length, 
 const wrong = Object.entries(kinds).filter(([name, count]) => scene.names[name] !== count);
 check(wrong.length === 0, `vegetación y detalles con instancias: ${Object.entries(kinds).map(([name, count]) => `${count} ${name}`).join(", ")}${wrong.length ? ` — no cuadran: ${wrong.map(([name]) => `${name} (${scene.names[name]})`).join(", ")}` : ""}`);
 check(scene.names["humo"] === 1 && scene.names["chimenea de la casita"] === 1 && scene.names["plantas del invernadero"] === 1 && scene.names["torre: piedra, tejado y buhardillas"] === 1 && scene.names["esferas del reloj"] === 1, "humo en las chimeneas, plantas que brillan en el invernadero y la torre de piedra con su tejado, sus buhardillas y sus esferas");
-// El reloj marca la hora del visitante (las pruebas la fijan a las 12:00): las dos agujas, arriba.
+// El reloj, una vez en marcha (aquí se arranca sin jugar; el juego entero, en twisted-quest.mjs), marca la
+// hora del visitante (las pruebas la fijan a las 12:00): las dos agujas, arriba.
+await t.evaluate(() => {
+ const quest = window.__world.quest;
+ for (const id of quest.missing()) quest.collect(id);
+ quest.start();
+});
+await wait(400);
 const hands = await t.evaluate(() => window.__world.towerClock);
 check(Math.abs(hands.hour - 12) < 0.05 && hands.hourAngle % (Math.PI * 2) < 0.03 && hands.minuteAngle < 0.03, `el reloj de la torre marca la hora del visitante (${hands.hour.toFixed(2)} h: las dos agujas arriba)`);
 check(scene.names["farolillo de Woody"] === 1, "Woody lleva su farolillo al cuello");

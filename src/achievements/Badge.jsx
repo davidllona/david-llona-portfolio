@@ -12,6 +12,22 @@ const GROUP_COLORS = {
 };
 
 const GLYPHS = {
+ // Una rueda dentada.
+ "cuatro-engranajes": (
+  <>
+   <circle cx="12" cy="12" r="5.2" fill="none" />
+   <circle cx="12" cy="12" r="1.6" />
+   <path d="M12 3v3.2M12 17.8V21M3 12h3.2M17.8 12H21M5.6 5.6l2.3 2.3M16.1 16.1l2.3 2.3M18.4 5.6l-2.3 2.3M7.9 16.1l-2.3 2.3" fill="none" />
+  </>
+ ),
+ // Esfera de reloj con sus agujas.
+ relojero: (
+  <>
+   <circle cx="12" cy="12" r="8.5" fill="none" />
+   <path d="M12 6.5V12l3.8 2.4" fill="none" />
+   <circle cx="12" cy="12" r="1.2" />
+  </>
+ ),
  // Dos huellas de bota.
  "primeros-pasos": (
   <>

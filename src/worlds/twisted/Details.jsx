@@ -161,3 +161,49 @@ export function Drops({ sources, name = "gotas", color = "#a8f4ee", count = 12, 
  });
  return <mesh name={name} geometry={geometry} material={material} frustumCulled={false} renderOrder={4} />;
 }
+
+// Halos como los de las farolas (manchas de luz de cara a la cámara), pero con
+// la fuerza variable: `power` es un uniforme (todos a la vez: las esferas del
+// reloj) o una lista de { value } (cada uno la suya: los engranajes, que se
+// apagan al recogerlos). Están montados siempre: encenderlos no compila nada.
+export function Glows({ points, name = "brillos", size = 1.4, color = "#ffb060", power, strength = 0.55 }) {
+ const glow = useMemo(() => createGlowTexture(), []);
+ const basis = useMemo(() => ({ right: uniform(new THREE.Vector3(1, 0, 0)), up: uniform(new THREE.Vector3(0, 1, 0)) }), []);
+ const each = Array.isArray(power);
+ const geometry = useMemo(() => {
+  const plane = new THREE.PlaneGeometry(1, 1);
+  const instanced = new THREE.InstancedBufferGeometry();
+  instanced.setAttribute("position", plane.attributes.position);
+  instanced.setAttribute("uv", plane.attributes.uv);
+  instanced.setIndex(plane.index);
+  instanced.setAttribute("centre", new THREE.InstancedBufferAttribute(new Float32Array(points.flat()), 3));
+  instanced.setAttribute("level", new THREE.InstancedBufferAttribute(new Float32Array(points.length).fill(1), 1));
+  instanced.instanceCount = points.length;
+  instanced.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
+  return instanced;
+ }, [points]);
+ const material = useMemo(() => {
+  const one = new MeshBasicNodeMaterial({ map: glow, color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, fog: false });
+  one.userData.flat = true;
+  one.positionNode = bendWorld(attribute("centre", "vec3")).add(basis.right.mul(positionGeometry.x.mul(size))).add(basis.up.mul(positionGeometry.y.mul(size)));
+  one.opacityNode = (each ? attribute("level", "float") : power).mul(strength);
+  return one;
+ }, [glow, basis, color, size, power, each, strength]);
+ useEffect(
+  () => () => {
+   glow.dispose();
+   geometry.dispose();
+   material.dispose();
+  },
+  [glow, geometry, material],
+ );
+ useFrame(({ camera }) => {
+  basis.right.value.setFromMatrixColumn(camera.matrixWorld, 0);
+  basis.up.value.setFromMatrixColumn(camera.matrixWorld, 1);
+  if (!each) return;
+  const level = geometry.attributes.level;
+  for (let i = 0; i < power.length; i++) level.array[i] = power[i].value;
+  level.needsUpdate = true;
+ });
+ return <mesh name={name} geometry={geometry} material={material} frustumCulled={false} renderOrder={3} />;
+}

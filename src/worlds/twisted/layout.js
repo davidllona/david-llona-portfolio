@@ -282,6 +282,20 @@ const front = (site, away) => ({ x: site.x + Math.sin(site.turn) * away, z: site
 export const STORY_DOOR = front(BUILDINGS["casa-tronco"], 3.5);
 export const HOUSE_DOOR = front(HOUSE, (HOUSE.depth / 2) * HOUSE.scale + 1.3);
 
+// Las paradas del juego del reloj (objetivo 23; ver ClockQuest.jsx). De cada una:
+// dónde se pulsa la E (`x`, `z`: en el camino, ante su puerta), dónde flota su
+// engranaje (`gear`), a qué mira la cámara al abrir su panel (`focus`: x,
+// altura sobre el suelo, z) y a qué nudo de la red de Woody corresponde (`node`).
+export const QUEST_STOPS = {
+ alquimista: { x: HOUSE_DOOR.x + 0.5, z: HOUSE_DOOR.z + 0.1, gear: [HOUSE_DOOR.x - 0.5, HOUSE_DOOR.z + 0.9], focus: [HOUSE.x + 1, 2.4, HOUSE.z + 1], node: "luna-alquimista" },
+ "casa-arbol": { x: 14.3, z: -26.2, gear: [15.5, -25.2], focus: [BUILDINGS["casa-arbol"].x, 3.4, BUILDINGS["casa-arbol"].z], node: "luna-casa-arbol", distance: 1.0 },
+ casita: { x: -13.6, z: -9.3, gear: [-13.2, -7.6], focus: [BUILDINGS.casita.x + 1, 1.8, BUILDINGS.casita.z + 1], node: "luna-casita" },
+ invernadero: { x: 11.8, z: -3.7, gear: [11.4, -1.9], focus: [GREENHOUSE.x, 1.5, GREENHOUSE.z], node: "luna-invernadero" },
+};
+// La puerta de la torre (donde se arranca el reloj) y el pie del telescopio (el final).
+export const TOWER_DOOR = { x: 0.3, z: -33.3, focus: [BUILDINGS.torre.x, 5.4, BUILDINGS.torre.z] };
+export const TELESCOPE = { x: -15.2, z: -25.0, focus: [BUILDINGS.observatorio.x, 3.2, BUILDINGS.observatorio.z], distance: 0.9 };
+
 // Miradores: sitios donde la cámara se inclina hacia el horizonte y entran en
 // cuadro la luna y el cielo. `r`: radio en que hace efecto del todo (y se va
 // perdiendo en otro tanto).
@@ -684,6 +698,18 @@ const twisted = {
    "cima-pie": [4.7, -29.2],
    "cima-medio": [5.5, -32.8],
    torre: [2.4, -34.8],
+   // Las paradas del juego del reloj y los tramos que llevan a ellas (objetivo 23).
+   "terraza-oeste": [-12.6, -18.6],
+   "luna-alquimista": [QUEST_STOPS.alquimista.x, QUEST_STOPS.alquimista.z],
+   "senda-casita": [-12, -10.6],
+   "luna-casita": [QUEST_STOPS.casita.x, QUEST_STOPS.casita.z],
+   "luna-invernadero": [QUEST_STOPS.invernadero.x, QUEST_STOPS.invernadero.z],
+   "puente-oeste-a": [-5.4, -29.7],
+   "puente-oeste-b": [-12.4, -27.2],
+   "luna-observatorio": [TELESCOPE.x, TELESCOPE.z],
+   "puente-este-a": [5.5, -29.9],
+   "puente-este-b": [12.4, -27.8],
+   "luna-casa-arbol": [QUEST_STOPS["casa-arbol"].x, QUEST_STOPS["casa-arbol"].z],
   },
   links: [
    ["cohete", "cruce-oeste"],
@@ -708,8 +734,19 @@ const twisted = {
    ["macizo-alto", "cima-pie"],
    ["cima-pie", "cima-medio"],
    ["cima-medio", "torre"],
+   ["escalera-oeste-alto", "terraza-oeste"],
+   ["terraza-oeste", "luna-alquimista"],
+   ["pasarela-norte", "senda-casita"],
+   ["senda-casita", "luna-casita"],
+   ["invernadero", "luna-invernadero"],
+   ["macizo-alto", "puente-oeste-a"],
+   ["puente-oeste-a", "puente-oeste-b"],
+   ["puente-oeste-b", "luna-observatorio"],
+   ["cima-pie", "puente-este-a"],
+   ["puente-este-a", "puente-este-b"],
+   ["puente-este-b", "luna-casa-arbol"],
   ],
-  places: [{ id: "casa-tronco" }, { id: "torre" }, { id: "cohete" }],
+  places: [{ id: "casa-tronco" }, { id: "torre" }, { id: "cohete" }, { id: "luna-alquimista" }, { id: "luna-casa-arbol" }, { id: "luna-casita" }, { id: "luna-invernadero" }, { id: "luna-observatorio" }],
  },
  themes: { day: NIGHT, dusk: NIGHT, night: NIGHT },
 };

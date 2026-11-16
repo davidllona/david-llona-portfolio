@@ -14,7 +14,7 @@ const { PROJECT_CABINS, BASKET, PAD } = await import("../../src/worlds/living/la
 check((await t.evaluate(() => window.__world.audio.state())) === "sin crear", "antes del primer gesto no hay contexto de audio");
 await t.enter();
 check((await t.evaluate(() => window.__world.audio.state())) === "running", "al entrar, el audio arranca");
-check((await counter()) === "0/22" && !(await has("primeros-pasos")), "se empieza con 0/22");
+check((await counter()) === "0/24" && !(await has("primeros-pasos")), "se empieza con 0/24");
 
 // Primeros pasos + pasos que suenan según el suelo.
 await t.hold("KeyS", 1200);
@@ -91,7 +91,7 @@ await wait(1200);
 check((await has("viajero-espacial")) && (await sounds())["rocket-launch"] === 1, "despegar da «Viajero espacial» y ruge el cohete");
 
 // Vitrina.
-check((await counter()) === "6/22", `contador del menú: ${await counter()}`);
+check((await counter()) === "6/24", `contador del menú: ${await counter()}`);
 await page.click(".quick__trophy");
 await wait(400);
 const panel = await t.evaluate(() => ({
@@ -101,8 +101,8 @@ const panel = await t.evaluate(() => ({
  distinct: new Set([...document.querySelectorAll(".achievement svg.badge g")].map((g) => g.innerHTML)).size,
  soon: [...document.querySelectorAll(".achievement__state")].filter((p) => p.textContent === "Próximamente").length,
 }));
-check(panel.total === 22 && panel.done === 6 && panel.soon === 12, `vitrina: ${panel.total} logros, ${panel.done} conseguidos, ${panel.soon} «próximamente»`);
-check(panel.badges === 22 && panel.distinct === 22, `cada logro tiene su propia insignia (${panel.distinct} dibujos distintos)`);
+check(panel.total === 24 && panel.done === 6 && panel.soon === 12, `vitrina: ${panel.total} logros, ${panel.done} conseguidos, ${panel.soon} «próximamente»`);
+check(panel.badges === 24 && panel.distinct === 24, `cada logro tiene su propia insignia (${panel.distinct} dibujos distintos)`);
 await t.shot("logros");
 await page.keyboard.press("Escape");
 await wait(300);
@@ -114,7 +114,7 @@ await page.waitForFunction(() => !document.querySelector("#loader") && !document
 await wait(400);
 await t.enter();
 await t.hold("KeyS", 900);
-check((await counter()) === "6/22" && !(await t.achievement()), "tras recargar: 6/22 guardados y ningún aviso repetido");
+check((await counter()) === "6/24" && !(await t.achievement()), "tras recargar: 6/24 guardados y ningún aviso repetido");
 
 // Silenciar con M, y reiniciar el progreso.
 await page.keyboard.press("KeyM");

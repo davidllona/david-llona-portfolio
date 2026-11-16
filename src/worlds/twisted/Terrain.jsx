@@ -56,7 +56,7 @@ function createGroundMaterial() {
  const n = normalView.normalize();
  const edgeLight = n.z.abs().oneMinus().pow(2.2).mul(n.y.mul(0.5).add(0.75).clamp(0, 1));
  const rock = attribute("flat", "float").oneMinus();
- material.emissiveNode = attribute("color", "vec3").mul(vec3(0.7, 0.8, 1.0)).mul(0.17).add(vec3(0.4, 0.52, 0.95).mul(edgeLight).mul(0.2)).mul(rock);
+ material.emissiveNode = attribute("color", "vec3").mul(vec3(0.7, 0.8, 1.0)).mul(0.17).add(vec3(0.4, 0.52, 0.95).mul(edgeLight).mul(0.12)).mul(rock);
  return material;
 }
 

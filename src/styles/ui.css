@@ -1718,3 +1718,102 @@
  cursor: pointer;
  font: inherit;
 }
+
+/* ── The Twisted Moon: contador de engranajes y línea de tiempo ─────────── */
+
+.quick__gears {
+ display: inline-flex;
+ align-items: center;
+ gap: 6px;
+ height: 36px;
+ padding: 0 12px 0 10px;
+ color: var(--color-text);
+ font-size: 14px;
+ white-space: nowrap;
+ opacity: 0.92;
+}
+
+.quick__gears svg {
+ width: 16px;
+ height: 16px;
+ fill: none;
+ stroke: #e3bd62;
+ stroke-width: 2;
+ stroke-linecap: round;
+}
+
+.quick__gears b {
+ color: #e3bd62;
+ font-weight: 600;
+ font-variant-numeric: tabular-nums;
+}
+
+.quick__gears--done svg {
+ animation: gear-turn 6s linear infinite;
+}
+
+@keyframes gear-turn {
+ to {
+  transform: rotate(360deg);
+ }
+}
+
+@media (prefers-reduced-motion: reduce) {
+ .quick__gears--done svg {
+  animation: none;
+ }
+}
+
+@media (max-width: 720px) {
+ .quick__gears {
+  height: 34px;
+  padding: 0 8px 0 6px;
+  font-size: 13px;
+ }
+}
+
+.modal__timeline {
+ display: grid;
+ gap: 10px;
+ margin: 6px 0 4px;
+ padding: 0 0 0 16px;
+ border-left: 2px solid rgba(227, 189, 98, 0.55);
+ list-style: none;
+}
+
+.modal__timeline li {
+ position: relative;
+ display: grid;
+ gap: 2px;
+}
+
+.modal__timeline li::before {
+ content: "";
+ position: absolute;
+ top: 7px;
+ left: -22px;
+ width: 10px;
+ height: 10px;
+ border-radius: 50%;
+ background: #e3bd62;
+}
+
+.modal__timeline b {
+ color: #e3bd62;
+ font-weight: 600;
+}
+
+.modal__soon {
+ opacity: 0.6;
+ cursor: not-allowed;
+}
+
+.modal__soon span {
+ margin-left: 6px;
+ padding: 2px 8px;
+ border-radius: 999px;
+ background: rgba(255, 255, 255, 0.16);
+ font-size: 12px;
+ letter-spacing: 0.04em;
+ text-transform: uppercase;
+}

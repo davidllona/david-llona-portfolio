@@ -21,7 +21,7 @@ export const ZONE_LINES = {
  // The Twisted Moon.
  "luna-nave": "Esto es The Twisted Moon. Aquí siempre es de noche… pero yo llevo farol.",
  "casa-tronco": "La casa del tronco. Dentro está su historia: acércate a la puerta.",
- torre: "La torre del reloj. Marca tu hora, la de verdad.",
+ torre: "La torre del reloj. Con los cuatro engranajes vuelve a andar.",
 };
 
 // Menú del botón «Woody»: a dónde sabe llevar y cómo se le pide.
@@ -32,6 +32,11 @@ export const MENU = [
  // The Twisted Moon.
  { place: "casa-tronco", ask: "Llévame a su historia" },
  { place: "torre", ask: "Súbeme a la torre del reloj" },
+ { place: "luna-alquimista", ask: "A la casa del alquimista" },
+ { place: "luna-casa-arbol", ask: "A la casa del árbol" },
+ { place: "luna-casita", ask: "A la casita de cuento" },
+ { place: "luna-invernadero", ask: "Al invernadero" },
+ { place: "luna-observatorio", ask: "Al observatorio" },
 ];
 export const MENU_FOLLOW = "Acompáñame";
 export const MENU_MUTE = "Silenciar consejos";
@@ -50,5 +55,10 @@ export const GUIDE = {
   cv: "Aquí tienes el CV.",
   "casa-tronco": "La casa del tronco. Aquí empieza su historia.",
   torre: "La torre del reloj. Mira qué luna.",
+  "luna-alquimista": "La casa del alquimista. Acércate a la puerta.",
+  "luna-casa-arbol": "La casa del árbol. Aquí juega.",
+  "luna-casita": "La casita de cuento. Esta es la mía.",
+  "luna-invernadero": "El invernadero. Mira lo que hay entre las plantas.",
+  "luna-observatorio": "El observatorio. Asómate al telescopio.",
  },
 };

@@ -3,7 +3,8 @@
 Actualizado: 16 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
-**En curso: objetivo 22 — pulido visual de The Twisted Moon** (`docs/OBJETIVO-22.md`; C2 y C3 del objetivo 21 aprobados como base): los tres bloques hechos (color y luz, piezas que no se leen, órbita); órbita: David eligió la opción B. **Retoque de luz hecho (16-11-2026); parada, pendiente de su visto bueno.** Ver «Objetivo 22» abajo.
+**En curso: objetivo 23 — The Twisted Moon: contenido («arranca el reloj y conóceme»)** (`docs/OBJETIVO-23.md`; sustituye al bloque D del objetivo 20): bloque D1 (mecánica) hecho; siguen D2 (las paradas) y D3 (cierre). Ver «Objetivo 23» abajo.
+**Objetivo 22 — pulido visual de The Twisted Moon** (`docs/OBJETIVO-22.md`; C2 y C3 del objetivo 21 aprobados como base): los tres bloques hechos (color y luz, piezas que no se leen, órbita); órbita: David eligió la opción B. **Retoque de luz hecho (16-11-2026); parada, pendiente de su visto bueno.** Ver «Objetivo 22» abajo.
 **Objetivo 21 — The Twisted Moon, que se parezca a las imágenes de referencia** (`docs/OBJETIVO-21.md`; sustituye al bloque C del objetivo 20): bloques C1 (aprobado), C2 y C3 hechos; **parada del C3, pendiente del visto bueno de David** (informe en «Objetivo 21»). Ver «Objetivo 21».
 **Objetivo 20 — mundo 2, The Twisted Moon** (`docs/OBJETIVO-20.md`): bloques A (viaje entre mundos) y B (muestra de estilo) hechos; **parada del bloque B, pendiente del visto bueno de David**. Los bloques C, D y E no se empiezan hasta entonces. Ver «Objetivo 20».
 **En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **En curso: bloque 3** (errores de juego), a medias: ver su fila y «Bloque 3, lo que queda».
@@ -13,6 +14,28 @@ Decidido por David el 13-11-2026: los pesos reales de los modelos mandan sobre l
 Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
 Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado.
 Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Contents/MacOS/Blender -b` (5.0.1). No hay ffmpeg: el audio también se convierte con Blender.
+
+## Objetivo 23 — The Twisted Moon: contenido («arranca el reloj y conóceme»)
+
+Encargo: `docs/OBJETIVO-23.md` (16-11-2026). Tres bloques (D1 mecánica, D2 paradas, D3 cierre), commit y push en cada uno; parada solo al final. **Todos los textos del mundo 2 están en un único archivo: `src/content/twisted.js`** (el nombre por confirmar es la constante `CURRENT_COMPANY`).
+
+Antes de empezar, el retoque pendiente: borde frío de la roca clara del primer plano, un punto menos (cortados de 0,2 a 0,12; rocas sueltas de 0,14 a 0,07 y su tono de arriba, de claro a medio).
+
+| Bloque | Estado |
+|---|---|
+| D1. Mecánica | **Hecho** (16-11-2026) |
+| D2. Las paradas | Pendiente |
+| D3. Cierre | Pendiente |
+
+**Bloque D1, lo que hay:**
+- **Estado del juego**: `src/game/moonQuest.js` (fuera de la carpeta del mundo 2 para que el menú lo lea sin descargar ese mundo): engranajes que se tienen, reloj parado o en marcha. Se guarda en la visita (`sessionStorage`, clave `luna-reloj`): al volver del mundo 1 o recargar la pestaña sigue igual; si el almacenamiento falla, vive en memoria. Avisa con el evento `quest`.
+- **En la escena** (`worlds/twisted/ClockQuest.jsx`): cuatro engranajes de latón que giran y brillan ante su parada hasta recogerlos; la E de cada parada abre su panel y, **al cerrarlo**, se gana el engranaje (aviso «Engranaje n de 4», destello); la puerta de la torre (sin los cuatro, avisa de cuántos faltan; con los cuatro, arranca; después abre «Mi recorrido»); el observatorio («Lo que viene», con el botón «Viajar a The Cosmic Lab» apagado, «Próximamente»).
+- **Torre** (`Buildings.jsx`, compás en `clockwork.js`): al llegar, agujas quietas en las diez y diez y esferas a media luz. Arranque (6,6 s, sin controles): la cámara va a la fachada, los cuatro engranajes encajan uno tras otro y giran, cuatro campanadas, las esferas se encienden, las agujas corren hasta la hora real, los murciélagos se espantan y vuelven; al acabar se abre «Mi recorrido» (línea de tiempo de cinco hitos en el panel). Con el reloj parado la torre no da campanadas.
+- **Woody**: al llegar cuenta que el reloj está parado y echa a andar hacia la parada más cercana; tras cada engranaje, hacia la siguiente; con los cuatro, a la torre; después, al observatorio. Solo si no se le han silenciado los consejos. Su red de caminos gana once nudos (casa del alquimista, casita, invernadero y los dos puentes colgantes hasta el observatorio y la casa del árbol) y su menú, cinco destinos.
+- **Interfaz**: contador «Engranajes n/4» junto a los logros, solo en este mundo. El panel (`Modal.jsx`) sabe pintar una línea de tiempo y un botón apagado.
+- **Logros**: de 22 a 24: «Cuatro engranajes» (uno por parada, con progreso) y «Relojero» (arrancar el reloj). Un logro por parada no encajaba (serían cuatro insignias casi iguales): va como uno con progreso de 4.
+- **Prueba nueva**: `tests/e2e/twisted-quest.mjs` (40 comprobaciones): reloj parado, las cuatro paradas con su texto tal cual, engranajes, secuencia, campanadas, línea de tiempo, logros, guardado en la visita, almacenamiento roto y 0 pipelines en caliente. `npm run e2e` pasa a dieciocho pruebas. Capturas del juego: `node tests/e2e/luna-juego.mjs`.
+- Batería al cerrar D1: dieciocho pruebas, 456 comprobaciones, 0 fallos.
 
 ## Objetivo 22 — Pulido visual de The Twisted Moon
 

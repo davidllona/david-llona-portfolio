@@ -14,6 +14,11 @@ export function Tracker({ active }) {
    score: () => unlock("primer-enceste"),
    pet: () => count("mejor-amigo"),
    ship: (event) => event.detail?.phase === "launch" && unlock("viajero-espacial"),
+   // The Twisted Moon: cada engranaje ganado y el arranque del reloj.
+   quest: (event) => {
+    if (event.detail?.type === "gear") collect("cuatro-engranajes", event.detail.id);
+    else if (event.detail?.type === "start") unlock("relojero");
+   },
    // Fútbol: goles que cruzan la línea, golpes reales en el palo, faltas y dianas.
    football: (event) => {
     const { type, goal, free, cleared } = event.detail ?? {};

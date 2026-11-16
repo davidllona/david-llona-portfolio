@@ -168,7 +168,7 @@ export function createDryTuft() {
 export function createShard() {
  // Roca suelta: tres bultos facetados de pizarra y una lasca clavada de canto,
  // con una costra de musgo arriba y unas setas pequeñas.
- const lump = (r, position, scale, seed) => piece(new THREE.IcosahedronGeometry(r, 1), { bottom: STONE.dark, top: STONE.light, jitter: r * 0.17, vary: 0.16, seed, position, scale });
+ const lump = (r, position, scale, seed) => piece(new THREE.IcosahedronGeometry(r, 1), { bottom: STONE.dark, top: STONE.mid, jitter: r * 0.17, vary: 0.16, seed, position, scale });
  const moss = (r, position, seed) => piece(new THREE.IcosahedronGeometry(r, 1), { bottom: "#22473c", top: "#427c64", jitter: r * 0.12, vary: 0.12, seed, position, scale: [1, 0.3, 0.92] });
  const parts = [
   lump(0.64, [0, 0.4, 0], [1, 0.86, 0.9], 3),
@@ -195,6 +195,20 @@ export function createSeaRock() {
   piece(new THREE.IcosahedronGeometry(0.34, 1), { bottom: STONE.dark, top: STONE.mid, jitter: 0.05, vary: 0.14, seed: 41, position: [-0.6, 0.12, -0.25], scale: [1, 0.5, 1] }),
   piece(new THREE.IcosahedronGeometry(0.2, 1), { bottom: "#22473c", top: "#427c64", jitter: 0.02, vary: 0.1, seed: 43, position: [0.02, 0.99, 0], scale: [1, 0.22, 1] }),
  ]);
+}
+
+// Engranaje de latón (radio 1, de cara a +Z): disco, dientes y cubo. Es el que
+// se recoge en cada parada y el que encaja en la fachada de la torre.
+export function createGear(teeth = 9) {
+ const parts = [
+  piece(new THREE.CylinderGeometry(1, 1, 0.26, teeth * 2).rotateX(Math.PI / 2), { bottom: "#8a6427", top: "#e3bd62", vary: 0.06 }),
+  piece(new THREE.CylinderGeometry(0.34, 0.34, 0.4, 8).rotateX(Math.PI / 2), { color: "#7a5820" }),
+ ];
+ for (let k = 0; k < teeth; k++) {
+  const angle = (k / teeth) * Math.PI * 2;
+  parts.push(piece(new THREE.BoxGeometry(0.32, 0.34, 0.26), { color: "#c1933f", position: [Math.sin(angle) * 1.1, Math.cos(angle) * 1.1, 0], rotation: [0, 0, -angle] }));
+ }
+ return merge(parts);
 }
 
 // ── La casa torcida ─────────────────────────────────────────────────────────

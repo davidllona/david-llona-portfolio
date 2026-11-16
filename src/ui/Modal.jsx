@@ -73,6 +73,17 @@ export function Modal() {
       {paragraph}
      </p>
     ))}
+    {/* Línea de tiempo (The Twisted Moon, «Mi recorrido»): hitos de arriba abajo. */}
+    {content.timeline && (
+     <ol className="modal__timeline">
+      {content.timeline.map(([when, what]) => (
+       <li key={when}>
+        <b>{when}</b>
+        <span>{what}</span>
+       </li>
+      ))}
+     </ol>
+    )}
     {content.tags && (
      <ul className="modal__tags">
       {content.tags.map((tag) => (
@@ -91,6 +102,12 @@ export function Modal() {
       }}
      >
       {content.action ?? "Viajar"} <span aria-hidden="true">→</span>
+     </button>
+    )}
+    {/* Un destino que aún no existe: el botón se enseña, apagado. */}
+    {content.soon && (
+     <button type="button" className="modal__link modal__soon" disabled>
+      {content.soon} <span>{content.soonNote}</span>
      </button>
     )}
     {content.link && (

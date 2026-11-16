@@ -6,6 +6,7 @@ import { MeshBasicNodeMaterial } from "three/webgpu";
 import { bendWorld } from "../../experience/environment/bend";
 import { createGlowTexture } from "../../experience/textures";
 import { uniforms } from "../../experience/theme";
+import { clockwork } from "./clockwork";
 import { BELL, FIREFLIES, height } from "./layout";
 
 // La vida de The Twisted Moon: luciérnagas amarillas por toda la isla y
@@ -119,7 +120,8 @@ export function Bats() {
   const one = new MeshBasicNodeMaterial({ color: "#150f22", side: THREE.DoubleSide });
   one.userData.flat = true;
   const angle = attribute("phase", "float").add(uniforms.uTime.mul(attribute("speed", "float")));
-  const r = attribute("ring", "float");
+  // (Al arrancar el reloj se espantan: el corro se abre y sube, y luego vuelven.)
+  const r = attribute("ring", "float").mul(clockwork.scatter.mul(1.9).add(1));
   // Aleteo: la punta del ala sube y baja.
   const p = positionGeometry;
   const flap = sin(uniforms.uTime.mul(13).add(attribute("phase", "float").mul(3))).mul(abs(p.z)).mul(0.9);
@@ -128,7 +130,7 @@ export function Bats() {
   const sign = attribute("speed", "float").sign();
   const yaw = angle.add(sign.mul(Math.PI / 2));
   const turned = vec3(local.x.mul(cos(yaw)).add(local.z.mul(sin(yaw))), local.y, local.z.mul(cos(yaw)).sub(local.x.mul(sin(yaw))));
-  const centre = vec3(BELL.x, BELL.y, BELL.z).add(vec3(cos(angle).mul(r), attribute("lift", "float").add(sin(angle.mul(2)).mul(0.9)), sin(angle).mul(r).negate()));
+  const centre = vec3(BELL.x, BELL.y, BELL.z).add(vec3(cos(angle).mul(r), attribute("lift", "float").add(sin(angle.mul(2)).mul(0.9)).add(clockwork.scatter.mul(5)), sin(angle).mul(r).negate()));
   one.positionNode = bendWorld(centre.add(turned));
   return one;
  }, []);
