@@ -23,6 +23,8 @@ const POINTS = {
  macizo: [0.4, -28.6],
  cima: [0.6, -33.2],
  observatorio: [BUILDINGS.observatorio.x + 2, BUILDINGS.observatorio.z + 2.6],
+ // Junto a la orilla del suroeste: el camino de la luna sobre el mar.
+ orilla: [-5, 9.6],
 };
 // `lift`: altura de la cámara (1 = la del juego); `distance`: cuánto se aleja.
 const VIEWS = { juego: null, alto: { lift: 1.5, distance: 3.4 } };
@@ -82,6 +84,12 @@ if (places.length || what.includes("orbita")) {
   await t.put(0, 5.6, { withWoody: false, settle: 900 });
   await t.page.keyboard.press("KeyE");
   for (const [name, ms] of [["subida-1", 3600], ["subida-2", 1900], ["subida-3", 1700], ["orbita", 4200]]) {
+   await wait(ms);
+   await shot(t, name);
+  }
+  // Y la bajada: la luna tiene que verse.
+  await t.page.keyboard.press("KeyE");
+  for (const [name, ms] of [["bajada-1", 1600], ["bajada-2", 1400], ["bajada-3", 1400], ["bajada-4", 1400]]) {
    await wait(ms);
    await shot(t, name);
   }

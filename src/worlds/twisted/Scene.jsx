@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { breathe, busy, Staged } from "../Staged";
 import { Buildings } from "./Buildings";
 import { CollarLantern } from "./CollarLantern";
+import { Details } from "./Details";
 import { Fixtures } from "./Fixtures";
 import { Flora } from "./Flora";
 import { prepareGround } from "./ground";
@@ -45,6 +46,7 @@ export default function TwistedScene({ onBuilt }) {
    <House />
    <Flora />
    <Fixtures />
+   <Details />
    <Space />
   </Staged>
  );

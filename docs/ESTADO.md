@@ -3,7 +3,7 @@
 Actualizado: 15 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
-**En curso: objetivo 21 — The Twisted Moon, que se parezca a las imágenes de referencia** (`docs/OBJETIVO-21.md`; sustituye al bloque C del objetivo 20): bloque C1 (composición de la isla) hecho; **parada del C1, pendiente del visto bueno de David**. Los bloques C2 y C3 no se empiezan hasta entonces. Ver «Objetivo 21».
+**En curso: objetivo 21 — The Twisted Moon, que se parezca a las imágenes de referencia** (`docs/OBJETIVO-21.md`; sustituye al bloque C del objetivo 20): bloques C1 (aprobado) y C2 hechos; **en curso el C3** (luz, agua, vida y sonido), que acaba en parada. Ver «Objetivo 21».
 **Objetivo 20 — mundo 2, The Twisted Moon** (`docs/OBJETIVO-20.md`): bloques A (viaje entre mundos) y B (muestra de estilo) hechos; **parada del bloque B, pendiente del visto bueno de David**. Los bloques C, D y E no se empiezan hasta entonces. Ver «Objetivo 20».
 **En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **En curso: bloque 3** (errores de juego), a medias: ver su fila y «Bloque 3, lo que queda».
 **En curso: objetivo 19 — pulido final del mundo 1** (`docs/OBJETIVO-19.md`): los cuatro bloques (A, B, C y D) están hechos. David pidió rehacer la vista de planeta del bloque D («el planeta es la isla»): **retoque hecho, pendiente de su visto bueno** (ver «Retoque del bloque D»). Ver «Objetivo 19».
@@ -23,11 +23,61 @@ Encargo: `docs/OBJETIVO-21.md` (15-11-2026). **Sustituye al bloque C del objetiv
 | 0.2 Recursos de Envato | **Hecho.** Los trece zips estaban en Descargas; movidos a `assets-externos/mundo2/` (fuera de git) y descomprimidos, cada uno en su carpeta. No falta ninguno |
 | 0.3 Observatorio y casa del árbol del mundo 1 | Colocados (los mismos archivos, con un velo morado); el recoloreado fino, en el C2 |
 | 0.4 Presupuesto | Torre: 7.599 triángulos (tope 8.000). Casa sobre tronco: colores planos, sin texturas. Helecho: sin hacer (C2) |
-| C1. Composición de la isla | **Hecho. Parada: pendiente del visto bueno de David.** Capturas: `capturas/26-mundo2/C1/` |
-| C2. Edificios y vegetación | Sin empezar |
+| C1. Composición de la isla | **Hecho y aprobado** (16-11-2026). Capturas: `capturas/26-mundo2/C1/` |
+| C2. Edificios y vegetación | **Hecho** (sin parada: David pidió seguir). Capturas: `capturas/26-mundo2/C2/` |
 | C3. Luz, agua, vida y sonido | Sin empezar |
 
-**Bloque C1, lo que hay** — composición de la isla, **parada: pendiente del visto bueno de David** (`worlds/twisted/`: `layout.js` (rehecho), `ground.js`, `Terrain.jsx`, `Structures.jsx`, `Buildings.jsx`, `House.jsx`, `Night.jsx`, `models.js`; `experience/Player.jsx` (miradores); `tools/assets/twisted.py`; `tests/e2e/twisted.mjs`, `twisted-walk.mjs`, `luna.mjs`):
+**Bloque C2, lo que hay** — edificios y vegetación (16-11-2026; `worlds/twisted/`: `plants.js` y `Details.jsx` (nuevos), `Flora.jsx`, `Buildings.jsx`, `layout.js`, `Terrain.jsx`, `Night.jsx`, `ground.js`; `experience/Player.jsx`; `tools/assets/twisted.py`; `tests/e2e/twisted.mjs`, `luna.mjs`):
+- **Fallo intermitente de `twisted.mjs`, resuelto**: diez pasadas guardando el registro; falló **3 de 10, siempre la misma comprobación**: «y siguiéndole se llega a su puerta». No era el juego sino la prueba: Woody solo da el guiado por terminado con el astronauta a menos de 6 m de la puerta, y la prueba lo sigue en línea recta hacia el perro; en la escalera del este, a veces, se atascaba contra su costado y agotaba sus pasos. Ahora, si no llega siguiéndolo, termina el camino por los puntos de la red de guía (los que `twisted-walk` comprueba despejados) y lo que se comprueba es que, ya arriba, Woody ha cerrado el guiado. Después: **siete pasadas seguidas, 27 de 27**.
+- **Torre del reloj**: deja de ser un campanario liso. Va **inclinada** (unos 3°), con una **aguja torcida** que sube, se vence y acaba en rizo con su bola dorada, **dos torrecillas** en esquinas opuestas, vencidas hacia fuera con su gorro torcido y una ventana encendida, un **balcón torcido** bajo la esfera (losa, ménsulas, barrotes desiguales y la puerta encendida) y **ventanas cálidas** en el fuste. Todo hecho a mano (`createTowerExtras` en `plants.js`), medido sobre el modelo para que encaje. **El reloj marca la hora del visitante** (la de su navegador; `?hora=` la fija): las agujas pintadas del modelo se quitan en la conversión y van dos propias, que giran.
+- **Casita**: colores planos pintados a mano en la conversión, sin mirar su textura: tejado de pizarra morada, paredes de piedra clara, zócalo más oscuro, carpintería oscura y ventanas encendidas. Lleva una **chimenea de piedra** (el modelo no trae) **con humo**. Ojo: queda dentro de la sombra larga del cortado (luna baja); se ve morada y con las ventanas encendidas, y desde la cámara de juego lo que más se ve es el tejado.
+- **Invernadero**: probado el de Envato a 5.000 triángulos: es una caja de cristal opaco y sin plantas; en una sola malla de colores planos su cristal no puede ser translúcido. **Se queda el hecho a mano**, mejorado: cristal violeta translúcido, dos bancales con plantas que brillan en violeta y turquesa, y su luz cayendo al suelo.
+- **Helecho**: el de Envato **sí sirve** (las hojitas son geometría, no tarjetas): 6.336 → 1.400 triángulos, 40 kB, con instancias y teñido por copia (verde azulado o granate). Hay 90, con una corona alrededor de la plataforma.
+- **Vegetación nueva, hecha a mano y con instancias** (`plants.js`): 5 **sauces llorones** (morados y verde azulado, con una cortina de tiras), 5 **árboles de copa ancha** morada, 4 **árboles en espiral**, 80 **enredaderas con rizos**, 172 **setas** cuyo sombrero brilla en turquesa o violeta, 277 **flores** violetas, además de los árboles rizados, matojos y lascas de antes. Una llamada de dibujo por forma.
+- **Detalles**: 8 **calabazas sonrientes** (cara amable: ojos redondos y sonrisa, encendida), junto a puertas y caminos; 10 **farolillos** en los extremos de los puentes y a lo largo de los caminos (flojos: más fuertes teñían de naranja todo lo que tenían cerca); dos tramos más de **verja torcida** al borde de las terrazas; **humo** en las chimeneas de la casita y de la casa del alquimista (manchas de cara a la cámara que suben, se abren y se deshacen; lo mueve el sombreador).
+- **Río**: ahora **serpentea** (pasa bajo la pasarela) y está **menos encendido** (agua oscura con vetas claras); las pozas, quietas. Las tres cascadas siguen cayendo de terraza en terraza: del macizo a la poza de la primera terraza, de ahí al río y del río al mar.
+- **Isla más abrupta sin tocar lo que se pisa**: el mar baja de −1,9 a −3 m (los cortados de la orilla son más altos) y **ocho agujas de roca salen del mar** pegadas al cortado, detrás y a los lados (de 4,5 a 15 m), con su espuma. Se probaron primero sobre el borde de la isla y se comían unos 100 m² de suelo que se pisa: por eso van en el agua. Superficie que se pisa abajo: 1.476 m² (1.511 antes del C2; la diferencia son los troncos, farolillos y calabazas nuevos).
+- **Luna** (respuestas de David): la cámara de juego no cambia. **Reflejo grande en el mar**: un camino de destellos desde quien mira hacia donde está la luna, roto en escamas por las ondas; se ve al andar cerca de la orilla. **Luz de luna** más fría y más baja (19°): sombras largas hacia la cámara; lo que queda en ellas, morado y no negro. **Al bajar con la nave la luna se ve**: el último tramo de la bajada acaba en un mirador (la plataforma), así que desde media bajada la cámara se va inclinando hacia el horizonte y la luna entra en cuadro antes de tocar tierra (`twisted.mjs` lo comprueba). Para eso la luna baja de 17° a 13,5° sobre el horizonte. Los tres miradores siguen.
+- **Postal a 58°**: como estaba.
+- Rendimiento (2880 × 1620, sin límite): mundo 2, 152 · 165 · 164 · 175 · 182 fps; mundo 1, 69 · 76 · 73 · 69 · 71 en esta tanda (el mundo 1 no ha cambiado: el equipo va más lento hoy; en el C1 dio 94–98). 0 pipelines en caliente al entrar y al despegar en el mundo 1, y en todo el paseo del mundo 2 (con la bajada en nave).
+- Peso: datos del mundo 2, 15,9 kB (6,5 comprimido); escena, 56,8 kB (20,6 comprimido); modelos propios, 379 kB (torre 130, casita 105, casa sobre tronco 103, helecho 41).
+- **Lo que todavía no se parece a las imágenes** (`hoja-comparativa.jpg`): la isla de las referencias es más apretada y vertical; aquí hay más llano para andar. Las copas de los árboles de las referencias son mucho más grandes y ricas. Las cascadas siguen siendo láminas provisionales (se animan y llevan espuma en el C3). Falta la vida (luciérnagas, murciélagos) y la niebla en movimiento, que son del C3.
+- Sin comprobar: nada visto en movimiento por una persona; un teléfono y la calidad baja; el respaldo WebGL2.
+- Capturas: `capturas/26-mundo2/C2/` — `hoja-comparativa.jpg` (la postal junto a ref-1, ref-2 y ref-3), `hoja-postales.jpg`, `hoja-juego.jpg` (doce puntos con la cámara de juego, la orilla con el reflejo incluida), `hoja-vuelo.jpg` (subida, órbita y bajada con la luna) y las sueltas.
+
+**Batería completa tras el bloque C2** (16-11-2026, en primer plano, en tandas de cinco, Chrome sin ventana, servidor de desarrollo en el 5199 —arrancado de nuevo: al cambiar de día no estaba en marcha—):
+
+| Prueba | Bien | Fallos |
+|---|---|---|
+| `errors` | 8 | 0 |
+| `living` | 46 | 0 |
+| `characters` | 20 | 0 |
+| `portfolio` | 27 | 0 |
+| `progress` | 26 | 0 |
+| `motion` | 10 | 0 |
+| `camera` | 30 | 0 |
+| `woody` | 37 | 0 |
+| `rocket` | 26 | 0 |
+| `terrain` | 3 | 0 |
+| `life` | 11 | 0 |
+| `football` | 63 | 0 |
+| `sounds` | 28 | 0 |
+| `travel` | 31 | 0 |
+| `twisted` | 27 | 0 |
+| `twisted-walk` | 6 | 0 |
+| **`npm run e2e` (las dieciséis)** | **399** | **0** |
+| `hora` | 21 | 0 |
+| `basket` | 20 | 0 |
+| `garden` | 6 | 0 |
+| `birds` | 4 | 0 |
+| `run` | 19 | 0 |
+| `hill` | 29 | 0 |
+| `collisions` | 4 | 0 |
+| `welcome` | 21 | 0 |
+| `loader` | 13 | **1** (la de siempre: primer pintado a 180 ms, objetivo 100; la pantalla de carga no se toca) |
+| `tests/perf/entrada.mjs` | 0 pipelines en caliente al entrar y al despegar | — |
+
+**Bloque C1, lo que hay** — composición de la isla, **aprobado por David** (16-11-2026) (`worlds/twisted/`: `layout.js` (rehecho), `ground.js`, `Terrain.jsx`, `Structures.jsx`, `Buildings.jsx`, `House.jsx`, `Night.jsx`, `models.js`; `experience/Player.jsx` (miradores); `tools/assets/twisted.py`; `tests/e2e/twisted.mjs`, `twisted-walk.mjs`, `luna.mjs`):
 - **La colina en espiral ya no existe.** La isla es más pequeña (unos 29 m de radio) y sube **en cuatro alturas** hacia el fondo: abajo (0 m), la plataforma del cohete, la casita y el invernadero; primera terraza (3,6 m), la casa sobre tronco al este y la del alquimista al oeste; segunda (7,2 m), un pico a cada lado —observatorio y casa del árbol— y el macizo central; cima (10,8 m), la torre del reloj. El borde de la isla es un cortado de 1,9 m sobre el mar.
 - **Acantilados de roca morada facetada**: todo lo empinado de la malla (rejilla de 0,5 m) se pinta de roca, cada cara un tono; lo llano, césped verde azulado oscuro. No se trepan ni se saltan: cualquier punto en pendiente fuerte está vedado, se llegue subiendo o bajando.
 - **Cinco escaleras de piedra** (dos de abajo a la primera terraza, dos de la primera a la segunda y la de la cima): por debajo son rampas lisas —es lo que se pisa— y encima van los peldaños, en una sola malla. **Cuatro puentes**: dos colgantes de cuerda y tablas entre los picos y el macizo (se comban en el centro) y dos pasarelas de tablones, sobre el río y sobre el arroyo. A un puente solo se entra por sus extremos (quien anda por debajo no «sube» a él) y por los lados no se sale.
@@ -693,7 +743,7 @@ node tests/perf/carga.mjs      # pantalla de carga: tiempo hasta poder entrar, t
 node tests/perf/peso.mjs       # peso descargado en la primera visita (build de producción en el 5198)
 node tests/perf/fps.mjs        # fps en cinco puntos
 node tests/e2e/errors.mjs      # ninguna excepción de página y el lienzo dibujado: carga, bienvenida, estrella fugaz y mundo, sin ventana y con ventana (incluida en e2e)
-npm run e2e                    # 395 comprobaciones en Chrome sin ventana (con el servidor encendido)
+npm run e2e                    # 399 comprobaciones en Chrome sin ventana (con el servidor encendido)
 node tests/e2e/sounds.mjs      # sonido uno por uno: señal medida de cada bucle, golpes, silencio; graba el recorrido (incluida en e2e)
 node tests/e2e/football.mjs    # fútbol de principio a fin, con fotogramas de cada tiro (incluida en e2e)
 node tests/e2e/woody.mjs       # bocadillos, ritmo, descanso, cuestas y ruta guiada (incluida en e2e)

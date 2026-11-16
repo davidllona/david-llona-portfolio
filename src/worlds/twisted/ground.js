@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { ISLAND, WATER_LEVEL, createRandom, ground, islandEdge, noise2, pathEdge, stairHeight, waterBed } from "./layout";
+import { ISLAND, WATER_LEVEL, createRandom, cragEdge, ground, islandEdge, noise2, pathEdge, stairHeight, waterBed } from "./layout";
 
 // El suelo de The Twisted Moon.
 //  · La malla: una rejilla fina sobre la isla, facetada, con un color por
@@ -48,7 +48,7 @@ const BED = new THREE.Color("#1b2a5a"), DEEP = new THREE.Color("#161538");
 // La malla de la isla. Un color por triángulo. Lleva además, por vértice,
 // cuánto de llano tiene (1 = se pinta camino encima si lo hay; 0 = roca).
 export function createGround() {
- const STEP = 0.5, HALF = 33;
+ const STEP = 0.5, HALF = 35;
  const CELLS = Math.ceil((HALF * 2) / STEP);
  const base = new THREE.PlaneGeometry(CELLS * STEP, CELLS * STEP, CELLS, CELLS).rotateX(-Math.PI / 2).translate(ISLAND.x, 0, ISLAND.z);
  const square = base.toNonIndexed();
@@ -58,7 +58,8 @@ export function createGround() {
  const corners = square.attributes.position.array;
  for (let i = 0; i < corners.length; i += 9) {
   const x = (corners[i] + corners[i + 3] + corners[i + 6]) / 3, z = (corners[i + 2] + corners[i + 5] + corners[i + 8]) / 3;
-  if (islandEdge(x, z) > -2.4) kept.push(...corners.subarray(i, i + 9));
+  // (Y las agujas de roca que salen del mar junto a ella.)
+  if (islandEdge(x, z) > -2.4 || cragEdge(x, z) < 0.6) kept.push(...corners.subarray(i, i + 9));
  }
  square.dispose();
  const geometry = new THREE.BufferGeometry();

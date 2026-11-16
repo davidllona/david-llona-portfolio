@@ -112,9 +112,9 @@ Descargados de Envato con la cuenta de David (15-11-2026); ningún ZIP trae arch
 |---|---|---|---|
 | «Big ben landmark clock tower» | slabdsgn | Torre del reloj, en la cima | En uso: `public/models/twisted/torre.glb`, repintada |
 | «Stylized Treehouse Cottage» | TurboSquid (licencia de TurboSquid) | Casa sobre tronco («Sobre mí») | En uso: `casa-tronco.glb`, solo la forma, con colores planos; no se distribuye ninguna textura |
-| «Whimsical Toon Cottage with Stone Roof» | TurboSquid (licencia de TurboSquid) | Casita de cuento | En uso, provisional: `casita.glb` (sin color todavía) |
-| «Greenhouse» | spacepixelcreative | Invernadero | Sin usar todavía (el del juego es provisional, hecho a mano) |
-| «Stylized Fern Plant» | TurboSquid (licencia de TurboSquid) | Helechos | Sin usar todavía |
+| «Whimsical Toon Cottage with Stone Roof» | TurboSquid (licencia de TurboSquid) | Casita de cuento | En uso: `casita.glb`, solo la forma, pintada a mano; no se distribuye ninguna textura |
+| «Greenhouse» | spacepixelcreative | Invernadero | No se usa (el del juego es hecho a mano) |
+| «Stylized Fern Plant» | TurboSquid (licencia de TurboSquid) | Helechos | En uso: `helecho.glb`, solo la forma; no se distribuye ninguna textura |
 | «Mysterious Fairy Tale Waltz» | ereymusic | Música del mundo 2 (opción 1) | Sin usar todavía |
 | «Curious Mystery Box» | SCOREWIZARDS | Música (opción 2) | Sin usar todavía |
 | «Quirky Music Box» | AudioAgent | Música (opción 3) | Sin usar todavía |

@@ -9,8 +9,8 @@
 // Entre terraza y terraza, acantilados de roca que no se trepan: se sube por
 // escaleras de piedra y se cruza de un pico a otro por puentes colgantes.
 
-export const WATER_LEVEL = -1.9; // el mar, al pie del acantilado de la isla
-const SEA_BED = -4.4;
+export const WATER_LEVEL = -3.0; // el mar, al pie del acantilado de la isla (3 m por debajo de lo más bajo que se pisa)
+export const SEA_BED = -6.2;
 const MAX_SLOPE = 1.15; // pendiente a partir de la cual es pared
 export const STEP = 3.6; // lo que sube cada terraza
 export const LEVELS = [0, STEP, STEP * 2, STEP * 3];
@@ -109,7 +109,8 @@ export function stairHeight(x, z) {
 export const POND = { x: 2, z: -23, r: 2.7, level: 1 }; // poza de la primera terraza
 export const POOL = { x: 2.7, z: -13.4, r: 2.3, level: 0 }; // poza al pie de la segunda cascada
 export const STREAM = [[2, -21], [2.5, -17.2]]; // arroyo de la poza al borde de la terraza
-export const RIVER = [[2.7, -12.4], [0, -10.6], [-5, -9], [-11, -6.4], [-17, -3], [-23.6, 0.6], [-26.6, 2.2]];
+// (El río serpentea: pasa bajo la pasarela de tablones y salta al mar por el oeste.)
+export const RIVER = curve([[2.7, -12.4], [1.2, -10.2], [-1.8, -10.8], [-4.6, -8.6], [-7.85, -8.05], [-10.8, -6.2], [-13.2, -3.4], [-16.6, -3.6], [-19.6, -1.2], [-23.6, 0.6], [-26.6, 2.2]], 4);
 const DEPTH = 0.42; // lo que se hunde el cauce
 export const WATERFALLS = [
  { x: 1.9, z: -25.9, top: LEVELS[2], bottom: LEVELS[1], width: 2.4, turn: 0 }, // del macizo a la poza
@@ -130,8 +131,52 @@ export function waterBed(x, z) {
  return Math.max(river, stream, pond, pool);
 }
 
+// Peñascos: agujas de roca que salen del mar pegadas al cortado, detrás y a
+// los lados de la isla. Su pie está en el agua: no quitan nada de lo que se
+// pisa, y la silueta se vuelve abrupta, como en las imágenes.
+// [rumbo desde el centro de la isla (rad; −π/2 = norte), radio, altura de la punta]
+const CRAG_SPOTS = [
+ [-1.9, 3.4, 15],
+ [-1.28, 3.2, 13.5],
+ [-2.55, 3.0, 11],
+ [-0.62, 3.0, 12],
+ [-3.12, 2.6, 7.5],
+ [-0.04, 2.6, 8],
+ [2.98, 2.1, 4.5],
+ [0.5, 2.2, 5],
+];
+export const CRAGS = CRAG_SPOTS.map(([angle, r, top]) => {
+ // (El centro, fuera de la orilla: la aguja entra en tierra solo 40 cm.)
+ const away = shoreRadius(angle) + r - 0.4;
+ return [ISLAND.x + Math.cos(angle) * away, ISLAND.z + Math.sin(angle) * away, r, top];
+});
+// Altura de la aguja en (x, z), o −Infinity si ahí no hay ninguna.
+export function cragHeight(x, z) {
+ let most = -Infinity;
+ for (const [cx, cz, r, top] of CRAGS) {
+  const d = Math.hypot(x - cx, z - cz);
+  if (d >= r) continue;
+  // Facetado: el radio tiembla con el rumbo; la caída es casi vertical.
+  const angle = Math.atan2(z - cz, x - cx);
+  const reach = r * (0.8 + 0.16 * Math.sin(angle * 5 + cx) + 0.1 * Math.sin(angle * 3 - cz));
+  if (d >= reach) continue;
+  const t = 1 - d / reach;
+  most = Math.max(most, SEA_BED + (top - SEA_BED) * Math.min(1, Math.pow(t, 0.42) * 1.06));
+ }
+ return most;
+}
+// m hasta el pie de la aguja más cercana (negativo, dentro): para la espuma del mar.
+export function cragEdge(x, z) {
+ let best = Infinity;
+ for (const [cx, cz, r] of CRAGS) best = Math.min(best, Math.hypot(x - cx, z - cz) - r * 0.85);
+ return best;
+}
+
 // Altura del terreno, sin puentes.
 export function ground(x, z) {
+ return Math.max(island(x, z), cragHeight(x, z));
+}
+function island(x, z) {
  const edge = islandEdge(x, z);
  if (edge < -1.2) return SEA_BED;
  let h = stairHeight(x, z);
@@ -201,13 +246,13 @@ export const BUILDINGS = {
  // La torre del reloj, en la cima: el icono de este mundo.
  torre: { model: "torre", painted: true, x: 0, z: -36, turn: 0, size: 4.1, solid: [3.9, 3.9] },
  // El observatorio, en el pico del oeste (el mismo modelo del mundo 1).
- observatorio: { model: "observatorio", from: "living", x: -17.4, z: -27.4, turn: 0.5, size: 6.2, solid: 2.8 },
+ observatorio: { model: "observatorio", from: "living", saturation: 0.1, x: -17.4, z: -27.4, turn: 0.5, size: 6.2, solid: 2.8 },
  // La casa del árbol, en el pico del este (el mismo modelo del mundo 1).
- "casa-arbol": { model: "casa-arbol", from: "living", x: 17.2, z: -27.8, turn: -0.4, size: 7.6, solid: 1.6 },
+ "casa-arbol": { model: "casa-arbol", from: "living", saturation: 0.3, x: 17.2, z: -27.8, turn: -0.4, size: 7.6, solid: 1.6 },
  // La casa sobre tronco, en la primera terraza, al este: aquí se lee «Sobre mí».
- "casa-tronco": { model: "casa-tronco", x: 16, z: -21.2, turn: -0.5, size: 9, solid: 2 },
+ "casa-tronco": { model: "casa-tronco", saturation: 0.25, x: 16, z: -21.2, turn: -0.5, size: 9, solid: 2 },
  // Casita de cuento, abajo, al oeste, entre el río y el acantilado.
- casita: { model: "casita", x: -17.6, z: -9.2, turn: 0.35, size: 5.2, solid: [4.8, 5] },
+ casita: { model: "casita", painted: true, x: -17.6, z: -9.2, turn: 0.35, size: 5.2, solid: [4.8, 5] },
 };
 // La casa del alquimista (la casa torcida, hecha a mano), en la primera terraza, al oeste: luz morada.
 export const HOUSE = { x: -18, z: -18.2, turn: 0.5, scale: 0.62, width: 5.2, depth: 4.6 };
@@ -324,14 +369,13 @@ export const TREES = [
  { x: 7.4, z: 4.4, kind: 2, scale: 0.86, turn: 4.0 },
  { x: -21.5, z: -5.2, kind: 0, scale: 0.95, turn: 0.4 },
  { x: 19.6, z: -8.4, kind: 2, scale: 0.9, turn: 1.4 },
- { x: -6.2, z: -23.2, kind: 1, scale: 0.8, turn: 2.1 },
  { x: 8.2, z: -24.4, kind: 0, scale: 0.84, turn: 3.2 },
  { x: -20.4, z: -24.2, kind: 2, scale: 0.7, turn: 1.2 },
  { x: -3.4, z: -37.2, kind: 0, scale: 0.72, turn: 4.4 },
 ];
 // Farolas dobladas. `turn`: hacia dónde cuelga el farol.
 export const LAMPS = [
- { x: -4.4, z: -7.4, turn: 0.4 },
+ { x: -3.0, z: -6.2, turn: 0.4 },
  { x: 8.6, z: -6.6, turn: 2.6 },
  { x: -8.2, z: -19.6, turn: 4.4 },
  { x: 9.4, z: -16.6, turn: 1.2 },
@@ -341,7 +385,30 @@ export const LAMPS = [
 export const FENCES = [
  { from: [-21.4, -15.4], to: [-18.4, -14.2] },
  { from: [-20.6, -11.6], to: [-17.4, -12.4] },
+ // Al borde de la primera terraza, sobre el cortado del este y detrás de la torre.
+ { from: [15.8, -15.6], to: [19.4, -16.6] },
+ { from: [-4.2, -40.2], to: [-0.8, -40.6] },
 ];
+// Árboles grandes, de copa: `kind` dice la forma —sauce llorón, copa ancha,
+// espiral— y `tint`, el color de su copa (cada copia lleva el suyo).
+export const BIG_TREES = [
+ { kind: "willow", x: -23.5, z: -17.5, scale: 1.05, turn: 0.6, tint: "#8f6cc0" },
+ { kind: "willow", x: 21.5, z: -12.5, scale: 1.0, turn: 2.4, tint: "#4f9a9b" },
+ { kind: "willow", x: -12.5, z: 3.5, scale: 0.9, turn: 4.1, tint: "#4f9a9b" },
+ { kind: "willow", x: -6.8, z: -25.5, scale: 0.8, turn: 1.3, tint: "#8f6cc0" },
+ { kind: "willow", x: 10.5, z: -33.5, scale: 0.85, turn: 5.2, tint: "#4f9a9b" },
+ { kind: "broad", x: -21, z: -29, scale: 1.1, turn: 0.3, tint: "#9a6cb4" },
+ { kind: "broad", x: -14.5, z: -21.6, scale: 0.75, turn: 2.0, tint: "#7c5aa8" },
+ { kind: "broad", x: 9.6, z: -21.5, scale: 0.78, turn: 4.4, tint: "#9a6cb4" },
+ { kind: "broad", x: -9.5, z: 6.8, scale: 0.9, turn: 3.3, tint: "#7c5aa8" },
+ { kind: "broad", x: 21.6, z: -31, scale: 1.0, turn: 1.1, tint: "#9a6cb4" },
+ { kind: "spiral", x: 12.6, z: 4.2, scale: 0.95, turn: 0.4, tint: "#7b5aa6" },
+ { kind: "spiral", x: -15, z: 1.2, scale: 0.85, turn: 2.6, tint: "#6c56a0" },
+ { kind: "spiral", x: 6.5, z: -37.8, scale: 0.8, turn: 4.9, tint: "#7b5aa6" },
+ { kind: "spiral", x: -9.8, z: -35.6, scale: 0.85, turn: 1.7, tint: "#6c56a0" },
+];
+// Radio del tronco de cada forma (para chocar), a escala 1.
+export const TRUNK = { willow: 0.5, broad: 0.55, spiral: 0.42 };
 // Balizas de la zona de aterrizaje: postes a rayas con una bola encendida, entre camino y camino.
 export const BEACONS = [0.6, 2.5, 4.55, 5.25].map((angle, i) => ({ x: PAD.x + Math.cos(angle) * (PAD.padRadius + 1.7), z: PAD.z + Math.sin(angle) * (PAD.padRadius + 1.7), turn: angle + 1.2 + i }));
 // Lascas de piedra, al pie de los cortados y sueltas.
@@ -360,8 +427,91 @@ function open(x, z, margin = 0.5) {
  if (waterBed(x, z) > 0 || pathEdge(x, z) < margin) return false;
  for (const site of Object.values(BUILDINGS)) if (Math.hypot(x - site.x, z - site.z) < site.size * 0.56) return false;
  if (Math.hypot(x - HOUSE.x, z - HOUSE.z) < 3.4 || Math.hypot(x - GREENHOUSE.x, z - GREENHOUSE.z) < 3.8) return false;
+ if (cragHeight(x, z) > -Infinity) return false;
+ if (BIG_TREES.some((one) => Math.hypot(x - one.x, z - one.z) < 1.3 * one.scale)) return false;
  return ![...TREES, ...SHARDS].some((one) => Math.hypot(x - one.x, z - one.z) < 1.1);
 }
+// Busca, alrededor de (x, z), el sitio libre más cercano (para poner algo junto a una puerta o un camino).
+function near(x, z, margin = 0.3) {
+ for (let r = 0; r < 3; r += 0.25) {
+  for (let k = 0; k < 12; k++) {
+   const px = x + Math.cos((k / 12) * TAU) * r, pz = z + Math.sin((k / 12) * TAU) * r;
+   if (open(px, pz, margin)) return [px, pz];
+   if (r === 0) break;
+  }
+ }
+ return null;
+}
+// Reparte `count` corros de `size` cosas por la isla: `spread`, lo que se abre cada corro.
+function clusters(seed, count, size, spread, margin, pick) {
+ const random = createRandom(seed);
+ const out = [];
+ for (let tries = 0; out.length < count * size && tries < count * 60; tries++) {
+  const angle = random() * TAU, radius = Math.sqrt(random()) * 27;
+  const cx = ISLAND.x + Math.cos(angle) * radius, cz = ISLAND.z + Math.sin(angle) * radius;
+  if (!open(cx, cz, margin)) continue;
+  for (let k = 0; k < size; k++) {
+   const x = cx + (random() - 0.5) * spread, z = cz + (random() - 0.5) * spread;
+   if (open(x, z, margin)) out.push({ x, z, scale: 0.7 + random() * 0.6, turn: random() * TAU, ...pick?.(random) });
+  }
+ }
+ return out;
+}
+const VIOLETS = ["#b98cff", "#9a6cff", "#d6a8ff", "#7f8cff"];
+// Lo menudo: helechos (a corros, y una corona alrededor de la plataforma),
+// setas que brillan, flores violetas y enredaderas con rizos.
+export const FERNS = [
+ ...Array.from({ length: 22 }, (_, i) => {
+  const angle = (i / 22) * TAU + 0.13, r = PAD.padRadius + 2.5 + (i % 3) * 0.55;
+  return { x: PAD.x + Math.cos(angle) * r, z: PAD.z + Math.sin(angle) * r, scale: 0.85 + (i % 4) * 0.12, turn: angle * 3, tint: i % 5 === 2 ? "#a24a6c" : "#4fa092" };
+ }).filter((one) => open(one.x, one.z, 0.3)),
+ ...clusters(20261131, 18, 4, 2.6, 0.35, (random) => ({ tint: random() < 0.22 ? "#a24a6c" : random() < 0.5 ? "#4fa092" : "#3f8a7e" })),
+];
+export const MUSHROOMS = clusters(20261132, 34, 5, 1.4, 0.25, (random) => ({ scale: 0.5 + random() * 0.9, tint: random() < 0.5 ? "#18c8ff" : "#9a4dff" }));
+export const FLOWERS = clusters(20261133, 46, 6, 1.8, 0.2, (random) => ({ scale: 0.7 + random() * 0.6, tint: VIOLETS[Math.floor(random() * VIOLETS.length)] }));
+export const VINES = clusters(20261134, 26, 3, 1.2, 0.3, (random) => ({ scale: 0.7 + random() * 0.8, tint: random() < 0.5 ? "#3b7c74" : "#5a4f8f" }));
+// Calabazas sonrientes: pocas, junto a las puertas y los caminos.
+export const PUMPKINS = [
+ [STORY_DOOR.x + 1.3, STORY_DOOR.z + 0.4],
+ [STORY_DOOR.x - 1.4, STORY_DOOR.z + 0.9],
+ [HOUSE_DOOR.x + 1.2, HOUSE_DOOR.z + 0.3],
+ [-14.2, -7.4],
+ [3.6, 4.8],
+ [-3.4, 4.6],
+ [1.9, -32.2],
+ [10.6, -5.6],
+]
+ .map(([x, z]) => near(x, z, 0.15))
+ .filter(Boolean)
+ .map(([x, z], i) => ({ x, z, scale: 0.8 + (i % 3) * 0.15, turn: i % 2 ? 0.4 : -0.3 }));
+// Farolillos: al principio y al final de cada puente y, cada nueve metros, a un lado de los caminos.
+export const LANTERNS = (() => {
+ const spots = [];
+ const keep = (x, z, turn) => {
+  const free = near(x, z, 0.15);
+  if (!free || [...spots, ...LAMPS].some((one) => Math.hypot(one.x - free[0], one.z - free[1]) < 3)) return;
+  spots.push({ x: free[0], z: free[1], turn });
+ };
+ for (const bridge of BRIDGES) {
+  for (const [end, away] of [[bridge.from, -1], [bridge.to, 1]]) {
+   const side = bridge.width / 2 + 0.45;
+   keep(end[0] + bridge.ux * away * 0.9 - bridge.uz * side, end[1] + bridge.uz * away * 0.9 + bridge.ux * side, Math.atan2(bridge.ux, bridge.uz));
+  }
+ }
+ for (const path of PATHS) {
+  let walked = 4, side = 1;
+  for (let i = 0; i < path.points.length - 1; i++) {
+   const [ax, az] = path.points[i], [bx, bz] = path.points[i + 1], step = Math.hypot(bx - ax, bz - az);
+   walked += step;
+   if (walked < 9) continue;
+   walked = 0;
+   side = -side;
+   const nx = -(bz - az) / step, nz = (bx - ax) / step;
+   keep(ax + nx * side * (path.width / 2 + 0.55), az + nz * side * (path.width / 2 + 0.55), Math.atan2(-nx * side, -nz * side));
+  }
+ }
+ return spots;
+})();
 // Matojos: a corros, por toda la isla.
 export const TUFTS = (() => {
  const random = createRandom(20261120);
@@ -388,6 +538,9 @@ export const colliders = [
  box(HOUSE, HOUSE.width * HOUSE.scale, HOUSE.depth * HOUSE.scale),
  box(GREENHOUSE, GREENHOUSE.width, GREENHOUSE.depth),
  ...TREES.map((tree) => ({ x: tree.x, z: tree.z, r: 0.5 * tree.scale })),
+ ...BIG_TREES.map((tree) => ({ x: tree.x, z: tree.z, r: TRUNK[tree.kind] * tree.scale })),
+ ...PUMPKINS.map((one) => ({ x: one.x, z: one.z, r: 0.3 * one.scale })),
+ ...LANTERNS.map((one) => ({ x: one.x, z: one.z, r: 0.12 })),
  ...LAMPS.map((lamp) => ({ x: lamp.x, z: lamp.z, r: 0.22 })),
  ...BEACONS.map((beacon) => ({ x: beacon.x, z: beacon.z, r: 0.16 })),
  ...SHARDS.map((shard) => ({ x: shard.x + 0.05 * shard.scale, z: shard.z + 0.05 * shard.scale, r: 0.62 * shard.scale })),
@@ -411,10 +564,11 @@ export const colliders = [
 const NIGHT = {
  hemiSky: "#8a78e0",
  hemiGround: "#4a2f78",
- hemiPower: 1.25,
- sun: "#cfe0ff",
- sunPower: 2.5,
- sunFrom: [0.24, 0.5, -0.83],
+ hemiPower: 1.4,
+ // (Luna baja, a 19° sobre el horizonte, casi de frente: sombras largas que vienen hacia la cámara.)
+ sun: "#bcd2ff",
+ sunPower: 2.9,
+ sunFrom: [0.3, 0.33, -0.9],
  fog: "#2c2360",
  fogDensity: 0.0085,
  background: "#2c2360",
@@ -424,7 +578,8 @@ const NIGHT = {
  waterDeep: "#101742",
  glow: 1,
  bloom: 0.95,
- shadow: 0.84,
+ // (Las sombras de la luna son largas: lo que cae en ellas —la casita, al pie del cortado— queda morado, no negro.)
+ shadow: 0.76,
 };
 
 // El mundo, con la interfaz que usan el jugador, Woody, la nave y los objetos.

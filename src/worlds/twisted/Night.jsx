@@ -47,7 +47,7 @@ function createFog(scene) {
 // cámara (nunca se llega a ella) y no se curva con el mundo.
 const MOON_FAR = 2600; // m
 const MOON_RADIUS = 262; // unos 5,8° de radio en el cielo: más de un cuarto del alto de la pantalla
-const MOON_AT = new THREE.Vector3(0.2, 0.29, -0.93).normalize(); // 12° al este del norte, 17° sobre el horizonte
+const MOON_AT = new THREE.Vector3(0.2, 0.235, -0.95).normalize(); // 12° al este del norte, 13,5° sobre el horizonte
 const MOON_TURN = 0.6; // giro fijo del astro: qué cráteres dan la cara
 // De dónde le viene la luz al astro: de la derecha, algo de abajo y de detrás.
 // Deja encendido menos de un tercio del disco: un creciente abierto hacia la torre.
@@ -90,7 +90,8 @@ export function Night() {
   halo.current.quaternion.copy(camera.quaternion);
   halo.current.position.copy(group.current.position);
   // En órbita se ve el cielo de la órbita, con su luna: esta se retira.
-  const seen = 1 - Math.min(1, rig.space * 1.6);
+  // (Aparece a media bajada: desde ahí la cámara mira hacia el horizonte y la luna entra en cuadro; ver Player.jsx.)
+  const seen = Math.min(1, Math.max(0, (0.85 - rig.space) / 0.3));
   shown.value = seen;
   halo.current.material.opacity = 0.5 * seen;
   group.current.visible = halo.current.visible = seen > 0.01;

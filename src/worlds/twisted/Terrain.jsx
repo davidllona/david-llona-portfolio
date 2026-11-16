@@ -1,14 +1,14 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { attribute, cameraPosition, color, mix, normalize, positionLocal, positionWorld, pow, reflect, sin, smoothstep, texture, uv, vec2, vec3 } from "three/tsl";
+import { attribute, cameraPosition, color, float, mix, normalize, positionLocal, positionWorld, pow, reflect, sin, smoothstep, texture, uv, vec2, vec3 } from "three/tsl";
 import { MeshLambertNodeMaterial } from "three/webgpu";
 import { uClosed } from "../../experience/environment/bend";
 import { noiseTexture } from "../../experience/environment/noise";
 import { unlit } from "../../experience/materials";
 import { uniforms } from "../../experience/theme";
 import { CENTRE, EDGE_RANGE, SPAN, createGround, groundData } from "./ground";
-import { LEVELS, POND, POOL, RIVER, STREAM, WATERFALLS, WATER_LEVEL, islandEdge } from "./layout";
+import { LEVELS, POND, POOL, RIVER, SEA_BED, STREAM, WATERFALLS, WATER_LEVEL, cragEdge, islandEdge } from "./layout";
 
 const COARSE = { coarse: true }; // (ya viene en anillos: no hay que partirlo más para curvarlo)
 // Turquesa que brilla: el agua dulce, las cascadas y la espuma de la orilla.
@@ -37,6 +37,13 @@ function createGroundMaterial() {
 // El mar: oscuro, casi quieto, con el reflejo de la luna roto en escamas y,
 // pegada a la orilla de la isla, espuma turquesa que brilla: una línea firme
 // contra la roca y otra, más fina, que va y viene.
+//
+// El reflejo de la luna: un camino de destellos sobre el agua, desde quien
+// mira hacia donde está la luna en el cielo (al norte). Uno de verdad solo se
+// vería mirando casi a ras del agua; la cámara del juego mira desde arriba,
+// así que se dibuja el camino entero: una banda que se abre con la distancia,
+// rota en escamas por las ondas. Así se ve al andar cerca de la orilla.
+const MOON_PATH = new THREE.Vector2(0.21, -0.977).normalize(); // hacia dónde queda la luna, en planta (ver Night.jsx)
 const WATER_REACH = 150; // m: algo más de media vuelta al planeta en que se cierra el mundo
 function createSeaMaterial() {
  const { uTime, uWaterShallow, uWaterDeep, uSunDirection, uSunColor } = uniforms;
@@ -58,8 +65,16 @@ function createSeaMaterial() {
  const third = smoothstep(0.2, 0.05, wobble.sub(breath.mul(1.9).add(0.6)).abs()).mul(0.5);
  const foam = firm.max(second).max(third).mul(smoothstep(-0.2, 0.2, shore));
  const body = mix(uWaterShallow, uWaterDeep, smoothstep(0.5, 9, shore));
+ // Camino de la luna: cuánto apunta este punto, visto desde la cámara, hacia
+ // donde está la luna; las escamas salen de las mismas ondas.
+ const away = positionWorld.xz.sub(cameraPosition.xz);
+ const far = away.length();
+ const toward = away.div(far.max(0.01)).dot(vec2(MOON_PATH.x, MOON_PATH.y));
+ const band = smoothstep(float(0.9), float(0.985), toward).mul(smoothstep(2, 9, far));
+ const scales = smoothstep(0.04, 0.2, rippleA.add(rippleB.mul(0.8)).add(texture(noiseTexture, pos.mul(0.9).add(drift.mul(4))).r.sub(0.5).mul(0.6)));
+ const glitter = band.mul(scales.mul(0.85).add(0.15)).mul(smoothstep(0.8, 2.5, shore)).mul(uClosed.oneMinus());
  // (Curvado en planeta, lejos de la isla, queda un mar liso y oscuro.)
- material.colorNode = mix(body.add(uSunColor.mul(shine.add(sheen)).mul(uClosed.oneMinus())), AQUA.mul(1.5), foam);
+ material.colorNode = mix(body.add(uSunColor.mul(shine.add(sheen)).mul(uClosed.oneMinus())).add(vec3(0.62, 0.72, 1.0).mul(glitter.mul(0.95))), AQUA.mul(1.5), foam);
  return material;
 }
 // En anillos (se curva con el mundo), desde el eje hasta el horizonte.
@@ -72,7 +87,8 @@ function createSea() {
   const x = points.getX(i), z = points.getZ(i), r = Math.hypot(x, z);
   const t = Math.max(0, (r - 0.3) / (WATER_REACH - 0.3)), eased = 0.3 + (WATER_REACH - 0.3) * Math.pow(t, 1.8);
   points.setXYZ(i, (x / r) * eased, 0, (z / r) * eased);
-  shore[i] = Math.min(40, -islandEdge((x / r) * eased, (z / r) * eased));
+  // (La espuma rodea también las agujas de roca.)
+  shore[i] = Math.min(40, -islandEdge((x / r) * eased, (z / r) * eased), cragEdge((x / r) * eased, (z / r) * eased) + 0.5);
  }
  geometry.setAttribute("shore", new THREE.BufferAttribute(shore, 1));
  geometry.deleteAttribute("normal");
@@ -110,15 +126,21 @@ const dense = (points, step = 0.8) => {
  out.push(points[points.length - 1]);
  return out;
 };
+// Las pozas: agua quieta. Las coordenadas van en planta (sin vetas que corran
+// en una dirección), metidas entre 0,3 y 0,7 a lo ancho para no deshacerse por el borde.
 function disc(pool, y) {
  const geometry = new THREE.CircleGeometry(pool.r - 0.25, 18).rotateX(-Math.PI / 2).translate(pool.x, y, pool.z);
  const points = geometry.attributes.position, uvs = geometry.attributes.uv;
- for (let i = 0; i < points.count; i++) uvs.setXY(i, 0.5, points.getZ(i));
+ for (let i = 0; i < points.count; i++) uvs.setXY(i, 0.5 + ((points.getX(i) - pool.x) / pool.r) * 0.2, (points.getZ(i) - pool.z) * 1.6);
  return geometry;
 }
+const surface = (level) => LEVELS[level] - 0.16;
+const flat = (list) => mergeGeometries(list.map((one) => (one.index ? one.toNonIndexed() : one)).map((one) => (one.deleteAttribute("normal"), one)));
 function createFreshWater() {
- const surface = (level) => LEVELS[level] - 0.16;
- return mergeGeometries([ribbon(dense(RIVER), 2.1, surface(0)), ribbon(dense(STREAM), 1.5, surface(1)), disc(POND, surface(1)), disc(POOL, surface(0))].map((one) => (one.index ? one.toNonIndexed() : one)).map((one) => (one.deleteAttribute("normal"), one)));
+ return flat([ribbon(dense(RIVER), 2.1, surface(0)), ribbon(dense(STREAM), 1.5, surface(1))]);
+}
+function createPools() {
+ return flat([disc(POND, surface(1)), disc(POOL, surface(0))]);
 }
 function createFalls() {
  return mergeGeometries(
@@ -139,14 +161,15 @@ function createFalls() {
   }),
  );
 }
-function createFlowMaterial(speed, glow) {
- const { uTime } = uniforms;
+function createFlowMaterial(speed, glow, dark = 0) {
+ const { uTime, uWaterDeep } = uniforms;
  const material = unlit({ transparent: true, depthWrite: false, side: THREE.DoubleSide });
  const at = uv();
  const streaks = texture(noiseTexture, vec2(at.x.mul(0.9), at.y.mul(0.22).add(uTime.mul(speed)))).r;
  const fine = texture(noiseTexture, vec2(at.x.mul(2.3).add(0.4), at.y.mul(0.5).add(uTime.mul(speed * 1.7)))).g;
  const white = smoothstep(0.56, 0.8, streaks.mul(0.6).add(fine.mul(0.5)));
- material.colorNode = mix(AQUA.mul(glow), vec3(1.5, 1.7, 1.7), white.mul(0.7));
+ // (`dark`: cuánto se lleva hacia el agua honda: el río, bastante; las cascadas, poco.)
+ material.colorNode = mix(mix(AQUA.mul(glow), uWaterDeep.mul(1.4), dark), vec3(1.2, 1.45, 1.5), white.mul(0.6));
  // Hacia los bordes de la cinta se deshace.
  material.opacityNode = smoothstep(0, 0.16, at.x).mul(smoothstep(1, 0.84, at.x)).mul(0.86);
  return material;
@@ -158,8 +181,9 @@ export function Terrain() {
  const sea = useMemo(createSea, []);
  const seaMaterial = useMemo(createSeaMaterial, []);
  const fresh = useMemo(createFreshWater, []);
+ const pools = useMemo(createPools, []);
  const falls = useMemo(createFalls, []);
- const flow = useMemo(() => ({ river: createFlowMaterial(0.16, 0.8), fall: createFlowMaterial(0.9, 1.15) }), []);
+ const flow = useMemo(() => ({ river: createFlowMaterial(0.16, 0.55, 0.55), pool: createFlowMaterial(0.025, 0.6, 0.5), fall: createFlowMaterial(0.9, 0.95, 0.15) }), []);
  // Fondo del mar: cierra el planeta por debajo.
  const bed = useMemo(() => new THREE.RingGeometry(0.3, WATER_REACH, 96, 30).rotateX(-Math.PI / 2), []);
  const bedMaterial = useMemo(() => {
@@ -169,16 +193,17 @@ export function Terrain() {
  }, []);
  useEffect(
   () => () => {
-   for (const one of [ground, soil, sea, seaMaterial, fresh, falls, flow.river, flow.fall, bed, bedMaterial]) one.dispose();
+   for (const one of [ground, soil, sea, seaMaterial, fresh, pools, falls, flow.river, flow.pool, flow.fall, bed, bedMaterial]) one.dispose();
   },
-  [ground, soil, sea, seaMaterial, fresh, falls, flow, bed, bedMaterial],
+  [ground, soil, sea, seaMaterial, fresh, pools, falls, flow, bed, bedMaterial],
  );
  return (
   <>
    <mesh name="suelo" geometry={ground} material={soil} receiveShadow castShadow />
-   <mesh name="fondo del mar" geometry={bed} material={bedMaterial} position-y={-5} frustumCulled={false} userData={COARSE} />
+   <mesh name="fondo del mar" geometry={bed} material={bedMaterial} position-y={SEA_BED + 0.2} frustumCulled={false} userData={COARSE} />
    <mesh name="mar" geometry={sea} material={seaMaterial} position-y={WATER_LEVEL} frustumCulled={false} userData={COARSE} />
    <mesh name="río" geometry={fresh} material={flow.river} renderOrder={1} />
+   <mesh name="pozas" geometry={pools} material={flow.pool} renderOrder={1} />
    <mesh name="cascadas" geometry={falls} material={flow.fall} renderOrder={2} />
   </>
  );

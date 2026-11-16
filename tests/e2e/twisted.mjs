@@ -8,7 +8,7 @@
 // isla, sin navegador, twisted-walk.mjs.
 //   node tests/e2e/twisted.mjs [fps]
 import { open, check, wait } from "./common.mjs";
-import { BRIDGES, BUILDINGS, LEVELS, STAIRS, STORY_DOOR, TREES } from "../../src/worlds/twisted/layout.js";
+import twisted, { BIG_TREES, BRIDGES, BUILDINGS, FERNS, FLOWERS, LANTERNS, LEVELS, MUSHROOMS, PUMPKINS, STAIRS, STORY_DOOR, TREES, VINES } from "../../src/worlds/twisted/layout.js";
 import { aboutText } from "../../src/content/about.js";
 
 const t = await open({ query: "?world=twisted" });
@@ -66,6 +66,14 @@ check(places.every((name) => scene.names[name] === 1), `los edificios están en 
 check(["escaleras", "puentes", "cascadas", "río", "mar"].every((name) => scene.names[name] === 1), `hay ${STAIRS.length} escaleras, ${BRIDGES.length} puentes, cascadas, río y mar`);
 const trees = (scene.names["árbol rizado 1"] ?? 0) + (scene.names["árbol rizado 2"] ?? 0) + (scene.names["árbol rizado 3"] ?? 0);
 check(trees === TREES.length && scene.names["farola doblada"] > 0 && scene.names["baliza"] === 4, `${trees} árboles rizados, ${scene.names["farola doblada"]} farolas dobladas y ${scene.names["baliza"]} balizas`);
+// La vegetación y los detalles del C2, con instancias: una malla por forma.
+const kinds = { sauce: BIG_TREES.filter((one) => one.kind === "willow").length, "árbol de copa ancha": BIG_TREES.filter((one) => one.kind === "broad").length, "árbol en espiral": BIG_TREES.filter((one) => one.kind === "spiral").length, helecho: FERNS.length, seta: MUSHROOMS.length, flor: FLOWERS.length, enredadera: VINES.length, calabaza: PUMPKINS.length, farolillo: LANTERNS.length };
+const wrong = Object.entries(kinds).filter(([name, count]) => scene.names[name] !== count);
+check(wrong.length === 0, `vegetación y detalles con instancias: ${Object.entries(kinds).map(([name, count]) => `${count} ${name}`).join(", ")}${wrong.length ? ` — no cuadran: ${wrong.map(([name]) => `${name} (${scene.names[name]})`).join(", ")}` : ""}`);
+check(scene.names["humo"] === 1 && scene.names["chimenea de la casita"] === 1 && scene.names["plantas del invernadero"] === 1 && scene.names["torre: aguja, torrecillas y balcón"] === 1, "humo en las chimeneas, plantas que brillan en el invernadero y la torre con su aguja torcida, torrecillas y balcón");
+// El reloj marca la hora del visitante (las pruebas la fijan a las 12:00): las dos agujas, arriba.
+const hands = await t.evaluate(() => window.__world.towerClock);
+check(Math.abs(hands.hour - 12) < 0.05 && hands.hourAngle % (Math.PI * 2) < 0.03 && hands.minuteAngle < 0.03, `el reloj de la torre marca la hora del visitante (${hands.hour.toFixed(2)} h: las dos agujas arriba)`);
 check(scene.names["farolillo de Woody"] === 1, "Woody lleva su farolillo al cuello");
 
 // Todo lo plantado se apoya en el suelo, y cada edificio en su terraza.
@@ -151,15 +159,40 @@ check((await t.woody()).mode === "guide", "«Sobre mí» en el menú: Woody echa
 const arrived = await t.followWoody({ steps: 420 });
 // (Woody llega antes y deja de guiar: el astronauta termina de subir tras él.)
 // (Por el camino, punto a punto: del invernadero a la escalera del este y por ella arriba.)
-const last = STAIRS.find((one) => one.id === "este");
-for (const [x, z] of [[9.6, -5.2], ...last.through, [13, -16.8], [STORY_DOOR.x - 0.6, STORY_DOOR.z + 0.6]]) {
+// (Por los mismos puntos de la red de guía de Woody —twisted-walk.mjs comprueba que están despejados—, sin desandar lo andado.)
+const nodes = twisted.guide.nodes;
+for (const id of ["cruce-este", "invernadero", "escalera-este-pie", "escalera-este-medio", "escalera-este-alto", "terraza-este", "casa-tronco"]) {
+ const [x, z] = nodes[id];
  const here = await t.pos();
- // (Lo que ya quedó atrás no se desanda.)
  if (z > here.z + 1) continue;
- await walkTo(x, z, 0.7);
+ await walkTo(x, z, 0.6);
 }
 at = await t.pos();
-check(arrived && Math.hypot(at.x - STORY_DOOR.x, at.z - STORY_DOOR.z) < 4.5 && Math.abs(at.y - LEVELS[1]) < 0.4, `y siguiéndole se llega a su puerta, en la primera terraza (a ${Math.hypot(at.x - STORY_DOOR.x, at.z - STORY_DOOR.z).toFixed(1)} m, a ${at.y} m de altura)`);
+// Woody da el guiado por terminado cuando el astronauta llega a menos de 6 m de
+// la puerta (si se queda atrás, espera allí). La prueba lo sigue a ciegas, en
+// línea recta hacia el perro, y en la escalera a veces se atasca contra su
+// costado: por eso no basta con «lo siguió»; lo que cuenta es que, una vez
+// arriba, Woody ya no está guiando.
+await wait(600);
+const done = arrived || (await t.woody()).mode === "follow";
+check(done && Math.hypot(at.x - STORY_DOOR.x, at.z - STORY_DOOR.z) < 4.5 && Math.abs(at.y - LEVELS[1]) < 0.4, `y siguiéndole se llega a su puerta, en la primera terraza (a ${Math.hypot(at.x - STORY_DOOR.x, at.z - STORY_DOOR.z).toFixed(1)} m, a ${at.y} m de altura)`);
+
+// Al bajar con la nave se ve la luna: se despega, se espera a la órbita y, durante la bajada, se mira dónde cae en pantalla.
+await t.put(0, 5.6, { withWoody: false, settle: 900 });
+await t.page.keyboard.press("KeyE");
+await t.page.waitForFunction(() => window.__world.ship.flight.phase === "orbit", { timeout: 20000 });
+await wait(800);
+await t.page.keyboard.press("KeyE");
+const seen = [];
+for (let i = 0; i < 18; i++) {
+ await wait(300);
+ const now = await t.evaluate(() => window.__world.ship.flight.phase);
+ if (now !== "descending") break;
+ const m = await moonNow();
+ if (m.visible && m.front && Math.abs(m.x) < 1 && Math.abs(m.y) < 1) seen.push(`${m.x.toFixed(2)},${m.y.toFixed(2)}`);
+}
+check(seen.length >= 4, `al bajar con la nave la luna está en pantalla (${seen.length} de los fotogramas mirados: ${seen.slice(0, 6).join(" · ")})`);
+await t.page.waitForFunction(() => window.__world.ship.flight.phase === "idle", { timeout: 15000 });
 
 const hot = await t.evaluate(() => [...new Set(window.__hot)]);
 check(hot.length === 0, `0 pipelines en caliente en todo el paseo (miradores, escaleras, puentes, la ficha, las luces que cambian de sitio, Woody guiando)${hot.length ? ": " + hot.join(", ") : ""}`);

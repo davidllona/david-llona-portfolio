@@ -22,7 +22,8 @@ OUT = os.path.join(ROOT, "public", "models", "twisted")
 # nombre → (archivo, triángulos)
 MODELS = {
     "torre": ("big-ben-landmark-clock-tower/1.gltf", 7600),
-    "invernadero": ("greenhouse/Green House.glb", 5000),
+    # (El invernadero de Envato se probó a 5.000 triángulos: es una caja de cristal opaco, sin plantas.
+    # Con una sola malla de colores planos su cristal no puede ser translúcido: el del juego es el hecho a mano.)
     "casa-tronco": ("stylized-treehouse-cottage/[FBX] House FBX/House FBX.FBX", 3600),
     # (Los FBX de estos dos vienen en texto, que Blender no lee: se parte del .blend.)
     "casita": ("whimsical-toon-cottage-with-stone-roof/[BLEND] cartoon_house_v2/cartoon_house_v2.blend", 5000),
@@ -31,7 +32,8 @@ MODELS = {
 # Textura de color que se carga a mano (el .blend la busca donde no está).
 TEXTURES = {"casita": "whimsical-toon-cottage-with-stone-roof/[FBX] cartoon_house_v2/cartoon_house_v2_Base_Color.jpg"}
 # Piezas que se quitan (por nombre de objeto o de material, en minúsculas): peanas y suelos.
-DROP = {"torre": ("plane.004", "cube.009"), "casa-tronco": ("house_base",), "casita": ("_ground",)}
+# (De la torre se quitan también las agujas del reloj, que vienen pintadas a una hora fija: el juego pone las suyas, con la hora real.)
+DROP = {"torre": ("plane.004", "cube.009", "circle.001", "circle.002"), "casa-tronco": ("house_base",), "casita": ("_ground",)}
 # Lo que es cristal o luz en el original se pinta de este color exacto, y el juego lo enciende.
 GLASS = (1.0, 0.82, 0.5)
 # Colores que se cambian a mano: (modelo, material) → color.
@@ -45,7 +47,27 @@ REPAINT = {
     ("torre", "5. Black"): (0.05, 0.045, 0.08),
     ("torre", "6. White"): GLASS,
     ("casita", "cartoon_house_v2_emmisive"): GLASS,
+    # El helecho, en gris verdoso: cada copia se tiñe en el juego (verde azulado o granate).
+    ("helecho", "cartoon_fern_leaves"): (0.62, 0.66, 0.62),
+    ("helecho", "cartoon_fern_stem"): (0.34, 0.36, 0.33),
 }
+# Modelos que se pintan a mano, cara a cara, sin mirar su textura: (cara, material, alto total) → color (lineal).
+# La casita: tejado de pizarra morado oscuro, paredes de piedra clara, zócalo más oscuro, carpintería de madera oscura, ventanas encendidas.
+def paint_casita(polygon, material, top):
+    if material == "cartoon_house_v2_emmisive":
+        return GLASS
+    if material in ("puerta", "marco"):
+        return (0.07, 0.034, 0.05)
+    z = polygon.center.z / top
+    if (polygon.normal.z > 0.3 and z > 0.45) or z > 0.66:
+        # (Pizarra morada: oscura, pero que se lea de noche; más negra, desde arriba la casa entera parecía un agujero.)
+        return (0.13, 0.09, 0.27) if (polygon.index % 7) else (0.09, 0.06, 0.2)
+    if z < 0.07:
+        return (0.24, 0.21, 0.28)
+    return (0.56, 0.5, 0.41)
+PAINTERS = {"casita": paint_casita}
+# Piezas que, antes de unirlas, pasan a un material propio (para pintarlas aparte): (modelo, trozo del nombre del objeto) → material.
+RETAG = {("casita", "_door"): "puerta", ("casita", "_windows"): "marco"}
 args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 look = "mirar" in args
 wanted = [a for a in args if a in MODELS] or list(MODELS)
@@ -137,6 +159,17 @@ for name in wanted:
 
     # ── Unir ──
     for thing in things:
+        for (model, piece), tag in RETAG.items():
+            if model == name and piece in thing.name.lower():
+                # (Solo lo que no es cristal: lo emisivo se queda como está.)
+                own = bpy.data.materials.get(tag) or bpy.data.materials.new(tag)
+                thing.data = thing.data.copy()
+                slots = [slot.material.name if slot.material else "" for slot in thing.material_slots]
+                thing.data.materials.append(own)
+                index = len(thing.data.materials) - 1
+                for polygon in thing.data.polygons:
+                    if "emmisive" not in slots[min(polygon.material_index, len(slots) - 1)]:
+                        polygon.material_index = index
         if thing.data.users > 1:
             thing.data = thing.data.copy()
         bpy.context.view_layer.objects.active = thing
@@ -163,9 +196,14 @@ for name in wanted:
     for attribute in list(mesh.color_attributes):
         mesh.color_attributes.remove(attribute)
     layer = mesh.color_attributes.new("Color", "FLOAT_COLOR", "CORNER")
+    painter = PAINTERS.get(name)
+    top = max(v.co.z for v in mesh.vertices) or 1
+    names = [slot.material.name if slot.material else "" for slot in whole.material_slots] or [""]
     for polygon in mesh.polygons:
         kind, value = sources[min(polygon.material_index, len(sources) - 1)]
-        if kind == "textura" and uv:
+        if painter:
+            tone = painter(polygon, names[min(polygon.material_index, len(names) - 1)], top)
+        elif kind == "textura" and uv:
             data = image_pixels(value)
             u = sum(uv.data[i].uv[0] for i in polygon.loop_indices) / polygon.loop_total
             v = sum(uv.data[i].uv[1] for i in polygon.loop_indices) / polygon.loop_total

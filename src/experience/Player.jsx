@@ -158,8 +158,14 @@ export function Player({ active }) {
   // Miradores (los mundos que los traen; ver `lookout` en worlds/twisted/layout.js):
   // la cámara baja y mira algo por encima del astronauta, hacia el horizonte:
   // entran en cuadro el cielo y la luna. Llega y se va despacio.
-  const out = !rig.focus && rig.intro === 0 && world.lookout ? world.lookout(position.x, position.z) : 0;
-  state.out += (out - state.out) * (state.started ? 1 - Math.exp(-1.6 * dt) : 1);
+  // (También en el último tramo de la bajada con la nave, que acaba en un
+  // mirador —la plataforma—: con el astronauta dentro y ya cerca del suelo, la
+  // cámara se va inclinando y la luna entra antes de tocar tierra.)
+  const flying = rig.focus && player.hidden ? Math.min(1, Math.max(0, (0.85 - rig.space) / 0.2)) : 0;
+  const at = rig.focus && player.hidden ? rig.focus : position;
+  const out = (!rig.focus || flying > 0) && rig.intro === 0 && world.lookout ? world.lookout(at.x, at.z) * (rig.focus ? flying : 1) : 0;
+  // (En vuelo llega más deprisa: la nave baja en pocos segundos.)
+  state.out += (out - state.out) * (state.started ? 1 - Math.exp(-(flying > 0 ? 4 : 1.6) * dt) : 1);
   const offsetY = lookUp + CAMERA.height * state.distance * state.lift * (1 - LOOKOUT.drop * state.out);
   const offsetZ = CAMERA.back * state.distance * (1 - state.tilt * 0.82);
   camera.position.set(
