@@ -3,7 +3,7 @@
 Actualizado: 16 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
-**En curso: objetivo 22 — pulido visual de The Twisted Moon** (`docs/OBJETIVO-22.md`; C2 y C3 del objetivo 21 aprobados como base): los tres bloques hechos (color y luz, piezas que no se leen, órbita); **parada del cierre, pendiente del visto bueno de David** (falta que confirme la opción de órbita: queda puesta la B). Ver «Objetivo 22» abajo.
+**En curso: objetivo 22 — pulido visual de The Twisted Moon** (`docs/OBJETIVO-22.md`; C2 y C3 del objetivo 21 aprobados como base): los tres bloques hechos (color y luz, piezas que no se leen, órbita); órbita: David eligió la opción B. **Retoque de luz hecho (16-11-2026); parada, pendiente de su visto bueno.** Ver «Objetivo 22» abajo.
 **Objetivo 21 — The Twisted Moon, que se parezca a las imágenes de referencia** (`docs/OBJETIVO-21.md`; sustituye al bloque C del objetivo 20): bloques C1 (aprobado), C2 y C3 hechos; **parada del C3, pendiente del visto bueno de David** (informe en «Objetivo 21»). Ver «Objetivo 21».
 **Objetivo 20 — mundo 2, The Twisted Moon** (`docs/OBJETIVO-20.md`): bloques A (viaje entre mundos) y B (muestra de estilo) hechos; **parada del bloque B, pendiente del visto bueno de David**. Los bloques C, D y E no se empiezan hasta entonces. Ver «Objetivo 20».
 **En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **En curso: bloque 3** (errores de juego), a medias: ver su fila y «Bloque 3, lo que queda».
@@ -24,7 +24,7 @@ Capturas: `capturas/27-pulido-mundo2/` (fuera de git). **Las diez de siempre**, 
 |---|---|
 | 1. Color y luz | **Hecho** (16-11-2026). Hojas: `bloque1-antes-despues.jpg`, `bloque1-postal.jpg`; capturas en `b1/` |
 | 2. Piezas que no se leen | **Hecho** (16-11-2026). Hoja: `bloque2-antes-despues.jpg`; capturas en `b2/` |
-| 3. Vista desde la órbita | **Hecho** (16-11-2026), con la opción B puesta; **David tiene que confirmar la elección**. Hoja con las dos: `bloque3-orbita-opciones.jpg` |
+| 3. Vista desde la órbita | **Hecho** (16-11-2026), con la opción B, **elegida por David**. Hoja con las dos: `bloque3-orbita-opciones.jpg` |
 | Cierre | **Hecho.** Hojas: `final-diez-antes-despues.jpg`, `final-postal-referencias.jpg`, `final-orbita.jpg`; capturas en `final/` |
 
 **Bloque 1, lo que hay** (`worlds/twisted/`: `layout.js`, `ground.js`, `Terrain.jsx`, `Night.jsx`, `Life.jsx`, `Details.jsx`, `Scene.jsx`, `Buildings.jsx`):
@@ -63,6 +63,14 @@ Batería al cerrar el bloque 2: diecisiete pruebas, 416 comprobaciones, 0 fallos
 | 1 · The Living World | llegada 89 · proyectos 93 · estanque 87 · meseta 89 · pista 87 |
 
 Pendiente de ojo humano: que el contorno de Woody y el balanceo de los sauces gusten en movimiento, y que la postal, aunque más contenida de color, sigue más oscura y menos frondosa que las referencias (los árboles grandes están ahora en los bordes y al fondo, como se pidió).
+
+**Retoque de luz tras el cierre** (16-11-2026, pedido por David; solo mundo 2). Hojas: `retoque-diez-antes-despues.jpg`, `retoque-postal-referencias.jpg`; capturas en `retoque/`.
+- **Vegetación**: `moonlit()` en `Flora.jsx` suma a copas, troncos, rocas sueltas y plantas bajas un tono medio propio (su color, enfriado) y un borde frío en lo que se ve de refilón; las sombras no cambian (la luz de ambiente y la de la luna siguen igual). Tintes de las copas más claros: sauces lila pálido y verde azulado.
+- **Roca**: el suelo lleva lo mismo solo en los cortados (`flat` = 0): tono medio algo más alto y canto frío.
+- **Mar**: dos rejillas de facetas de distinto tamaño e inclinación, sumadas y deformadas con ruido suave (ya no es un tablero), contraste entre facetas de ±30 % a ±11 %, franja de la luna más tenue, y un resplandor turquesa alrededor de la isla que se pierde en unos 18 m.
+- **Halos de la torre**: de 1,5 a 0,95 m en ventanas y de 3,6 a 2,5 m en esferas, pegados al cristal.
+- **Charcos de los farolillos**: cada uno de su tamaño (2,5 a 5,1 m) e intensidad, y uno de cada cinco sin charco.
+- Batería: diecisiete pruebas, 416 comprobaciones, 0 fallos.
 
 ## Objetivo 21 — The Twisted Moon: que se parezca a las imágenes de referencia
 

@@ -78,7 +78,7 @@ export function createTower() {
    const angle = (k / 12) * Math.PI * 2, long = k % 3 ? 0.14 : 0.24, r = clockR - 0.1 - long / 2;
    body.push(put(yaw, new THREE.BoxGeometry(k % 3 ? 0.045 : 0.07, long, 0.03), { color: INK }, Math.sin(angle) * r, clockY + Math.cos(angle) * r, out + 0.02, -angle));
   }
-  glows.push({ at: on(yaw, 0, clockY, out + 0.2), size: 3.4, tint: "dial" });
+  glows.push({ at: on(yaw, 0, clockY, out + 0.06), size: 3.4, tint: "dial" });
   return { position: on(yaw, 0, clockY, out + 0.03), yaw };
  });
 
@@ -100,7 +100,7 @@ export function createTower() {
    inner(new THREE.BoxGeometry(0.04, h + w / 2, 0.04), { color: IRON }, 0, w / 4, 0.02),
    inner(new THREE.BoxGeometry(w, 0.04, 0.04), { color: IRON }, 0, h * 0.16, 0.02),
   );
-  glows.push({ at: on(yaw, u, y + 0.1, out + 0.25), size: 1.9, tint: "warm" });
+  glows.push({ at: on(yaw, u, y + 0.1, out + 0.08), size: 1.9, tint: "warm" });
  };
  window(0, -0.62, 3.5, 0.56, 0.86, shaft, 0.03);
  window(0, 0.5, 5.9, 0.5, 0.8, shaft, -0.04);
@@ -132,7 +132,7 @@ export function createTower() {
    piece(new THREE.CylinderGeometry(0.11, 0.07, 0.05, 5), { color: IRON, position: [1.02, base + 1.94, out + 0.66] }),
   );
   warm.push(piece(new THREE.BoxGeometry(0.18, 0.26, 0.18), { position: [1.02, base + 2.08, out + 0.66] }));
-  glows.push({ at: [1.02, base + 2.08, out + 0.72], size: 1.5, tint: "warm" }, { at: [0, base + h + 0.2, out + 0.3], size: 1.6, tint: "warm" });
+  glows.push({ at: [1.02, base + 2.08, out + 0.72], size: 1.5, tint: "warm" }, { at: [0, base + h + 0.2, out + 0.1], size: 1.6, tint: "warm" });
  }
 
  // ── Engranajes de latón bajo la esfera, medio asomados de la piedra ──
@@ -202,7 +202,7 @@ export function createTower() {
    put(yaw, new THREE.BoxGeometry(0.035, 0.5, 0.03), { color: IRON }, u, y, out + 0.22, lean),
   );
   warm.push(put(yaw, new THREE.PlaneGeometry(0.46, 0.5), {}, u, y, out + 0.205, lean));
-  glows.push({ at: on(yaw, u, y, out + 0.4), size: 1.4, tint: "warm" });
+  glows.push({ at: on(yaw, u, y, out + 0.28), size: 1.4, tint: "warm" });
  });
 
  return { body: merge(body), warm: merge(warm), dial: merge(dial), faces, glows };

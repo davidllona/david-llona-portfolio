@@ -413,20 +413,20 @@ export const FENCES = [
 export const BIG_TREES = [
  // (Objetivo 22: todos en los bordes de acantilado y al fondo, detrás de las
  // terrazas; delante de la cámara y junto a los caminos no queda ninguno.)
- { kind: "willow", x: -24.2, z: -17.0, scale: 1.15, turn: 0.6, tint: "#b3a2d4" },
- { kind: "willow", x: 26.2, z: -22.6, scale: 1.2, turn: 2.4, tint: "#7fbdb6" },
- { kind: "willow", x: -26.0, z: -11.5, scale: 1.0, turn: 4.1, tint: "#b98ca8" },
- { kind: "willow", x: -21.8, z: -32.8, scale: 1.35, turn: 1.3, tint: "#7fbdb6" },
- { kind: "willow", x: 17.0, z: -35.9, scale: 1.35, turn: 5.2, tint: "#b3a2d4" },
- { kind: "broad", x: -21, z: -21.5, scale: 1.0, turn: 0.3, tint: "#a58cc4" },
- { kind: "broad", x: 29.2, z: -17, scale: 1.1, turn: 2.0, tint: "#6fa8a4" },
- { kind: "broad", x: -14.8, z: -42.6, scale: 1.35, turn: 4.4, tint: "#8f7bb8" },
- { kind: "broad", x: 13.1, z: -39.7, scale: 1.3, turn: 3.3, tint: "#a58cc4" },
- { kind: "broad", x: -26.1, z: -5.4, scale: 0.95, turn: 1.1, tint: "#6fa8a4" },
- { kind: "spiral", x: 26.6, z: -5.1, scale: 1.0, turn: 0.4, tint: "#8d7bb5" },
- { kind: "spiral", x: -8.7, z: -43.9, scale: 1.25, turn: 2.6, tint: "#7fa3ad" },
- { kind: "spiral", x: 8.1, z: -42.0, scale: 1.25, turn: 4.9, tint: "#8d7bb5" },
- { kind: "spiral", x: 21.4, z: -1.4, scale: 0.9, turn: 1.7, tint: "#7fa3ad" },
+ { kind: "willow", x: -24.2, z: -17.0, scale: 1.15, turn: 0.6, tint: "#d6c9f0" },
+ { kind: "willow", x: 26.2, z: -22.6, scale: 1.2, turn: 2.4, tint: "#a9ddd2" },
+ { kind: "willow", x: -26.0, z: -11.5, scale: 1.0, turn: 4.1, tint: "#dcb9d0" },
+ { kind: "willow", x: -21.8, z: -32.8, scale: 1.35, turn: 1.3, tint: "#a9ddd2" },
+ { kind: "willow", x: 17.0, z: -35.9, scale: 1.35, turn: 5.2, tint: "#d6c9f0" },
+ { kind: "broad", x: -21, z: -21.5, scale: 1.0, turn: 0.3, tint: "#c9b6e6" },
+ { kind: "broad", x: 29.2, z: -17, scale: 1.1, turn: 2.0, tint: "#9cd0c8" },
+ { kind: "broad", x: -14.8, z: -42.6, scale: 1.35, turn: 4.4, tint: "#b9a8dc" },
+ { kind: "broad", x: 13.1, z: -39.7, scale: 1.3, turn: 3.3, tint: "#c9b6e6" },
+ { kind: "broad", x: -26.1, z: -5.4, scale: 0.95, turn: 1.1, tint: "#9cd0c8" },
+ { kind: "spiral", x: 26.6, z: -5.1, scale: 1.0, turn: 0.4, tint: "#b7a6da" },
+ { kind: "spiral", x: -8.7, z: -43.9, scale: 1.25, turn: 2.6, tint: "#a3cbd2" },
+ { kind: "spiral", x: 8.1, z: -42.0, scale: 1.25, turn: 4.9, tint: "#b7a6da" },
+ { kind: "spiral", x: 21.4, z: -1.4, scale: 0.9, turn: 1.7, tint: "#a3cbd2" },
 ];
 // Radio del tronco de cada forma (para chocar), a escala 1.
 export const TRUNK = { willow: 0.5, broad: 0.55, spiral: 0.42 };

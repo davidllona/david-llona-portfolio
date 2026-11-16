@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { attribute, cameraPosition, color, float, floor, fract, mix, positionGeometry, positionLocal, positionWorld, sin, smoothstep, texture, uv, vec2, vec3 } from "three/tsl";
+import { attribute, cameraPosition, color, float, floor, fract, mix, normalView, positionGeometry, positionLocal, positionWorld, sin, smoothstep, texture, uv, vec2, vec3 } from "three/tsl";
 import { MeshLambertNodeMaterial } from "three/webgpu";
 import { uClosed } from "../../experience/environment/bend";
 import { noiseTexture } from "../../experience/environment/noise";
@@ -51,6 +51,12 @@ function createGroundMaterial() {
  const inside = smoothstep(0.03, -0.03, edge);
  const border = smoothstep(0.03, -0.03, edge.sub(0.1)).mul(smoothstep(-0.2, -0.06, edge));
  material.colorNode = mix(attribute("color", "vec3"), mix(stone, rim, border), inside.max(border).mul(attribute("flat", "float")));
+ // La roca de los cortados mira a la cámara, de espaldas a la luna: se le sube el tono medio (su
+ // color, enfriado) y se le da un borde de luz fría en los cantos, donde la cara se ve de refilón.
+ const n = normalView.normalize();
+ const edgeLight = n.z.abs().oneMinus().pow(2.2).mul(n.y.mul(0.5).add(0.75).clamp(0, 1));
+ const rock = attribute("flat", "float").oneMinus();
+ material.emissiveNode = attribute("color", "vec3").mul(vec3(0.7, 0.8, 1.0)).mul(0.17).add(vec3(0.4, 0.52, 0.95).mul(edgeLight).mul(0.2)).mul(rock);
  return material;
 }
 
@@ -93,8 +99,9 @@ function createSeaMaterial() {
  // Olas facetadas: el agua se parte en triángulos grandes (una rejilla
  // inclinada), cada uno de su tono liso, que sube y baja despacio con el
  // oleaje. De lejos los triángulos son mayores: desde la torre no hormiguean.
- const facetOf = (scale, seed) => {
-  const cellAt = pos.mul(scale).add(vec2(pos.y.mul(scale * 0.5), 0));
+ const facetOf = (scale, seed, skew = 0.5) => {
+  const warped = pos.add(vec2(rippleB, rippleA).mul(1.6));
+  const cellAt = vec2(warped.x.mul(scale).add(warped.y.mul(scale * skew)), warped.y.mul(scale * (skew < 0 ? 1.17 : 1)).add(warped.x.mul(skew < 0 ? scale * 0.33 : 0)));
   const cell = floor(cellAt), inside = fract(cellAt);
   const half = inside.x.greaterThan(inside.y).select(float(0.5), float(0));
   return fract(sin(cell.x.mul(12.9898).add(cell.y.mul(78.233)).add(half.mul(37.7)).add(seed)).mul(43758.5453));
@@ -102,20 +109,26 @@ function createSeaMaterial() {
  const away = pos.sub(cameraPosition.xz);
  const far = away.length();
  // (Y con el mundo cerrado en planeta, las grandes en todas partes: desde la órbita se leen las olas.)
- const facet = mix(facetOf(0.34, 0), facetOf(0.2, 5.1), smoothstep(30, 80, far).max(uClosed));
+ // (Dos rejillas de distinto tamaño e inclinación, sumadas: los triángulos de una cortan los de la
+ // otra y salen facetas desiguales, no un tablero.)
+ const near = facetOf(0.34, 0).mul(0.6).add(facetOf(0.53, 2.7, -0.8).mul(0.4));
+ const wide = facetOf(0.2, 5.1).mul(0.6).add(facetOf(0.31, 8.3, -0.8).mul(0.4));
+ const facet = mix(near, wide, smoothstep(30, 80, far).max(uClosed));
  const swell = sin(facet.mul(6.28).add(uTime.mul(0.55))).mul(0.5).add(0.5);
  const open = smoothstep(0.6, 3, shore);
- const facets = mix(float(0.7), float(1.34), facet.mul(0.5).add(swell.mul(0.5))).mul(open).add(open.oneMinus());
+ const facets = mix(float(0.9), float(1.13), facet.mul(0.5).add(swell.mul(0.5))).mul(open).add(open.oneMinus());
  // Desde la órbita el mar se aclara y sus facetas contrastan más: es un mar con olas, no una bola negra.
- const waves = mix(float(1), facets.sub(1).mul(1.7).add(1), uClosed).mul(uClosed.mul(1.9).add(1));
+ const waves = mix(float(1), facets.sub(1).mul(2.4).add(1), uClosed).mul(uClosed.mul(1.9).add(1));
  const body = mix(uWaterShallow, uWaterDeep, smoothstep(0.5, 9, shore)).mul(mix(facets, waves, uClosed));
+ // Resplandor turquesa en el agua que rodea la isla: fuerte junto a la roca, se pierde mar adentro.
+ const halo = vec3(0.05, 0.62, 0.6).mul(smoothstep(18, 0.5, coast).pow(2.2).mul(0.3)).mul(uClosed.mul(0.5).oneMinus());
  // Camino de la luna: una franja de facetas claras, desde quien mira hacia
  // donde está la luna. Cada faceta se enciende y se apaga entera, con el oleaje.
  const toward = away.div(far.max(0.01)).dot(vec2(MOON_PATH.x, MOON_PATH.y));
  const band = smoothstep(float(0.9), float(0.985), toward).mul(smoothstep(2, 9, far));
- const lit = smoothstep(0.66, 0.74, swell);
+ const lit = smoothstep(0.6, 0.8, swell);
  const glitter = band.mul(lit.mul(0.6).add(0.06)).mul(smoothstep(0.8, 2.5, shore)).mul(uClosed.oneMinus());
-  material.colorNode = mix(body.add(vec3(0.4, 0.52, 0.9).mul(glitter.mul(0.36))), AQUA.mul(1.5), foam);
+  material.colorNode = mix(body.add(vec3(0.4, 0.52, 0.9).mul(glitter.mul(0.24)).add(halo)), AQUA.mul(1.5), foam);
  return material;
 }
 // En anillos (se curva con el mundo), desde el eje hasta el horizonte.

@@ -154,8 +154,9 @@ function Tower({ site, material }) {
     </group>
    </group>
    <mesh geometry={plane} material={lit.spill.material} position={[placed.door[0], ground(placed.door[0], placed.door[2]) + 0.07, placed.door[2]]} scale={4.4} renderOrder={2} />
-   <Halos points={placed.warm} size={1.5} color="#ffa24e" night={0.5} />
-   <Halos points={placed.dials} size={3.6} color="#ffc27a" night={0.42} />
+   {/* (Pequeños y pegados al cristal: un resplandor en la ventana, no una bola.) */}
+   <Halos points={placed.warm} size={0.95} color="#ffa24e" night={0.42} />
+   <Halos points={placed.dials} size={2.5} color="#ffc27a" night={0.3} />
   </>
  );
 }

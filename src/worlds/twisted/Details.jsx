@@ -30,7 +30,17 @@ export function Details() {
    posts: posts.map((one) => ({ position: [one.x, one.y - 0.03, one.z], rotation: [0, one.turn, 0] })),
    glasses: heads.map((head, i) => ({ position: head, rotation: [0, posts[i].turn, 0] })),
    pumpkins,
-   pools: [...heads.map((head) => ({ position: [head[0], height(head[0], head[2]) + 0.06, head[2]], scale: 4.2 })), ...pumpkins.map(({ position, scale }) => ({ position: [position[0], position[1] + 0.1, position[2] + 0.5 * scale], scale: 1.6 * scale }))],
+   // Charcos de luz: cada farolillo, el suyo —unos anchos y flojos, otros recogidos y vivos— y uno de
+   // cada cinco, sin charco (un farol a medio gas): que no sean discos iguales.
+   pools: [
+    ...heads.flatMap((head, i) => {
+     const a = (Math.sin(i * 12.9898) * 43758.5453) % 1, b = (Math.sin(i * 78.233) * 43758.5453) % 1;
+     const size = Math.abs(a), power = Math.abs(b);
+     if (i % 5 === 3) return [];
+     return [{ position: [head[0], height(head[0], head[2]) + 0.06, head[2]], scale: 2.5 + size * 2.6, color: new THREE.Color().setScalar(0.5 + power * 0.75 - size * 0.2) }];
+    }),
+    ...pumpkins.map(({ position, scale }) => ({ position: [position[0], position[1] + 0.1, position[2] + 0.5 * scale], scale: 1.6 * scale, color: new THREE.Color(1, 1, 1) })),
+   ],
   };
  }, []);
  useEffect(() => {
@@ -54,7 +64,7 @@ export function Details() {
    <Instances geometry={models.pumpkin.face} material={material.face.material} items={placed.pumpkins} />
    <Instances name="farolillo" rests={0} geometry={models.post} material={material.solid} items={placed.posts} castShadow />
    <Instances geometry={models.glass} material={material.lit.material} items={placed.glasses} />
-   <Instances geometry={models.pool} material={material.light.material} items={placed.pools} renderOrder={2} />
+   <Instances geometry={models.pool} material={material.light.material} items={placed.pools} colored renderOrder={2} />
    <Halos points={placed.heads} size={1.3} color="#ffa24e" night={0.55} />
   </>
  );

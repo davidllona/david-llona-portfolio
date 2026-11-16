@@ -4,6 +4,7 @@ import { useGLTF } from "@react-three/drei";
 import { Instances } from "../../experience/Instances";
 import { withSeeThrough } from "../../experience/environment/seeThrough";
 import { withWind } from "../../experience/environment/wind";
+import { diffuseColor, normalView, vec3 } from "three/tsl";
 import { lambert } from "../../experience/materials";
 import { BIG_TREES, FERNS, FLOWERS, ISLETS, MUSHROOMS, SEA_BED, SHARDS, TREES, TUFTS, VINES, WATER_LEVEL, height } from "./layout";
 import { solid } from "./materials";
@@ -39,6 +40,17 @@ function useConverted(url) {
  return geometry;
 }
 
+// Luz de luna de relleno para lo que crece: la luna está al fondo, así que la
+// cara que mira a la cámara no la recibe y las copas quedaban en silueta negra.
+// Se les suma un tono medio propio (su color, enfriado) y un borde frío en lo
+// que se ve de refilón: la luna las recorta. Las sombras del suelo no cambian.
+function moonlit(material, fill, edge) {
+ const n = normalView.normalize();
+ const rim = n.z.abs().oneMinus().pow(2).mul(n.y.mul(0.5).add(0.8).clamp(0, 1));
+ material.emissiveNode = diffuseColor.rgb.mul(vec3(0.72, 0.82, 1.0)).mul(fill).add(vec3(0.42, 0.55, 0.95).mul(rim).mul(edge));
+ return material;
+}
+
 // Copias apoyadas en el suelo: posición, giro, tamaño y (si lo lleva) su color.
 const seat = (list, { sink = 0, size = 1, glow = 1 } = {}) =>
  list.map((one) => ({
@@ -53,12 +65,12 @@ export function Flora() {
  const models = useMemo(() => ({ curly: [0, 1, 2].map(createCurlyTree), willow: createWillow(), broad: createBroadTree(), spiral: createSpiralTree(), tuft: createDryTuft(), shard: createShard(), rock: createSeaRock(), vine: createVine(), flower: createFlower(), mushroom: createMushroom() }), []);
  const material = useMemo(
   () => ({
-   wood: solid(),
+   wood: moonlit(solid(), 0.12, 0.16),
    // Las copas se mecen con el viento: el sauce, con sus tiras, mucho más que los demás.
-   willow: withSeeThrough(withWind(lambert({ side: THREE.DoubleSide }), { flex: 0.5, power: 2.2, cap: 5.4 })),
-   crown: withSeeThrough(withWind(lambert({ side: THREE.DoubleSide }), { flex: 0.14, power: 2, cap: 6 })),
-   stone: solid(),
-   low: lambert({ side: THREE.DoubleSide }),
+   willow: withSeeThrough(withWind(moonlit(lambert({ side: THREE.DoubleSide }), 0.3, 0.18), { flex: 0.5, power: 2.2, cap: 5.4 })),
+   crown: withSeeThrough(withWind(moonlit(lambert({ side: THREE.DoubleSide }), 0.28, 0.18), { flex: 0.14, power: 2, cap: 6 })),
+   stone: moonlit(solid(), 0.12, 0.14),
+   low: moonlit(lambert({ side: THREE.DoubleSide }), 0.16, 0),
    // El sombrero de las setas brilla con su color (por encima del umbral del resplandor: lleva halo).
    glow: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
   }),
