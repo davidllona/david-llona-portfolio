@@ -9,7 +9,7 @@ import { prepareGround } from "./ground";
 import { House } from "./House";
 import { Bats, Fireflies } from "./Life";
 import { TwistedSounds } from "./TwistedSounds";
-import { Smoke } from "./Details";
+import { Drops, Smoke } from "./Details";
 import { WATERFALLS } from "./layout";
 import twisted from "./layout";
 import { Night } from "./Night";
@@ -55,8 +55,10 @@ export default function TwistedScene({ onBuilt }) {
    <Details />
    <Fireflies />
    <Bats />
-   {/* Espuma al pie de las cascadas. */}
-   <Smoke name="espuma de las cascadas" sources={FOAM} color="#9ff6ff" speed={0.5} rise={0.9} size={1.1} opacity={0.45} puffs={9} additive spread={0.6} />
+   {/* Al pie de las cascadas: espuma turquesa, una niebla pálida que sube y gotas que saltan. */}
+   <Smoke name="espuma de las cascadas" sources={FOAM} color="#5fe0da" speed={0.5} rise={0.7} size={1.0} opacity={0.34} puffs={9} additive spread={0.6} />
+   <Smoke name="niebla de las cascadas" sources={FOAM} color="#8fb4c6" speed={0.16} rise={2.2} size={2.6} opacity={0.2} puffs={6} spread={1.3} />
+   <Drops sources={FOAM} />
    <TwistedSounds />
    <Space />
   </Staged>

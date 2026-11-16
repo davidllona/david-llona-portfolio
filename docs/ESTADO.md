@@ -1,9 +1,10 @@
 # Estado del universo de tres planetas
 
-Actualizado: 15 de noviembre de 2026 · rama `estacion-espacial`.
+Actualizado: 16 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
-**En curso: objetivo 21 — The Twisted Moon, que se parezca a las imágenes de referencia** (`docs/OBJETIVO-21.md`; sustituye al bloque C del objetivo 20): bloques C1 (aprobado), C2 y C3 hechos; **parada del C3, pendiente del visto bueno de David** (informe en «Objetivo 21»). Ver «Objetivo 21».
+**En curso: objetivo 22 — pulido visual de The Twisted Moon** (`docs/OBJETIVO-22.md`; C2 y C3 del objetivo 21 aprobados como base): bloque 1 (color y luz) hecho; siguen el 2 (piezas que no se leen) y el 3 (órbita). Ver «Objetivo 22» abajo.
+**Objetivo 21 — The Twisted Moon, que se parezca a las imágenes de referencia** (`docs/OBJETIVO-21.md`; sustituye al bloque C del objetivo 20): bloques C1 (aprobado), C2 y C3 hechos; **parada del C3, pendiente del visto bueno de David** (informe en «Objetivo 21»). Ver «Objetivo 21».
 **Objetivo 20 — mundo 2, The Twisted Moon** (`docs/OBJETIVO-20.md`): bloques A (viaje entre mundos) y B (muestra de estilo) hechos; **parada del bloque B, pendiente del visto bueno de David**. Los bloques C, D y E no se empiezan hasta entonces. Ver «Objetivo 20».
 **En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **En curso: bloque 3** (errores de juego), a medias: ver su fila y «Bloque 3, lo que queda».
 **En curso: objetivo 19 — pulido final del mundo 1** (`docs/OBJETIVO-19.md`): los cuatro bloques (A, B, C y D) están hechos. David pidió rehacer la vista de planeta del bloque D («el planeta es la isla»): **retoque hecho, pendiente de su visto bueno** (ver «Retoque del bloque D»). Ver «Objetivo 19».
@@ -12,6 +13,29 @@ Decidido por David el 13-11-2026: los pesos reales de los modelos mandan sobre l
 Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
 Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado.
 Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Contents/MacOS/Blender -b` (5.0.1). No hay ffmpeg: el audio también se convierte con Blender.
+
+## Objetivo 22 — Pulido visual de The Twisted Moon
+
+Encargo: `docs/OBJETIVO-22.md` (16-11-2026). Solo aspecto, sin contenido nuevo: lo que manda es la cámara de juego. Tres bloques con commit y push cada uno; parada solo al cierre.
+
+Capturas: `capturas/27-pulido-mundo2/` (fuera de git). **Las diez de siempre**, con la cámara de juego: `node tests/e2e/luna.mjs <carpeta> diez,postal,orbita juego` (llegada, plataforma, río, escalera, puente colgante, invernadero, casa sobre tronco, alquimista, observatorio y torre; más postal y órbita). `antes/` es el punto de partida (commit `732f6cf`).
+
+| Bloque | Estado |
+|---|---|
+| 1. Color y luz | **Hecho** (16-11-2026). Hojas: `bloque1-antes-despues.jpg`, `bloque1-postal.jpg`; capturas en `b1/` |
+| 2. Piezas que no se leen | Pendiente |
+| 3. Vista desde la órbita | Pendiente |
+
+**Bloque 1, lo que hay** (`worlds/twisted/`: `layout.js`, `ground.js`, `Terrain.jsx`, `Night.jsx`, `Life.jsx`, `Details.jsx`, `Scene.jsx`, `Buildings.jsx`):
+1. **Paleta**: roca de pizarra, morado gris (`ROCK` en `ground.js`: saturación de ~40 % a ~20 %); cielo azul marino con degradado (`skyTop #060b1f` → `skyHorizon #283463`), niebla y fondo a juego; el velo de los edificios, menos morado.
+2. **Contraste**: luz de ambiente de 1,4 a 1,0 y más oscura por abajo, luna de 2,9 a 3,2, sombras de 0,76 a 0,93: lo que no mira a la luna queda casi negro azulado y los charcos cálidos de farolas y ventanas destacan. Empedrado más gris (el despiece en piedras, en el bloque 2).
+3. **Río y pozas** (`createRiverMaterial`): turquesa oscuro, casi verde azulado; solo hilos finos de corriente y una línea rota junto a cada orilla.
+4. **Mar** (`createSeaMaterial`): sin texturas de ruido en el color (solo en el temblor de la espuma). Facetas lisas en azul marino, mayores a lo lejos (desde la torre no hormiguean); el reflejo de la luna, una franja de facetas que se encienden enteras.
+5. **Cascadas** (`createFalls`, `createFallMaterial`): seis tiras por cascada, de anchos distintos, cada una a su velocidad y a su distancia de la roca, con huecos y desgarros; turquesa, solo las vetas rozan el umbral del resplandor. Al pie: espuma turquesa, niebla pálida (`Smoke`) y gotas que saltan (`Drops`, nuevo en `Details.jsx`).
+6. **Luciérnagas**: de 0,32 a 0,17 m, casi sin halo, y se apagan a menos de 3 m de la cámara (se funden entre 3 y 5 m).
+7. **Luna**: solo el creciente con su halo; la parte en sombra no se dibuja.
+
+Batería al cerrar el bloque 1: diecisiete pruebas, 416 comprobaciones, 0 fallos.
 
 ## Objetivo 21 — The Twisted Moon: que se parezca a las imágenes de referencia
 

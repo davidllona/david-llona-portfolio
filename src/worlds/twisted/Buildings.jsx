@@ -36,7 +36,7 @@ function createNightMaterial(veil = 1, saturation = 0.42) {
  const window = float(1).sub(tone.sub(GLASS).length().mul(30).clamp(0, 1)); // 1 solo en el color de los cristales
  // De día a noche de cuento: media saturación y un velo morado.
  const grey = tone.dot(vec3(0.3, 0.5, 0.2));
- const night = mix(tone, mix(vec3(grey), tone, saturation).mul(vec3(0.78, 0.6, 1.08)).mul(0.95), veil);
+ const night = mix(tone, mix(vec3(grey), tone, saturation).mul(vec3(0.76, 0.68, 0.98)).mul(0.95), veil);
  material.colorNode = mix(night, vec3(0.05, 0.03, 0.02), window);
  material.emissiveNode = vec3(1.25, 0.82, 0.4).mul(window).mul(uniforms.uGlow);
  return withSeeThrough(material);

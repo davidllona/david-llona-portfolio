@@ -107,3 +107,47 @@ export function Smoke({ sources, name = "humo", color = "#a49bd0", speed = 0.13,
  });
  return <mesh name={name} geometry={geometry} material={material} frustumCulled={false} renderOrder={4} />;
 }
+
+// Gotas que saltan donde bate una cascada: puntos de luz pequeños que salen
+// despedidos, suben y caen (una parábola por gota, calculada en el sombreador).
+export function Drops({ sources, name = "gotas", color = "#a8f4ee", count = 12, reach = 1.1, jump = 0.9, speed = 0.85, size = 0.085 }) {
+ const glow = useMemo(() => createGlowTexture(), []);
+ const basis = useMemo(() => ({ right: uniform(new THREE.Vector3(1, 0, 0)), up: uniform(new THREE.Vector3(0, 1, 0)) }), []);
+ const geometry = useMemo(() => {
+  const plane = new THREE.PlaneGeometry(1, 1);
+  const instanced = new THREE.InstancedBufferGeometry();
+  instanced.setAttribute("position", plane.attributes.position);
+  instanced.setAttribute("uv", plane.attributes.uv);
+  instanced.setIndex(plane.index);
+  const origins = sources.flatMap((source) => Array.from({ length: count }, () => source)).flat();
+  instanced.setAttribute("origin", new THREE.InstancedBufferAttribute(new Float32Array(origins), 3));
+  instanced.instanceCount = sources.length * count;
+  instanced.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
+  return instanced;
+ }, [sources, count]);
+ const material = useMemo(() => {
+  const one = new MeshBasicNodeMaterial({ map: glow, color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+  one.userData.flat = true;
+  const seed = hash(instanceIndex), other = hash(instanceIndex.add(977));
+  const age = fract(uniforms.uTime.mul(seed.mul(0.6).add(0.7)).mul(speed).add(other));
+  const angle = other.mul(Math.PI * 2);
+  const out = age.mul(seed.mul(0.7).add(0.3)).mul(reach);
+  const hop = vec3(angle.cos().mul(out), age.mul(age.oneMinus()).mul(4 * jump).mul(other.mul(0.6).add(0.4)), angle.sin().mul(out));
+  one.positionNode = bendWorld(attribute("origin", "vec3").add(hop)).add(basis.right.mul(positionGeometry.x.mul(size))).add(basis.up.mul(positionGeometry.y.mul(size)));
+  one.opacityNode = age.oneMinus().mul(0.9);
+  return one;
+ }, [glow, basis, color, reach, jump, speed, size]);
+ useEffect(
+  () => () => {
+   glow.dispose();
+   geometry.dispose();
+   material.dispose();
+  },
+  [glow, geometry, material],
+ );
+ useFrame(({ camera }) => {
+  basis.right.value.setFromMatrixColumn(camera.matrixWorld, 0);
+  basis.up.value.setFromMatrixColumn(camera.matrixWorld, 1);
+ });
+ return <mesh name={name} geometry={geometry} material={material} frustumCulled={false} renderOrder={4} />;
+}

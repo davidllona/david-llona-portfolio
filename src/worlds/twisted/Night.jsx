@@ -20,7 +20,7 @@ import { uniforms } from "../../experience/theme";
 // tocarlos ni dibujar nada más. Desde la órbita desaparece. Tiene su propio
 // color, más pálido que la niebla del fondo: es la luna, que la alumbra.
 const MIST_TOP = 0.9; // m: techo medio de la niebla baja (sobre la terraza de abajo; el mar queda dentro)
-const MIST_TINT = "#6a5fb4";
+const MIST_TINT = "#56608f";
 function createFog(scene) {
  const tint = reference("color", "color", scene.fog).setGroup(renderGroup);
  const density = reference("density", "float", scene.fog).setGroup(renderGroup);
@@ -40,8 +40,8 @@ function createFog(scene) {
 
 // ── Luna ────────────────────────────────────────────────────────────────────
 // Creciente, enorme, blanca azulada: un astro de verdad, facetado y con
-// cráteres, al que el sol le da casi por detrás; el resto del disco se adivina
-// en la sombra. Está al norte, hacia donde mira la cámara, a la derecha de la
+// cráteres, al que el sol le da casi por detrás; el resto del disco no se ve:
+// solo el creciente y su halo. Está al norte, hacia donde mira la cámara, a la derecha de la
 // torre del reloj y por encima de la isla: se ve desde los miradores (donde la
 // cámara se inclina hacia el horizonte) y al bajar con la nave. Sigue a la
 // cámara (nunca se llega a ella) y no se curva con el mundo.
@@ -70,8 +70,9 @@ export function Night() {
   const towards = vec3(from.x, from.y, from.z);
   const lit = mix(positionLocal.normalize().dot(towards), normalLocal.dot(towards), 0.22);
   const bright = smoothstep(-0.02, 0.2, lit);
-  one.colorNode = attribute("color", "vec3").mul(vec3(1.0, 1.06, 1.22)).mul(lit.max(0).pow(0.6).mul(1.25).add(0.34)).mul(bright).add(vec3(0.05, 0.06, 0.16).mul(bright.oneMinus()));
-  one.opacityNode = bright.mul(0.86).add(0.14).mul(shown);
+  one.colorNode = attribute("color", "vec3").mul(vec3(1.0, 1.06, 1.22)).mul(lit.max(0).pow(0.6).mul(1.25).add(0.34)).mul(bright);
+  // (Solo el creciente: la parte en sombra no se dibuja.)
+  one.opacityNode = bright.mul(shown);
   return one;
  }, [shown]);
  useEffect(() => {

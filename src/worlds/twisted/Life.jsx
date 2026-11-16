@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { abs, attribute, cos, float, fract, positionGeometry, sin, uniform, vec3 } from "three/tsl";
+import { abs, attribute, cameraPosition, cos, float, fract, positionGeometry, sin, smoothstep, uniform, uv, vec3 } from "three/tsl";
 import { MeshBasicNodeMaterial } from "three/webgpu";
 import { bendWorld } from "../../experience/environment/bend";
 import { createGlowTexture } from "../../experience/textures";
@@ -38,6 +38,7 @@ function useCameraBasis() {
 // ── Luciérnagas ─────────────────────────────────────────────────────────────
 // Cada una ronda su sitio dibujando lazos lentos, sube y baja, y se enciende y
 // se apaga a su ritmo. Amarillas, por encima del umbral del resplandor.
+const NEAR = 3; // m: más cerca de la cámara que esto, no se ven
 export function Fireflies() {
  const glow = useMemo(() => createGlowTexture(), []);
  const basis = useCameraBasis();
@@ -50,16 +51,20 @@ export function Fireflies() {
   [],
  );
  const material = useMemo(() => {
-  const one = new MeshBasicNodeMaterial({ map: glow, color: new THREE.Color(2.2, 1.7, 0.45), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+  const one = new MeshBasicNodeMaterial({ map: glow, color: new THREE.Color(2.0, 1.6, 0.5), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
   one.userData.flat = true;
   const t = uniforms.uTime.mul(0.35).add(attribute("phase", "float"));
   const wander = vec3(sin(t.mul(1.3)).mul(0.9).add(sin(t.mul(0.47)).mul(0.6)), sin(t.mul(0.9)).mul(0.35), cos(t.mul(1.1)).mul(0.8).add(cos(t.mul(0.33)).mul(0.6)));
   // Parpadeo: la mayor parte del tiempo, encendida; cada pocos segundos se apaga un momento.
   const blink = fract(t.mul(0.21));
   const on = float(1).sub(blink.sub(0.82).max(0).mul(9).min(1)).mul(0.6).add(sin(t.mul(7)).mul(0.1)).add(0.3);
-  const size = float(0.32);
-  one.positionNode = bendWorld(attribute("origin", "vec3").add(wander)).add(basis.right.mul(positionGeometry.x.mul(size))).add(basis.up.mul(positionGeometry.y.mul(size)));
-  one.opacityNode = on;
+  // Pequeñas y casi sin halo: un punto de luz, no una bola. Y cerca de la
+  // cámara (a menos de 3 m) se apagan: no hay «polvo en la lente».
+  const size = float(0.17);
+  const centre = bendWorld(attribute("origin", "vec3").add(wander));
+  one.positionNode = centre.add(basis.right.mul(positionGeometry.x.mul(size))).add(basis.up.mul(positionGeometry.y.mul(size)));
+  const core = smoothstep(0.46, 0.1, uv().sub(0.5).length());
+  one.opacityNode = on.mul(core).mul(smoothstep(NEAR, NEAR + 2, centre.distance(cameraPosition)));
   return one;
  }, [glow, basis]);
  useEffect(

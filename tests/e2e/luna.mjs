@@ -28,13 +28,20 @@ const POINTS = {
  // Para las capturas de cerca: al pie de la torre, junto a las cascadas y delante del invernadero.
  torre: [2.6, -32.4],
  cascadas: [4.4, -12.6],
+ // Objetivo 22: las que faltaban para «las diez de siempre».
+ plataforma: [2.6, 2.6],
+ escalera: [-9.4, -11.6],
+ puente: [-8.9, -28.45],
+ tronco: [STORY_DOOR.x - 0.4, STORY_DOOR.z + 0.4],
 };
+// Las diez de siempre (objetivo 22), con la cámara de juego: `node tests/e2e/luna.mjs <carpeta> diez,postal,orbita juego`.
+const TEN = ["llegada", "plataforma", "rio", "escalera", "puente", "invernadero", "tronco", "alquimista", "observatorio", "torre"];
 // `lift`: altura de la cámara (1 = la del juego); `distance`: cuánto se aleja.
 const VIEWS = { juego: null, alto: { lift: 1.5, distance: 3.4 }, cerca: { lift: 0.45, distance: 0.55 } };
 
 const folder = (process.argv[2] ?? "capturas/26-mundo2/C1") + "/";
 const pick = (arg, all) => (arg && arg !== "-" ? arg.split(",") : all);
-const what = pick(process.argv[3], ["postal", ...Object.keys(POINTS), "orbita"]);
+const what = pick(process.argv[3], ["postal", ...Object.keys(POINTS), "orbita"]).flatMap((one) => (one === "diez" ? TEN : [one]));
 const views = pick(process.argv[4], Object.keys(VIEWS));
 fs.mkdirSync(folder, { recursive: true });
 const shot = (t, name) => t.page.screenshot({ path: `${folder}${name}.jpg`, type: "jpeg", quality: 90 });

@@ -582,26 +582,27 @@ export const colliders = [
 // La noche de este mundo (ver experience/theme.js). No hay día ni atardecer:
 // las tres franjas llevan la misma paleta. Luna fría al fondo, a la derecha de
 // la torre: recorta las siluetas y tiende sombras largas hacia la cámara.
-// Sombras moradas, no negras; la luz cálida la ponen las ventanas y los faroles.
+// Paleta contenida (objetivo 22): cielo azul marino, roca de pizarra, sombras
+// casi negras azuladas; el color vivo lo ponen las ventanas, los faroles y el agua que brilla.
 const NIGHT = {
- hemiSky: "#8a78e0",
- hemiGround: "#4a2f78",
- hemiPower: 1.4,
+ hemiSky: "#7f86c2",
+ hemiGround: "#2a2440",
+ hemiPower: 1.0,
  // (Luna baja, a 19° sobre el horizonte, casi de frente: sombras largas que vienen hacia la cámara.)
  sun: "#bcd2ff",
- sunPower: 2.9,
+ sunPower: 3.2,
  sunFrom: [0.3, 0.33, -0.9],
- fog: "#2c2360",
+ fog: "#1d2447",
  fogDensity: 0.0085,
- background: "#2c2360",
- skyTop: "#0a1238",
- skyHorizon: "#3b3a8c",
- waterShallow: "#1f6f8a",
- waterDeep: "#101742",
+ background: "#1d2447",
+ skyTop: "#060b1f",
+ skyHorizon: "#283463",
+ waterShallow: "#15465c",
+ waterDeep: "#0a1130",
  glow: 1,
  bloom: 0.95,
- // (Las sombras de la luna son largas: lo que cae en ellas —la casita, al pie del cortado— queda morado, no negro.)
- shadow: 0.76,
+ // (Sombras de verdad: lo que cae en ellas queda casi negro azulado, y los charcos de luz cálida destacan.)
+ shadow: 0.93,
 };
 
 // El mundo, con la interfaz que usan el jugador, Woody, la nave y los objetos.

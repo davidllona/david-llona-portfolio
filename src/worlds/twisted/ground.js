@@ -41,9 +41,9 @@ export async function prepareGround(breathe) {
 }
 export const groundData = () => baked;
 
-const GRASS = ["#1f4a52", "#255a5c", "#1a3f4c", "#2d6a62"].map((c) => new THREE.Color(c));
-const ROCK = ["#4b3a86", "#5a4699", "#3d2f72", "#6a55a8", "#33275f"].map((c) => new THREE.Color(c));
-const BED = new THREE.Color("#1b2a5a"), DEEP = new THREE.Color("#161538");
+const GRASS = ["#1f4750", "#26575a", "#1a3c48", "#2e6660"].map((c) => new THREE.Color(c));
+const ROCK = ["#4a4466", "#585174", "#3c3756", "#676082", "#302c48"].map((c) => new THREE.Color(c));
+const BED = new THREE.Color("#152a3c"), DEEP = new THREE.Color("#10122a");
 
 // La malla de la isla. Un color por triángulo. Lleva además, por vértice,
 // cuánto de llano tiene (1 = se pinta camino encima si lo hay; 0 = roca).

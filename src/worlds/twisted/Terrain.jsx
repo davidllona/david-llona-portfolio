@@ -1,14 +1,14 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { attribute, cameraPosition, color, float, floor, fract, mix, normalize, positionGeometry, positionLocal, positionWorld, pow, reflect, sin, smoothstep, texture, uv, vec2, vec3 } from "three/tsl";
+import { attribute, cameraPosition, color, float, floor, fract, mix, positionGeometry, positionLocal, positionWorld, sin, smoothstep, texture, uv, vec2, vec3 } from "three/tsl";
 import { MeshLambertNodeMaterial } from "three/webgpu";
 import { uClosed } from "../../experience/environment/bend";
 import { noiseTexture } from "../../experience/environment/noise";
 import { unlit } from "../../experience/materials";
 import { uniforms } from "../../experience/theme";
 import { CENTRE, EDGE_RANGE, SPAN, createGround, groundData } from "./ground";
-import { LEVELS, POND, POOL, RIVER, SEA_BED, STREAM, WATERFALLS, WATER_LEVEL, cragEdge, islandEdge } from "./layout";
+import { LEVELS, POND, POOL, RIVER, SEA_BED, STREAM, WATERFALLS, WATER_LEVEL, cragEdge, createRandom, islandEdge } from "./layout";
 
 const COARSE = { coarse: true }; // (ya viene en anillos: no hay que partirlo más para curvarlo)
 // Turquesa que brilla: el agua dulce, las cascadas y la espuma de la orilla.
@@ -26,8 +26,8 @@ function createGroundMaterial() {
  const edge = lane.add(texture(noiseTexture, at.mul(0.37)).r.sub(0.5).mul(0.3));
  // Adoquines: celdas de ruido, unas más claras que otras, con su junta.
  const cobble = texture(noiseTexture, at.mul(0.9)).g;
- const stone = mix(color("#6d6696"), color("#9b93c2"), smoothstep(0.35, 0.65, cobble));
- const rim = color("#1c1838");
+ const stone = mix(color("#514e68"), color("#76728e"), smoothstep(0.35, 0.65, cobble));
+ const rim = color("#14132a");
  const inside = smoothstep(0.03, -0.03, edge);
  const border = smoothstep(0.03, -0.03, edge.sub(0.1)).mul(smoothstep(-0.2, -0.06, edge));
  material.colorNode = mix(attribute("color", "vec3"), mix(stone, rim, border), inside.max(border).mul(attribute("flat", "float")));
@@ -46,7 +46,7 @@ function createGroundMaterial() {
 const MOON_PATH = new THREE.Vector2(0.21, -0.977).normalize(); // hacia dónde queda la luna, en planta (ver Night.jsx)
 const WATER_REACH = 150; // m: algo más de media vuelta al planeta en que se cierra el mundo
 function createSeaMaterial() {
- const { uTime, uWaterShallow, uWaterDeep, uSunDirection, uSunColor } = uniforms;
+ const { uTime, uWaterShallow, uWaterDeep } = uniforms;
  const material = unlit();
  const pos = positionWorld.xz;
  const shore = attribute("shore", "float"); // m hasta el borde de la isla
@@ -54,13 +54,10 @@ function createSeaMaterial() {
  const at = positionGeometry.xz;
  const lift = sin(at.x.mul(0.31).add(uTime.mul(0.8))).add(sin(at.y.mul(0.37).sub(uTime.mul(0.6)).add(at.x.mul(0.11)))).mul(0.07).mul(smoothstep(0.5, 6, shore));
  material.positionNode = positionLocal.add(vec3(0, lift, 0));
+ // (Ruido suave, de onda larga: solo hace temblar la línea de la espuma. El agua no lleva grano.)
  const drift = vec2(uTime.mul(0.012), uTime.mul(-0.008));
  const rippleA = texture(noiseTexture, pos.mul(0.23).add(drift)).r.sub(0.5);
  const rippleB = texture(noiseTexture, pos.mul(0.41).sub(drift.mul(1.7))).g.sub(0.5);
- const normal = normalize(vec3(rippleA.mul(0.34).add(rippleB.mul(0.2)), 1, rippleB.mul(0.34).sub(rippleA.mul(0.2))));
- const toWater = normalize(positionWorld.sub(cameraPosition));
- const shine = pow(reflect(toWater, normal).dot(uSunDirection).max(0), 120).mul(1.1);
- const sheen = pow(reflect(toWater, normal).dot(uSunDirection).max(0), 12).mul(0.08);
  // Espuma: la orilla tiembla con el ruido; la segunda línea respira.
  const wobble = shore.add(rippleA.mul(1.3)).add(rippleB.mul(0.7));
  const firm = smoothstep(0.75, 0.35, wobble);
@@ -69,24 +66,29 @@ function createSeaMaterial() {
  const third = smoothstep(0.2, 0.05, wobble.sub(breath.mul(1.9).add(0.6)).abs()).mul(0.5);
  const foam = firm.max(second).max(third).mul(smoothstep(-0.2, 0.2, shore));
  // Olas facetadas: el agua se parte en triángulos grandes (una rejilla
- // inclinada), cada uno de su tono, que cambian despacio con el oleaje.
- const cellAt = pos.mul(0.42).add(vec2(pos.y.mul(0.21), 0));
- const cell = floor(cellAt), inside = fract(cellAt);
- const half = inside.x.greaterThan(inside.y).select(float(0.5), float(0));
- const facet = fract(sin(cell.x.mul(12.9898).add(cell.y.mul(78.233)).add(half.mul(37.7))).mul(43758.5453));
- const swell = sin(facet.mul(6.28).add(uTime.mul(0.6))).mul(0.5).add(0.5);
- const facets = mix(float(0.84), float(1.16), facet.mul(0.6).add(swell.mul(0.4))).mul(smoothstep(0.6, 3, shore)).add(smoothstep(3, 0.6, shore));
- const body = mix(uWaterShallow, uWaterDeep, smoothstep(0.5, 9, shore)).mul(facets);
- // Camino de la luna: cuánto apunta este punto, visto desde la cámara, hacia
- // donde está la luna; las escamas salen de las mismas ondas.
- const away = positionWorld.xz.sub(cameraPosition.xz);
+ // inclinada), cada uno de su tono liso, que sube y baja despacio con el
+ // oleaje. De lejos los triángulos son mayores: desde la torre no hormiguean.
+ const facetOf = (scale, seed) => {
+  const cellAt = pos.mul(scale).add(vec2(pos.y.mul(scale * 0.5), 0));
+  const cell = floor(cellAt), inside = fract(cellAt);
+  const half = inside.x.greaterThan(inside.y).select(float(0.5), float(0));
+  return fract(sin(cell.x.mul(12.9898).add(cell.y.mul(78.233)).add(half.mul(37.7)).add(seed)).mul(43758.5453));
+ };
+ const away = pos.sub(cameraPosition.xz);
  const far = away.length();
+ const facet = mix(facetOf(0.34, 0), facetOf(0.2, 5.1), smoothstep(30, 80, far));
+ const swell = sin(facet.mul(6.28).add(uTime.mul(0.55))).mul(0.5).add(0.5);
+ const open = smoothstep(0.6, 3, shore);
+ const facets = mix(float(0.7), float(1.34), facet.mul(0.5).add(swell.mul(0.5))).mul(open).add(open.oneMinus());
+ const body = mix(uWaterShallow, uWaterDeep, smoothstep(0.5, 9, shore)).mul(facets);
+ // Camino de la luna: una franja de facetas claras, desde quien mira hacia
+ // donde está la luna. Cada faceta se enciende y se apaga entera, con el oleaje.
  const toward = away.div(far.max(0.01)).dot(vec2(MOON_PATH.x, MOON_PATH.y));
  const band = smoothstep(float(0.9), float(0.985), toward).mul(smoothstep(2, 9, far));
- const scales = smoothstep(0.04, 0.2, rippleA.add(rippleB.mul(0.8)).add(texture(noiseTexture, pos.mul(0.9).add(drift.mul(4))).r.sub(0.5).mul(0.6)));
- const glitter = band.mul(scales.mul(0.85).add(0.15)).mul(smoothstep(0.8, 2.5, shore)).mul(uClosed.oneMinus());
+ const lit = smoothstep(0.66, 0.74, swell);
+ const glitter = band.mul(lit.mul(0.6).add(0.06)).mul(smoothstep(0.8, 2.5, shore)).mul(uClosed.oneMinus());
  // (Curvado en planeta, lejos de la isla, queda un mar liso y oscuro.)
- material.colorNode = mix(body.add(uSunColor.mul(shine.add(sheen)).mul(uClosed.oneMinus())).add(vec3(0.62, 0.72, 1.0).mul(glitter.mul(0.95))), AQUA.mul(1.5), foam);
+ material.colorNode = mix(body.add(vec3(0.4, 0.52, 0.9).mul(glitter.mul(0.36))), AQUA.mul(1.5), foam);
  return material;
 }
 // En anillos (se curva con el mundo), desde el eje hasta el horizonte.
@@ -109,8 +111,8 @@ function createSea() {
 }
 
 // ── Agua dulce ──────────────────────────────────────────────────────────────
-// Río, arroyo y pozas: una cinta turquesa que brilla, con vetas que corren
-// aguas abajo. Las cascadas, lo mismo en vertical y más vivo.
+// Río, arroyo y pozas: una cinta de agua oscura con brillos finos. Las
+// cascadas, tiras turquesa que caen.
 function ribbon(points, width, y) {
  const positions = [], uvs = [], index = [];
  let along = 0;
@@ -154,36 +156,72 @@ function createFreshWater() {
 function createPools() {
  return flat([disc(POND, surface(1)), disc(POOL, surface(0))]);
 }
+// Cascadas: no una lámina, sino varias tiras de agua, cada una de su ancho, que
+// caen a distinta velocidad y dejan huecos entre ellas por los que se ve la roca.
 function createFalls() {
- return mergeGeometries(
-  WATERFALLS.map((fall) => {
-   const drop = fall.top - fall.bottom;
-   // Una lámina que cae algo tendida, con una panza hacia fuera a media altura.
-   const sheet = new THREE.PlaneGeometry(fall.width, drop + 0.5, 3, 6);
+ const random = createRandom(20261122);
+ const strips = [];
+ for (const fall of WATERFALLS) {
+  const drop = fall.top - fall.bottom, tall = drop + 0.5;
+  const COUNT = 6, slot = fall.width / COUNT;
+  for (let k = 0; k < COUNT; k++) {
+   const width = slot * (0.42 + random() * 0.4), across = -fall.width / 2 + slot * (k + 0.5) + (random() - 0.5) * slot * 0.3;
+   const out = random() * 0.22, speed = 0.55 + random() * 0.6, seed = random();
+   const sheet = new THREE.PlaneGeometry(width, tall, 1, 6);
    const points = sheet.attributes.position, uvs = sheet.attributes.uv;
+   const strip = new Float32Array(points.count * 2);
    for (let i = 0; i < points.count; i++) {
-    const t = (points.getY(i) + (drop + 0.5) / 2) / (drop + 0.5); // 0 abajo, 1 arriba
-    points.setZ(i, (1 - t) * 0.9 + Math.sin(t * Math.PI) * 0.25);
-    uvs.setXY(i, uvs.getX(i), t * (drop + 0.5));
+    const t = (points.getY(i) + tall / 2) / tall; // 0 abajo, 1 arriba
+    // Cae algo tendida, con una panza hacia fuera a media altura; cada tira, a su distancia de la roca.
+    points.setX(i, points.getX(i) + across);
+    points.setZ(i, (1 - t) * 0.9 + Math.sin(t * Math.PI) * (0.2 + out) + out * 0.4);
+    uvs.setXY(i, uvs.getX(i), t * tall);
+    strip[i * 2] = speed;
+    strip[i * 2 + 1] = seed;
    }
+   sheet.setAttribute("strip", new THREE.BufferAttribute(strip, 2));
    sheet.rotateY(fall.turn).translate(fall.x, (fall.top + fall.bottom) / 2 - 0.2, fall.z);
    const flat = sheet.toNonIndexed();
+   sheet.dispose();
    flat.deleteAttribute("normal");
-   return flat;
-  }),
- );
+   strips.push(flat);
+  }
+ }
+ return mergeGeometries(strips);
 }
-function createFlowMaterial(speed, glow, dark = 0) {
- const { uTime, uWaterDeep } = uniforms;
+// El agua dulce, quieta o corriendo: turquesa oscuro, casi verde azulado. Los
+// brillos son finos y pocos: hilos de corriente y una línea rota junto a cada
+// orilla. (`speed`: lo que corre; en las pozas, casi nada.)
+function createRiverMaterial(speed) {
+ const { uTime } = uniforms;
  const material = unlit({ transparent: true, depthWrite: false, side: THREE.DoubleSide });
  const at = uv();
- const streaks = texture(noiseTexture, vec2(at.x.mul(0.9), at.y.mul(0.22).add(uTime.mul(speed)))).r;
- const fine = texture(noiseTexture, vec2(at.x.mul(2.3).add(0.4), at.y.mul(0.5).add(uTime.mul(speed * 1.7)))).g;
- const white = smoothstep(0.56, 0.8, streaks.mul(0.6).add(fine.mul(0.5)));
- // (`dark`: cuánto se lleva hacia el agua honda: el río, bastante; las cascadas, poco.)
- material.colorNode = mix(mix(AQUA.mul(glow), uWaterDeep.mul(1.4), dark), vec3(1.2, 1.45, 1.5), white.mul(0.6));
+ const across = at.x.sub(0.5).abs().mul(2); // 0 en el eje, 1 en la orilla
+ const body = mix(vec3(0.012, 0.07, 0.1), vec3(0.022, 0.125, 0.135), smoothstep(0.15, 0.8, across));
+ // Hilos de corriente: vetas largas y delgadas que bajan con el agua.
+ const threads = texture(noiseTexture, vec2(at.x.mul(2.6), at.y.mul(0.1).add(uTime.mul(speed)))).r;
+ const thread = smoothstep(0.66, 0.7, threads).mul(smoothstep(0.76, 0.72, threads));
+ // Junto a las orillas, una línea de brillo que se rompe.
+ const lap = texture(noiseTexture, vec2(at.x.mul(1.1).add(0.3), at.y.mul(0.33).add(uTime.mul(speed * 0.5)))).g;
+ const rim = smoothstep(0.5, 0.6, across).mul(smoothstep(0.78, 0.68, across)).mul(smoothstep(0.52, 0.6, lap));
+ material.colorNode = body.add(vec3(0.2, 0.72, 0.68).mul(thread.mul(0.34).add(rim.mul(0.5))));
  // Hacia los bordes de la cinta se deshace.
- material.opacityNode = smoothstep(0, 0.16, at.x).mul(smoothstep(1, 0.84, at.x)).mul(0.86);
+ material.opacityNode = smoothstep(0, 0.16, at.x).mul(smoothstep(1, 0.84, at.x)).mul(0.93);
+ return material;
+}
+// Las cascadas: turquesa (no blanco), con vetas más claras que caen y desgarros
+// por los que la tira se abre. Brillan lo justo: solo las vetas rozan el umbral del resplandor.
+function createFallMaterial() {
+ const { uTime } = uniforms;
+ const material = unlit({ transparent: true, depthWrite: false, side: THREE.DoubleSide });
+ const at = uv(), strip = attribute("strip", "vec2");
+ const fall = at.y.mul(0.17).add(uTime.mul(strip.x)).add(strip.y.mul(9));
+ const streaks = texture(noiseTexture, vec2(at.x.mul(0.3).add(strip.y), fall)).r;
+ const fine = texture(noiseTexture, vec2(at.x.mul(0.7).add(strip.y.mul(3.1)), fall.mul(2.4))).g;
+ const light = smoothstep(0.42, 0.72, streaks.mul(0.6).add(fine.mul(0.5)));
+ material.colorNode = mix(vec3(0.06, 0.42, 0.47), vec3(0.4, 1.12, 1.06), light);
+ const tear = smoothstep(0.3, 0.44, texture(noiseTexture, vec2(strip.y.mul(5.3), fall.mul(0.45))).g);
+ material.opacityNode = smoothstep(0, 0.28, at.x).mul(smoothstep(1, 0.72, at.x)).mul(light.mul(0.35).add(0.55)).mul(tear);
  return material;
 }
 
@@ -195,8 +233,7 @@ export function Terrain() {
  const fresh = useMemo(createFreshWater, []);
  const pools = useMemo(createPools, []);
  const falls = useMemo(createFalls, []);
- // (Las cascadas brillan en turquesa: por encima del umbral del resplandor.)
- const flow = useMemo(() => ({ river: createFlowMaterial(0.16, 0.55, 0.55), pool: createFlowMaterial(0.025, 0.6, 0.5), fall: createFlowMaterial(0.9, 1.3, 0.08) }), []);
+ const flow = useMemo(() => ({ river: createRiverMaterial(0.16), pool: createRiverMaterial(0.02), fall: createFallMaterial() }), []);
  // Fondo del mar: cierra el planeta por debajo.
  const bed = useMemo(() => new THREE.RingGeometry(0.3, WATER_REACH, 96, 30).rotateX(-Math.PI / 2), []);
  const bedMaterial = useMemo(() => {
