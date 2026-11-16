@@ -185,6 +185,18 @@ export function createShard() {
  return merge(parts);
 }
 
+// Roca del mar abierto: una aguja facetada, ancha de pie, con un hombro a media
+// altura y una costra de musgo en la punta. Mide 1 de radio y 1 de alto: cada
+// copia se estira a su tamaño.
+export function createSeaRock() {
+ return merge([
+  piece(new THREE.CylinderGeometry(0.2, 1, 1, 8, 4).translate(0, 0.5, 0), { bottom: "#22203a", top: STONE.mid, jitter: 0.07, vary: 0.16, seed: 31 }),
+  piece(new THREE.CylinderGeometry(0.16, 0.55, 0.6, 6, 2).translate(0, 0.3, 0), { bottom: "#22203a", top: STONE.mid, jitter: 0.05, vary: 0.16, seed: 37, position: [0.52, 0, 0.3], rotation: [0.1, 0.5, -0.22] }),
+  piece(new THREE.IcosahedronGeometry(0.34, 1), { bottom: STONE.dark, top: STONE.mid, jitter: 0.05, vary: 0.14, seed: 41, position: [-0.6, 0.12, -0.25], scale: [1, 0.5, 1] }),
+  piece(new THREE.IcosahedronGeometry(0.2, 1), { bottom: "#22473c", top: "#427c64", jitter: 0.02, vary: 0.1, seed: 43, position: [0.02, 0.99, 0], scale: [1, 0.22, 1] }),
+ ]);
+}
+
 // ── La casa torcida ─────────────────────────────────────────────────────────
 // Alta, estrecha y vencida: un zócalo de piedra, una planta baja que se abre
 // hacia arriba, un piso que vuela sobre ella y se inclina al otro lado, y un

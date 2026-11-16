@@ -72,8 +72,8 @@ if (what.includes("postal")) {
 }
 
 const places = what.filter((one) => POINTS[one]);
-if (places.length || what.includes("orbita")) {
- const t = await open({ viewport: { width: 1600, height: 900 }, query: "?world=twisted" });
+if (places.length || what.includes("orbita") || what.includes("vuelta")) {
+ const t = await open({ viewport: { width: 1600, height: 900 }, query: "?world=twisted" + (process.env.LUNA_QUERY ?? "") });
  await t.enter();
  await wait(1200);
  for (const name of places) {
@@ -93,7 +93,19 @@ if (places.length || what.includes("orbita")) {
   }
   await t.evaluate(() => Object.assign(window.__world.rig, { focus: null, lift: 1, distance: 1 }));
  }
- if (what.includes("orbita")) {
+ // La vuelta al planeta: cuatro vistas desde la órbita, a un cuarto de vuelta cada una
+  // (la cámara lo rodea a 0,05 rad/s). `LUNA_QUERY=&radio=20` prueba otro radio de planeta.
+  if (what.includes("vuelta")) {
+   await t.put(0, 5.6, { withWoody: false, settle: 900 });
+   await t.page.keyboard.press("KeyE");
+   await t.page.waitForFunction(() => window.__world.ship.flight.phase === "orbit", { timeout: 30000 });
+   await t.page.addStyleTag({ content: ".quick, .woody-menu, .sound-toggle, .theme-toggle { display: none !important; }" });
+   for (let i = 0; i < 4; i++) {
+    await wait(i ? 31000 : 3000);
+    await shot(t, `vuelta-${i + 1}`);
+   }
+  }
+  if (what.includes("orbita")) {
   await t.put(0, 5.6, { withWoody: false, settle: 900 });
   await t.page.keyboard.press("KeyE");
   for (const [name, ms] of [["subida-1", 3600], ["subida-2", 1900], ["subida-3", 1700], ["orbita", 4200]]) {

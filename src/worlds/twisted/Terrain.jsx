@@ -8,7 +8,7 @@ import { noiseTexture } from "../../experience/environment/noise";
 import { unlit } from "../../experience/materials";
 import { uniforms } from "../../experience/theme";
 import { CENTRE, EDGE_RANGE, SPAN, createGround, groundData } from "./ground";
-import { LEVELS, POND, POOL, RIVER, SEA_BED, STREAM, WATERFALLS, WATER_LEVEL, cragEdge, createRandom, islandEdge } from "./layout";
+import { ISLETS, LEVELS, POND, POOL, RIVER, SEA_BED, STREAM, WATERFALLS, WATER_LEVEL, cragEdge, createRandom, islandEdge } from "./layout";
 
 const COARSE = { coarse: true }; // (ya viene en anillos: no hay que partirlo más para curvarlo)
 // Turquesa que brilla: el agua dulce, las cascadas y la espuma de la orilla.
@@ -69,10 +69,15 @@ function createSeaMaterial() {
  const { uTime, uWaterShallow, uWaterDeep } = uniforms;
  const material = unlit();
  const pos = positionWorld.xz;
- const shore = attribute("shore", "float"); // m hasta el borde de la isla
+ const coast = attribute("shore", "float"); // m hasta el borde de la isla
  // Oleaje: el mar sube y baja despacio; pegado a la isla, casi nada.
  const at = positionGeometry.xz;
- const lift = sin(at.x.mul(0.31).add(uTime.mul(0.8))).add(sin(at.y.mul(0.37).sub(uTime.mul(0.6)).add(at.x.mul(0.11)))).mul(0.07).mul(smoothstep(0.5, 6, shore));
+ const lift = sin(at.x.mul(0.31).add(uTime.mul(0.8))).add(sin(at.y.mul(0.37).sub(uTime.mul(0.6)).add(at.x.mul(0.11)))).mul(0.07).mul(smoothstep(0.5, 6, coast));
+ // La orilla más cercana: la de la isla o la de un islote del mar abierto (estos, calculados en cada píxel:
+ // la malla del mar, lejos, es demasiado gruesa para llevar su espuma en los vértices).
+ let rocks = float(1000);
+ for (const [x, z, r] of ISLETS) rocks = rocks.min(pos.sub(vec2(x, z)).length().sub(r * 1.12));
+ const shore = coast.min(rocks);
  material.positionNode = positionLocal.add(vec3(0, lift, 0));
  // (Ruido suave, de onda larga: solo hace temblar la línea de la espuma. El agua no lleva grano.)
  const drift = vec2(uTime.mul(0.012), uTime.mul(-0.008));
@@ -96,19 +101,21 @@ function createSeaMaterial() {
  };
  const away = pos.sub(cameraPosition.xz);
  const far = away.length();
- const facet = mix(facetOf(0.34, 0), facetOf(0.2, 5.1), smoothstep(30, 80, far));
+ // (Y con el mundo cerrado en planeta, las grandes en todas partes: desde la órbita se leen las olas.)
+ const facet = mix(facetOf(0.34, 0), facetOf(0.2, 5.1), smoothstep(30, 80, far).max(uClosed));
  const swell = sin(facet.mul(6.28).add(uTime.mul(0.55))).mul(0.5).add(0.5);
  const open = smoothstep(0.6, 3, shore);
  const facets = mix(float(0.7), float(1.34), facet.mul(0.5).add(swell.mul(0.5))).mul(open).add(open.oneMinus());
- const body = mix(uWaterShallow, uWaterDeep, smoothstep(0.5, 9, shore)).mul(facets);
+ // Desde la órbita el mar se aclara y sus facetas contrastan más: es un mar con olas, no una bola negra.
+ const waves = mix(float(1), facets.sub(1).mul(1.7).add(1), uClosed).mul(uClosed.mul(1.9).add(1));
+ const body = mix(uWaterShallow, uWaterDeep, smoothstep(0.5, 9, shore)).mul(mix(facets, waves, uClosed));
  // Camino de la luna: una franja de facetas claras, desde quien mira hacia
  // donde está la luna. Cada faceta se enciende y se apaga entera, con el oleaje.
  const toward = away.div(far.max(0.01)).dot(vec2(MOON_PATH.x, MOON_PATH.y));
  const band = smoothstep(float(0.9), float(0.985), toward).mul(smoothstep(2, 9, far));
  const lit = smoothstep(0.66, 0.74, swell);
  const glitter = band.mul(lit.mul(0.6).add(0.06)).mul(smoothstep(0.8, 2.5, shore)).mul(uClosed.oneMinus());
- // (Curvado en planeta, lejos de la isla, queda un mar liso y oscuro.)
- material.colorNode = mix(body.add(vec3(0.4, 0.52, 0.9).mul(glitter.mul(0.36))), AQUA.mul(1.5), foam);
+  material.colorNode = mix(body.add(vec3(0.4, 0.52, 0.9).mul(glitter.mul(0.36))), AQUA.mul(1.5), foam);
  return material;
 }
 // En anillos (se curva con el mundo), desde el eje hasta el horizonte.

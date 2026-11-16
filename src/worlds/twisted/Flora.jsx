@@ -5,9 +5,9 @@ import { Instances } from "../../experience/Instances";
 import { withSeeThrough } from "../../experience/environment/seeThrough";
 import { withWind } from "../../experience/environment/wind";
 import { lambert } from "../../experience/materials";
-import { BIG_TREES, FERNS, FLOWERS, MUSHROOMS, SHARDS, TREES, TUFTS, VINES, height } from "./layout";
+import { BIG_TREES, FERNS, FLOWERS, ISLETS, MUSHROOMS, SEA_BED, SHARDS, TREES, TUFTS, VINES, WATER_LEVEL, height } from "./layout";
 import { solid } from "./materials";
-import { createCurlyTree, createDryTuft, createShard } from "./models";
+import { createCurlyTree, createDryTuft, createSeaRock, createShard } from "./models";
 import { createBroadTree, createFlower, createMushroom, createSpiralTree, createVine, createWillow } from "./plants";
 
 // Lo que crece en The Twisted Moon: sauces llorones, árboles de copa ancha y
@@ -50,7 +50,7 @@ const seat = (list, { sink = 0, size = 1, glow = 1 } = {}) =>
 
 export function Flora() {
  const fern = useConverted(FERN_URL);
- const models = useMemo(() => ({ curly: [0, 1, 2].map(createCurlyTree), willow: createWillow(), broad: createBroadTree(), spiral: createSpiralTree(), tuft: createDryTuft(), shard: createShard(), vine: createVine(), flower: createFlower(), mushroom: createMushroom() }), []);
+ const models = useMemo(() => ({ curly: [0, 1, 2].map(createCurlyTree), willow: createWillow(), broad: createBroadTree(), spiral: createSpiralTree(), tuft: createDryTuft(), shard: createShard(), rock: createSeaRock(), vine: createVine(), flower: createFlower(), mushroom: createMushroom() }), []);
  const material = useMemo(
   () => ({
    wood: solid(),
@@ -78,6 +78,8 @@ export function Flora() {
    big: Object.fromEntries(["willow", "broad", "spiral"].map((kind) => [kind, seat(BIG_TREES.filter((tree) => tree.kind === kind), { sink: 0.06 })])),
    tufts: seat(TUFTS, { sink: 0.02 }),
    shards: seat(SHARDS, { sink: 0.08 }),
+   // (Las rocas del mar nacen del fondo: lo que asoma es su altura sobre el agua.)
+   islets: ISLETS.map(([x, z, r, top, turn]) => ({ position: [x, SEA_BED, z], rotation: [0, turn, 0], scale: [r * 1.5, top + (WATER_LEVEL - SEA_BED), r * 1.5] })),
    ferns: seat(FERNS, { size: FERN_SIZE, sink: 0.02 }),
    vines: seat(VINES, { sink: 0.02 }),
    flowers: seat(FLOWERS, { sink: 0.01 }),
@@ -92,6 +94,7 @@ export function Flora() {
    <Instances name="sauce" rests={0} geometry={models.willow} material={material.willow} items={items.big.willow} colored castShadow receiveShadow />
    <Instances name="árbol de copa ancha" rests={0} geometry={models.broad} material={material.crown} items={items.big.broad} colored castShadow receiveShadow />
    <Instances name="árbol en espiral" rests={0} geometry={models.spiral} material={material.crown} items={items.big.spiral} colored castShadow receiveShadow />
+   <Instances name="islote" geometry={models.rock} material={material.stone} items={items.islets} castShadow />
    <Instances name="lasca de piedra" rests={0} geometry={models.shard} material={material.stone} items={items.shards} castShadow receiveShadow />
    <Instances name="matojo seco" rests={0} geometry={models.tuft} material={material.low} items={items.tufts} receiveShadow />
    <Instances name="helecho" rests={0} geometry={fern} material={material.low} items={items.ferns} colored receiveShadow />

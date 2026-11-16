@@ -3,7 +3,7 @@
 Actualizado: 16 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
-**En curso: objetivo 22 — pulido visual de The Twisted Moon** (`docs/OBJETIVO-22.md`; C2 y C3 del objetivo 21 aprobados como base): bloques 1 (color y luz) y 2 (piezas que no se leen) hechos; sigue el 3 (órbita). Ver «Objetivo 22» abajo.
+**En curso: objetivo 22 — pulido visual de The Twisted Moon** (`docs/OBJETIVO-22.md`; C2 y C3 del objetivo 21 aprobados como base): los tres bloques hechos (color y luz, piezas que no se leen, órbita); **parada del cierre, pendiente del visto bueno de David** (falta que confirme la opción de órbita: queda puesta la B). Ver «Objetivo 22» abajo.
 **Objetivo 21 — The Twisted Moon, que se parezca a las imágenes de referencia** (`docs/OBJETIVO-21.md`; sustituye al bloque C del objetivo 20): bloques C1 (aprobado), C2 y C3 hechos; **parada del C3, pendiente del visto bueno de David** (informe en «Objetivo 21»). Ver «Objetivo 21».
 **Objetivo 20 — mundo 2, The Twisted Moon** (`docs/OBJETIVO-20.md`): bloques A (viaje entre mundos) y B (muestra de estilo) hechos; **parada del bloque B, pendiente del visto bueno de David**. Los bloques C, D y E no se empiezan hasta entonces. Ver «Objetivo 20».
 **En curso: objetivo 16 — todo lo que falta para cerrar el mundo 1** (nueve bloques, 0–8; cada uno con commit, capturas, informe de tres listas y parada hasta el visto bueno). **Sustituye a los bloques 3–6 del objetivo 15.** Bloques 0 (inventario y sonidos), 1 (pantalla de carga) y 2 (pantalla previa al aterrizaje): **hechos y aprobados** (13-11-2026). **En curso: bloque 3** (errores de juego), a medias: ver su fila y «Bloque 3, lo que queda».
@@ -24,7 +24,8 @@ Capturas: `capturas/27-pulido-mundo2/` (fuera de git). **Las diez de siempre**, 
 |---|---|
 | 1. Color y luz | **Hecho** (16-11-2026). Hojas: `bloque1-antes-despues.jpg`, `bloque1-postal.jpg`; capturas en `b1/` |
 | 2. Piezas que no se leen | **Hecho** (16-11-2026). Hoja: `bloque2-antes-despues.jpg`; capturas en `b2/` |
-| 3. Vista desde la órbita | Pendiente |
+| 3. Vista desde la órbita | **Hecho** (16-11-2026), con la opción B puesta; **David tiene que confirmar la elección**. Hoja con las dos: `bloque3-orbita-opciones.jpg` |
+| Cierre | **Hecho.** Hojas: `final-diez-antes-despues.jpg`, `final-postal-referencias.jpg`, `final-orbita.jpg`; capturas en `final/` |
 
 **Bloque 1, lo que hay** (`worlds/twisted/`: `layout.js`, `ground.js`, `Terrain.jsx`, `Night.jsx`, `Life.jsx`, `Details.jsx`, `Scene.jsx`, `Buildings.jsx`):
 1. **Paleta**: roca de pizarra, morado gris (`ROCK` en `ground.js`: saturación de ~40 % a ~20 %); cielo azul marino con degradado (`skyTop #060b1f` → `skyHorizon #283463`), niebla y fondo a juego; el velo de los edificios, menos morado.
@@ -47,6 +48,21 @@ Batería al cerrar el bloque 1: diecisiete pruebas, 416 comprobaciones, 0 fallos
 7. **Árboles**: el sauce se rehace (copa pequeña y chata, 46 ramas colgantes en dos coronas, claras en la punta, que se mecen); a los de copa ancha les cuelgan tiras de musgo; tintes más claros (lavanda, verde azulado, malva). Los catorce árboles grandes pasan a los bordes de acantilado y al fondo, detrás de las terrazas: ninguno queda delante de la cámara ni junto a un camino.
 
 Batería al cerrar el bloque 2: diecisiete pruebas, 416 comprobaciones, 0 fallos (una, «0 pipelines en caliente al volver», falló a la primera por los materiales de Woody; corregido como se dice arriba).
+
+**Bloque 3, lo que hay** (`layout.js` (`ISLETS`), `models.js` (`createSeaRock`), `Flora.jsx`, `Terrain.jsx`; `luna.mjs` gana la captura `vuelta`: cuatro vistas desde la órbita, a un cuarto de vuelta cada una):
+- El problema: la plataforma (el eje del planeta) está en la punta sur de la isla; la isla llega a 45 m hacia el norte y solo a 11 hacia el sur, así que medio planeta era mar liso y negro.
+- **Opción A — planeta más pequeño** (20 m de radio en vez de 32; se prueba con `?radio=20`, que ya existía): la isla envuelve casi toda la esfera y el mar queda en un casquete. Pero sigue habiendo un lado vacío (el sur), los edificios asoman desmesurados (la torre mide casi un radio) y el radio es hoy uno solo para todos los mundos (`PLANET` en `state.js`): hacerlo propio de este obligaría a tocar la nave, la órbita y la curvatura que comparte con el mundo 1.
+- **Opción B — el mar cubre la esfera** (la que queda puesta): con el mundo cerrado, el mar se aclara y sus facetas contrastan (olas que se leen desde arriba), y lleva 26 rocas e islotes repartidos por toda la esfera, cada uno con su anillo de espuma (calculada en cada píxel). Todo dentro de `worlds/twisted/`; el mundo 1 no se toca. Andando, las rocas quedan mar adentro, lejos (a más de 40 m del eje y a 10 de la costa).
+- Hoja: `capturas/27-pulido-mundo2/bloque3-orbita-opciones.jpg` (fila 1: antes; fila 2: A; fila 3: B).
+
+**Cierre** (16-11-2026). Batería: diecisiete pruebas, 416 comprobaciones, 0 fallos. Rendimiento en las mismas condiciones (2880 × 1620, sin límite de fps, este equipo):
+
+| Mundo | fps |
+|---|---|
+| 2 · The Twisted Moon | llegada 159 · río 170 · terraza 180 · historia 179 · cima 178 (calidad baja, móvil: 169–200) |
+| 1 · The Living World | llegada 89 · proyectos 93 · estanque 87 · meseta 89 · pista 87 |
+
+Pendiente de ojo humano: que el contorno de Woody y el balanceo de los sauces gusten en movimiento, y que la postal, aunque más contenida de color, sigue más oscura y menos frondosa que las referencias (los árboles grandes están ahora en los bordes y al fondo, como se pidió).
 
 ## Objetivo 21 — The Twisted Moon: que se parezca a las imágenes de referencia
 

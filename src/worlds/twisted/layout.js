@@ -172,6 +172,25 @@ export function cragEdge(x, z) {
  return best;
 }
 
+// Islotes y rocas del mar abierto (objetivo 22): la isla solo ocupa la mitad
+// norte del planeta en que se cierra el mundo; el resto es mar. Para que desde
+// la órbita no sea media bola vacía, el mar lleva rocas e islotes repartidos
+// por toda la esfera —menos tupidos cerca de la isla—, cada uno con su espuma.
+// No se pisan (no hay cómo llegar). [x, z, radio del pie, altura de la punta, giro]
+export const ISLETS = (() => {
+ const random = createRandom(20261161);
+ const spots = [];
+ // (Hasta 96 m del eje: a 100 m está el antípoda, donde todo se recoge en un punto.)
+ for (let tries = 0; spots.length < 26 && tries < 4000; tries++) {
+  const angle = random() * TAU, away = 40 + Math.sqrt(random()) * 56;
+  const x = Math.cos(angle) * away, z = Math.sin(angle) * away;
+  const big = random() < 0.3, r = big ? 3.4 + random() * 2.4 : 1.4 + random() * 1.6;
+  if (islandEdge(x, z) > -(10 + r) || spots.some(([sx, sz, sr]) => Math.hypot(x - sx, z - sz) < sr + r + 9)) continue;
+  spots.push([x, z, r, big ? 3.2 + random() * 3.6 : 1.4 + random() * 2.6, random() * TAU]);
+ }
+ return spots;
+})();
+
 // Altura del terreno, sin puentes.
 export function ground(x, z) {
  return Math.max(island(x, z), cragHeight(x, z));
