@@ -100,10 +100,39 @@ export function Quest() {
   return () => events.removeEventListener("close", onClose);
  }, []);
 
- const open = (id) => {
+ // Usar una parada: primero se ve lo que pasa en ella (las notas que se ordenan,
+ // el farolillo que se enciende, lo que hay al otro lado del telescopio) y luego
+ // se abre su panel. Mientras, sin controles.
+ const showing = useRef(null);
+ const present = (id, spot, card) => {
   pending.current = id;
-  emit("open", { kind: "stop", stop: id, ...cardOf(STOPS[id], QUEST_STOPS[id]) });
+  emit("stop-use", { id, show: spot.show ?? 0 });
+  if (!spot.show) return emit("open", card);
+  ui.open += 1;
+  if (id !== "observatorio") {
+   rig.focus = { x: card.at.x, y: card.at.y, z: card.at.z };
+   rig.distance = card.at.distance;
+  }
+  showing.current = window.setTimeout(() => {
+   showing.current = null;
+   ui.open -= 1;
+   rig.focus = null;
+   rig.distance = 1;
+   emit("open", card);
+  }, spot.show);
+  return undefined;
  };
+ useEffect(
+  () => () => {
+   if (showing.current === null) return;
+   window.clearTimeout(showing.current);
+   ui.open -= 1;
+   rig.focus = null;
+   rig.distance = 1;
+  },
+  [],
+ );
+ const open = (id) => present(id, QUEST_STOPS[id], { kind: "stop", stop: id, ...cardOf(STOPS[id], QUEST_STOPS[id]) });
 
  // ── La puerta de la torre ──
  const timeline = () => {
@@ -170,8 +199,7 @@ export function Quest() {
   hint: FUTURE.hint,
   enabled: () => !ui.open && clockwork.startedAt === null,
   action: () => {
-   pending.current = "observatorio";
-   emit("open", { kind: "stop", stop: "observatorio", ...cardOf(FUTURE, TELESCOPE), soon: FUTURE.soon, soonNote: FUTURE.soonNote });
+   present("observatorio", TELESCOPE, { kind: "stop", stop: "observatorio", ...cardOf(FUTURE, TELESCOPE), soon: FUTURE.soon, soonNote: FUTURE.soonNote });
   },
  });
 

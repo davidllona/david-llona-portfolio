@@ -6,6 +6,7 @@
 // se guarda en la visita. Abre directamente en ese mundo (?world=twisted, solo en desarrollo).
 //   node tests/e2e/twisted-quest.mjs
 import { open, check, wait } from "./common.mjs";
+import { aboutText } from "../../src/content/about.js";
 import { CLOCK, CURRENT_COMPANY, FUTURE, STOPS, STOP_ORDER, TIMELINE } from "../../src/content/twisted.js";
 import { QUEST_STOPS, TELESCOPE, TOWER_DOOR } from "../../src/worlds/twisted/layout.js";
 
@@ -57,6 +58,17 @@ check(Math.abs((await clock()).minuteAngle - state.minuteAngle) < 1e-6, "y no se
 check((await counter()) === `${CLOCK.counter} 0/4`, `el contador, junto a los logros: «${await counter()}»`);
 check((await gearsSeen()) === 4, `hay cuatro engranajes a la vista, uno ante cada parada (${await gearsSeen()})`);
 
+// Lo que hay en las paradas (bloque D2): cada una, su detalle.
+const props = await t.evaluate(() => {
+ const names = {};
+ window.__world.scene.traverse((node) => node.name && (names[node.name] = (names[node.name] ?? 0) + 1));
+ return { names, stops: window.__world.stops };
+});
+const expected = ["tablón de notas", "notas del tablón", "mesa de bocetos", "estantería", "consola", "pantalla encendida", "cama de Woody", "hueco de Woody", "retrato de Woody", "mapa con chinchetas", "maleta", "farolillo de papel"];
+check(expected.every((name) => props.names[name] === 1), `cada parada tiene su detalle: ${expected.filter((name) => props.names[name] === 1).join(", ")}`);
+check(props.stops.notes === 0 && props.stops.lantern < 0.01 && props.stops.scope < 0.01, "al llegar las notas están revueltas, el farolillo de papel apagado y el telescopio sin usar");
+check(props.stops.photo ? props.names["foto de Woody"] === 1 : props.names["silueta de Woody"] === 1, props.stops.photo ? "el marco lleva la foto de Woody (public/img/woody.jpg)" : "no hay public/img/woody.jpg: el marco lleva una silueta (y no se pide el archivo)");
+
 // Sin engranajes, la puerta de la torre no arranca nada.
 await t.put(TOWER_DOOR.x, TOWER_DOOR.z + 0.4, { settle: 1200 });
 check((await t.hint()) === CLOCK.doorMissing(0, 4), `la puerta de la torre avisa: «${await t.hint()}»`);
@@ -81,6 +93,15 @@ for (const id of STOP_ORDER) {
  const now = await t.evaluate((id) => ({ count: window.__world.quest.count(), has: window.__world.quest.has(id) }), id);
  check(before === have - 1 && now.count === have && now.has, `al cerrar el panel se gana su engranaje (${now.count}/4)`);
  check((await t.toasts()).includes(CLOCK.gear(have, 4)) && (await counter()) === `${CLOCK.counter} ${have}/4`, `aviso «${CLOCK.gear(have, 4)}» y contador «${await counter()}»`);
+ if (id === "alquimista") check((await t.evaluate(() => window.__world.stops.notes)) > 0.99, "al usarla, las notas del tablón han volado y están ordenadas en columnas");
+ if (id === "invernadero") check((await t.evaluate(() => window.__world.stops.lantern)) > 0.9, "al usarla, el farolillo de papel se ha encendido");
+ if (id === "casita") {
+  // Woody se va a su hueco, junto a la cama, y se tumba.
+  await wait(7500);
+  const dog = await t.woody();
+  const hollow = await t.evaluate(() => window.__world.woody.post);
+  check(dog.posture === "lie" && hollow && Math.hypot(dog.x - hollow.x, dog.z - hollow.z) < 0.9, `junto a la casita Woody se tumba en su hueco del suelo, no en la cama (postura: ${dog.posture})`);
+ }
 }
 await wait(900);
 check((await gearsSeen()) === 0, `los engranajes recogidos ya no flotan ante las paradas (${await gearsSeen()})`);
@@ -126,11 +147,26 @@ check((await t.evaluate(() => JSON.parse(window.sessionStorage.getItem("luna-rel
 await t.put(TELESCOPE.x, TELESCOPE.z, { settle: 1400 });
 const lastHint = await t.hint();
 await t.page.keyboard.press("KeyE");
+await wait(1300);
+check((await t.evaluate(() => window.__world.stops.scope)) > 0.8 && !(await modal()), "con la E se mira por el telescopio un instante (The Cosmic Lab, en un círculo) antes de abrirse el panel");
 await t.page.waitForSelector(".modal__card", { timeout: 9000 }).catch(() => {});
 card = await modal();
 check(lastHint === FUTURE.hint && card?.title === FUTURE.title && card.text.join("|") === FUTURE.paragraphs.join("|"), `observatorio: «${card?.title}» con su texto`);
 check(card?.soon?.disabled && card.soon.text === `${FUTURE.soon} ${FUTURE.soonNote}`, `el botón del final está apagado: «${card?.soon?.text}»`);
 await close();
+
+// El panel «Sobre mí» del menú reúne todos los textos, sin pasear.
+await t.evaluate(() => [...document.querySelectorAll(".quick button")].find((one) => one.textContent.trim() === "Sobre mí").click());
+await wait(600);
+const about = await t.evaluate(() => {
+ const sheet = document.querySelector(".sheet .about");
+ return sheet ? { titles: [...sheet.querySelectorAll(".about__title")].map((one) => one.textContent), text: sheet.textContent, walk: Boolean(sheet.querySelector(".about__walk button")) } : null;
+});
+const all = [...aboutText.paragraphs, ...STOP_ORDER.flatMap((id) => STOPS[id].paragraphs), ...TIMELINE.milestones.flat(), ...FUTURE.paragraphs];
+check(about && all.every((line) => about.text.includes(line)) && about.walk, `el botón «Sobre mí» abre un panel con todo: ${about?.titles.join(" · ")} (${all.length} textos, tal cual)`);
+check((await t.woody()).mode !== "guide", "y leerlo no pone a Woody a guiar");
+await t.page.keyboard.press("Escape");
+await wait(500);
 
 const hot = await t.evaluate(() => [...new Set(window.__hot)]);
 check(hot.length === 0, `0 pipelines en caliente en todo el juego${hot.length ? ": " + hot.join(", ") : ""}`);

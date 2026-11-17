@@ -21,5 +21,7 @@ export const TRAVEL_OFFER = {
   title: "«Sobre mí» es ahora otro mundo",
   paragraphs: ["Quién soy se cuenta paseando por The Twisted Moon: cinco paradas en una luna torcida donde siempre es de noche.", "Sube al cohete: te lleva hasta allí."],
   action: "Viajar a The Twisted Moon",
+  // Y para quien no quiera viajar: todo el texto, aquí mismo.
+  about: "Leerlo aquí",
  },
 };

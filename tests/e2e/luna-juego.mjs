@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import { open, wait } from "./common.mjs";
 import { STOP_ORDER } from "../../src/content/twisted.js";
-import { QUEST_STOPS, TELESCOPE, TOWER_DOOR } from "../../src/worlds/twisted/layout.js";
+import { QUEST_STOPS, STOP_PROPS, TELESCOPE, TOWER_DOOR } from "../../src/worlds/twisted/layout.js";
 
 const folder = (process.argv[2] ?? "capturas/28-mundo2-contenido") + "/";
 const mobile = process.argv.includes("móvil") || process.argv.includes("movil");
@@ -25,6 +25,15 @@ await t.put(TOWER_DOOR.x + 0.6, TOWER_DOOR.z + 1.6, { settle: 600 });
 await t.evaluate((x, z) => Object.assign(window.__world.rig, { focus: { x, y: window.__world.player.position.y + 8.2, z }, distance: 1.7, lift: 0.5 }), TOWER_DOOR.focus[0], TOWER_DOOR.focus[2]);
 await wait(1800);
 await shot("02-torre-reloj-parado");
+await t.evaluate(() => Object.assign(window.__world.rig, { focus: null, distance: 1, lift: 1 }));
+
+// De cerca: lo que hay en cada parada.
+for (const [name, prop, stop] of [["tablon", STOP_PROPS.board, "alquimista"], ["mesa", STOP_PROPS.table, "alquimista"], ["estanteria", STOP_PROPS.shelf, "casa-arbol"], ["cama", STOP_PROPS.bed, "casita"], ["mapa", STOP_PROPS.map, "invernadero"]]) {
+ await t.put(QUEST_STOPS[stop].x, QUEST_STOPS[stop].z, { settle: 500 });
+ await t.evaluate((x, z) => Object.assign(window.__world.rig, { focus: { x, y: window.__world.world().height(x, z) + 0.9, z }, distance: 0.42, lift: 0.7 }), prop.x, prop.z);
+ await wait(1800);
+ await shot(`00-detalle-${name}`);
+}
 await t.evaluate(() => Object.assign(window.__world.rig, { focus: null, distance: 1, lift: 1 }));
 
 // Las paradas: el engranaje ante la puerta y, luego, su panel.

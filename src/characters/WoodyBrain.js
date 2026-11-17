@@ -413,7 +413,8 @@ export function updateBrain(brain, dt, { world, player, woody, busy, attend = fa
 
  // Descanso: quietos los dos un rato → se sienta; más rato → se tumba.
  const playerStill = Math.hypot(player.velocity.x, player.velocity.z) < 0.3;
- if (!brain.moving && playerStill && brain.mode === "follow" && !busy) brain.rest += dt;
+ // (En un sitio donde se le pide tumbarse —su hueco, junto a la casita de The Twisted Moon— no espera a que te pares, y tarda poco.)
+ if (!brain.moving && (playerStill || woody.post?.lie) && brain.mode === "follow" && !busy) brain.rest += dt * (woody.post?.lie ? 3 : 1);
  else if (brain.moving) brain.rest = 0;
  brain.wantsSit = brain.posture === "stand" && brain.rest > SIT_AFTER;
  brain.wantsLie = brain.posture === "sit" && brain.rest > LIE_AFTER;

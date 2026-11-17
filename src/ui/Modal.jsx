@@ -104,6 +104,19 @@ export function Modal() {
       {content.action ?? "Viajar"} <span aria-hidden="true">→</span>
      </button>
     )}
+    {/* «Sobre mí» sin viajar: abre el panel con todos los textos. */}
+    {content.about && (
+     <button
+      type="button"
+      className="modal__link modal__about"
+      onClick={() => {
+       setContent(null);
+       emit("about");
+      }}
+     >
+      {content.about}
+     </button>
+    )}
     {/* Un destino que aún no existe: el botón se enseña, apagado. */}
     {content.soon && (
      <button type="button" className="modal__link modal__soon" disabled>

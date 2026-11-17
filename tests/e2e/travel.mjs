@@ -102,10 +102,13 @@ check(after.z - before.z > 1.5, `se puede andar (${before.z} → ${after.z})`);
 await t.page.keyboard.press("KeyN");
 await wait(600);
 check((await state()).moment === "night", "la tecla N no cambia la noche");
-// «Sobre mí», aquí, es un sitio: Woody guía hasta la casa torcida.
+// «Sobre mí», aquí, abre el panel con todos los textos; su botón pone a Woody a guiar hasta la casa sobre tronco.
 await t.evaluate(() => [...document.querySelectorAll(".quick button")].find((b) => b.textContent === "Sobre mí").click());
 await wait(700);
-check((await t.woody()).mode === "guide", "en The Twisted Moon, «Sobre mí» es un sitio: Woody guía hasta la casa torcida");
+const aboutOpen = await t.evaluate(() => Boolean(document.querySelector(".sheet .about")));
+await t.evaluate(() => document.querySelector(".about__walk button")?.click());
+await wait(700);
+check(aboutOpen && (await t.woody()).mode === "guide", "en The Twisted Moon, «Sobre mí» abre el panel con todo y, desde él, Woody guía hasta la casa sobre tronco");
 await t.evaluate(() => window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyG" })));
 await wait(200);
 // «Proyectos», desde aquí, ofrece volver.

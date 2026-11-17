@@ -176,7 +176,7 @@ export function Woody({ active }) {
     brain.rest = 0;
     controller.play(from === "lie" ? "Woody_WakeUp" : "Woody_StandUp", { loop: false, fade: 0.2, speed: from === "lie" ? 1.9 : 1.5 });
    } else if (brain.posture === "sit") {
-    if (brain.wantsLie && !world.woodyStaysUp) {
+    if (brain.wantsLie && (!world.woodyStaysUp || woody.post?.lie)) {
      brain.posture = "lie";
      controller.play("Woody_LieDown", { loop: false, fade: 0.25 });
     } else controller.play("Woody_SitIdle", { fade: 0.25 });

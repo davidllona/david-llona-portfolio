@@ -162,7 +162,11 @@ check(Math.hypot(at.x - house.x, at.z - house.z) > 1.6, `andando contra la casa 
 await t.put(0, 7.5, { settle: 900 });
 await t.evaluate(() => [...document.querySelectorAll(".quick button")].find((b) => b.textContent === "Sobre mí").click());
 await wait(500);
-check((await t.woody()).mode === "guide", "«Sobre mí» en el menú: Woody echa a andar hacia la casa sobre tronco");
+// («Sobre mí» abre ahora el panel con todos los textos —lo comprueba twisted-quest.mjs—; el paseo sale de su botón.)
+check((await t.woody()).mode !== "guide" && (await t.evaluate(() => Boolean(document.querySelector(".sheet .about")))), "«Sobre mí» en el menú abre el panel con todos los textos, sin mover a Woody");
+await t.evaluate(() => document.querySelector(".about__walk button").click());
+await wait(500);
+check((await t.woody()).mode === "guide", "y su botón «Recorrerlo con Woody»: Woody echa a andar hacia la casa sobre tronco");
 const arrived = await t.followWoody({ steps: 420 });
 // (Woody llega antes y deja de guiar: el astronauta termina de subir tras él.)
 // (Por el camino, punto a punto: del invernadero a la escalera del este y por ella arriba.)

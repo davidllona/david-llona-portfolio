@@ -1817,3 +1817,69 @@
  letter-spacing: 0.04em;
  text-transform: uppercase;
 }
+
+/* ── The Twisted Moon: «Sobre mí» entero y la vista por el telescopio ───── */
+
+.about {
+ display: grid;
+ gap: 18px;
+}
+
+.about__part {
+ display: grid;
+ gap: 6px;
+ padding-bottom: 16px;
+ border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.about__part:last-of-type {
+ border-bottom: 0;
+}
+
+.about__title {
+ margin: 0 0 2px;
+ font-size: 20px;
+ line-height: 1.15;
+}
+
+.about__walk {
+ margin: 0;
+}
+
+.modal__about {
+ margin-left: 8px;
+ background: transparent;
+ border: 1px solid rgba(255, 255, 255, 0.3);
+ color: inherit;
+}
+
+/* Lo que se ve por el telescopio: todo negro salvo un círculo en el centro. */
+.scope {
+ position: fixed;
+ inset: 0;
+ z-index: 6;
+ pointer-events: none;
+ opacity: 0;
+ background: radial-gradient(circle at 50% 50%, transparent 0, transparent 33.4vh, #caa24a 33.6vh, #7a5a22 34.6vh, #04040a 34.9vh);
+}
+
+.scope::before,
+.scope::after {
+ content: "";
+ position: absolute;
+ top: 50%;
+ left: 50%;
+ background: rgba(227, 189, 98, 0.35);
+}
+
+.scope::before {
+ width: 67vh;
+ height: 1px;
+ transform: translate(-50%, -50%);
+}
+
+.scope::after {
+ width: 1px;
+ height: 67vh;
+ transform: translate(-50%, -50%);
+}

@@ -282,19 +282,37 @@ const front = (site, away) => ({ x: site.x + Math.sin(site.turn) * away, z: site
 export const STORY_DOOR = front(BUILDINGS["casa-tronco"], 3.5);
 export const HOUSE_DOOR = front(HOUSE, (HOUSE.depth / 2) * HOUSE.scale + 1.3);
 
+// Lo que hay en cada parada (ver StopsScene.jsx y stops.js): dónde va cada objeto y hacia dónde mira.
+// `solid`: su radio para chocar (el tablón, que es largo, choca como un tramo).
+export const STOP_PROPS = {
+ board: { x: -14.2, z: -14.6, turn: -0.3, long: 1.0 },
+ table: { x: -13.4, z: -16.2, turn: 0.25, solid: 0.75 },
+ shelf: { x: 15.2, z: -29.4, turn: -0.2, solid: 0.75 },
+ console: { x: 13.8, z: -29.2, turn: 0.3, solid: 0.6 },
+ bed: { x: -11.7, z: -8.5, turn: 0.3, solid: 0.55 },
+ hollow: { x: -12.6, z: -7.4 },
+ portrait: { x: -10.7, z: -8.9, turn: -0.35, solid: 0.35 },
+ map: { x: 10.2, z: -0.6, turn: 0.4, solid: 0.8 },
+ suitcase: { x: 11.3, z: 0.6, turn: -0.3, solid: 0.55 },
+ paperLantern: { x: 10.2, z: -2.2, turn: 0.7, solid: 0.12 },
+};
+// Lo menudo (helechos, setas, flores…) no nace encima de esos objetos.
+const clearOfProps = (one) => !Object.values(STOP_PROPS).some((prop) => Math.hypot(one.x - prop.x, one.z - prop.z) < 1.15);
+
 // Las paradas del juego del reloj (objetivo 23; ver ClockQuest.jsx). De cada una:
 // dónde se pulsa la E (`x`, `z`: en el camino, ante su puerta), dónde flota su
 // engranaje (`gear`), a qué mira la cámara al abrir su panel (`focus`: x,
-// altura sobre el suelo, z) y a qué nudo de la red de Woody corresponde (`node`).
+// altura sobre el suelo, z), a qué nudo de la red de Woody corresponde (`node`)
+// y cuánto se espera, viendo lo que pasa al usarla, antes de abrir el panel (`show`, ms).
 export const QUEST_STOPS = {
- alquimista: { x: HOUSE_DOOR.x + 0.5, z: HOUSE_DOOR.z + 0.1, gear: [HOUSE_DOOR.x - 0.5, HOUSE_DOOR.z + 0.9], focus: [HOUSE.x + 1, 2.4, HOUSE.z + 1], node: "luna-alquimista" },
- "casa-arbol": { x: 14.3, z: -26.2, gear: [15.5, -25.2], focus: [BUILDINGS["casa-arbol"].x, 3.4, BUILDINGS["casa-arbol"].z], node: "luna-casa-arbol", distance: 1.0 },
- casita: { x: -13.6, z: -9.3, gear: [-13.2, -7.6], focus: [BUILDINGS.casita.x + 1, 1.8, BUILDINGS.casita.z + 1], node: "luna-casita" },
- invernadero: { x: 11.8, z: -3.7, gear: [11.4, -1.9], focus: [GREENHOUSE.x, 1.5, GREENHOUSE.z], node: "luna-invernadero" },
+ alquimista: { x: HOUSE_DOOR.x + 0.5, z: HOUSE_DOOR.z + 0.1, gear: [HOUSE_DOOR.x - 0.5, HOUSE_DOOR.z + 0.9], focus: [STOP_PROPS.board.x, 1.6, STOP_PROPS.board.z], node: "luna-alquimista", distance: 0.6, show: 1700 },
+ "casa-arbol": { x: 14.3, z: -26.2, gear: [13.4, -25.1], focus: [14.6, 1.1, -29.2], node: "luna-casa-arbol", distance: 0.55 },
+ casita: { x: -13.6, z: -9.3, gear: [-14.6, -10.4], focus: [-11.9, 0.7, -8.2], node: "luna-casita", distance: 0.55 },
+ invernadero: { x: 11.8, z: -3.7, gear: [12.6, -5.4], focus: [10.6, 0.9, -0.8], node: "luna-invernadero", distance: 0.62, show: 1100 },
 };
 // La puerta de la torre (donde se arranca el reloj) y el pie del telescopio (el final).
 export const TOWER_DOOR = { x: 0.3, z: -33.3, focus: [BUILDINGS.torre.x, 5.4, BUILDINGS.torre.z] };
-export const TELESCOPE = { x: -15.2, z: -25.0, focus: [BUILDINGS.observatorio.x, 3.2, BUILDINGS.observatorio.z], distance: 0.9 };
+export const TELESCOPE = { x: -15.2, z: -25.0, focus: [BUILDINGS.observatorio.x, 3.2, BUILDINGS.observatorio.z], distance: 0.9, show: 2300 };
 
 // Miradores: sitios donde la cámara se inclina hacia el horizonte y entran en
 // cuadro la luna y el cielo. `r`: radio en que hace efecto del todo (y se va
@@ -501,10 +519,10 @@ export const FERNS = [
   return { x: PAD.x + Math.cos(angle) * r, z: PAD.z + Math.sin(angle) * r, scale: 0.85 + (i % 4) * 0.12, turn: angle * 3, tint: i % 5 === 2 ? "#a24a6c" : "#4fa092" };
  }).filter((one) => open(one.x, one.z, 0.3)),
  ...clusters(20261131, 18, 4, 2.6, 0.35, (random) => ({ tint: random() < 0.22 ? "#a24a6c" : random() < 0.5 ? "#4fa092" : "#3f8a7e" })),
-];
-export const MUSHROOMS = clusters(20261132, 34, 5, 1.4, 0.25, (random) => ({ scale: 0.5 + random() * 0.9, tint: random() < 0.5 ? "#18c8ff" : "#9a4dff" }));
-export const FLOWERS = clusters(20261133, 46, 6, 1.8, 0.2, (random) => ({ scale: 0.7 + random() * 0.6, tint: VIOLETS[Math.floor(random() * VIOLETS.length)] }));
-export const VINES = clusters(20261134, 26, 3, 1.2, 0.3, (random) => ({ scale: 0.7 + random() * 0.8, tint: random() < 0.5 ? "#3b7c74" : "#5a4f8f" }));
+].filter(clearOfProps);
+export const MUSHROOMS = clusters(20261132, 34, 5, 1.4, 0.25, (random) => ({ scale: 0.5 + random() * 0.9, tint: random() < 0.5 ? "#18c8ff" : "#9a4dff" })).filter(clearOfProps);
+export const FLOWERS = clusters(20261133, 46, 6, 1.8, 0.2, (random) => ({ scale: 0.7 + random() * 0.6, tint: VIOLETS[Math.floor(random() * VIOLETS.length)] })).filter(clearOfProps);
+export const VINES = clusters(20261134, 26, 3, 1.2, 0.3, (random) => ({ scale: 0.7 + random() * 0.8, tint: random() < 0.5 ? "#3b7c74" : "#5a4f8f" })).filter(clearOfProps);
 // Calabazas sonrientes: pocas, junto a las puertas y los caminos.
 export const PUMPKINS = [
  [STORY_DOOR.x + 1.3, STORY_DOOR.z + 0.4],
@@ -561,7 +579,7 @@ export const TUFTS = (() => {
    if (open(x, z, 0.25)) tufts.push({ x, z, scale: 0.7 + random() * 0.9, turn: random() * TAU });
   }
  }
- return tufts;
+ return tufts.filter(clearOfProps);
 })();
 
 // Luciérnagas: corros que rondan por toda la isla, a poca altura (cada una se
@@ -611,6 +629,8 @@ export const colliders = [
    return { x: bridge.from[0] + ox + bridge.ux * inset, z: bridge.from[1] + oz + bridge.uz * inset, bx: bridge.to[0] + ox - bridge.ux * inset, bz: bridge.to[1] + oz - bridge.uz * inset, r: 0.1 };
   }),
  ),
+ // Lo que hay en las paradas (objetivo 23).
+ ...Object.values(STOP_PROPS).flatMap((prop) => (prop.long ? [{ x: prop.x - Math.cos(prop.turn) * prop.long, z: prop.z + Math.sin(prop.turn) * prop.long, bx: prop.x + Math.cos(prop.turn) * prop.long, bz: prop.z - Math.sin(prop.turn) * prop.long, r: 0.16 }] : prop.solid ? [{ x: prop.x, z: prop.z, r: prop.solid }] : [])),
  shipCollider,
 ];
 

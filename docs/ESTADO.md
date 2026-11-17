@@ -3,7 +3,7 @@
 Actualizado: 16 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
-**En curso: objetivo 23 — The Twisted Moon: contenido («arranca el reloj y conóceme»)** (`docs/OBJETIVO-23.md`; sustituye al bloque D del objetivo 20): bloque D1 (mecánica) hecho; siguen D2 (las paradas) y D3 (cierre). Ver «Objetivo 23» abajo.
+**En curso: objetivo 23 — The Twisted Moon: contenido («arranca el reloj y conóceme»)** (`docs/OBJETIVO-23.md`; sustituye al bloque D del objetivo 20): bloques D1 (mecánica) y D2 (las paradas) hechos; **parado tras el D2 por indicación de David: el D3 (cierre) no se ha empezado.** Ver «Objetivo 23» abajo.
 **Objetivo 22 — pulido visual de The Twisted Moon** (`docs/OBJETIVO-22.md`; C2 y C3 del objetivo 21 aprobados como base): los tres bloques hechos (color y luz, piezas que no se leen, órbita); órbita: David eligió la opción B. **Retoque de luz hecho (16-11-2026); parada, pendiente de su visto bueno.** Ver «Objetivo 22» abajo.
 **Objetivo 21 — The Twisted Moon, que se parezca a las imágenes de referencia** (`docs/OBJETIVO-21.md`; sustituye al bloque C del objetivo 20): bloques C1 (aprobado), C2 y C3 hechos; **parada del C3, pendiente del visto bueno de David** (informe en «Objetivo 21»). Ver «Objetivo 21».
 **Objetivo 20 — mundo 2, The Twisted Moon** (`docs/OBJETIVO-20.md`): bloques A (viaje entre mundos) y B (muestra de estilo) hechos; **parada del bloque B, pendiente del visto bueno de David**. Los bloques C, D y E no se empiezan hasta entonces. Ver «Objetivo 20».
@@ -24,8 +24,8 @@ Antes de empezar, el retoque pendiente: borde frío de la roca clara del primer 
 | Bloque | Estado |
 |---|---|
 | D1. Mecánica | **Hecho** (16-11-2026) |
-| D2. Las paradas | Pendiente |
-| D3. Cierre | Pendiente |
+| D2. Las paradas | **Hecho** (17-11-2026). Capturas: `capturas/28-mundo2-contenido/d2/` |
+| D3. Cierre | Pendiente: **no empezar hasta que David lo diga** |
 
 **Bloque D1, lo que hay:**
 - **Estado del juego**: `src/game/moonQuest.js` (fuera de la carpeta del mundo 2 para que el menú lo lea sin descargar ese mundo): engranajes que se tienen, reloj parado o en marcha. Se guarda en la visita (`sessionStorage`, clave `luna-reloj`): al volver del mundo 1 o recargar la pestaña sigue igual; si el almacenamiento falla, vive en memoria. Avisa con el evento `quest`.
@@ -36,6 +36,17 @@ Antes de empezar, el retoque pendiente: borde frío de la roca clara del primer 
 - **Logros**: de 22 a 24: «Cuatro engranajes» (uno por parada, con progreso) y «Relojero» (arrancar el reloj). Un logro por parada no encajaba (serían cuatro insignias casi iguales): va como uno con progreso de 4.
 - **Prueba nueva**: `tests/e2e/twisted-quest.mjs` (40 comprobaciones): reloj parado, las cuatro paradas con su texto tal cual, engranajes, secuencia, campanadas, línea de tiempo, logros, guardado en la visita, almacenamiento roto y 0 pipelines en caliente. `npm run e2e` pasa a dieciocho pruebas. Capturas del juego: `node tests/e2e/luna-juego.mjs`.
 - Batería al cerrar D1: dieciocho pruebas, 456 comprobaciones, 0 fallos.
+
+**Bloque D2, lo que hay** (`worlds/twisted/stops.js` (modelos), `StopsScene.jsx` (escena), `ClockQuest.jsx`, `layout.js` (`STOP_PROPS`); `ui/AboutPanel.jsx`, `QuickMenu.jsx`, `Modal.jsx`):
+- **Casa del alquimista**: mesa con tres bocetos de web y un tablón con doce notas revueltas; con la E, vuelan y se ordenan en tres columnas (1,7 s viéndolo, luego el panel).
+- **Casa del árbol**: estantería con un sombrero vaquero, una maceta con una hierba verde y una capucha blanca colgada (sin logos ni nombres), y una consola con televisor de tubo y la pantalla encendida.
+- **Casita de cuento**: la cama de Woody, sin estrenar; el hueco del suelo, donde Woody va y se tumba cuando llegas (aquí sí se tumba: `woody.post.lie`); y su retrato en un caballete. **`public/img/woody.jpg` no existe: el marco lleva una silueta.** Lo decide Vite al arrancar o construir (`__WOODY_PHOTO__` en `vite.config.js`): con la foto puesta, sale sola, y sin ella no se pide ningún archivo.
+- **Invernadero**: un mapa desplegado con chinchetas (sin nombres ni fronteras; la del este, la mayor), una maleta a medio hacer y un farolillo de papel apagado que se enciende con la E y se queda encendido.
+- **Observatorio**: con la E se mira por el telescopio 2,3 s (un círculo con The Cosmic Lab y estrellas) y luego se abre «Lo que viene». El telescopio del modelo no se ha reorientado.
+- **«Sobre mí» del menú**: en The Twisted Moon abre un panel con todos los textos (historia, las cuatro paradas, el recorrido y lo que viene) y un botón «Recorrerlo con Woody». Desde el mundo 1, la ficha del viaje gana un segundo botón, «Leerlo aquí», que abre el mismo panel (es lo único que cambia allí).
+- Los objetos chocan (`colliders`) y lo menudo (helechos, setas, flores…) no nace encima.
+- **Ojo en Windows**: dos archivos que solo se distinguen por mayúsculas rompen el arranque (`./Stops` se resolvía a `stops.js`; antes pasó con `./Quest` y `quest.js`). Los componentes se llaman ahora `StopsScene.jsx` y `ClockQuest.jsx`; no queda ningún otro par así en `src/`.
+- Pruebas: `twisted-quest.mjs` sube a 49 comprobaciones (detalle de cada parada, notas, farolillo, Woody tumbado en su hueco, telescopio, panel «Sobre mí»); `twisted.mjs` y `travel.mjs` se adaptan a que «Sobre mí» abre el panel y el guiado sale de su botón. Batería al cerrar D2: dieciocho pruebas, 466 comprobaciones, 0 fallos (`football` falló una vez en «Al palo» y repetida pasó: no toca nada de esto). `npm run build` pasa.
 
 ## Objetivo 22 — Pulido visual de The Twisted Moon
 
