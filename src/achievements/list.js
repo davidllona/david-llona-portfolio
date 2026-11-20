@@ -22,7 +22,7 @@ export const ACHIEVEMENTS = [
  { id: "entre-libros", name: "Entre libros", description: "Descubre el pasadizo de la biblioteca.", group: "Secretos" },
  { id: "melomano", name: "Melómano", description: "Pon un disco en el tocadiscos.", group: "Secretos" },
  { id: "amante-del-arte", name: "Amante del arte", description: "Visita la galería de The Twisted Moon.", group: "Secretos" },
- { id: "mente-inquieta", name: "Mente inquieta", description: "Activa un experimento en The Cosmic Lab.", group: "Secretos" },
+ { id: "mente-inquieta", name: "Mente inquieta", description: "Activa un experimento en The Cosmic Lab.", group: "Secretos", ready: true },
  { id: "medianoche-magica", name: "Medianoche mágica", description: "Presencia el evento de la torre del reloj.", group: "Eventos" },
  { id: "energia-cosmica", name: "Energía cósmica", description: "Activa el núcleo de The Cosmic Lab.", group: "Eventos" },
  { id: "mitologo", name: "Mitólogo", description: "Resuelve el puzle de las constelaciones.", group: "Eventos" },

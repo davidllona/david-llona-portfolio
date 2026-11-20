@@ -14,7 +14,7 @@ import { GEARS, quest } from "../../game/moonQuest";
 // El juego del reloj, en la escena: los cuatro engranajes que flotan ante su
 // parada, el aviso «E» de cada una (abre su panel; al cerrarlo, se gana el
 // engranaje), la puerta de la torre (arranca el reloj cuando se tienen los
-// cuatro y, después, abre «Mi recorrido») y el observatorio («Lo que viene»).
+// cuatro y, después, abre «Mi recorrido») y el observatorio («Lo que viene», con el botón que lleva a The Cosmic Lab).
 // Woody va delante: al llegar explica qué pasa y, tras cada engranaje, echa a
 // andar hacia la parada siguiente. Los textos, en content/twisted.js.
 
@@ -199,7 +199,7 @@ export function Quest() {
   hint: FUTURE.hint,
   enabled: () => !ui.open && clockwork.startedAt === null,
   action: () => {
-   present("observatorio", TELESCOPE, { kind: "stop", stop: "observatorio", ...cardOf(FUTURE, TELESCOPE), soon: FUTURE.soon, soonNote: FUTURE.soonNote });
+   present("observatorio", TELESCOPE, { kind: "stop", stop: "observatorio", ...cardOf(FUTURE, TELESCOPE), voyage: FUTURE.goTo, action: FUTURE.go });
   },
  });
 

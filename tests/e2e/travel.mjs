@@ -1,5 +1,5 @@
 // Viaje entre mundos: desde la órbita de The Living World se elige The Twisted
-// Moon (The Cosmic Lab sigue cerrado), la nave viaja, aterriza en el mundo 2
+// Moon (The Cosmic Lab tiene su prueba: cosmic.mjs), la nave viaja, aterriza en el mundo 2
 // —que se descarga y se compila solo entonces, sin nada en caliente al
 // destaparse— y vuelve. El botón «Sobre mí» del menú ofrece el viaje.
 //   node tests/e2e/travel.mjs [capturas]
@@ -51,7 +51,7 @@ await t.evaluate(() => document.querySelector(".modal__voyage").click());
 check(await until((s) => s.phase === "igniting" || s.phase === "ascending", 4000), "al aceptarlo, la nave despega sola");
 check(await until((s) => s.phase === "orbit" || s.voyage !== "idle", 16000), "llega a la órbita");
 const sky = await t.evaluate(() => ({ names: window.__world.space.names, open: window.__world.space.open }));
-check(sky.open.join() === "twisted" && sky.names.length === 2, `desde la órbita, The Twisted Moon se puede elegir y The Cosmic Lab sigue cerrado (abiertos: ${sky.open.join(", ")}; a la vista: ${sky.names.join(", ")})`);
+check(sky.open.join() === "twisted,cosmic" && sky.names.length === 2, `desde la órbita se pueden elegir The Twisted Moon y The Cosmic Lab (abiertos: ${sky.open.join(", ")}; a la vista: ${sky.names.join(", ")})`);
 if (shots) {
  await wait(300);
  await t.shot("viaje-1-orbita-mundo1");
@@ -125,7 +125,7 @@ check(/Subir a la nave/.test((await t.hint()) ?? ""), `junto a la nave: «${awai
 await t.page.keyboard.press("KeyE");
 check(await until((s) => s.phase === "orbit", 16000), "despega de The Twisted Moon y llega a la órbita");
 const back = await t.evaluate(() => window.__world.space.open);
-check(back.join() === "living", `desde aquí se puede volver a The Living World (abiertos: ${back.join(", ")})`);
+check(back.join() === "living,cosmic", `desde aquí se puede volver a The Living World o seguir a The Cosmic Lab (abiertos: ${back.join(", ")})`);
 if (shots) {
  await wait(600);
  await t.shot("viaje-7-orbita-vuelta");

@@ -15,8 +15,9 @@ import { createAlienWorld, createTwistedWorld } from "./worldModels";
 // El cielo de la órbita, común a todos los mundos: estrellas por todo
 // alrededor, la luna y, a lo lejos, los otros mundos del porfolio como
 // destinos. Los que están abiertos se eligen desde aquí: un clic (o un toque)
-// sobre el astro o su rótulo, o la tecla V, y la nave viaja hasta él. Los que
-// aún no existen llevan «Próximamente» y no hacen nada.
+// sobre el astro o su rótulo, o su tecla (V el primero; B el segundo, si hay
+// dos abiertos), y la nave viaja hasta él. Los que aún no existan llevarían
+// «Próximamente» y no harían nada.
 const FLAT = { flat: true }; // (lo que no se curva con el mundo)
 const MODELS = { living: createGlobe, twisted: createTwistedWorld, cosmic: createAlienWorld };
 const smooth = (a, b, x) => {
@@ -119,7 +120,7 @@ function OrbitStars({ shown, count = 900 }) {
 }
 
 // Un mundo a lo lejos, con su rótulo debajo. `open`: se puede viajar a él.
-function Destination({ id, spot, open, labels, spin }) {
+function Destination({ id, spot, open, labels, spin, hotkey = "V" }) {
  const body = useRef(null);
  const label = useRef(null);
  const name = WORLD_NAMES[id].name.toUpperCase();
@@ -130,7 +131,7 @@ function Destination({ id, spot, open, labels, spin }) {
   one.userData.flat = true;
   return one;
  }, [id]);
- const texture = useMemo(() => createWorldLabel(name, open ? (touch() ? "TOCA PARA VIAJAR" : "VIAJAR · TECLA V") : "PRÓXIMAMENTE", open), [name, open]);
+ const texture = useMemo(() => createWorldLabel(name, open ? (touch() ? "TOCA PARA VIAJAR" : `VIAJAR · TECLA ${hotkey}`) : "PRÓXIMAMENTE", open), [name, open, hotkey]);
  useEffect(
   () => () => {
    texture.dispose();
@@ -149,10 +150,10 @@ function Destination({ id, spot, open, labels, spin }) {
   [id, open, at],
  );
  useEffect(() => {
-  const entry = { mesh: label.current, material, open, id, go, body: body.current };
+  const entry = { mesh: label.current, material, open, id, go, body: body.current, code: `Key${hotkey}` };
   labels.push(entry);
   return () => void labels.splice(labels.indexOf(entry), 1);
- }, [labels, material, open, id, go]);
+ }, [labels, material, open, id, go, hotkey]);
  useFrame(({ clock }) => {
   body.current.rotation.y = clock.elapsedTime * spin;
  });
@@ -171,7 +172,7 @@ function Destination({ id, spot, open, labels, spin }) {
  );
 }
 
-// `destinations`: [{ id, spot, open, spin }]; `onSky`: recibe el grupo del
+// `destinations`: [{ id, spot, open, spin, hotkey }]; `onSky`: recibe el grupo del
 // cielo (para las pruebas).
 export function OrbitSky({ destinations, onSky }) {
  const sky = useRef(null);
@@ -196,10 +197,10 @@ export function OrbitSky({ destinations, onSky }) {
  );
  useEffect(() => {
   onSky?.(sky.current);
-  // Tecla V: viajar al mundo abierto (hoy solo hay uno por órbita).
+  // Cada mundo abierto, con su tecla (V o B).
   const onKey = (event) => {
-   if (event.code !== "KeyV" || event.repeat || event.metaKey || event.ctrlKey) return;
-   labels.find((entry) => entry.open)?.go();
+   if (event.repeat || event.metaKey || event.ctrlKey) return;
+   labels.find((entry) => entry.open && entry.code === event.code)?.go();
   };
   // Viaje pedido desde fuera (el menú): la nave necesita saber hacia dónde queda.
   voyage.spot = (id) => labels.find((entry) => entry.id === id)?.body.getWorldPosition(new THREE.Vector3()) ?? null;

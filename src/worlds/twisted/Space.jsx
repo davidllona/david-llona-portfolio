@@ -23,7 +23,7 @@ const smooth = (a, b, x) => {
 };
 const DESTINATIONS = [
  { id: "living", spot: SPOTS.upperRight, open: true, spin: 0.04 },
- { id: "cosmic", spot: SPOTS.lowerLeft, open: false, spin: -0.04 },
+ { id: "cosmic", spot: SPOTS.lowerLeft, open: true, spin: -0.04, hotkey: "B" },
 ];
 
 export function Space() {

@@ -41,6 +41,7 @@ const modal = () =>
    text: [...card.querySelectorAll(".modal__text")].map((one) => one.textContent),
    timeline: [...card.querySelectorAll(".modal__timeline li")].map((one) => [one.querySelector("b").textContent, one.querySelector("span").textContent]),
    soon: card.querySelector(".modal__soon") ? { text: card.querySelector(".modal__soon").textContent.replace(/\s+/g, " ").trim(), disabled: card.querySelector(".modal__soon").disabled } : null,
+   voyage: card.querySelector(".modal__voyage") ? { text: card.querySelector(".modal__voyage").textContent.replace(/\s+/g, " ").replace("→", "").trim(), disabled: card.querySelector(".modal__voyage").disabled } : null,
   };
  });
 const close = async () => {
@@ -152,7 +153,7 @@ check((await t.evaluate(() => window.__world.stops.scope)) > 0.8 && !(await moda
 await t.page.waitForSelector(".modal__card", { timeout: 9000 }).catch(() => {});
 card = await modal();
 check(lastHint === FUTURE.hint && card?.title === FUTURE.title && card.text.join("|") === FUTURE.paragraphs.join("|"), `observatorio: «${card?.title}» con su texto`);
-check(card?.soon?.disabled && card.soon.text === `${FUTURE.soon} ${FUTURE.soonNote}`, `el botón del final está apagado: «${card?.soon?.text}»`);
+check(card?.voyage && !card.voyage.disabled && !card.soon && card.voyage.text === FUTURE.go, `el botón del final ya funciona: «${card?.voyage?.text}»`);
 await close();
 
 // El panel «Sobre mí» del menú reúne todos los textos, sin pasear.
@@ -194,4 +195,20 @@ const safe = await t.evaluate(() => {
  }
 });
 check(safe.got === true && safe.count === 1, `con el almacenamiento roto el juego sigue (en memoria): ${JSON.stringify(safe)}`);
+
+// ── El botón del observatorio lleva de verdad a The Cosmic Lab (objetivo 24) ──
+await t.put(TELESCOPE.x, TELESCOPE.z, { settle: 1400 });
+await t.page.keyboard.press("KeyE");
+await t.page.waitForSelector(".modal__voyage", { timeout: 9000 }).catch(() => {});
+await t.evaluate(() => document.querySelector(".modal__voyage")?.click());
+const reach = async (test, timeout) => {
+ const from = Date.now();
+ while (Date.now() - from < timeout) {
+  if (await t.evaluate(test)) return true;
+  await wait(200);
+ }
+ return false;
+};
+check(await reach(() => ["igniting", "ascending"].includes(window.__world.ship.flight.phase), 6000), "al pulsarlo, la nave despega sola");
+check(await reach(() => window.__world.world().id === "cosmic" && window.__world.voyage.phase === "idle" && !window.__world.player.hidden, 120000), "y se llega a The Cosmic Lab: se aterriza y el astronauta sale");
 await t.done();

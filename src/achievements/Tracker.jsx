@@ -19,6 +19,8 @@ export function Tracker({ active }) {
     if (event.detail?.type === "gear") collect("cuatro-engranajes", event.detail.id);
     else if (event.detail?.type === "start") unlock("relojero");
    },
+   // The Cosmic Lab: una máquina que se enciende.
+   lab: (event) => event.detail?.type === "machine" && unlock("mente-inquieta"),
    // Fútbol: goles que cruzan la línea, golpes reales en el palo, faltas y dianas.
    football: (event) => {
     const { type, goal, free, cleared } = event.detail ?? {};

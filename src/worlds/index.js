@@ -1,19 +1,21 @@
 import { lazy } from "react";
 import { emit, player } from "../experience/state";
 import { lockTheme, setPalette } from "../experience/theme";
-import { cosmic } from "./cosmic/layout";
 import { living } from "./living/layout";
 
 // Registro de planetas. Cada uno aporta sus datos (terreno, colisiones, nave,
 // rutas) y, aparte, su escena, que se descarga solo cuando se visita.
-export const WORLDS = { living, cosmic };
+export const WORLDS = { living };
 // Los que no se descargan hasta que se viaja a ellos: ni sus datos ni su
 // escena pesan en la entrada al primer mundo. (Cada escena se pide una sola vez.)
-const LAZY = { twisted: { data: () => import("./twisted/layout"), scene: () => (LAZY.twisted.asked ??= import("./twisted/Scene")) } };
+const LAZY = {
+ twisted: { data: () => import("./twisted/layout"), scene: () => (LAZY.twisted.asked ??= import("./twisted/Scene")) },
+ cosmic: { data: () => import("./cosmic/layout"), scene: () => (LAZY.cosmic.asked ??= import("./cosmic/Scene")) },
+};
 export const SCENES = {
  living: lazy(() => import("./living/Scene")),
- cosmic: lazy(() => import("./cosmic/Scene")),
  twisted: lazy(() => LAZY.twisted.scene()),
+ cosmic: lazy(() => LAZY.cosmic.scene()),
 };
 // Nombre y lema de cada destino, para los rótulos (el del mundo cargado está en sus datos).
 export const WORLD_NAMES = {

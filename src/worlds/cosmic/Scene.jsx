@@ -1,28 +1,26 @@
-import { useEffect } from "react";
-import { Cables } from "./Cables";
-import { Nature } from "./Nature";
+import { Staged } from "../Staged";
+import { AlienSky } from "./AlienSky";
+import { Growth } from "./Growth";
+import { Helmet } from "./Helmet";
+import { LabScene } from "./LabScene";
+import cosmic from "./layout";
+import { Orbit } from "./Orbit";
 import { Terrain } from "./Terrain";
-import { About } from "./zones/About";
-import { Contact } from "./zones/Contact";
-import { Lab } from "./zones/Lab";
-import { Plaza } from "./zones/Plaza";
-import { Projects } from "./zones/Projects";
 
-// Todo lo propio de este planeta. El jugador, Woody, la nave y los objetos
-// sueltos son comunes y los monta Experience.jsx.
+// En este mundo Woody lleva una escafandra. (Se apunta aquí, y no en los datos
+// del mundo, para que estos sigan siendo solo datos: los leen también las pruebas.)
+cosmic.woodyWears = Helmet;
+
+// Mundo 3 · The Cosmic Lab. Lo común (jugador, Woody, cohete y objetos sueltos)
+// lo monta Experience.jsx.
 export default function CosmicScene({ onBuilt }) {
- // Se monta de una vez: avisa enseguida de que está construido.
- useEffect(() => onBuilt?.(), [onBuilt]);
  return (
-  <>
+  <Staged onDone={onBuilt}>
+   <AlienSky />
    <Terrain />
-   <Nature />
-   <Cables />
-   <Plaza />
-   <Projects />
-   <Lab />
-   <About />
-   <Contact />
-  </>
+   <LabScene />
+   <Growth />
+   <Orbit />
+  </Staged>
  );
 }

@@ -22,6 +22,9 @@ export const ZONE_LINES = {
  "luna-nave": "Esto es The Twisted Moon. Aquí siempre es de noche… pero yo llevo farol.",
  "casa-tronco": "La casa del tronco. Dentro está su historia: acércate a la puerta.",
  torre: "La torre del reloj. Con los cuatro engranajes vuelve a andar.",
+ // The Cosmic Lab.
+ "lab-nave": "Esto es The Cosmic Lab. Aquí se pesa poco: prueba a saltar.",
+ "lab-nucleo": "El núcleo. Cada máquina encendida le manda su energía.",
 };
 
 // Menú del botón «Woody»: a dónde sabe llevar y cómo se le pide.
@@ -37,6 +40,9 @@ export const MENU = [
  { place: "luna-casita", ask: "A la casita de cuento" },
  { place: "luna-invernadero", ask: "Al invernadero" },
  { place: "luna-observatorio", ask: "Al observatorio" },
+ // The Cosmic Lab.
+ { place: "lab-nucleo", ask: "Llévame al núcleo" },
+ { place: "lab-dosia", ask: "A la máquina de Dosia" },
 ];
 export const MENU_FOLLOW = "Acompáñame";
 export const MENU_MUTE = "Silenciar consejos";
@@ -60,5 +66,7 @@ export const GUIDE = {
   "luna-casita": "La casita de cuento. Esta es la mía.",
   "luna-invernadero": "El invernadero. Mira lo que hay entre las plantas.",
   "luna-observatorio": "El observatorio. Asómate al telescopio.",
+  "lab-nucleo": "El núcleo. Está esperando energía.",
+  "lab-dosia": "La máquina de Dosia. Enciéndela con la E.",
  },
 };

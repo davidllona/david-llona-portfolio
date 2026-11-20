@@ -39,7 +39,7 @@ export function Woody({ active }) {
  const group = useRef(null);
  const brain = useMemo(createBrain, []);
  const idle = useRef({ timer: 0, next: 1 });
- const state = useRef({ gait: "walk", attend: 0, zoneTimer: 0 });
+ const state = useRef({ gait: "walk", attend: 0, zoneTimer: 0, hop: 0, hopSpeed: 0 });
  const { scene, controller } = useRiggedModel(URL, {
   palette: WOODY_PALETTE,
   aliases: clipData.aliases,
@@ -211,6 +211,19 @@ export function Woody({ active }) {
 
   // Pegado al terreno: posición, rumbo y cabeceo según la pendiente.
   group.current.position.copy(woody.position);
+  // En los mundos de gravedad baja (The Cosmic Lab) salta cuando salta el astronauta, si está a su
+  // lado y de pie: sube y cae tan despacio como él.
+  if (world.gravity) {
+   const near = Math.hypot(player.position.x - woody.position.x, player.position.z - woody.position.z) < 7;
+   if (memo.hop === 0 && memo.hopSpeed === 0 && !player.grounded && !player.hidden && player.velocity.y > 3 && near && brain.posture === "stand") memo.hopSpeed = 4.6;
+   if (memo.hop > 0 || memo.hopSpeed > 0) {
+    memo.hopSpeed -= 15 * world.gravity * delta;
+    memo.hop = Math.max(0, memo.hop + memo.hopSpeed * delta);
+    if (memo.hop === 0) memo.hopSpeed = 0;
+   }
+   group.current.position.y += memo.hop;
+   if (import.meta.env.DEV) window.__world.woodyHop = memo.hop; // para las pruebas automáticas
+  } else memo.hop = memo.hopSpeed = 0;
   let turn = woody.facing - group.current.rotation.y;
   turn = Math.atan2(Math.sin(turn), Math.cos(turn));
   group.current.rotation.y += turn * Math.min(1, delta * 10);
@@ -234,7 +247,7 @@ export function Woody({ active }) {
   }
  });
 
- // Lo que lleva puesto en este mundo (en The Twisted Moon, un farolillo al cuello).
+ // Lo que lleva puesto en este mundo (en The Twisted Moon, un farolillo al cuello; en The Cosmic Lab, una escafandra).
  const Wears = world.woodyWears;
  return (
   <>
@@ -247,7 +260,7 @@ export function Woody({ active }) {
      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
     </mesh>
    </group>
-   {Wears && <Wears neck={bones.neck} />}
+   {Wears && <Wears neck={bones.neck} head={bones.head} />}
   </>
  );
 }

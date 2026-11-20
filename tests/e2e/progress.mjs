@@ -101,7 +101,7 @@ const panel = await t.evaluate(() => ({
  distinct: new Set([...document.querySelectorAll(".achievement svg.badge g")].map((g) => g.innerHTML)).size,
  soon: [...document.querySelectorAll(".achievement__state")].filter((p) => p.textContent === "Próximamente").length,
 }));
-check(panel.total === 24 && panel.done === 6 && panel.soon === 12, `vitrina: ${panel.total} logros, ${panel.done} conseguidos, ${panel.soon} «próximamente»`);
+check(panel.total === 24 && panel.done === 6 && panel.soon === 11, `vitrina: ${panel.total} logros, ${panel.done} conseguidos, ${panel.soon} «próximamente»`);
 check(panel.badges === 24 && panel.distinct === 24, `cada logro tiene su propia insignia (${panel.distinct} dibujos distintos)`);
 await t.shot("logros");
 await page.keyboard.press("Escape");

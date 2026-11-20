@@ -19,9 +19,8 @@ import { OrbitSky, SPOTS } from "../orbit/OrbitSky";
 //    debajo del agua (que es translúcida) hasta el antípoda;
 //  · la sombra del lado de noche y el halo de la atmósfera;
 //  · el cielo de la órbita (worlds/orbit/OrbitSky.jsx): estrellas, la luna y,
-//    a lo lejos, los otros dos mundos del porfolio como destinos. The Twisted
-//    Moon está abierto: se elige desde aquí y la nave viaja hasta él. The
-//    Cosmic Lab sigue cerrado («Próximamente»).
+//    a lo lejos, los otros dos mundos del porfolio como destinos: The Twisted
+//    Moon y The Cosmic Lab. Se eligen desde aquí y la nave viaja hasta ellos.
 const SEA_FLOOR = -4.7; // m: por debajo del fondo de la isla
 const SEA_REACH = 150; // m: como el mar (water/Water.jsx)
 const AIR = 11; // m sobre el suelo hasta donde llega la sombra de la noche: por encima de árboles y casas
@@ -59,7 +58,7 @@ function createShadeMaterial(shown, from) {
 // Los otros mundos, vistos desde esta órbita.
 const DESTINATIONS = [
  { id: "twisted", spot: SPOTS.upperRight, open: true, spin: 0.05 },
- { id: "cosmic", spot: SPOTS.lowerLeft, open: false, spin: -0.04 },
+ { id: "cosmic", spot: SPOTS.lowerLeft, open: true, spin: -0.04, hotkey: "B" },
 ];
 
 export function Space() {

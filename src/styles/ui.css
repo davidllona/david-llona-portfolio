@@ -1752,6 +1752,16 @@
  animation: gear-turn 6s linear infinite;
 }
 
+/* The Cosmic Lab: el contador de máquinas encendidas, en lima. */
+.quick__energy svg {
+ stroke: #cdee5a;
+ stroke-linejoin: round;
+}
+
+.quick__energy b {
+ color: #cdee5a;
+}
+
 @keyframes gear-turn {
  to {
   transform: rotate(360deg);

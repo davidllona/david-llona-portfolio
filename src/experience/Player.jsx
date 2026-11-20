@@ -101,7 +101,8 @@ export function Player({ active }) {
 
    // Gravedad y suelo (que sube y baja con el relieve).
    const ground = world.height(position.x, position.z);
-   velocity.y -= GRAVITY * dt;
+   // (Hay mundos de gravedad baja —The Cosmic Lab—: se salta más alto y se cae despacio.)
+   velocity.y -= GRAVITY * (world.gravity ?? 1) * dt;
    position.y += velocity.y * dt;
    if (position.y <= ground || (player.grounded && velocity.y <= 0 && position.y - ground < 0.35)) {
     // Al aterrizar de un salto: una corona de polvo (o un chapuzón, en el agua).

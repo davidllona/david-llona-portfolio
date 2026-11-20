@@ -3,7 +3,7 @@
 Actualizado: 20 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
-**En curso: objetivo 24 — órbita del mundo 2 y arranque del mundo 3** (`docs/OBJETIVO-24.md`): bloque 1 hecho; bloque 2 en curso. Ver «Objetivo 24» abajo.
+**En curso: objetivo 24 — órbita del mundo 2 y arranque del mundo 3** (`docs/OBJETIVO-24.md`): los dos bloques hechos; **parada tras el bloque 2, pendiente del visto bueno de David al estilo del mundo 3**. Ver «Objetivo 24» abajo.
 **En curso: objetivo 23 — The Twisted Moon: contenido («arranca el reloj y conóceme»)** (`docs/OBJETIVO-23.md`; sustituye al bloque D del objetivo 20): bloques D1 (mecánica) y D2 (las paradas) hechos; **parado tras el D2 por indicación de David: el D3 (cierre) no se ha empezado.** Ver «Objetivo 23» abajo.
 **Objetivo 22 — pulido visual de The Twisted Moon** (`docs/OBJETIVO-22.md`; C2 y C3 del objetivo 21 aprobados como base): los tres bloques hechos (color y luz, piezas que no se leen, órbita); órbita: David eligió la opción B. **Retoque de luz hecho (16-11-2026); parada, pendiente de su visto bueno.** Ver «Objetivo 22» abajo.
 **Objetivo 21 — The Twisted Moon, que se parezca a las imágenes de referencia** (`docs/OBJETIVO-21.md`; sustituye al bloque C del objetivo 20): bloques C1 (aprobado), C2 y C3 hechos; **parada del C3, pendiente del visto bueno de David** (informe en «Objetivo 21»). Ver «Objetivo 21».
@@ -23,7 +23,52 @@ Encargo: `docs/OBJETIVO-24.md` (20-11-2026). Dos bloques, commit y push en cada 
 | Bloque | Estado |
 |---|---|
 | 1. El mundo 2 desde la órbita | **Hecho** (20-11-2026). Capturas: `capturas/29-orbita-mundo2/` |
-| 2. Mundo 3: viaje y muestra de estilo | En curso |
+| 2. Mundo 3: viaje y muestra de estilo | **Hecho. Parada: pendiente del visto bueno de David al estilo.** Capturas: `capturas/30-mundo3/B/` |
+
+**Bloque 2, lo que hay** — viaje y muestra de estilo de The Cosmic Lab (20-11-2026). Todo hecho a mano con el kit low-poly; no se ha descargado ningún modelo, textura ni sonido. **No existe `docs/referencias/mundo3/`: se ha seguido la descripción del encargo, sin imágenes de referencia.**
+
+Archivos: `worlds/cosmic/` entero (nuevo: `layout.js`, `globe.js`, `models.js`, `materials.js`, `Terrain.jsx`, `AlienSky.jsx`, `Growth.jsx`, `LabScene.jsx`, `Helmet.jsx`, `Orbit.jsx`, `Scene.jsx`); `content/cosmic.js` (todos los textos), `game/labQuest.js` (el estado del juego); y en lo común: `worlds/index.js`, `worlds/orbit/OrbitSky.jsx`, `worlds/living/Space.jsx`, `worlds/twisted/Space.jsx`, `worlds/twisted/ClockQuest.jsx`, `content/twisted.js`, `content/woody.js`, `experience/Player.jsx`, `characters/Woody.jsx`, `ui/QuickMenu.jsx`, `styles/ui.css`, `achievements/Tracker.jsx`, `achievements/list.js`. **El «cosmic» que había en esa carpeta era el planeta de prueba de antes del mundo 1 (ya no se usaba): se ha retirado** y con él 2,6 kB del trozo principal.
+
+*A. El viaje*
+- The Cosmic Lab ya no lleva «Próximamente»: se elige desde la órbita de los otros dos mundos, con un clic o un toque sobre el astro o su rótulo, o con su tecla. Ahora hay dos destinos por órbita: **V el de arriba a la derecha y B el de abajo a la izquierda** (el rótulo lo dice: «VIAJAR · TECLA B»). Desde The Cosmic Lab: V vuelve a The Living World y B va a The Twisted Moon.
+- Carga bajo demanda, como el mundo 2: al entrar en el mundo 1 no se pide nada suyo. 0 pipelines en caliente a la ida y a la vuelta.
+- **El botón del observatorio del mundo 2 («Viajar a The Cosmic Lab») funciona**: la nave despega sola, sale de la órbita y aterriza allí (lo comprueba `twisted-quest.mjs`).
+
+*B. La muestra de estilo*
+- **Planeta**: un llano redondeado de unos 30 m que se pisa, cerrado por un reborde de lomas; más allá, el resto del planeta (lomas, lagos de líquido brillante, hongos, cristales, cúpulas de cristal), que no se pisa. Una sola rejilla en anillos para todo el planeta. Desde la órbita el planeta entero es el mundo, como en los otros dos.
+- **Color**: suelo magenta con vetas turquesa; el resto del planeta, a bandas turquesa, magenta y lima (como el astro que ya salía en la órbita). Cielo turquesa que se vuelve lima en el horizonte, neblina de color a ras de suelo, sombras magenta. Siempre de día (sin botón de día y noche).
+- **Cielo**: un planeta con anillos enorme al norte y dos soles (el grande, de donde viene la luz, y otro pequeño y turquesa). Se ven al llegar (la plataforma es un mirador), junto a la antena y al bajar con la nave.
+- **El laboratorio**: en el centro, el **núcleo** apagado (tarima, cuatro garras, la esfera y dos aros) con cinco testigos, uno por máquina. Alrededor, la **máquina de Dosia**, completa, y **los sitios reservados** de las otras cuatro (una peana con la cápsula cerrada: no ofrecen nada). De cada una sale un tubo por el suelo hasta el núcleo. Al fondo, sobre una loma, la **antena**, apagada.
+- **La máquina de Dosia**: cápsula de cristal sobre su peana, dos depósitos, antena y consola. Con la E: sin controles, sus luces arrancan a tirones, sube el líquido, sale el **rayo de energía** de su antena a la esfera del núcleo, se enciende su testigo, corre el líquido por su tubo, aviso «Dosia encendida · 1 de 5» y se abre su panel con el texto del encargo tal cual. Después la E vuelve a abrir el panel. Sobre la máquina encendida flota su nombre. Se guarda en la visita (`sessionStorage`, clave `lab-energia`). El núcleo, con una de cinco, coge un poco de luz y sus aros giran más deprisa; su E dice cuántas lleva.
+- **Lo que crece** (con instancias; el movimiento lo hace el sombreador): 9 hongos gigantes, 12 racimos de cristales, 44 bulbos que laten, 30 matas de tentáculos que se mecen, 170 brotes, 16 piedras redondas y 13 rocas que flotan (suben y bajan). Dos charcas de líquido brillante que se vadean. Lejos, otras 318 copias (hongos, cristales, tentáculos, rocas que flotan y 12 cúpulas de cristal): andando solo se dibujan las cercanas (125).
+- **Gravedad baja** (0,4 de la normal; `gravity` en los datos del mundo): el salto sube 3 m y dura 2 s (en los otros mundos, 1,2 m y 0,8 s). **Woody salta con el astronauta** (1,7 m) si está de pie a su lado, y lleva una **escafandra**: una burbuja de cristal con su aro y una antenita.
+- **Interfaz**: contador «Energía n/5» en el menú, solo en este mundo. Logro «Mente inquieta» (ya existía en la lista como «Próximamente»): se consigue al encender una máquina. Woody, al llegar, cuenta de qué va y guía hasta la máquina; su menú gana dos destinos (el núcleo y la máquina de Dosia).
+
+*Textos* (`content/cosmic.js`): solo lo que dice el encargo. De Dosia, su frase tal cual. De Epidos, Chuchómetro, la app de viajes y los experimentos 3D solo está el nombre y, en un comentario, lo que dijo David: no se enseñan todavía. **Pendiente de David**: confirmar el nombre «Nokei»; cuáles son los experimentos 3D; enlaces, capturas y estado de cada app; el texto del panel de las otras cuatro.
+
+*Lo que NO está* (es de los bloques siguientes): las otras cuatro máquinas, el arranque del núcleo con las cinco, «Envía una señal» en la antena, leerlo todo desde el menú, sonido propio (aquí callan los grillos y los pájaros del mundo 1 y no suena nada suyo: ni música ni efectos de la máquina), un botón del menú que lleve a este mundo.
+
+*Rendimiento* (2880 × 1620, sin límite, este equipo, las tres medidas seguidas):
+
+| Mundo | fps |
+|---|---|
+| 1 · The Living World | llegada 87 · proyectos 91 · estanque 87 · meseta 91 · pista 89 |
+| 2 · The Twisted Moon | llegada 139 · río 152 · terraza 153 · historia 158 · cima 155 |
+| 3 · The Cosmic Lab | llegada 193 · núcleo 197 · Dosia 230 · charca 223 · fondo 227 |
+
+(El mundo 2 dio 144 · 160 · 169 · 171 · 171 en el bloque 1, unas horas antes: este equipo baila de una tanda a otra.) 0 pipelines en caliente al entrar y al despegar en el mundo 1 (`tests/perf/entrada.mjs`), y en los viajes y paseos de los mundos 2 y 3.
+
+*Peso del mundo 3* (lo que se descarga al viajar a él): datos 8,0 kB (3,9 comprimido) + escena 30,0 kB (11,2 comprimido) = **38 kB (15 comprimido)**. Sin modelos, texturas ni sonido. El trozo principal: 2.020,7 kB (2.023,3 antes: se va el planeta de prueba). La escena del mundo 2 sube de 128,7 a 132,2 kB por la tierra lejana.
+
+*Pruebas*: `tests/e2e/cosmic.mjs` (nueva, 39 comprobaciones: viaje con la tecla B, carga bajo demanda, planeta entero en la órbita, gravedad, escafandra, reborde, encendido de la máquina paso a paso, panel con el texto tal cual, núcleo, logro, guardado, vuelta, y 0 pipelines en caliente); `twisted-quest.mjs` sube a 51 (el botón del observatorio lleva de verdad); `travel.mjs`, `rocket.mjs` y `progress.mjs` se adaptan a que The Cosmic Lab está abierto. `npm run e2e` pasa a diecinueve pruebas. **Batería al cerrar el bloque: diecinueve pruebas, 510 comprobaciones, 0 fallos.** `npm run build` pasa y el servidor de desarrollo arranca limpio. Capturas: `node tests/e2e/lab.mjs`.
+
+*Tropiezos*: (1) el servidor de desarrollo siguió sirviendo una copia vieja de `worlds/cosmic/layout.js` tras editarlo (no vio el cambio): hubo que reiniciarlo. Si algo «no cambia» tras un parche, mirar eso antes que el código. (2) `layout.js` importa `./globe.js` con la extensión puesta: las pruebas lo leen con Node, que no la supone.
+
+*Modelos de Envato*: no hace falta ninguno para lo que hay. Si David quiere más detalle del que da lo hecho a mano, lo que más lo agradecería: una **antena parabólica** y **un par de máquinas de laboratorio de ciencia ficción low poly** (para que las cinco no sean variaciones de la misma cápsula). Y sonido: una música de ambiente espacial tranquila, un zumbido de máquina que arranca y un «rayo» de energía.
+
+*Sin comprobar*: nada visto en movimiento por una persona (el salto, el latido de los bulbos, el rayo y la secuencia de encendido solo en fotogramas y por estado); un teléfono de verdad y la calidad baja; el respaldo WebGL2; el viaje directo entre The Twisted Moon y The Cosmic Lab con la tecla B (probado desde el botón del observatorio y desde el mundo 1, no con esa tecla desde el 2); que las rocas que flotan no molesten a la cámara al andar bajo ellas.
+
+Capturas (`capturas/30-mundo3/B/`): `postal.jpg` y `postal-este.jpg` (tres cuartos desde arriba), `hoja-juego.jpg` (cámara de juego: llegada, núcleo, Dosia, charca, fondo y un salto), `hoja-maquina.jpg` (apagada, el rayo, encendida y el núcleo con energía), `maquina-panel.jpg`, `hoja-vuelo.jpg` (subida, órbita y bajada), **`hoja-tres-mundos.jpg`** (una captura de juego de cada mundo, lado a lado) y las sueltas.
 
 **Bloque 1, lo que hay** (`worlds/twisted/`: `farland.js` (datos), `farModels.js` (modelos), `FarScene.jsx` (escena), `falls.js` (las cascadas, sacadas de `Terrain.jsx`), `materials.js` (`moonlit`, sacada de `Flora.jsx`), `Terrain.jsx`, `Flora.jsx`, `Scene.jsx`, `ground.js`; `tests/e2e/twisted.mjs`):
 - **El planeta entero es tierra.** Más allá de la isla hay ahora «tierra lejana», que no se pisa: terrazas a las mismas alturas que las de la isla (3,6 m cada una) con cortados de pizarra, 34 picos de pizarra, 394 árboles en bosques con claros (sauces, copas anchas y espirales, en versión de unos cien triángulos), 36 casitas de tejado puntiagudo con una ventana encendida en cada cara, 45 farolillos (junto a las casitas y a lo largo de los ríos) con su charco de luz cálida, seis lagunas (una en el antípoda), dos ríos que salen del foso y las unen, y tres mesetas de las que cae una cascada turquesa a su laguna. La orilla lleva una línea turquesa que brilla, como la espuma de la isla.

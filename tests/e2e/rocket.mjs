@@ -128,7 +128,7 @@ const sky = await t.evaluate(() => {
 });
 const bodies = Object.values(sky).flat();
 check(sky["luna de la órbita"]?.length === 1 && bodies.length === 5 && bodies.every((b) => b.front && inside(b.x, b.y) && b.opacity > 0.95), `la luna y los otros dos mundos, con su rótulo, están en la pantalla (${bodies.map((b) => `${b.x},${b.y}`).join(" · ")})`);
-check(orbit.names.length === 2 && orbit.names.every((name) => /\S/.test(name)) && orbit.open.join() === "twisted", `los otros dos mundos llevan su nombre: The Twisted Moon se puede elegir como destino y The Cosmic Lab sigue en «Próximamente» (${orbit.names.join(", ")}; abiertos: ${orbit.open.join(", ")})`);
+check(orbit.names.length === 2 && orbit.names.every((name) => /\S/.test(name)) && orbit.open.join() === "twisted,cosmic", `los otros dos mundos llevan su nombre y los dos se pueden elegir como destino: The Twisted Moon y The Cosmic Lab (${orbit.names.join(", ")}; abiertos: ${orbit.open.join(", ")})`);
 // Gira despacio: la cámara rodea el planeta.
 const yaw0 = await t.evaluate(() => window.__world.rig.yaw);
 await wait(2000);

@@ -61,9 +61,9 @@ export const FUTURE = {
  title: "Lo que viene",
  hint: "Lo que viene",
  paragraphs: ["Quiero llegar más lejos con el 3D.", "Con la IA, cualquiera puede tener una web. Lo difícil ahora es que alguien la recuerde. Por eso hago esto."],
- // El botón del final: hoy no lleva a ningún sitio.
- soon: "Viajar a The Cosmic Lab",
- soonNote: "Próximamente",
+ // El botón del final: el cohete lleva al tercer mundo.
+ go: "Viajar a The Cosmic Lab",
+ goTo: "cosmic",
 };
 
 // ── La casa sobre tronco: la introducción ───────────────────────────────────

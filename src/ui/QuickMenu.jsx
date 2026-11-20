@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { CV } from "../content/cv";
 import { SECTIONS, TRAVEL_OFFER } from "../content/sections";
+import { LAB } from "../content/cosmic";
 import { CLOCK } from "../content/twisted";
 import { emit, events } from "../experience/state";
+import { lab } from "../game/labQuest";
 import { quest } from "../game/moonQuest";
 import { world } from "../worlds";
 import { AboutPanel } from "./AboutPanel";
@@ -27,9 +29,11 @@ export function QuickMenu({ onAchievements }) {
   const onWorld = () => refresh((value) => value + 1);
   events.addEventListener("world", onWorld);
   events.addEventListener("quest", onWorld);
+  events.addEventListener("lab", onWorld);
   return () => {
    events.removeEventListener("world", onWorld);
    events.removeEventListener("quest", onWorld);
+   events.removeEventListener("lab", onWorld);
   };
  }, []);
  const here = (section) => section.world === world.id;
@@ -64,6 +68,18 @@ export function QuickMenu({ onAchievements }) {
      {CLOCK.counter}{" "}
      <b>
       {quest.count()}/{quest.total}
+     </b>
+    </span>
+   )}
+   {/* Solo en The Cosmic Lab: las máquinas encendidas. */}
+   {world.id === "cosmic" && (
+    <span className="quick__gears quick__energy" title="Máquinas encendidas del laboratorio" aria-label={`${LAB.counter}: ${lab.count()} de ${lab.total}`}>
+     <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M13 2.5 5.5 13.5H11L10 21.5 18.5 10H13z" />
+     </svg>
+     {LAB.counter}{" "}
+     <b>
+      {lab.count()}/{lab.total}
      </b>
     </span>
    )}
