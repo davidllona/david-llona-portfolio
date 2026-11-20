@@ -4,10 +4,10 @@ import { useGLTF } from "@react-three/drei";
 import { Instances } from "../../experience/Instances";
 import { withSeeThrough } from "../../experience/environment/seeThrough";
 import { withWind } from "../../experience/environment/wind";
-import { diffuseColor, normalView, vec3 } from "three/tsl";
 import { lambert } from "../../experience/materials";
-import { BIG_TREES, FERNS, FLOWERS, ISLETS, MUSHROOMS, SEA_BED, SHARDS, TREES, TUFTS, VINES, WATER_LEVEL, height } from "./layout";
-import { solid } from "./materials";
+import { SEA_ROCKS } from "./farland";
+import { BIG_TREES, FERNS, FLOWERS, MUSHROOMS, SEA_BED, SHARDS, TREES, TUFTS, VINES, WATER_LEVEL, height } from "./layout";
+import { moonlit, solid } from "./materials";
 import { createCurlyTree, createDryTuft, createSeaRock, createShard } from "./models";
 import { createBroadTree, createFlower, createMushroom, createSpiralTree, createVine, createWillow } from "./plants";
 
@@ -38,17 +38,6 @@ function useConverted(url) {
  }, [scene]);
  useEffect(() => () => geometry.dispose(), [geometry]);
  return geometry;
-}
-
-// Luz de luna de relleno para lo que crece: la luna está al fondo, así que la
-// cara que mira a la cámara no la recibe y las copas quedaban en silueta negra.
-// Se les suma un tono medio propio (su color, enfriado) y un borde frío en lo
-// que se ve de refilón: la luna las recorta. Las sombras del suelo no cambian.
-function moonlit(material, fill, edge) {
- const n = normalView.normalize();
- const rim = n.z.abs().oneMinus().pow(2).mul(n.y.mul(0.5).add(0.8).clamp(0, 1));
- material.emissiveNode = diffuseColor.rgb.mul(vec3(0.72, 0.82, 1.0)).mul(fill).add(vec3(0.42, 0.55, 0.95).mul(rim).mul(edge));
- return material;
 }
 
 // Copias apoyadas en el suelo: posición, giro, tamaño y (si lo lleva) su color.
@@ -91,7 +80,7 @@ export function Flora() {
    tufts: seat(TUFTS, { sink: 0.02 }),
    shards: seat(SHARDS, { sink: 0.08 }),
    // (Las rocas del mar nacen del fondo: lo que asoma es su altura sobre el agua.)
-   islets: ISLETS.map(([x, z, r, top, turn]) => ({ position: [x, SEA_BED, z], rotation: [0, turn, 0], scale: [r * 1.5, top + (WATER_LEVEL - SEA_BED), r * 1.5] })),
+   islets: SEA_ROCKS.map(([x, z, r, top, turn]) => ({ position: [x, SEA_BED, z], rotation: [0, turn, 0], scale: [r * 1.5, top + (WATER_LEVEL - SEA_BED), r * 1.5] })),
    ferns: seat(FERNS, { size: FERN_SIZE, sink: 0.02 }),
    vines: seat(VINES, { sink: 0.02 }),
    flowers: seat(FLOWERS, { sink: 0.01 }),
@@ -106,7 +95,7 @@ export function Flora() {
    <Instances name="sauce" rests={0} geometry={models.willow} material={material.willow} items={items.big.willow} colored castShadow receiveShadow />
    <Instances name="árbol de copa ancha" rests={0} geometry={models.broad} material={material.crown} items={items.big.broad} colored castShadow receiveShadow />
    <Instances name="árbol en espiral" rests={0} geometry={models.spiral} material={material.crown} items={items.big.spiral} colored castShadow receiveShadow />
-   <Instances name="islote" geometry={models.rock} material={material.stone} items={items.islets} castShadow />
+   {items.islets.length > 0 && <Instances name="islote" geometry={models.rock} material={material.stone} items={items.islets} castShadow />}
    <Instances name="lasca de piedra" rests={0} geometry={models.shard} material={material.stone} items={items.shards} castShadow receiveShadow />
    <Instances name="matojo seco" rests={0} geometry={models.tuft} material={material.low} items={items.tufts} receiveShadow />
    <Instances name="helecho" rests={0} geometry={fern} material={material.low} items={items.ferns} colored receiveShadow />

@@ -190,9 +190,22 @@ check(done && Math.hypot(at.x - STORY_DOOR.x, at.z - STORY_DOOR.z) < 4.5 && Math
 
 // Al bajar con la nave se ve la luna: se despega, se espera a la órbita y, durante la bajada, se mira dónde cae en pantalla.
 await t.put(0, 5.6, { withWoody: false, settle: 900 });
+// La tierra lejana (objetivo 24): a pie solo se dibuja la franja que puede asomar por el horizonte; en órbita, el planeta entero.
+const farNow = () => t.evaluate(() => { const f = window.__world.farland; return { drawn: f.meshes.reduce((sum, mesh) => sum + (mesh.visible ? mesh.count : 0), 0), land: f.near.visible, all: f.layers.reduce((sum, layer) => sum + layer.items.length, 0), near: f.layers.reduce((sum, layer) => sum + layer.near, 0), rest: f.far.visible }; });
+// (Junto al invernadero, abajo, la cámara mira al suelo de la isla: la tierra lejana no entra en cuadro y no se dibuja nada de ella.)
+await t.put(9.8, -4.6, { withWoody: false, settle: 3200 });
+const afoot = await farNow();
+check(afoot.drawn === 0 && !afoot.land && !afoot.rest, `a pie, junto al invernadero, la tierra lejana no entra en cuadro y no se dibuja (${afoot.drawn} copias de ${afoot.all})`);
+// En el mirador de la torre la cámara se inclina hacia el horizonte: asoma la franja cercana, y solo esa.
+await t.put(0.4, -32.6, { withWoody: false, settle: 3200 });
+const atTower = await farNow();
+check(atTower.drawn === atTower.near && atTower.near < atTower.all * 0.6 && atTower.land && !atTower.rest, `en el mirador de la torre asoma por el horizonte, y solo lo cercano (${atTower.drawn} copias de ${atTower.all}; el resto del suelo, sin dibujar)`);
+await t.put(0, 5.6, { withWoody: false, settle: 900 });
 await t.page.keyboard.press("KeyE");
 await t.page.waitForFunction(() => window.__world.ship.flight.phase === "orbit", { timeout: 20000 });
 await wait(800);
+const aloft = await farNow();
+check(aloft.drawn === aloft.all && aloft.all > 400 && aloft.rest, `desde la órbita se dibuja entera: el planeta es tierra (${aloft.drawn} copias: árboles, casitas, farolillos, picos)`);
 await t.page.keyboard.press("KeyE");
 const seen = [];
 for (let i = 0; i < 18; i++) {

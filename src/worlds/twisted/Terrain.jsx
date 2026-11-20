@@ -7,8 +7,10 @@ import { uClosed } from "../../experience/environment/bend";
 import { noiseTexture } from "../../experience/environment/noise";
 import { unlit } from "../../experience/materials";
 import { uniforms } from "../../experience/theme";
+import { createFallMaterial, createFalls } from "./falls";
 import { CENTRE, EDGE_RANGE, SPAN, createGround, groundData } from "./ground";
-import { ISLETS, LEVELS, POND, POOL, RIVER, SEA_BED, STREAM, WATERFALLS, WATER_LEVEL, cragEdge, createRandom, islandEdge } from "./layout";
+import { SEA_ROCKS } from "./farland";
+import { LEVELS, POND, POOL, RIVER, SEA_BED, STREAM, WATERFALLS, WATER_LEVEL, cragEdge, islandEdge } from "./layout";
 
 const COARSE = { coarse: true }; // (ya viene en anillos: no hay que partirlo más para curvarlo)
 // Turquesa que brilla: el agua dulce, las cascadas y la espuma de la orilla.
@@ -82,7 +84,7 @@ function createSeaMaterial() {
  // La orilla más cercana: la de la isla o la de un islote del mar abierto (estos, calculados en cada píxel:
  // la malla del mar, lejos, es demasiado gruesa para llevar su espuma en los vértices).
  let rocks = float(1000);
- for (const [x, z, r] of ISLETS) rocks = rocks.min(pos.sub(vec2(x, z)).length().sub(r * 1.12));
+ for (const [x, z, r] of SEA_ROCKS) rocks = rocks.min(pos.sub(vec2(x, z)).length().sub(r * 1.12));
  const shore = coast.min(rocks);
  material.positionNode = positionLocal.add(vec3(0, lift, 0));
  // (Ruido suave, de onda larga: solo hace temblar la línea de la espuma. El agua no lleva grano.)
@@ -196,39 +198,6 @@ function createFreshWater() {
 function createPools() {
  return flat([disc(POND, surface(1)), disc(POOL, surface(0))]);
 }
-// Cascadas: no una lámina, sino varias tiras de agua, cada una de su ancho, que
-// caen a distinta velocidad y dejan huecos entre ellas por los que se ve la roca.
-function createFalls() {
- const random = createRandom(20261122);
- const strips = [];
- for (const fall of WATERFALLS) {
-  const drop = fall.top - fall.bottom, tall = drop + 0.5;
-  const COUNT = 6, slot = fall.width / COUNT;
-  for (let k = 0; k < COUNT; k++) {
-   const width = slot * (0.42 + random() * 0.4), across = -fall.width / 2 + slot * (k + 0.5) + (random() - 0.5) * slot * 0.3;
-   const out = random() * 0.22, speed = 0.55 + random() * 0.6, seed = random();
-   const sheet = new THREE.PlaneGeometry(width, tall, 1, 6);
-   const points = sheet.attributes.position, uvs = sheet.attributes.uv;
-   const strip = new Float32Array(points.count * 2);
-   for (let i = 0; i < points.count; i++) {
-    const t = (points.getY(i) + tall / 2) / tall; // 0 abajo, 1 arriba
-    // Cae algo tendida, con una panza hacia fuera a media altura; cada tira, a su distancia de la roca.
-    points.setX(i, points.getX(i) + across);
-    points.setZ(i, (1 - t) * 0.9 + Math.sin(t * Math.PI) * (0.2 + out) + out * 0.4);
-    uvs.setXY(i, uvs.getX(i), t * tall);
-    strip[i * 2] = speed;
-    strip[i * 2 + 1] = seed;
-   }
-   sheet.setAttribute("strip", new THREE.BufferAttribute(strip, 2));
-   sheet.rotateY(fall.turn).translate(fall.x, (fall.top + fall.bottom) / 2 - 0.2, fall.z);
-   const flat = sheet.toNonIndexed();
-   sheet.dispose();
-   flat.deleteAttribute("normal");
-   strips.push(flat);
-  }
- }
- return mergeGeometries(strips);
-}
 // El agua dulce, quieta o corriendo: turquesa oscuro, casi verde azulado. Los
 // brillos son finos y pocos: hilos de corriente y una línea rota junto a cada
 // orilla. (`speed`: lo que corre; en las pozas, casi nada.)
@@ -249,22 +218,6 @@ function createRiverMaterial(speed) {
  material.opacityNode = smoothstep(0, 0.16, at.x).mul(smoothstep(1, 0.84, at.x)).mul(0.93);
  return material;
 }
-// Las cascadas: turquesa (no blanco), con vetas más claras que caen y desgarros
-// por los que la tira se abre. Brillan lo justo: solo las vetas rozan el umbral del resplandor.
-function createFallMaterial() {
- const { uTime } = uniforms;
- const material = unlit({ transparent: true, depthWrite: false, side: THREE.DoubleSide });
- const at = uv(), strip = attribute("strip", "vec2");
- const fall = at.y.mul(0.17).add(uTime.mul(strip.x)).add(strip.y.mul(9));
- const streaks = texture(noiseTexture, vec2(at.x.mul(0.3).add(strip.y), fall)).r;
- const fine = texture(noiseTexture, vec2(at.x.mul(0.7).add(strip.y.mul(3.1)), fall.mul(2.4))).g;
- const light = smoothstep(0.42, 0.72, streaks.mul(0.6).add(fine.mul(0.5)));
- material.colorNode = mix(vec3(0.06, 0.42, 0.47), vec3(0.4, 1.12, 1.06), light);
- const tear = smoothstep(0.3, 0.44, texture(noiseTexture, vec2(strip.y.mul(5.3), fall.mul(0.45))).g);
- material.opacityNode = smoothstep(0, 0.28, at.x).mul(smoothstep(1, 0.72, at.x)).mul(light.mul(0.35).add(0.55)).mul(tear);
- return material;
-}
-
 export function Terrain() {
  const ground = useMemo(createGround, []);
  const soil = useMemo(createGroundMaterial, []);
@@ -272,7 +225,7 @@ export function Terrain() {
  const seaMaterial = useMemo(createSeaMaterial, []);
  const fresh = useMemo(createFreshWater, []);
  const pools = useMemo(createPools, []);
- const falls = useMemo(createFalls, []);
+ const falls = useMemo(() => createFalls(), []);
  const flow = useMemo(() => ({ river: createRiverMaterial(0.16), pool: createRiverMaterial(0.02), fall: createFallMaterial() }), []);
  // Fondo del mar: cierra el planeta por debajo.
  const bed = useMemo(() => new THREE.RingGeometry(0.3, WATER_REACH, 96, 30).rotateX(-Math.PI / 2), []);

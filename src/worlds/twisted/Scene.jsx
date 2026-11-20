@@ -3,6 +3,7 @@ import { breathe, busy, Staged } from "../Staged";
 import { Buildings } from "./Buildings";
 import { CollarLantern } from "./CollarLantern";
 import { Details } from "./Details";
+import { FarScene } from "./FarScene";
 import { Fixtures } from "./Fixtures";
 import { Flora } from "./Flora";
 import { prepareGround } from "./ground";
@@ -49,6 +50,7 @@ export default function TwistedScene({ onBuilt }) {
   <Staged onDone={onBuilt}>
    <Night />
    <Terrain />
+   <FarScene />
    <Structures />
    <Buildings />
    <House />

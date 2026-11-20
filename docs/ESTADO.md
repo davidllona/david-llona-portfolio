@@ -1,8 +1,9 @@
 # Estado del universo de tres planetas
 
-Actualizado: 16 de noviembre de 2026 · rama `estacion-espacial`.
+Actualizado: 20 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
+**En curso: objetivo 24 — órbita del mundo 2 y arranque del mundo 3** (`docs/OBJETIVO-24.md`): bloque 1 hecho; bloque 2 en curso. Ver «Objetivo 24» abajo.
 **En curso: objetivo 23 — The Twisted Moon: contenido («arranca el reloj y conóceme»)** (`docs/OBJETIVO-23.md`; sustituye al bloque D del objetivo 20): bloques D1 (mecánica) y D2 (las paradas) hechos; **parado tras el D2 por indicación de David: el D3 (cierre) no se ha empezado.** Ver «Objetivo 23» abajo.
 **Objetivo 22 — pulido visual de The Twisted Moon** (`docs/OBJETIVO-22.md`; C2 y C3 del objetivo 21 aprobados como base): los tres bloques hechos (color y luz, piezas que no se leen, órbita); órbita: David eligió la opción B. **Retoque de luz hecho (16-11-2026); parada, pendiente de su visto bueno.** Ver «Objetivo 22» abajo.
 **Objetivo 21 — The Twisted Moon, que se parezca a las imágenes de referencia** (`docs/OBJETIVO-21.md`; sustituye al bloque C del objetivo 20): bloques C1 (aprobado), C2 y C3 hechos; **parada del C3, pendiente del visto bueno de David** (informe en «Objetivo 21»). Ver «Objetivo 21».
@@ -14,6 +15,28 @@ Decidido por David el 13-11-2026: los pesos reales de los modelos mandan sobre l
 Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
 Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado.
 Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Contents/MacOS/Blender -b` (5.0.1). No hay ffmpeg: el audio también se convierte con Blender.
+
+## Objetivo 24 — Órbita del mundo 2 y arranque del mundo 3 (The Cosmic Lab)
+
+Encargo: `docs/OBJETIVO-24.md` (20-11-2026). Dos bloques, commit y push en cada uno; parada solo tras el bloque 2 (muestra de estilo del mundo 3).
+
+| Bloque | Estado |
+|---|---|
+| 1. El mundo 2 desde la órbita | **Hecho** (20-11-2026). Capturas: `capturas/29-orbita-mundo2/` |
+| 2. Mundo 3: viaje y muestra de estilo | En curso |
+
+**Bloque 1, lo que hay** (`worlds/twisted/`: `farland.js` (datos), `farModels.js` (modelos), `FarScene.jsx` (escena), `falls.js` (las cascadas, sacadas de `Terrain.jsx`), `materials.js` (`moonlit`, sacada de `Flora.jsx`), `Terrain.jsx`, `Flora.jsx`, `Scene.jsx`, `ground.js`; `tests/e2e/twisted.mjs`):
+- **El planeta entero es tierra.** Más allá de la isla hay ahora «tierra lejana», que no se pisa: terrazas a las mismas alturas que las de la isla (3,6 m cada una) con cortados de pizarra, 34 picos de pizarra, 430 árboles en bosques con claros (sauces, copas anchas y espirales, en versión de unos cien triángulos), 46 casitas de tejado puntiagudo con una ventana encendida en cada cara, 71 farolillos (junto a las casitas y a lo largo de los ríos) con su charco de luz cálida, seis lagunas (una en el antípoda), dos ríos que salen del foso y las unen, y tres mesetas de las que cae una cascada turquesa a su laguna. La orilla lleva una línea turquesa que brilla, como la espuma de la isla.
+- **El mar ya no es un océano**: lo que rodea la isla queda como un foso de unos 13,5 m (± 3,5); el resto del agua son las lagunas y los ríos. De las 26 rocas del mar abierto del objetivo 22 quedan solo las que siguen en el agua.
+- **El radio no se ha tocado** (32 m, el común): no hizo falta, y así ni la nave ni la órbita ni el mundo 1 cambian.
+- **Todo se define sobre la esfera** (distancias medidas sobre el planeta), no sobre el plano: lejos del eje el plano se encoge al curvarse, y una laguna redonda en el plano saldría como una raja. Por lo mismo, cada copia se ensancha de través justo lo que el mundo, al cerrarse, la va a encoger en su sitio (se recalcula solo mientras cambia la curvatura: en la subida y la bajada).
+- **A pie**: siete mallas con instancias (una llamada por forma) más el suelo. En tierra solo existe la franja cercana (hasta 30 m de la costa: 264 copias de 590, y esa parte del suelo), y ni eso si la cámara no la alcanza a ver: la franja se reparte en celdas de 8 m y, si ninguna entra en cuadro, no se dibuja nada. Medido: abajo, en el centro de la isla, no se dibuja; desde las terrazas y los miradores asoma por el borde alto de la pantalla y sí.
+- **Rendimiento** (2880 × 1620, sin límite, este equipo, las dos medidas seguidas el mismo día): antes 147 · 163 · 175 · 173 · 175 fps (llegada, río, terraza, historia, cima); después 144 · 160 · 169 · 171 · 171. Unos 3–4 fps de 170 (un 2 %) donde la orilla de enfrente entra en cuadro; las medidas de este equipo bailan ± 5 fps de una tanda a otra. 0 pipelines en caliente en todo el paseo con subida y bajada.
+- **Ojo en Windows, otra vez**: el componente se llamó primero `Farland.jsx` junto a `farland.js` y la carga no terminaba (`./Farland` se resolvía a `farland.js`). Ahora es `FarScene.jsx`. Lo vio la carga en el navegador, no el linter.
+- **Lo que cambia a pie**: desde las terrazas, los picos y los miradores, al otro lado del agua hay orilla, árboles y algún farolillo; abajo, junto al cohete, nada.
+- Prueba: `twisted.mjs` gana tres comprobaciones (a pie no se dibuja; en el mirador de la torre, solo lo cercano; en órbita, todo). Batería al cerrar el bloque: dieciocho pruebas, 469 comprobaciones, 0 fallos. `npm run build` pasa (sigue el aviso antiguo de `hint` en `TouchControls.jsx`, que no es de este objetivo).
+- Capturas: `orbita-antes-despues.jpg` (cuatro lados; arriba antes, abajo después), `subida.jpg` (tres fotogramas), `a-pie-antes-despues.jpg`; las sueltas en `antes/` y `despues/`. Utilidades nuevas: `tests/perf/fps-mundos.mjs` (fps de uno o de los tres mundos) y `tests/e2e/debug-load.mjs` (vuelca los errores de la página cuando la carga no termina).
+- Sin comprobar: nada visto en movimiento por una persona (el ensanchado de las copias durante la subida solo se ha visto en fotogramas); un teléfono de verdad; el respaldo WebGL2. La cámara de la órbita rodea el planeta siempre a la misma latitud: el antípoda (la sexta laguna) no llega a verse de frente.
 
 ## Objetivo 23 — The Twisted Moon: contenido («arranca el reloj y conóceme»)
 

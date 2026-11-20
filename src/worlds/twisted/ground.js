@@ -41,8 +41,8 @@ export async function prepareGround(breathe) {
 }
 export const groundData = () => baked;
 
-const GRASS = ["#1f4750", "#26575a", "#1a3c48", "#2e6660"].map((c) => new THREE.Color(c));
-const ROCK = ["#4a4466", "#585174", "#3c3756", "#676082", "#302c48"].map((c) => new THREE.Color(c));
+export const GRASS = ["#1f4750", "#26575a", "#1a3c48", "#2e6660"].map((c) => new THREE.Color(c));
+export const ROCK = ["#4a4466", "#585174", "#3c3756", "#676082", "#302c48"].map((c) => new THREE.Color(c));
 const BED = new THREE.Color("#152a3c"), DEEP = new THREE.Color("#10122a");
 
 // La malla de la isla. Un color por triángulo. Lleva además, por vértice,
