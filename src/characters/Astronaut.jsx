@@ -6,6 +6,7 @@ import { emit, player } from "../experience/state";
 import eventData from "./data/anim_events.json";
 import clipData from "./data/astronauta_clips.json";
 import { GAITS, createGaitClip, gaitEvents } from "./gait";
+import { JUMP_SHOT, createJumpShotClip } from "./jumpShot";
 import { ASTRONAUT_PALETTE, ASTRONAUT_SCALE } from "./looks";
 import { useRiggedModel } from "./useRiggedModel";
 
@@ -16,7 +17,7 @@ const JOG_CLIP_SPEED = GAITS.jog.speed * ASTRONAUT_SCALE;
 const RUN_CLIP_SPEED = GAITS.run.speed * ASTRONAUT_SCALE;
 const JOG_FROM = 1.7; // m/s a partir de los cuales trota en vez de andar
 const RUN_FROM = 4.9; // y a partir de los cuales corre
-const GAIT_CLIPS = [createGaitClip(GAITS.jog), createGaitClip(GAITS.run)];
+const GAIT_CLIPS = [createGaitClip(GAITS.jog), createGaitClip(GAITS.run), createJumpShotClip()];
 const GAIT_EVENTS = [...eventData.events.filter((event) => event.clip !== GAITS.run.name), ...gaitEvents(GAITS.jog), ...gaitEvents(GAITS.run)];
 
 
@@ -73,6 +74,22 @@ export function Astronaut() {
    // (El clip no avanza —velocidad 0— pero el reloj del mezclador sí: así el fundido desde el clip anterior termina.)
    controller.play(GAITS.run.name, { fade: 0.05, speed: 0 });
    controller.current.action.time = frozenAt * GAITS.run.duration;
+   controller.update(delta);
+   return;
+  }
+  // (Pruebas: cualquier clip, parado en un punto —0 a 1— de su duración. Ver tests/e2e/clips.mjs.)
+  const pose = import.meta.env.DEV ? window.__world.clipFreeze : null;
+  if (pose) {
+   controller.play(pose.name, { fade: 0.05, speed: 0, loop: true });
+   controller.current.action.time = pose.at * controller.current.action.getClip().duration;
+   controller.update(delta);
+   return;
+  }
+  // Tiro en suspensión: la pista dice en qué punto del gesto va (ver jumpShot.js).
+  if (player.shot !== null && !player.gesture) {
+   controller.play(JUMP_SHOT.name, { fade: 0.1, speed: 0 });
+   controller.current.action.time = player.shot * JUMP_SHOT.duration;
+   wasGrounded.current = player.grounded;
    controller.update(delta);
    return;
   }

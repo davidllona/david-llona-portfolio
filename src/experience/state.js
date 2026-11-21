@@ -18,6 +18,7 @@ export const player = {
  grounded: true,
  hidden: false, // dentro de la nave
  frozen: false, // no responde a los controles
+ shot: null, // tiro en suspensión: en qué punto del gesto va (0-1; ver characters/jumpShot.js), o null
  gesture: false, // está haciendo un gesto (acariciar, celebrar…) y no se mueve
  act: null, // (clip, opciones) → promesa; lo instala el modelo del astronauta
  sockets: null, // huesos donde enganchar objetos a sus manos

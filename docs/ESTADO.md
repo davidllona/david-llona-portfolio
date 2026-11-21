@@ -25,7 +25,7 @@ Encargo: `docs/OBJETIVO-26.md` (21-11-2026). **Sustituye al bloque 2 del objetiv
 | Bloque | Estado |
 |---|---|
 | 1. Las tres cartas (y lo pendiente del mundo 3) | **Hecho** (21-11-2026). Capturas: `capturas/32-cartas/` |
-| 2. Baloncesto: tiro en suspensión y segundo defensa | En curso |
+| 2. Baloncesto: tiro en suspensión y segundo defensa | **Hecho** (21-11-2026). Capturas: `capturas/33-baloncesto/` |
 | 3. Concurso de triples y tablón de puntuaciones (Firebase) | Sin empezar |
 
 **Bloque 1, lo que hay.** Maquetas de referencia: `docs/referencias/cartas/` (las cuatro estaban; se capturan con `node tests/e2e/maquetas.mjs`).
@@ -68,6 +68,22 @@ Encargo: `docs/OBJETIVO-26.md` (21-11-2026). **Sustituye al bloque 2 del objetiv
 *Sin comprobar*: nada visto ni oído por una persona (las animaciones, el sonido del mundo 3 y los volúmenes «muy bajos»); un teléfono de verdad; un lector de pantalla; las cartas con fotos, capturas o vídeo reales; que Google Fonts cargue en la red del visitante (si falla, las cartas caen a Nunito o a la letra del sistema).
 
 Capturas (`capturas/32-cartas/`): `hoja-referencia-mundo1.jpg`, `-mundo1-movil.jpg`, `-mundo2.jpg` y `-mundo3.jpg` (la maqueta a la izquierda, la carta real a la derecha), `hoja-movil.jpg` y las 28 sueltas (22 de escritorio y 6 de móvil); las maquetas, en `referencias/`. Se rehacen con `node tests/e2e/cartas.mjs`.
+
+**Bloque 2, lo que hay** (`worlds/living/Court.jsx`, `courtPlay.js`, `characters/jumpShot.js`):
+- **Tiro en suspensión**: con el balón y a tiro, al mantener la E (o el dedo, o el ratón) el astronauta se agacha un instante (0,16 s), **salta con su salto de siempre** (el mismo impulso y el mismo sonido) y sube el balón; al soltar, el balón sale de sus manos. Mientras tira no anda. Si llega al suelo sin soltar, el balón sale tarde y mal.
+- **Animación**: generada por código, como la carrera (los clips de baloncesto del modelo eran de un solo brazo): anticipación, subida con las puntas de los pies hacia abajo, brazos en alto con los codos doblados, golpe de muñeca, acompaña mientras cae y aterriza con las rodillas blandas. No va a su aire: sigue al salto de verdad y al momento en que se suelta. Si entra y el astronauta está quieto, **celebra** (`Astro_CelebrateSmall`).
+- **Medidor**: la barra junto al astronauta sube con el salto; la franja verde del centro es lo más alto. Soltar ahí (margen de unos 160 ms) es **tiro perfecto**: sin desvío, entra (salvo tapón) y lo dice. Antes, se queda corto; después, se pasa; y cuanto peor, más se desvía. Avisos: «Pronto», «Tarde», «Corto: has soltado pronto», «Largo: has soltado tarde».
+- **Arco**: parábola alta (de 0,85 a 1,7 s de vuelo según la distancia; entra a unos 55°-60°). **El aro cede** por el lado de fuera cuando le da el balón (hasta unos 5°, con la red colgando de él), rebota un par de veces y se queda quieto; la red se sigue yendo con el balón, como antes.
+- **Segundo defensa** (azul; el del aro sigue siendo el naranja): con el balón en juego se pone entre el jugador y la canasta, a 1,45 m, y va con él; pero **persigue el sitio donde el jugador estaba hace 0,3 s y va a 3 m/s** (el jugador anda a 3,6 y corre a 6,2), así que un cambio de dirección lo deja atrás. Si el tirador despega a menos de 2,1 m de él, salta a taponar con 0,2-0,34 s de retraso: soltando arriba el balón le pasa por encima; soltando tarde, lo tapona. No se pisa con el otro defensa (0,95 m) ni se echa encima del jugador, y el jugador no lo atraviesa. Sin balón en juego espera junto a la zona.
+- **Sonidos**: todos estaban (bote, aro, tablero, red, tapón, lanzamiento y salto). No falta ninguno.
+
+*Decisiones mías*: (1) pronto = corto y tarde = largo (para que el aviso enseñe a corregir). (2) El perfecto entra siempre desde cualquier distancia de la pista si nadie lo tapona. (3) El segundo defensa salta al ver despegar al tirador, no al salir el balón (si no, nunca llegaría).
+
+*Pruebas*: `basket.mjs` rehecha (35 comprobaciones: se agacha, salta, medidor, perfecto, pronto, tarde, racha, aro que cede, los dos defensas, valla, puerta) y añadida a `npm run e2e`; `progress.mjs` y `living.mjs`, al día. **Batería al cerrar el bloque: veintiuna pruebas, 599 comprobaciones, 0 fallos.** `npm run build` pasa.
+
+*Sin comprobar*: cómo se siente el tiro en la mano de una persona (el margen del perfecto, el retraso del defensa) y en un teléfono de verdad.
+
+Capturas (`capturas/33-baloncesto/`): `hoja-tiro.jpg` (los seis fotogramas: anticipación, subida, arriba, suelta, cae, entra) y sus seis sueltas, `defensas.jpg` y `defensas-saltan.jpg`. Se rehacen con `node tests/e2e/tiro.mjs`. (`node tests/e2e/clips.mjs` saca una hoja de poses de cualquier clip del astronauta.)
 
 ## Objetivo 25 — Una carta distinta por mundo y nuevo enfoque del mundo 3
 

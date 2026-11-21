@@ -72,8 +72,10 @@ export function Player({ active }) {
   const waterLevel = world.waterLevel;
 
   // Movimiento relativo a la pantalla: arriba es el norte (-Z), derecha el este (+X).
-  const side = controllable ? Number(keys.right) - Number(keys.left) + stick.x : 0;
-  const ahead = controllable ? Number(keys.forward) - Number(keys.back) - stick.y : 0;
+  // (Tirando a canasta en suspensión no se anda: se salta en el sitio.)
+  const steering = controllable && player.shot === null;
+  const side = steering ? Number(keys.right) - Number(keys.left) + stick.x : 0;
+  const ahead = steering ? Number(keys.forward) - Number(keys.back) - stick.y : 0;
   const length = Math.hypot(side, ahead);
   const inWater = position.y < waterLevel - 0.08;
   const running = keys.run || Math.hypot(stick.x, stick.y) > STICK_RUN_THRESHOLD;

@@ -19,24 +19,24 @@ import * as THREE from "three";
 // del perfil (270° = hacia abajo; menos = hacia delante).
 const THIGH = 0.131, SHIN = 0.17, FOOT = 0.099; // largo de muslo, espinilla y pie (tobillo → arranque de los dedos)
 const HIP_DROP = 0.02; // lo que baja la articulación de la cadera respecto al hueso Hips
-const TOE_HEIGHT = 0.03; // altura del arranque de los dedos con la planta en el suelo
+export const TOE_HEIGHT = 0.03; // altura del arranque de los dedos con la planta en el suelo
 const FLAT = 225; // ángulo del pie con la planta en el suelo
 const TOE_REST = -41.5;
 const DEG = Math.PI / 180;
 
 // Brazo: la pose de base (colgando, con el codo doblado hacia delante) y sus
 // fijos, tomados del modelo. El derecho es el espejo del izquierdo.
-const ARM = {
+export const ARM = {
  clavicle: [-0.543, -0.498, -0.498, 0.457],
  upper: new THREE.Quaternion(-0.329, -0.131, 0.543, 0.761).slerp(new THREE.Quaternion(-0.65, -0.564, -0.028, 0.509), 0.5).toArray(),
  forearm: [-0.546, 0, -0.341, 0.765],
  fingers: [-0.141, 0, 0.226, 0.964],
  thumb: [-0.276, 0.136, 0.046, 0.95],
 };
-const mirror = ([x, y, z, w]) => [x, -y, -z, w];
-const smooth = (t) => { const k = Math.min(1, Math.max(0, t)); return k * k * (3 - 2 * k); };
-const mix = (a, b, t) => a + (b - a) * t;
-const rotX = (degrees) => new THREE.Quaternion().setFromAxisAngle(X, degrees * DEG);
+export const mirror = ([x, y, z, w]) => [x, -y, -z, w];
+export const smooth = (t) => { const k = Math.min(1, Math.max(0, t)); return k * k * (3 - 2 * k); };
+export const mix = (a, b, t) => a + (b - a) * t;
+export const rotX = (degrees) => new THREE.Quaternion().setFromAxisAngle(X, degrees * DEG);
 const X = new THREE.Vector3(1, 0, 0), Y = new THREE.Vector3(0, 1, 0);
 
 // Los dos pasos del astronauta. `speed`: m/s del modelo sin escalar a los que
@@ -67,6 +67,30 @@ function footAt(gait, p) {
  return { z: stride * (-0.5 + smooth(v)), y: TOE_HEIGHT + gait.swing * Math.pow(Math.sin(Math.PI * Math.pow(v, 0.85)), 0.55), pitch };
 }
 
+// Una pierna por cinemática inversa: de dónde está el arranque de los dedos
+// (`foot`: avance z y altura y respecto al suelo bajo la cadera, e inclinación
+// de la planta) salen muslo, espinilla, pie y dedos. `joint`: la articulación
+// de la cadera; `hipsAngle`: el giro del hueso Hips. Lo usan la carrera y el
+// tiro en suspensión (jumpShot.js).
+export function solveLeg(pose, side, joint, hipsAngle, foot) {
+ const footAngle = FLAT + foot.pitch;
+ // El tobillo, a partir del arranque de los dedos (que es lo que no se mueve en el apoyo).
+ const ankle = { z: foot.z + FOOT * Math.cos(footAngle * DEG), y: foot.y - FOOT * Math.sin(footAngle * DEG) };
+ const dz = ankle.z - joint.z, dy = ankle.y - joint.y;
+ const reach = Math.min(Math.max(Math.hypot(dz, dy), 0.06), THIGH + SHIN - 0.002);
+ const knee = Math.PI - Math.acos((THIGH * THIGH + SHIN * SHIN - reach * reach) / (2 * THIGH * SHIN));
+ let towards = Math.atan2(dy, -dz) / DEG;
+ if (towards < 90) towards += 360;
+ const thighAngle = towards - Math.atan2(SHIN * Math.sin(knee), THIGH + SHIN * Math.cos(knee)) / DEG;
+ const shinAngle = thighAngle + knee / DEG;
+ pose[`Thigh_${side}`] = rotX(thighAngle - hipsAngle).toArray();
+ pose[`Shin_${side}`] = rotX(knee / DEG).toArray();
+ pose[`Foot_${side}`] = rotX(footAngle - shinAngle).toArray();
+ // Al despegar sobre los dedos, estos se quedan planos en el suelo.
+ pose[`Toe_${side}`] = rotX(TOE_REST - Math.max(0, Math.min(foot.pitch, 50)) * (foot.y < TOE_HEIGHT + 0.01 ? 1 : 0.35)).toArray();
+}
+export const hipJoint = (hipsY, hipsAngle) => ({ z: HIP_DROP * Math.cos(hipsAngle * DEG), y: hipsY - HIP_DROP * Math.sin(hipsAngle * DEG) });
+
 // La pose entera en el instante `t` (s). Devuelve el giro (cuaternión, como
 // lista) de cada hueso y la posición de la cadera.
 function poseAt(gait, t) {
@@ -80,24 +104,7 @@ function poseAt(gait, t) {
  const joint = { z: HIP_DROP * Math.cos(hipsAngle * DEG), y: hipsY - HIP_DROP * Math.sin(hipsAngle * DEG) };
  const pose = { Hips: rotX(hipsAngle).toArray(), hipsPosition: [gait.sway * Math.sin(cycle - mid), 0, hipsY] };
 
- for (const [side, offset] of [["L", 0], ["R", 0.5]]) {
-  const foot = footAt(gait, (((t / T + offset) % 1) + 1) % 1);
-  const footAngle = FLAT + foot.pitch;
-  // El tobillo, a partir del arranque de los dedos (que es lo que no se mueve en el apoyo).
-  const ankle = { z: foot.z + FOOT * Math.cos(footAngle * DEG), y: foot.y - FOOT * Math.sin(footAngle * DEG) };
-  const dz = ankle.z - joint.z, dy = ankle.y - joint.y;
-  const reach = Math.min(Math.max(Math.hypot(dz, dy), 0.06), THIGH + SHIN - 0.002);
-  const knee = Math.PI - Math.acos((THIGH * THIGH + SHIN * SHIN - reach * reach) / (2 * THIGH * SHIN));
-  let towards = Math.atan2(dy, -dz) / DEG;
-  if (towards < 90) towards += 360;
-  const thighAngle = towards - Math.atan2(SHIN * Math.sin(knee), THIGH + SHIN * Math.cos(knee)) / DEG;
-  const shinAngle = thighAngle + knee / DEG;
-  pose[`Thigh_${side}`] = rotX(thighAngle - hipsAngle).toArray();
-  pose[`Shin_${side}`] = rotX(knee / DEG).toArray();
-  pose[`Foot_${side}`] = rotX(footAngle - shinAngle).toArray();
-  // Al despegar sobre los dedos, estos se quedan planos en el suelo.
-  pose[`Toe_${side}`] = rotX(TOE_REST - Math.max(0, Math.min(foot.pitch, 50)) * (foot.y < TOE_HEIGHT + 0.01 ? 1 : 0.35)).toArray();
- }
+ for (const [side, offset] of [["L", 0], ["R", 0.5]]) solveLeg(pose, side, joint, hipsAngle, footAt(gait, (((t / T + offset) % 1) + 1) % 1));
 
  // Tronco: el pecho gira contra la cadera (con el pie izquierdo delante va
  // delante el hombro derecho) y la cabeza lo compensa para seguir mirando al frente.

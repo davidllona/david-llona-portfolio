@@ -996,6 +996,8 @@ export function grassDensity(x, z, kind = surface(x, z)) {
 const shipCollider = { x: PAD.x, z: PAD.z, r: 2.3, active: true };
 // La barrera de la pista de baloncesto se mueve de lado: Court.jsx le va cambiando la z.
 export const blockerCollider = { x: BASKET.hoop.x - 2.17, z: BASKET.hoop.z, r: 0.36 };
+// El otro defensa, el que marca al jugador con balón: Court.jsx lo va moviendo.
+export const markerCollider = { x: BASKET.hoop.x - 5.02, z: BASKET.hoop.z + 2.6, r: 0.36 };
 const colliders = [
  ...SOLIDS,
  ...lanterns.map((l) => ({ x: l.x, z: l.z, r: 0.14 })),
@@ -1023,6 +1025,7 @@ const colliders = [
  // Poste de la canasta (más fino que la rejilla del horneado) y la barrera.
  { x: BASKET.hoop.x + 0.38, z: BASKET.hoop.z, r: 0.17 },
  blockerCollider,
+ markerCollider,
  // Postes de la portería.
  ...FOOTBALL_SOLIDS.filter((one) => one.r < 0.2),
  // Barandillas del puente: solo se cruza por el tablero.

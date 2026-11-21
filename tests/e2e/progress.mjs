@@ -62,16 +62,23 @@ check((await has("mejor-amigo")) && (await sounds()).pet === 3, "tres caricias: 
 // Primer enceste: una canasta que entra por el aro.
 await t.put(BASKET.ballStand.x + 0.9, BASKET.ballStand.z + 0.6, { withWoody: false, settle: 500 });
 let score = 0;
-await t.evaluate(() => (window.__world.court.blocker.active = false)); // sin la barrera: aquí se mide el logro
+await t.evaluate(() => { const c = window.__world.court; c.blocker.active = c.marker.active = false; }); // sin los defensas: aquí se mide el logro
 for (let tries = 0; tries < 12 && !score; tries++) {
  await page.keyboard.press("KeyE"); // coger
  await wait(350);
  await t.put(BASKET.hoop.x - 3.2, BASKET.hoop.z, { withWoody: false, settle: 250 });
  check(tries > 0 || !(await has("primer-enceste")), "con el balón en la mano aún no hay logro");
- // Tirar: se mantiene E lo justo para la distancia y se suelta.
- const hold = await t.evaluate(() => (window.__world.court.idealCharge() / window.__world.court.rate) * 1000);
+ // Tirar: se mantiene E (el astronauta salta) y se suelta en lo más alto.
  await page.keyboard.down("KeyE");
- await wait(Math.round(hold));
+ await t.evaluate(() => new Promise((resolve) => {
+  const started = performance.now();
+  const look = () => {
+   const b = window.__world.ball;
+   if ((b.shot?.stage === "air" && b.timing >= -0.1) || performance.now() - started > 3000) resolve();
+   else requestAnimationFrame(look);
+  };
+  look();
+ }));
  await page.keyboard.up("KeyE");
  await wait(2600);
  score = await t.evaluate(() => window.__world.game.score);

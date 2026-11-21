@@ -3,26 +3,29 @@ import { Staged } from "../Staged";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
-import { positionLocal, sin, uniform, vec3 } from "three/tsl";
+import { positionLocal, sin, smoothstep, uniform, vec3 } from "three/tsl";
 import { MeshLambertNodeMaterial } from "three/webgpu";
 import { Instances } from "../../experience/Instances";
 import { useInteractable } from "../../experience/interact";
 import { addWarmSource } from "../../experience/lightSources";
 import { lambert } from "../../experience/materials";
-import { emit, events, game, player } from "../../experience/state";
+import { emit, events, game, input, player, ui } from "../../experience/state";
 import { createBasketballTexture, createGlowTexture } from "../../experience/textures";
 import { registerGlow, uniforms } from "../../experience/theme";
 import { PLAYER_RADIUS } from "../collision";
-import { BASKET, COURT, COURT_FENCE, WATER_LEVEL, blockerCollider, height as terrainHeight } from "./layout";
+import { JUMP_SHOT } from "../../characters/jumpShot";
+import { play } from "./courtPlay";
+import { BASKET, COURT, COURT_FENCE, WATER_LEVEL, blockerCollider, markerCollider, height as terrainHeight } from "./layout";
 import { fontReady } from "../../ui/fonts";
 import { merge, piece } from "./kit/geometry";
 import { Halos } from "./props/Halos";
 
-// Pista de baloncesto. No es un minijuego con modos: se coge el balón, se
-// acerca uno a la canasta, se mantiene pulsado para cargar fuerza y se suelta
-// para tirar. Con poca fuerza el tiro se queda corto; con demasiada, se pasa.
-// Delante del aro hay una barrera que salta y puede taponar. Una valla
-// metálica rodea la pista: el balón rebota en ella y no se sale nunca.
+// Pista de baloncesto. Se coge el balón, se acerca uno a la canasta y se tira
+// en suspensión: al mantener pulsado el astronauta salta, y el balón sale al
+// soltar. En lo más alto del salto, el tiro es perfecto; antes se queda corto y
+// después se pasa. Hay dos defensas: uno delante del aro, que salta a taponar, y
+// otro que marca al jugador. Una valla metálica rodea la pista: el balón rebota
+// en ella y no se sale nunca.
 
 const { hoop, ballStand, center } = BASKET;
 const court = COURT;
@@ -45,19 +48,42 @@ const PILLARS = [
  { x: ballStand.x, z: ballStand.z, r: 0.2, h: STAND_TOP - 0.06 },
  { x: RIM.x + 1.0, z: hoop.z, r: 0.13, h: RIM.y + 0.3 },
 ];
-// Carga del tiro: sube de 0 a 1 en 1/RATE segundos y vuelve a bajar, en vaivén.
-const CHARGE_RATE = 0.7;
+// Tiro en suspensión. El momento de soltar se mide con la velocidad vertical
+// del salto: −1 al despegar, 0 en lo más alto, +1 al volver al suelo.
+const DIP_TIME = 0.16; // s que se agacha antes de saltar
+const PERFECT = 0.2; // margen, en esa medida, del tiro perfecto (unos 160 ms)
 const SHOOT_RANGE = 12.5; // m al aro desde los que se puede tirar
-// La fuerza justa para encestar desde `distance` metros (0…1).
-const idealCharge = (distance) => THREE.MathUtils.clamp(0.3 + distance * 0.05, 0.36, 0.9);
-// Cuánto cambia la velocidad de salida por cada punto de carga de más o de menos.
-const CHARGE_GAIN = 0.45;
 
-// ── Barrera ─────────────────────────────────────────────────────────────────
-// Un maniquí delante del aro. Se mueve de lado para ponerse en la línea del
-// tiro y salta en cuanto sale el balón: los tiros flojos o tensos, los tapona.
-const blocker = { x: RIM.x - 1.55, z: RIM.z, y: 0, vy: 0, wait: -1, power: 0, active: true };
-const BLOCKER = { radius: 0.34, low: 0.3, high: 2.38 };
+// ── Defensas ──────────────────────────────────────────────────────────────────
+// Dos maniquíes. `guard`: delante del aro; se mueve de lado para ponerse en la
+// línea del tiro y salta en cuanto sale el balón. `marker`: marca al jugador
+// que lleva el balón (ver Defenders).
+const DEFENDER = { radius: 0.34, low: 0.3, high: 2.38 };
+const GUARD_X = RIM.x - 1.55;
+const MARK_HOME = { x: RIM.x - 4.4, z: RIM.z + 2.6 }; // donde espera, junto a la zona
+const MARK_GAP = 1.45; // m por delante del jugador
+const MARK_LAG = 0.3; // s de retraso con que le sigue
+const MARK_SPEED = 3.0; // m/s (el jugador anda a 3,6 y corre a 6,2)
+const MARK_BLOCK = 2.1; // salta a taponar si el tiro sale a menos de esto
+// A la banda, durante el concurso de triples.
+const GUARD_ASIDE = { x: court.x1 - 0.7, z: court.z0 + 0.8 };
+const MARK_ASIDE = { x: court.x1 - 0.7, z: court.z0 + 1.9 };
+const guard = { x: GUARD_X, z: RIM.z, y: 0, vy: 0, wait: -1, power: 0, active: true };
+const marker = { x: MARK_HOME.x, z: MARK_HOME.z, aimX: MARK_HOME.x, aimZ: MARK_HOME.z, y: 0, vy: 0, wait: -1, power: 0, active: true };
+const defenders = [guard, marker];
+// El aro cede cuando le da el balón y vuelve temblando: ángulo (rad) y velocidad.
+const rim = { angle: 0, speed: 0 };
+const onCourt = () => {
+ const feet = player.position;
+ return !player.hidden && feet.x > fence.x0 && feet.x < fence.x1 && feet.z > fence.z0 && feet.z < fence.z1;
+};
+// El que marca salta a taponar si el tirador despega pegado a él: tarda en
+// reaccionar, así que soltando a tiempo el balón le pasa por encima.
+function markerReacts() {
+ if (play.contest || marker.y > 0 || Math.hypot(marker.x - player.position.x, marker.z - player.position.z) > MARK_BLOCK) return;
+ marker.wait = 0.2 + Math.random() * 0.14;
+ marker.power = 4.4 + Math.random() * 0.8;
+}
 
 // Rebota contra una superficie de normal (nx, ny, nz). Devuelve la velocidad
 // del impacto en m/s (0 si ya se estaba alejando).
@@ -75,8 +101,8 @@ function hit(id, at, strength) {
  if (strength > 0.06) emit("sound", { id, x: at.x, z: at.z, strength: Math.min(1, strength) });
 }
 
-// Un paso de física: gravedad, suelo, valla, tablero, aro, pilares y barrera.
-// Apunta en `what` lo que ha pasado en este paso: scored, floor, rim, blocked.
+// Un paso de física: gravedad, suelo, valla, tablero, aro, pilares y defensas.
+// Apunta en `what` lo que ha pasado en este paso: scored, floor, rim (con qué fuerza), blocked.
 function stepBall(p, v, dt, what) {
  const previousY = p.y;
  v.y -= BALL_GRAVITY * dt;
@@ -128,7 +154,7 @@ function stepBall(p, v, dt, what) {
   p.set(qx + (ox / d) * reach, RIM.y + (oy / d) * reach, qz + (oz / d) * reach);
   const force = bounce(v, ox / d, oy / d, oz / d, 0.5) / 5;
   hit("ball-rim", p, force);
-  if (force > 0.06) what.rim = true;
+  if (force > 0.06) what.rim = force;
  }
  // Canasta: el centro cruza el plano del aro hacia abajo, por dentro.
  if (previousY > RIM.y && p.y <= RIM.y && v.y < 0 && flat < RIM_RADIUS - 0.03) what.scored = true;
@@ -145,16 +171,17 @@ function stepBall(p, v, dt, what) {
   hit("ball-post", p, bounce(v, px / distance, 0, pz / distance, 0.55) / 5);
  }
 
- // Barrera: una cápsula vertical, de los pies a las manos en alto.
- if (blocker.active) {
-  const by = Math.max(blocker.y + BLOCKER.low, Math.min(p.y, blocker.y + BLOCKER.high));
-  ox = p.x - blocker.x;
+ // Defensas: cada uno, una cápsula vertical, de los pies a las manos en alto.
+ for (const one of defenders) {
+  if (!one.active) continue;
+  const by = Math.max(one.y + DEFENDER.low, Math.min(p.y, one.y + DEFENDER.high));
+  ox = p.x - one.x;
   oy = p.y - by;
-  oz = p.z - blocker.z;
+  oz = p.z - one.z;
   d = Math.hypot(ox, oy, oz);
-  const limit = BLOCKER.radius + BALL_RADIUS;
+  const limit = DEFENDER.radius + BALL_RADIUS;
   if (d < limit && d > 1e-5) {
-   p.set(blocker.x + (ox / d) * limit, by + (oy / d) * limit, blocker.z + (oz / d) * limit);
+   p.set(one.x + (ox / d) * limit, by + (oy / d) * limit, one.z + (oz / d) * limit);
    const force = bounce(v, ox / d, oy / d, oz / d, 0.45) / 5;
    hit("ball-block", p, force);
    if (force > 0.1) what.blocked = true;
@@ -165,14 +192,16 @@ function stepBall(p, v, dt, what) {
 // ── Balón ───────────────────────────────────────────────────────────────────
 // Tiene tres estados claros, y solo uno a la vez:
 //  · "stand": quieto en su soporte;
-//  · "held": en las manos del astronauta (y, si se está cargando, `charging`);
+//  · "held": en las manos del astronauta (y, si está tirando, `shot`);
 //  · "free": suelto, con física.
+// El tiro (`shot`) pasa por: "dip" (se agacha), "jump" (pide el salto), "air"
+// (sube con el balón: aquí se suelta), "released" (acompaña el tiro mientras
+// cae) y "landing".
 function Ball() {
  const mesh = useRef(null);
  const shadow = useRef(null);
  const meter = useRef(null);
  const fill = useRef(null);
- const sweet = useRef(null);
  const texture = useMemo(() => createBasketballTexture(), []);
  useEffect(() => () => texture.dispose(), [texture]);
 
@@ -183,32 +212,39 @@ function Ball() {
   idle: 0,
   untouchable: 0, // s sin chocar con el jugador, tras tirar
   scoreLock: 0,
-  charging: false,
-  chargeTime: 0,
-  charge: 0,
+  shot: null, // { stage, t, takeoff }
+  timing: 0, // cuándo se soltó: −1 al despegar, 0 arriba del todo, +1 al caer
   live: false, // hay un tiro en el aire, aún sin resolver
+  cheer: false, // el tiro en vuelo salió de un salto: si entra, se celebra
   streak: 0,
  });
- // Teclas y botones que se están manteniendo: mientras haya alguno, se carga.
+ // Teclas y botones que se están manteniendo: el balón sale cuando se sueltan.
  const held = useRef({ key: false, pointer: false });
  const spin = useMemo(() => ({ axis: new THREE.Vector3(), turn: new THREE.Quaternion() }), []);
- const what = useMemo(() => ({ scored: false, floor: false, rim: false, blocked: false }), []);
+ const what = useMemo(() => ({ scored: false, floor: false, rim: 0, blocked: false }), []);
+ const hands = useMemo(() => [new THREE.Vector3(), new THREE.Vector3()], []);
 
  const toRim = () => Math.hypot(RIM.x - player.position.x, RIM.z - player.position.z);
- const inRange = () => {
-  const feet = player.position;
-  return feet.x > fence.x0 && feet.x < fence.x1 && feet.z > fence.z0 && feet.z < fence.z1 && toRim() < SHOOT_RANGE;
- };
+ const inRange = () => onCourt() && toRim() < SHOOT_RANGE;
+ const faceRim = () => (player.facing = Math.atan2(-(RIM.x - player.position.x), -(RIM.z - player.position.z)));
 
+ const endShot = () => {
+  ball.current.shot = null;
+  player.shot = null;
+ };
  const toStand = () => {
   const b = ball.current;
-  Object.assign(b, { mode: "stand", idle: 0, charging: false, live: false });
+  Object.assign(b, { mode: "stand", idle: 0, live: false });
+  endShot();
+  play.holding = false;
   b.position.set(...HOME);
   b.velocity.set(0, 0, 0);
  };
 
  const grab = () => {
-  Object.assign(ball.current, { mode: "held", charging: false, live: false });
+  Object.assign(ball.current, { mode: "held", live: false });
+  endShot();
+  play.holding = true;
   emit("sound", { id: "ball-grab" });
  };
 
@@ -216,6 +252,7 @@ function Ball() {
  const miss = (text) => {
   const b = ball.current;
   b.live = false;
+  b.cheer = false;
   if (text) emit("toast", { text, at: { x: RIM.x - 0.4, y: RIM.y + 2.2, z: RIM.z } });
   if (b.streak > 0) {
    b.streak = 0;
@@ -223,7 +260,8 @@ function Ball() {
   }
  };
 
- const beginCharge = () => {
+ // Empieza el tiro: se agacha y salta (o, si ya iba por el aire, tira desde ahí).
+ const beginShot = () => {
   const b = ball.current;
   if (b.mode !== "held") {
    emit("toast", { text: "Coge antes el balón", at: { x: ballStand.x, y: 2.6, z: ballStand.z } });
@@ -233,49 +271,58 @@ function Ball() {
    emit("toast", { text: "Acércate a la canasta", at: { x: player.position.x, y: player.position.y + 2.6, z: player.position.z } });
    return;
   }
-  if (b.charging) return;
-  Object.assign(b, { charging: true, chargeTime: 0, charge: 0 });
+  if (b.shot || player.gesture) return;
+  b.shot = { stage: player.grounded ? "dip" : "air", t: 0, takeoff: Math.max(1, Math.abs(player.velocity.y)) };
+  b.timing = -1;
+  player.shot = JUMP_SHOT.ready;
+  if (!player.grounded) markerReacts();
  };
 
- // Tira con la fuerza `charge` (0…1). `exact`: sin la dispersión del pulso (pruebas).
- const shoot = (charge, exact = false) => {
+ // Suelta el balón. `timing`: −1 (nada más despegar) … 0 (en lo más alto: tiro
+ // perfecto) … +1 (ya cayendo). Pronto se queda corto; tarde, se pasa; y cuanto
+ // peor, más se desvía. `exact`: sin dispersión ni aviso (pruebas).
+ const release = (timing, exact = false) => {
   const b = ball.current;
   if (b.mode !== "held") return;
   const feet = player.position;
-  // Sale de las manos, por encima de la cabeza, en parábola hacia el aro.
-  b.position.set(feet.x, feet.y + 2, feet.z);
-  const distance = toRim();
-  // Cuanto más lejos, más se desvía.
-  const spread = exact ? 0 : 0.02 + Math.max(0, distance - 4) * 0.03;
+  // (Sin gesto —pruebas—, sale de encima de la cabeza.)
+  if (!b.shot) b.position.set(feet.x, feet.y + 2.05, feet.z);
+  const distance = Math.hypot(RIM.x - b.position.x, RIM.z - b.position.z);
+  const off = Math.max(0, Math.abs(timing) - PERFECT) / (1 - PERFECT); // 0 = perfecto … 1 = lo peor
+  const spread = exact || off === 0 ? 0 : (0.04 + off * 0.3) * (0.4 + distance * 0.09);
   const targetX = RIM.x + (Math.random() - 0.5) * 2 * spread;
   const targetZ = RIM.z + (Math.random() - 0.5) * 2 * spread;
-  const time = THREE.MathUtils.clamp(0.6 + distance * 0.12, 0.85, 1.7);
-  // La velocidad justa para caer en el aro, y más o menos según la carga.
-  const power = 1 + (charge - idealCharge(distance)) * CHARGE_GAIN;
+  // Parábola alta: cuanto más lejos, más tiempo en el aire.
+  const time = THREE.MathUtils.clamp(0.62 + distance * 0.115, 0.85, 1.7);
+  const power = off === 0 ? 1 : 1 + Math.sign(timing) * (0.03 + off * 0.2);
   b.velocity.set((targetX - b.position.x) / time, (RIM.y + 0.03 - b.position.y + 0.5 * BALL_GRAVITY * time * time) / time, (targetZ - b.position.z) / time).multiplyScalar(power);
-  player.facing = Math.atan2(-(RIM.x - feet.x), -(RIM.z - feet.z));
-  Object.assign(b, { mode: "free", untouchable: 0.5, idle: 0, charging: false, live: true, charge });
-  // La barrera salta, con un respiro de reacción y más o menos impulso.
-  blocker.wait = 0.1 + Math.random() * 0.12;
-  blocker.power = 3.9 + Math.random() * 1.1;
+  faceRim();
+  Object.assign(b, { mode: "free", untouchable: 0.5, idle: 0, live: true, timing, cheer: Boolean(b.shot) });
+  play.holding = false;
+  if (b.shot) Object.assign(b.shot, { stage: "released", t: 0 });
+  // El defensa del aro salta, con un respiro de reacción y más o menos impulso.
+  guard.wait = 0.1 + Math.random() * 0.12;
+  guard.power = 3.9 + Math.random() * 1.1;
   emit("sound", { id: "ball-throw" });
+  emit("shot", { timing, perfect: off === 0 });
+  if (!exact && !play.contest) emit("toast", { text: off === 0 ? "¡Perfecto!" : timing < 0 ? "Pronto" : "Tarde", at: { x: feet.x, y: feet.y + 2.9, z: feet.z } });
  };
 
  const grabClick = useInteractable({
   position: () => ball.current.position,
   radius: GRAB_DISTANCE,
   hint: "Coger el balón",
-  enabled: () => ball.current.mode !== "held",
+  enabled: () => ball.current.mode !== "held" && !play.contest,
   action: grab,
  });
- // Con el balón en la mano, la acción es cargar el tiro: se mantiene y se suelta.
+ // Con el balón en la mano, la acción es tirar: se mantiene y se suelta.
  useInteractable({
   position: () => player.position,
   radius: 1,
   priority: 1,
-  hint: () => (inRange() ? "Mantén pulsado y suelta: tirar a canasta" : "Acércate a la canasta para tirar"),
-  enabled: () => ball.current.mode === "held",
-  action: beginCharge,
+  hint: () => (inRange() ? "Tirar a canasta: mantén pulsado y suelta en lo más alto del salto" : "Acércate a la canasta para tirar"),
+  enabled: () => ball.current.mode === "held" && !ball.current.shot, // (tirando, el letrero no tapa el medidor)
+  action: beginShot,
  });
 
  useEffect(() => {
@@ -283,11 +330,11 @@ function Ball() {
   const keys = held.current;
   const onKeyDown = (event) => event.code === "KeyE" && (keys.key = true);
   const onKeyUp = (event) => event.code === "KeyE" && (keys.key = false);
-  // Con el ratón o el dedo: pulsar sobre la escena carga; soltar, tira. (El
+  // Con el ratón o el dedo: pulsar sobre la escena salta; soltar, tira. (El
   // botón «Usar» de la pantalla táctil también cuenta como pulsación mantenida.)
   const onPointerDown = (event) => {
    keys.pointer = true;
-   if (event.target instanceof HTMLCanvasElement && b.mode === "held" && inRange()) beginCharge();
+   if (event.target instanceof HTMLCanvasElement && b.mode === "held" && inRange()) beginShot();
   };
   const onPointerUp = () => (keys.pointer = false);
   window.addEventListener("keydown", onKeyDown);
@@ -296,10 +343,12 @@ function Ball() {
   window.addEventListener("pointerup", onPointerUp);
   window.addEventListener("pointercancel", onPointerUp);
   window.addEventListener("blur", onPointerUp);
+  // Lo que la pista ofrece a quien la dirige desde fuera (el concurso de triples).
+  Object.assign(play, { ball: b, grab, toStand, release });
   if (import.meta.env.DEV) {
    // Para las pruebas automáticas.
    window.__world.ball = b;
-   window.__world.court = { blocker, RIM, fence, idealCharge: () => idealCharge(toRim()), shoot: (charge) => shoot(charge, true), home: toStand, rate: CHARGE_RATE };
+   window.__world.court = { blocker: guard, marker, rim, play, RIM, fence, perfect: PERFECT, shoot: (timing = 0) => release(timing, true), home: toStand };
   }
   return () => {
    window.removeEventListener("keydown", onKeyDown);
@@ -308,6 +357,8 @@ function Ball() {
    window.removeEventListener("pointerup", onPointerUp);
    window.removeEventListener("pointercancel", onPointerUp);
    window.removeEventListener("blur", onPointerUp);
+   player.shot = null;
+   Object.assign(play, { ball: null, holding: false });
   };
   // eslint-disable-next-line react-hooks/exhaustive-deps
  }, []);
@@ -317,45 +368,86 @@ function Ball() {
   const b = ball.current;
   const p = b.position;
   const feet = player.position;
+  const shot = b.shot;
   b.untouchable = Math.max(0, b.untouchable - dt);
   b.scoreLock = Math.max(0, b.scoreLock - dt);
 
   if (b.mode === "held") {
-   // En las manos, delante del cuerpo, con un pequeño bote; al cargar, arriba.
-   const forwardX = -Math.sin(player.facing);
-   const forwardZ = -Math.cos(player.facing);
-   const lift = b.charging ? 1.55 + b.charge * 0.3 : 0.95 + Math.abs(Math.sin(clock.elapsedTime * 5)) * 0.12;
-   p.set(feet.x + forwardX * (b.charging ? 0.3 : 0.55), feet.y + lift, feet.z + forwardZ * (b.charging ? 0.3 : 0.55));
-   if (b.charging) {
-    // Sube y baja en vaivén: hay que soltar en su punto.
-    b.chargeTime += dt;
-    const swing = (b.chargeTime * CHARGE_RATE) % 2;
-    b.charge = swing < 1 ? swing : 2 - swing;
-    player.facing = Math.atan2(-(RIM.x - feet.x), -(RIM.z - feet.z));
-    if (!held.current.key && !held.current.pointer) shoot(b.charge);
-    else if (b.chargeTime > 6 || !inRange()) b.charging = false;
+   if (shot) {
+    shot.t += dt;
+    faceRim();
+    if (shot.stage === "dip") {
+     // Anticipación: se agacha un instante y pide el salto de siempre.
+     player.shot = JUMP_SHOT.dip * Math.min(1, shot.t / DIP_TIME);
+     if (shot.t >= DIP_TIME) {
+      Object.assign(shot, { stage: "jump", t: 0 });
+      input.jumpQueued = true;
+     }
+    } else if (shot.stage === "jump") {
+     if (!player.grounded) {
+      Object.assign(shot, { stage: "air", t: 0, takeoff: Math.max(1, player.velocity.y) });
+      markerReacts();
+     } else if (shot.t > 0.25) endShot(); // (no ha podido saltar: hay una carta abierta, un gesto…)
+    }
+    if (shot.stage === "air") {
+     // Sube con el balón: los brazos van arriba según se acerca a lo más alto.
+     b.timing = THREE.MathUtils.clamp(-player.velocity.y / shot.takeoff, -1, 1);
+     const up = THREE.MathUtils.smoothstep(b.timing, -1, 0);
+     player.shot = JUMP_SHOT.dip + (JUMP_SHOT.set - JUMP_SHOT.dip) * up;
+     // Sale al soltar; y si se llega al suelo sin soltar, tarde y mal.
+     if (player.grounded) release(1);
+     else if (!held.current.key && !held.current.pointer) release(b.timing);
+    }
    }
-   // Si te lo llevas lejos o subes a la nave, vuelve a su sitio.
-   if (player.hidden || Math.hypot(feet.x - center.x, feet.z - center.z) > MAX_DISTANCE) toStand();
+   if (b.mode === "held") {
+    const forwardX = -Math.sin(player.facing);
+    const forwardZ = -Math.cos(player.facing);
+    const sockets = player.sockets;
+    if (b.shot && sockets?.RightHand_PropSocket && sockets.LeftHand_PropSocket) {
+     // Tirando: entre las dos manos (que lleva la animación), algo por delante.
+     sockets.RightHand_PropSocket.getWorldPosition(hands[0]);
+     sockets.LeftHand_PropSocket.getWorldPosition(hands[1]);
+     p.copy(hands[0]).add(hands[1]).multiplyScalar(0.5);
+     p.x += forwardX * 0.14;
+     p.y += 0.12;
+     p.z += forwardZ * 0.14;
+    } else {
+     // En las manos, delante del cuerpo, con un pequeño bote.
+     p.set(feet.x + forwardX * 0.55, feet.y + 0.95 + Math.abs(Math.sin(clock.elapsedTime * 5)) * 0.12, feet.z + forwardZ * 0.55);
+    }
+    // Si te lo llevas lejos o subes a la nave, vuelve a su sitio.
+    if (player.hidden || Math.hypot(feet.x - center.x, feet.z - center.z) > MAX_DISTANCE) toStand();
+   }
   } else if (b.mode === "free") {
    // Pasos cortos para que no atraviese el aro.
    const steps = Math.ceil(dt / (1 / 120));
    for (let i = 0; i < steps; i++) {
-    what.scored = what.floor = what.rim = what.blocked = false;
+    what.scored = what.floor = what.blocked = false;
+    what.rim = 0;
     stepBall(p, b.velocity, dt / steps, what);
-    if (what.rim) emit("net", { amount: 0.3, x: b.velocity.x, z: b.velocity.z });
+    if (what.rim > 0) {
+     emit("net", { amount: 0.3, x: b.velocity.x, z: b.velocity.z });
+     rim.speed += Math.min(1, what.rim) * 2.6; // el aro cede con el golpe
+    }
     if (what.scored && b.scoreLock <= 0) {
      b.scoreLock = 1;
      b.live = false;
      b.streak += 1;
      game.score += 1;
      game.streak = b.streak;
+     rim.speed += 0.7;
      emit("net", { amount: 1, x: b.velocity.x, z: b.velocity.z });
      emit("score", { score: game.score });
-     emit("basket", { score: game.score, streak: b.streak });
-     emit("toast", { text: b.streak > 1 ? `¡Canasta! ${game.score} · racha de ${b.streak}` : `¡Canasta! ${game.score}`, at: { x: RIM.x - 0.4, y: RIM.y + 2.2, z: RIM.z } });
-    } else if (b.live && what.blocked) miss("¡Tapón!");
-    else if (b.live && what.floor) miss(b.charge < idealCharge(Math.hypot(RIM.x - feet.x, RIM.z - feet.z)) ? "Corto: más fuerza" : "Largo: menos fuerza");
+     emit("basket", { score: game.score, streak: b.streak, timing: b.timing });
+     if (!play.contest) emit("toast", { text: b.streak > 1 ? `¡Canasta! ${game.score} · racha de ${b.streak}` : `¡Canasta! ${game.score}`, at: { x: RIM.x - 0.4, y: RIM.y + 2.2, z: RIM.z } });
+     // Una celebración pequeña, si está quieto y con los pies en el suelo.
+     if (b.cheer && !play.contest && player.grounded && !player.gesture && !ui.open && Math.hypot(player.velocity.x, player.velocity.z) < 1.5) {
+      endShot();
+      player.act?.("Astro_CelebrateSmall", { fade: 0.15 });
+     }
+     b.cheer = false;
+    } else if (b.live && what.blocked) miss(play.contest ? null : "¡Tapón!");
+    else if (b.live && what.floor) miss(play.contest ? null : b.timing < -PERFECT ? "Corto: has soltado pronto" : b.timing > PERFECT ? "Largo: has soltado tarde" : "¡Casi!");
    }
 
    // El astronauta lo empuja al chocar: solo le da velocidad, sin recolocarlo
@@ -381,7 +473,7 @@ function Ball() {
    const speed = b.velocity.length();
    b.idle = speed < 0.3 ? b.idle + dt : 0;
    const nearPlayer = Math.hypot(p.x - feet.x, p.z - feet.z) < GRAB_DISTANCE + 1;
-   if (b.idle > IDLE_BEFORE_RETURN && !nearPlayer) toStand();
+   if (b.idle > IDLE_BEFORE_RETURN && !nearPlayer && !play.contest) toStand();
 
    if (speed > 0.05) {
     spin.axis.set(b.velocity.z, 0, -b.velocity.x).normalize();
@@ -390,7 +482,21 @@ function Ball() {
    }
   }
 
+  // El gesto sigue después de soltar: golpe de muñeca, acompaña mientras cae y aterriza.
+  if (b.shot && (b.shot.stage === "released" || b.shot.stage === "landing")) {
+   const now = b.shot;
+   now.t += dt;
+   if (now.stage === "released") {
+    player.shot = Math.min(JUMP_SHOT.follow, player.shot + dt * (player.shot < JUMP_SHOT.set ? 3.2 : 1.5));
+    if (player.grounded) Object.assign(now, { stage: "landing", t: 0 });
+   } else {
+    player.shot = Math.min(JUMP_SHOT.land, player.shot + dt * 1.3);
+    if (now.t > 0.3 || Math.hypot(player.velocity.x, player.velocity.z) > 1) endShot();
+   }
+  }
+
   mesh.current.position.copy(p);
+  mesh.current.visible = b.mode !== "hidden";
   // Sombra de contacto: se encoge y aclara cuanto más alto está.
   const ground = Math.max(terrainHeight(p.x, p.z), WATER_LEVEL);
   const height = Math.max(0, p.y - BALL_RADIUS - ground);
@@ -399,18 +505,17 @@ function Ball() {
   shadow.current.scale.setScalar(1 + height * 0.3);
   shadow.current.material.opacity = 0.4 / (1 + height * 1.4);
 
-  // Indicador de fuerza: una barra junto al astronauta, de cara a la cámara,
-  // con la franja verde donde hay que soltar.
-  meter.current.visible = b.charging;
-  if (b.charging) {
+  // Medidor de tiro: una barra junto al astronauta, de cara a la cámara. Sube
+  // con el salto; la franja verde del centro es lo más alto: ahí hay que soltar.
+  const aiming = b.mode === "held" && Boolean(b.shot);
+  meter.current.visible = aiming;
+  if (aiming) {
+   const level = b.shot.stage === "air" ? (b.timing + 1) / 2 : 0;
    meter.current.position.set(feet.x + 0.95, feet.y + 1.25, feet.z);
    meter.current.quaternion.copy(camera.quaternion);
-   fill.current.scale.y = Math.max(0.001, b.charge);
-   fill.current.position.y = -METER.height / 2 + (b.charge * METER.height) / 2;
-   const ideal = idealCharge(toRim());
-   sweet.current.position.y = -METER.height / 2 + ideal * METER.height;
-   // Dentro de la franja, la barra se pone verde.
-   fill.current.material.color.set(Math.abs(b.charge - ideal) < METER.band / 2 ? "#5fe07a" : b.charge > ideal ? "#ff6a4a" : "#ffcf4a");
+   fill.current.scale.y = Math.max(0.001, level);
+   fill.current.position.y = -METER.height / 2 + (level * METER.height) / 2;
+   fill.current.material.color.set(Math.abs(b.timing) <= PERFECT ? "#5fe07a" : b.timing > 0 ? "#ff6a4a" : "#ffcf4a");
   }
  });
 
@@ -429,13 +534,13 @@ function Ball() {
     <circleGeometry args={[BALL_RADIUS * 1.2, 20]} />
     <meshBasicMaterial color="#000000" transparent opacity={0.35} depthWrite={false} />
    </mesh>
-   <group ref={meter} visible={false} renderOrder={20}>
+   <group ref={meter} name="medidor de tiro" visible={false} renderOrder={20}>
     <mesh>
      <planeGeometry args={[METER.width + 0.08, METER.height + 0.08]} />
      <meshBasicMaterial color="#1c1a22" transparent opacity={0.88} depthTest={false} toneMapped={false} fog={false} />
     </mesh>
-    <mesh ref={sweet} position-z={0.002}>
-     <planeGeometry args={[METER.width + 0.16, METER.height * METER.band]} />
+    <mesh position-z={0.002}>
+     <planeGeometry args={[METER.width + 0.16, METER.height * PERFECT]} />
      <meshBasicMaterial color="#5fe07a" transparent opacity={0.55} depthTest={false} toneMapped={false} fog={false} />
     </mesh>
     <mesh ref={fill} position-z={0.004}>
@@ -446,8 +551,8 @@ function Ball() {
   </>
  );
 }
-// La barra de fuerza. `band`: ancho de la franja buena, en carga (0…1).
-const METER = { width: 0.16, height: 1.3, band: 0.14 };
+// La barra del medidor.
+const METER = { width: 0.16, height: 1.3 };
 
 // ── Canasta ─────────────────────────────────────────────────────────────────
 function createScoreTexture() {
@@ -495,6 +600,8 @@ function Hoop() {
  const flash = useRef(0);
  const score = useMemo(createScoreTexture, []);
  const swish = useMemo(() => uniform(new THREE.Vector3()), []); // hacia dónde (x, z) y cuánto
+ const tilt = useMemo(() => uniform(0), []); // lo que cede el aro (rad)
+ const hinge = useRef(null);
  const parts = useMemo(() => {
   const found = {};
   scene.traverse((node) => {
@@ -506,17 +613,22 @@ function Hoop() {
   return found;
  }, [scene]);
  const material = useMemo(() => {
+  // El aro cede por su bisagra (el lado del tablero): lo demás del modelo no se mueve.
+  // (En el modelo el aro es de radio 1, centrado, con el tablero hacia −x.)
+  const lever = positionLocal.x.add(1).max(0);
+  const onRim = smoothstep(1.2, 1.35, positionLocal.xz.length()).oneMinus().mul(smoothstep(0.15, 0.3, positionLocal.y.abs()).oneMinus());
   const frame = lambert();
+  frame.positionNode = positionLocal.sub(vec3(0, tilt.mul(lever).mul(onRim), 0));
   // La red cuelga del aro: arriba no se mueve; abajo se va con el balón, se
   // estira y se sacude.
   const net = new MeshLambertNodeMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide });
   const hang = positionLocal.y.negate().div(NET_DEPTH).clamp(0, 1);
   const sway = hang.mul(hang).mul(swish.z);
   const shake = sin(uniforms.uTime.mul(21)).mul(0.5);
-  net.positionNode = positionLocal.add(vec3(swish.x.add(shake).mul(sway).mul(0.75), positionLocal.y.mul(swish.z).mul(0.34), swish.y.add(shake.mul(0.6)).mul(sway).mul(0.75)));
+  net.positionNode = positionLocal.add(vec3(swish.x.add(shake).mul(sway).mul(0.75), positionLocal.y.mul(swish.z).mul(0.34).sub(tilt.mul(lever)), swish.y.add(shake.mul(0.6)).mul(sway).mul(0.75)));
   const rim = new THREE.MeshLambertMaterial({ color: "#ff5a2e", emissive: "#ff5a2e", emissiveIntensity: 0.4 });
   return { frame, net, rim };
- }, [swish]);
+ }, [swish, tilt]);
 
  useEffect(() => {
   const onBasket = (event) => {
@@ -543,6 +655,12 @@ function Hoop() {
  useFrame((_, delta) => {
   // La sacudida de la red se apaga sola; al encestar, el aro destella.
   swish.value.z *= Math.exp(-delta * 2.4);
+  // El aro: un muelle con freno (cede, rebota un par de veces y se queda quieto).
+  const dt = Math.min(delta, 0.05);
+  rim.speed += (-520 * rim.angle - 9 * rim.speed) * dt;
+  rim.angle = THREE.MathUtils.clamp(rim.angle + rim.speed * dt, -0.06, 0.2);
+  tilt.value = rim.angle;
+  hinge.current.rotation.z = rim.angle;
   flash.current = Math.max(0, flash.current - delta * 1.8);
   material.rim.emissiveIntensity = 0.4 + flash.current * 3;
  });
@@ -554,9 +672,11 @@ function Hoop() {
     <mesh name="red de la canasta" geometry={parts.red} material={material.net} />
    </group>
    {/* Un filo naranja sobre el aro del modelo: es lo que destella al encestar. */}
-   <mesh position={[RIM.x, RIM.y + 0.01, RIM.z]} rotation-x={Math.PI / 2} material={material.rim}>
-    <torusGeometry args={[RIM_RADIUS, 0.022, 6, 24]} />
-   </mesh>
+   <group ref={hinge} position={[RIM.x + RIM_RADIUS, RIM.y, RIM.z]}>
+    <mesh name="filo del aro" position={[-RIM_RADIUS, 0.01, 0]} rotation-x={Math.PI / 2} material={material.rim}>
+     <torusGeometry args={[RIM_RADIUS, 0.022, 6, 24]} />
+    </mesh>
+   </group>
    {/* Marcador, sobre el tablero e inclinado hacia la cámara. */}
    <mesh position={[RIM.x + 0.75, RIM.y + 1.72, RIM.z]} rotation-x={-0.5}>
     <planeGeometry args={[3.0, 0.75]} />
@@ -566,33 +686,13 @@ function Hoop() {
  );
 }
 
-// La barrera: un maniquí de entrenamiento con los brazos en alto.
-function Blocker() {
- const group = useRef(null);
- useFrame((_, rawDelta) => {
-  const dt = Math.min(rawDelta, 0.05);
-  // Se pone en la línea entre el tirador y el aro, sin alejarse de él.
-  const target = RIM.z + THREE.MathUtils.clamp((player.position.z - RIM.z) * 0.32, -1.1, 1.1);
-  blocker.z += THREE.MathUtils.clamp(target - blocker.z, -dt * 1.6, dt * 1.6);
-  if (blocker.wait >= 0) {
-   blocker.wait -= dt;
-   if (blocker.wait < 0 && blocker.y === 0) blocker.vy = blocker.power;
-  }
-  if (blocker.y > 0 || blocker.vy > 0) {
-   blocker.vy -= BALL_GRAVITY * dt;
-   blocker.y = Math.max(0, blocker.y + blocker.vy * dt);
-   if (blocker.y === 0) blocker.vy = 0;
-  }
-  group.current.visible = blocker.active;
-  blockerCollider.z = blocker.z;
-  group.current.position.set(blocker.x, 0.06 + blocker.y, blocker.z);
-  // Se encoge un poco antes de saltar y al caer.
-  group.current.scale.y = blocker.wait >= 0 && blocker.y === 0 ? 0.93 : 1;
- });
- const body = <meshLambertMaterial color="#e8662a" flatShading />;
+// Un maniquí de entrenamiento con los brazos en alto. Los dos defensas son el
+// mismo, cada uno con su color.
+function Mannequin({ color, groupRef, ...props }) {
+ const body = <meshLambertMaterial color={color} flatShading />;
  const dark = <meshLambertMaterial color="#2c2f36" flatShading />;
  return (
-  <group ref={group} name="barrera de la pista" rotation-y={-Math.PI / 2}>
+  <group ref={groupRef} {...props}>
    <mesh position-y={0.06}>
     <cylinderGeometry args={[0.3, 0.36, 0.12, 8]} />
     {dark}
@@ -622,6 +722,100 @@ function Blocker() {
     </group>
    ))}
   </group>
+ );
+}
+
+// El salto de un defensa: espera su tiempo de reacción y sube.
+function hop(one, dt) {
+ if (one.wait >= 0) {
+  one.wait -= dt;
+  if (one.wait < 0 && one.y === 0) one.vy = one.power;
+ }
+ if (one.y > 0 || one.vy > 0) {
+  one.vy -= BALL_GRAVITY * dt;
+  one.y = Math.max(0, one.y + one.vy * dt);
+  if (one.y === 0) one.vy = 0;
+ }
+}
+
+// Los dos defensas. El del aro se mueve de lado para tapar la línea de tiro. El
+// que marca se pone entre el jugador con balón y la canasta y va con él, pero
+// tarde (persigue el sitio donde el jugador estaba hace un momento) y más
+// despacio de lo que el jugador anda: un cambio de dirección lo deja atrás. Ni
+// se pisan entre ellos ni se echan encima del jugador. En el concurso de
+// triples se apartan los dos a la banda.
+function Defenders() {
+ const guardGroup = useRef(null);
+ const markerGroup = useRef(null);
+ useFrame((_, rawDelta) => {
+  const dt = Math.min(rawDelta, 0.05);
+  const feet = player.position;
+  const away = play.contest;
+
+  // El del aro: en la línea entre el tirador y el aro, sin alejarse de él.
+  const line = away ? GUARD_ASIDE.z : RIM.z + THREE.MathUtils.clamp((feet.z - RIM.z) * 0.32, -1.1, 1.1);
+  const post = away ? GUARD_ASIDE.x : GUARD_X;
+  if (guard.y === 0) {
+   guard.z += THREE.MathUtils.clamp(line - guard.z, -dt * (away ? 3 : 1.6), dt * (away ? 3 : 1.6));
+   guard.x += THREE.MathUtils.clamp(post - guard.x, -dt * 3, dt * 3);
+  }
+  hop(guard, dt);
+
+  // El que marca.
+  let tx = MARK_HOME.x, tz = MARK_HOME.z;
+  if (away) (tx = MARK_ASIDE.x), (tz = MARK_ASIDE.z);
+  else if (play.holding && onCourt()) {
+   const dx = RIM.x - feet.x, dz = RIM.z - feet.z;
+   const d = Math.hypot(dx, dz) || 1;
+   // A un paso largo por delante; cerca del aro, se queda pegado (ahí ya está el otro).
+   const gap = THREE.MathUtils.clamp(d - 2.5, 0.95, MARK_GAP);
+   tx = feet.x + (dx / d) * gap;
+   tz = feet.z + (dz / d) * gap;
+  }
+  // Va hacia donde el jugador estaba hace un momento…
+  const lag = 1 - Math.exp(-dt / MARK_LAG);
+  marker.aimX += (tx - marker.aimX) * lag;
+  marker.aimZ += (tz - marker.aimZ) * lag;
+  if (marker.y === 0) {
+   // …y a su paso.
+   const mx = marker.aimX - marker.x, mz = marker.aimZ - marker.z;
+   const far = Math.hypot(mx, mz);
+   const step = Math.min(far, MARK_SPEED * dt);
+   if (far > 1e-4) (marker.x += (mx / far) * step), (marker.z += (mz / far) * step);
+   // No se pisan: se separa del otro defensa y del jugador.
+   for (const [ox, oz, room] of [[guard.x, guard.z, 0.95], [feet.x, feet.z, PLAYER_RADIUS + DEFENDER.radius + 0.12]]) {
+    const sx = marker.x - ox, sz = marker.z - oz;
+    const s = Math.hypot(sx, sz);
+    if (s < room) {
+     const nx = s > 1e-4 ? sx / s : -1, nz = s > 1e-4 ? sz / s : 0;
+     marker.x = ox + nx * room;
+     marker.z = oz + nz * room;
+    }
+   }
+   marker.x = THREE.MathUtils.clamp(marker.x, court.x0 + 0.5, court.x1 - 0.5);
+   marker.z = THREE.MathUtils.clamp(marker.z, court.z0 + 0.5, court.z1 - 0.5);
+  }
+  hop(marker, dt);
+
+  blockerCollider.x = guard.x;
+  blockerCollider.z = guard.z;
+  markerCollider.x = marker.x;
+  markerCollider.z = marker.z;
+  guardGroup.current.position.set(guard.x, 0.06 + guard.y, guard.z);
+  markerGroup.current.position.set(marker.x, 0.06 + marker.y, marker.z);
+  // Se encogen un poco antes de saltar.
+  guardGroup.current.scale.y = guard.wait >= 0 && guard.y === 0 ? 0.93 : 1;
+  markerGroup.current.scale.y = marker.wait >= 0 && marker.y === 0 ? 0.93 : 1;
+  // El que marca mira al jugador.
+  let turn = Math.atan2(feet.x - marker.x, feet.z - marker.z) - markerGroup.current.rotation.y;
+  turn = Math.atan2(Math.sin(turn), Math.cos(turn));
+  markerGroup.current.rotation.y += turn * Math.min(1, dt * 8);
+ });
+ return (
+  <>
+   <Mannequin groupRef={guardGroup} name="barrera de la pista" color="#e8662a" rotation-y={-Math.PI / 2} />
+   <Mannequin groupRef={markerGroup} name="defensa que marca" color="#3f7fd0" rotation-y={-Math.PI / 2} />
+  </>
  );
 }
 
@@ -858,7 +1052,7 @@ export function Court() {
    <Fence />
    <Floodlights />
    <Hoop />
-   <Blocker />
+   <Defenders />
    <BallStand />
    <Ball />
   </Staged>
