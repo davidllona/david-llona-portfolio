@@ -7,22 +7,24 @@ import { Instances } from "../../experience/Instances";
 import { lambert } from "../../experience/materials";
 import { rig } from "../../experience/state";
 import { stretch } from "./globe";
-import { BULBS, CRYSTALS, FAR, FLOATERS, LIQUID_LEVEL, MUSHROOMS, SPROUTS, STONES, TENTACLES, ground } from "./layout";
+import { BULBS, CORALS, CRYSTALS, FAR, FLOATERS, LIQUID_LEVEL, MUSHROOMS, SPROUTS, STONES, TENTACLES, ground } from "./layout";
 import { floating, glassy, growing, solid } from "./materials";
-import { createBulb, createCrystals, createDome, createFloater, createGiantMushroom, createSprout, createStone, createTentacles } from "./models";
+import { createBulb, createDome, createFloater, createGiantMushroom, createSprout, createStone, createTentacles } from "./models";
+import { preloadLabModel, useLabModel } from "./useLabModel";
 
 // Lo que crece en The Cosmic Lab y lo que flota: hongos gigantes, racimos de
-// cristales, bulbos que laten, tentáculos que se mecen, brotes, piedras redondas
-// y rocas que flotan. Todo con instancias: una llamada de dibujo por forma, y
+// cristales y corales (modelos convertidos, recoloreados por copia; ver
+// docs/CREDITOS.md), bulbos que laten, tentáculos que se mecen, brotes, piedras
+// redondas y rocas que flotan. Todo con instancias: una llamada de dibujo por forma, y
 // el movimiento lo hace el sombreador. Lo mismo, más grande y más suelto, cubre
 // el resto del planeta (con alguna cúpula de cristal): eso solo se dibuja entero en vuelo.
 
 // Copias apoyadas en el suelo.
-const seat = (list, { sink = 0, turned = true } = {}) =>
+const seat = (list, { sink = 0, turned = true, size = 1 } = {}) =>
  list.map((one) => ({
   position: [one.x, ground(one.x, one.z) - sink * one.scale + (one.lift ?? 0), one.z],
   rotation: [0, turned ? one.turn : 0, 0],
-  scale: one.scale,
+  scale: one.scale * size,
   color: one.tint ? new THREE.Color(one.tint) : undefined,
  }));
 
@@ -50,7 +52,7 @@ function Beyond({ layers }) {
      const across = Math.atan2(-one.x / one.d, -one.z / one.d);
      helper.matrix.makeTranslation(one.x, Math.max(one.y, LIQUID_LEVEL) + (one.lift ?? 0) - (layer.sink ?? 0), one.z);
      helper.matrix.multiply(helper.turn.makeRotationY(across)).multiply(helper.wide.makeScale(stretch(one.d, curve), 1, 1)).multiply(helper.turn.makeRotationY(one.turn - across));
-     helper.matrix.scale(helper.size.setScalar(one.scale));
+     helper.matrix.scale(helper.size.setScalar(one.scale * (layer.size ?? 1)));
      meshes.current[i].setMatrixAt(k, helper.matrix);
     });
     meshes.current[i].instanceMatrix.needsUpdate = true;
@@ -68,8 +70,13 @@ function Beyond({ layers }) {
  return layers.map((layer, i) => <instancedMesh key={layer.name} ref={(mesh) => (meshes.current[i] = mesh)} name={layer.name} args={[layer.geometry, layer.material, layer.items.length]} frustumCulled={false} renderOrder={layer.order ?? 0} />);
 }
 
+// Tamaño de los modelos convertidos (vienen con el lado mayor = 1): m de lado a escala 1.
+const CRYSTAL_SIZE = 1.5, CORAL_SIZE = 1.9;
 export function Growth() {
- const models = useMemo(() => ({ mushroom: createGiantMushroom(), crystals: createCrystals(), bulb: createBulb(), tentacles: createTentacles(), sprout: createSprout(), stone: createStone(), floater: createFloater(), dome: createDome() }), []);
+ // (Emiten un poco por entero: se ven encendidos sin llegar a deslumbrar.)
+ const crystal = useLabModel("cristal", { lit: 0.42 });
+ const coral = useLabModel("coral", { lit: 0.16 });
+ const models = useMemo(() => ({ mushroom: createGiantMushroom(), bulb: createBulb(), tentacles: createTentacles(), sprout: createSprout(), stone: createStone(), floater: createFloater(), dome: createDome() }), []);
  const material = useMemo(
   () => ({
    mushroom: growing({ gain: 1.25, cut: true }),
@@ -96,7 +103,8 @@ export function Growth() {
  const items = useMemo(
   () => ({
    mushrooms: seat(MUSHROOMS, { sink: 0.06 }),
-   crystals: seat(CRYSTALS, { sink: 0.03 }),
+   crystals: seat(CRYSTALS, { sink: 0.03, size: CRYSTAL_SIZE }),
+   corals: seat(CORALS, { sink: 0.03, size: CORAL_SIZE }),
    stones: seat(STONES, { sink: 0.06 }),
    // (Sin girar: su latido se calcula en las medidas del modelo; ver materials.js.)
    bulbs: seat(BULBS, { turned: false }),
@@ -109,18 +117,20 @@ export function Growth() {
  const layers = useMemo(
   () => [
    { name: "hongo gigante lejano", geometry: models.mushroom, material: material.far, ...FAR.mushrooms, colored: true, sink: 0.1 },
-   { name: "cristales lejanos", geometry: models.crystals, material: material.far, ...FAR.crystals, colored: true },
+   { name: "cristales lejanos", geometry: crystal, material: material.far, ...FAR.crystals, colored: true, size: CRYSTAL_SIZE },
+   { name: "coral lejano", geometry: coral, material: material.far, ...FAR.corals, colored: true, size: CORAL_SIZE },
    { name: "tentáculos lejanos", geometry: models.tentacles, material: material.tentacle, ...FAR.tentacles, colored: true },
    { name: "roca que flota lejana", geometry: models.floater, material: material.floater, ...FAR.floaters },
    { name: "cúpula lejana", geometry: models.dome.base, material: material.far, ...FAR.domes, sink: 0.1 },
    { name: "cristal de la cúpula lejana", geometry: models.dome.glass, material: material.glass, ...FAR.domes, sink: 0.1, order: 4 },
   ],
-  [models, material],
+  [models, material, crystal, coral],
  );
  return (
   <>
    <Instances name="hongo gigante" rests={0} geometry={models.mushroom} material={material.mushroom} items={items.mushrooms} colored castShadow receiveShadow />
-   <Instances name="cristales" rests={0} geometry={models.crystals} material={material.crystal} items={items.crystals} colored castShadow />
+   <Instances name="cristales" rests={0} geometry={crystal} material={material.crystal} items={items.crystals} colored castShadow />
+   <Instances name="coral" rests={0} geometry={coral} material={material.crystal} items={items.corals} colored castShadow />
    <Instances name="piedra redonda" rests={0} geometry={models.stone} material={material.stone} items={items.stones} castShadow receiveShadow />
    <Instances name="bulbo" rests={0} geometry={models.bulb} material={material.bulb} items={items.bulbs} colored />
    <Instances name="tentáculos" rests={0} geometry={models.tentacles} material={material.tentacle} items={items.tentacles} colored castShadow />
@@ -130,3 +140,5 @@ export function Growth() {
   </>
  );
 }
+
+["cristal", "coral"].forEach(preloadLabModel);

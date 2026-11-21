@@ -1,40 +1,52 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import { WORLD_VARIANT } from "../content/cards";
 import { emit, events, input, releaseMovement, rig, ui, view } from "../experience/state";
+import { world } from "../worlds";
 import { requestVoyage } from "../worlds/travel";
-import { HoloBody, ProjectBody, TaleBody } from "./cards/Bodies";
+import { HangingSign, LabMachine, WoodSign } from "./cards/Objects";
 
 const APPROACH = 750; // ms que tarda la cámara en acercarse antes de abrir la carta
 const E_GUARD = 320; // ms tras abrirse en que la E aún no cierra (es la misma pulsación que la abrió)
+const MOBILE = 720; // px de ancho por debajo de los cuales la carta va en vertical
 
 // La carta que se abre al usar un edificio o un objeto (evento "open"). Un solo
-// componente con tres variantes, una por mundo (`variant` en los datos; ver
-// content/cards.js):
-//  · "ficha": la ficha de proyecto del mundo 1, clara, con galería;
-//  · "hoja":  la hoja de cuento del mundo 2, papel sujeto con una chincheta;
-//  · "holo":  el holograma del mundo 3, un móvil translúcido que proyecta la máquina.
-// Sin variante, la carta sencilla de siempre (avisos de viaje, el CV, el núcleo…).
-// Lo común a todas: el mismo botón de cerrar, las mismas teclas (E o Esc), un
-// velo suave que deja ver el mundo, el foco atrapado dentro y la misma
-// entrada: la carta sale del objeto usado, desde su sitio en la pantalla.
-// Si el evento dice dónde está (`at`), la cámara se acerca primero y la carta
-// se abre al llegar; al cerrarla, la cámara vuelve al astronauta.
-const BODIES = { ficha: ProjectBody, hoja: TaleBody, holo: HoloBody };
+// componente con tres variantes, una por mundo: cada carta es un OBJETO de su
+// mundo, copiado de la maqueta aprobada (docs/referencias/cartas/):
+//  · "cartel":   el cartel de madera del mundo 1, con dos papeles clavados;
+//  · "colgante": el cartel colgante torcido del mundo 2, con polaroids y una hoja;
+//  · "maquina":  la máquina del laboratorio del mundo 3, con móviles holográficos.
+// La variante viene en los datos (`variant`; ver content/cards.js) y, si no, es
+// la del mundo en que se está: los avisos de viaje, el CV o el núcleo usan el
+// mismo objeto, sin imágenes.
+// Lo común: un velo suave que deja ver el mundo, la carta crece desde el
+// objeto usado, E o Esc cierran, una sola X, el foco atrapado dentro, la
+// interfaz de juego retirada mientras tanto y «reducir movimiento» respetado.
+// Si el evento dice dónde está el objeto (`at`), la cámara se acerca primero.
+const OBJECTS = { cartel: WoodSign, colgante: HangingSign, maquina: LabMachine };
 
-// El borde irregular de la hoja de cuento: un contorno mordido, siempre el mismo.
-const PAPER_EDGE = (() => {
- const bite = (i) => {
-  const v = Math.sin(i * 127.1 + 3.3) * 43758.5453;
-  return (v - Math.floor(v)) * 0.9;
- };
- const points = [];
- const side = (count, at) => Array.from({ length: count + 1 }, (_, i) => at(i / count, bite(points.length + i))).forEach((point) => points.push(point));
- side(18, (t, b) => `${(t * 100).toFixed(1)}% ${b.toFixed(2)}%`);
- side(22, (t, b) => `${(100 - b * 0.9).toFixed(2)}% ${(t * 100).toFixed(1)}%`);
- side(18, (t, b) => `${(100 - t * 100).toFixed(1)}% ${(100 - b).toFixed(2)}%`);
- side(22, (t, b) => `${(b * 0.9).toFixed(2)}% ${(100 - t * 100).toFixed(1)}%`);
- return `polygon(${points.join(", ")})`;
-})();
+// Las letras de las maquetas (Google Fonts). Se piden al entrar en el juego, no
+// con la portada, y las del mundo en que se está se dejan ya descargadas: la
+// primera carta no cambia de letra a la vista.
+const FONTS_URL = "https://fonts.googleapis.com/css2?family=Titan+One&family=Nunito:wght@600;700;800;900&family=Mystery+Quest&family=Caveat:wght@600;700&family=Fredoka:wght@600;700&family=JetBrains+Mono:wght@500&display=swap";
+const FACES = {
+ cartel: ['1em "Titan One"', '700 1em "Nunito"', '900 1em "Nunito"'],
+ colgante: ['1em "Mystery Quest"', '700 1em "Caveat"', '700 1em "Nunito"'],
+ maquina: ['700 1em "Fredoka"', '600 1em "Nunito"', '500 1em "JetBrains Mono"'],
+};
+function warmFonts(variant) {
+ if (!document.getElementById("letras-cartas")) {
+  const link = document.createElement("link");
+  link.id = "letras-cartas";
+  link.rel = "stylesheet";
+  link.href = FONTS_URL;
+  document.head.append(link);
+ }
+ const load = () => FACES[variant]?.forEach((face) => document.fonts.load(face).catch(() => {}));
+ const sheet = document.getElementById("letras-cartas");
+ if (sheet.sheet) load();
+ else sheet.addEventListener("load", load, { once: true });
+}
 
 const point = new THREE.Vector3();
 // Dónde cae en la pantalla el objeto usado, en px desde el centro de la ventana.
@@ -49,7 +61,10 @@ function originOf(at) {
 export function Modal() {
  const [content, setContent] = useState(null);
  const [arrived, setArrived] = useState(false);
+ const [mobile, setMobile] = useState(() => window.innerWidth < MOBILE);
+ const [fit, setFit] = useState({ k: 1, width: 0, height: 0 });
  const card = useRef(null);
+ const inner = useRef(null);
  const shownAt = useRef(0);
 
  useEffect(() => {
@@ -57,10 +72,17 @@ export function Modal() {
    setArrived(false);
    setContent(event.detail);
   };
+  // Las letras del mundo en que se está, ya; y las del siguiente, al llegar.
+  const onWorld = () => warmFonts(WORLD_VARIANT[world.id]);
+  onWorld();
   events.addEventListener("open", onOpen);
+  events.addEventListener("world", onWorld);
   // Para las pruebas y las capturas: cambia datos de la carta abierta.
   if (import.meta.env.DEV) window.__world.card = (patch) => setContent((now) => (now ? { ...now, ...patch } : now));
-  return () => events.removeEventListener("open", onOpen);
+  return () => {
+   events.removeEventListener("open", onOpen);
+   events.removeEventListener("world", onWorld);
+  };
  }, []);
 
  // Con la carta abierta (o la cámara de camino), el juego no recibe controles.
@@ -110,10 +132,11 @@ export function Modal() {
   // (La interfaz de juego se retira mientras tanto: ver cards.css.)
   document.documentElement.dataset.carta = "abierta";
   const previous = document.activeElement;
-  const focusable = () => [...(card.current?.querySelectorAll("a[href], button:not([disabled]), video[controls]") ?? [])];
+  const focusable = () => [...(card.current?.querySelectorAll("a[href], button:not([disabled]), input, video[controls]") ?? [])];
   focusable()[0]?.focus();
+  const typing = (event) => event.target instanceof HTMLElement && /^(INPUT|TEXTAREA)$/.test(event.target.tagName);
   const onKey = (event) => {
-   if (event.code === "KeyE" && !event.repeat && !event.metaKey && !event.ctrlKey && performance.now() - shownAt.current > E_GUARD) {
+   if (event.code === "KeyE" && !typing(event) && !event.repeat && !event.metaKey && !event.ctrlKey && performance.now() - shownAt.current > E_GUARD) {
     setContent(null);
     return;
    }
@@ -137,97 +160,60 @@ export function Modal() {
   };
  }, [shown]);
 
+ // El objeto tiene las medidas de su maqueta y se encoge entero, a escala, hasta
+ // caber en la ventana (en móvil, hasta caber a lo ancho: lo demás se desplaza).
+ useLayoutEffect(() => {
+  if (!shown) return undefined;
+  const measure = () => {
+   const narrow = window.innerWidth < MOBILE;
+   setMobile(narrow);
+   const box = inner.current;
+   if (!box) return;
+   const width = box.offsetWidth, height = box.offsetHeight, pad = narrow ? 10 : 22;
+   const k = Math.min(1, (window.innerWidth - pad * 2) / width, narrow ? 1 : Math.max(0.62, (window.innerHeight - pad * 2) / height));
+   setFit((now) => (now.k === k && now.width === width && now.height === height ? now : { k, width, height }));
+  };
+  measure();
+  const watcher = new ResizeObserver(measure);
+  watcher.observe(inner.current);
+  window.addEventListener("resize", measure);
+  return () => {
+   watcher.disconnect();
+   window.removeEventListener("resize", measure);
+  };
+ }, [shown, mobile]);
+
  // De dónde sale: el sitio del objeto en la pantalla, al abrirse.
  const origin = useMemo(() => (shown ? originOf(content.at) : { x: 0, y: 0 }), [shown, content?.at]);
 
  if (!shown) return null;
- const variant = BODIES[content.variant] ? content.variant : "plain";
- const Body = BODIES[variant];
+ const variant = OBJECTS[content.variant] ? content.variant : (WORLD_VARIANT[world.id] ?? "cartel");
+ const Body = OBJECTS[variant];
  const close = () => setContent(null);
+ // Lo que puede hacer el botón de la carta (ver cards/Parts.jsx).
+ const act = {
+  voyage: (to) => {
+   close();
+   requestVoyage(to);
+  },
+  // (Tras cerrarse: quien abrió la carta termina antes lo suyo —el engranaje ganado— y Woody echa a andar.)
+  guide: (to) => {
+   close();
+   window.setTimeout(() => emit("guide", { to, asked: true }), 90);
+  },
+  about: () => {
+   close();
+   emit("about");
+  },
+ };
 
  return (
-  <div className={`modal modal--${variant}`} style={{ "--from-x": `${origin.x.toFixed(0)}px`, "--from-y": `${origin.y.toFixed(0)}px` }} role="dialog" aria-modal="true" aria-label={content.title} onClick={close}>
-   {/* (En el holograma: el haz que sube desde la máquina hasta la proyección.) */}
-   {variant === "holo" && <span className="holo__beam" aria-hidden="true" />}
-   <article ref={card} className={`modal__card card card--${variant}`} onClick={(event) => event.stopPropagation()}>
-    <button type="button" className="modal__close" aria-label="Cerrar" title="Cerrar (E o Esc)" onClick={close}>
-     ×
-    </button>
-    <div className="card__sheet" style={variant === "hoja" ? { clipPath: PAPER_EDGE } : undefined}>
-     {Body ? <Body content={content} /> : <PlainBody content={content} close={close} />}
+  <div className={`modal modal--${variant}${mobile ? " is-movil" : ""}`} style={{ "--from-x": `${origin.x.toFixed(0)}px`, "--from-y": `${origin.y.toFixed(0)}px` }} role="dialog" aria-modal="true" aria-label={content.title} onClick={close}>
+   <article ref={card} className={`modal__card card card--${variant}`} style={{ width: fit.width * fit.k || undefined, height: fit.height * fit.k || undefined }} onClick={(event) => event.stopPropagation()}>
+    <div ref={inner} className="card__in" style={{ transform: `scale(${fit.k})` }}>
+     <Body content={content} close={close} act={act} mobile={mobile} />
     </div>
    </article>
   </div>
- );
-}
-
-// La carta sencilla: título, texto y, según el caso, una línea de tiempo, etiquetas o un botón.
-function PlainBody({ content, close }) {
- return (
-  <>
-   {content.image && <img className="modal__image" src={content.image} alt={content.title} />}
-   {content.eyebrow && <p className="modal__eyebrow">{content.eyebrow}</p>}
-   <h2 className="modal__title">{content.title}</h2>
-   {content.paragraphs?.map((paragraph) => (
-    <p key={paragraph} className="modal__text">
-     {paragraph}
-    </p>
-   ))}
-   {/* Línea de tiempo (The Twisted Moon, «Mi recorrido»): hitos de arriba abajo. */}
-   {content.timeline && (
-    <ol className="modal__timeline">
-     {content.timeline.map(([when, what]) => (
-      <li key={when}>
-       <b>{when}</b>
-       <span>{what}</span>
-      </li>
-     ))}
-    </ol>
-   )}
-   {content.tags && (
-    <ul className="modal__tags">
-     {content.tags.map((tag) => (
-      <li key={tag}>{tag}</li>
-     ))}
-    </ul>
-   )}
-   {/* Lo pedido está en otro mundo: se viaja en el cohete. */}
-   {content.voyage && (
-    <button
-     type="button"
-     className="modal__link modal__voyage"
-     onClick={() => {
-      close();
-      requestVoyage(content.voyage);
-     }}
-    >
-     {content.action ?? "Viajar"} <span aria-hidden="true">→</span>
-    </button>
-   )}
-   {/* «Sobre mí» sin viajar: abre el panel con todos los textos. */}
-   {content.about && (
-    <button
-     type="button"
-     className="modal__link modal__about"
-     onClick={() => {
-      close();
-      emit("about");
-     }}
-    >
-     {content.about}
-    </button>
-   )}
-   {/* Un destino que aún no existe: el botón se enseña, apagado. */}
-   {content.soon && (
-    <button type="button" className="modal__link modal__soon" disabled>
-     {content.soon} <span>{content.soonNote}</span>
-    </button>
-   )}
-   {content.link && (
-    <a className="modal__link" href={content.link} {...(content.download ? { download: "" } : { target: "_blank", rel: "noopener noreferrer" })}>
-     {content.linkLabel ?? "Abrir"} <span aria-hidden="true">{content.download ? "↓" : "→"}</span>
-    </a>
-   )}
-  </>
  );
 }

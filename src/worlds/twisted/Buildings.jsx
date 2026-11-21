@@ -4,6 +4,8 @@ import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { attribute, float, mix, vec3 } from "three/tsl";
 import { aboutCard } from "../../content/about";
+import { taleCard } from "../../content/cards";
+import { CLOCK, STORY } from "../../content/twisted";
 import { withSeeThrough } from "../../experience/environment/seeThrough";
 import { useInteractable } from "../../experience/interact";
 import { addWarmSource } from "../../experience/lightSources";
@@ -13,7 +15,7 @@ import { clock, uniforms } from "../../experience/theme";
 import { clockwork, GEAR_IN, SPIN_AT } from "./clockwork";
 import { Glows, Smoke } from "./Details";
 import { quest } from "../../game/moonQuest";
-import { BUILDINGS, GREENHOUSE, HOUSE, STORY_DOOR, ground } from "./layout";
+import { BUILDINGS, GREENHOUSE, HOUSE, QUEST_STOPS, STORY_DOOR, ground } from "./layout";
 import { glass, pool, solid } from "./materials";
 import { STONE, WARM, createGear, createGreenhouse } from "./models";
 import { TOWER, createTower } from "./tower";
@@ -367,7 +369,11 @@ export function Buildings() {
   radius: 2.6,
   height: 2.6,
   hint: "Leer mi historia",
-  action: () => emit("open", { ...aboutCard(), at: { x: story.x, y: ground(story.x, story.z) + 3, z: story.z + 1, distance: 0.9 } }),
+  // (El mismo cartel colgante de las paradas, sin engranaje: aquí empieza el paseo. Su botón lleva a la primera que falte.)
+  action: () => {
+   const about = aboutCard(), next = quest.missing()[0];
+   emit("open", { ...taleCard("historia", { place: STORY.place, title: about.title, paragraphs: about.paragraphs }), kind: "about", tags: about.tags, guide: next ? QUEST_STOPS[next].node : "torre", guideLabel: CLOCK.next, at: { x: story.x, y: ground(story.x, story.z) + 3, z: story.z + 1, distance: 0.9 } });
+  },
  });
  useEffect(() => {
   const y = ground(STORY_DOOR.x, STORY_DOOR.z);

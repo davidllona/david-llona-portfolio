@@ -78,6 +78,26 @@ export function createMachine(tip) {
  return { body: withLit(solid, lit), glass };
 }
 
+// Lo que comparten las máquinas del laboratorio (el aparato de encima es un
+// modelo convertido; ver LabScene.jsx): una peana redonda con su franja de luz,
+// la antena —un mástil a un lado; de su punta sale el rayo— y la toma del tubo
+// que va al núcleo.
+export function createMachineBase(tip) {
+ return withLit(
+  [
+   piece(drum(2.3, 2.5, 0.2, 16), { bottom: SHELL.dark, top: SHELL.mid, jitter: 0.03, vary: 0.06, seed: 61 }),
+   piece(drum(0.34, 0.46, 0.5, 8), { bottom: METAL.dark, top: METAL.mid, position: [tip[0], 0.15, tip[2]] }),
+   piece(tube([[tip[0], 0.5, tip[2]], [tip[0] - 0.12, 2.4, tip[2]], [tip[0], tip[1] - 0.25, tip[2]]], (t) => 0.11 * (1 - t) + 0.04, { sides: 5, segments: 6 }), { bottom: METAL.dark, top: METAL.light }),
+   piece(ring(0.2, 0.04, 8), { color: SHELL.mid, position: [tip[0] - 0.04, tip[1] - 0.8, tip[2]] }),
+   piece(ring(0.14, 0.035, 8), { color: SHELL.mid, position: [tip[0], tip[1] - 0.46, tip[2]] }),
+   piece(tube([[-0.9, 0.3, 1.0], [-1.0, 0.24, 1.15], [-1.1, 0.17, 1.3]], () => 0.17, { sides: 6, segments: 3 }), { color: METAL.mid }),
+  ],
+  [piece(drum(2.52, 2.52, 0.07, 16), { color: LIQUID, position: [0, 0.07, 0] }), piece(ball(0.17), { color: ENERGY, position: tip })],
+ );
+}
+// La luz de estado de una máquina: un poste corto y su bombilla (va aparte: siempre encendida, de su color).
+export const createStatusPost = () => merge([piece(drum(0.05, 0.09, 0.9, 6), { color: METAL.mid }), piece(ring(0.13, 0.035, 8), { color: SHELL.mid, position: [0, 0.9, 0] })]);
+
 // Sitio reservado de una máquina que aún no está: su peana y la cápsula cerrada, dormida.
 export function createPod() {
  return merge([
@@ -179,7 +199,7 @@ export function createGiantMushroom() {
  }
  return withLit(solid, lit, 0.7);
 }
-// Racimo de cristales: cinco prismas en punta, cada uno a su aire. Brillan un poco.
+// Racimo de cristales hecho a mano (ya no se usa en el juego: los cristales son el modelo convertido; se conserva por si hiciera falta).
 export function createCrystals() {
  const random = randomFrom(0.613);
  const shards = [];

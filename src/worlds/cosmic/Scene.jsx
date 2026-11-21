@@ -1,5 +1,6 @@
 import { Staged } from "../Staged";
 import { AlienSky } from "./AlienSky";
+import { CosmicSounds } from "./CosmicSounds";
 import { Growth } from "./Growth";
 import { Helmet } from "./Helmet";
 import { LabScene } from "./LabScene";
@@ -20,6 +21,7 @@ export default function CosmicScene({ onBuilt }) {
    <Terrain />
    <LabScene />
    <Growth />
+   <CosmicSounds />
    <Orbit />
   </Staged>
  );

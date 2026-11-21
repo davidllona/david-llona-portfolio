@@ -125,3 +125,25 @@ Descargados de Envato con la cuenta de David (15-11-2026); ningún ZIP trae arch
 | «Owl Hoot 1» | HollywoodEdge | Búho lejano | En uso (C3): `public/sounds/twisted/` |
 
 Del mundo 1 se reutilizan en este, tal cual: «Small observatory with telescope dome» (kerismaker) y «Cartoon treehouse with ladder access» (permadicreative).
+
+### Mundo 3 · The Cosmic Lab (objetivo 26)
+
+Descargados de Envato con la cuenta de David (20-11-2026); ningún ZIP trae archivo de licencia. Originales en `assets-externos/mundo3/` (fuera de git). De los modelos solo se usa la forma, reducida y repintada a la paleta del mundo: no se distribuye ninguna textura. El estado de cada uno, en `docs/RECURSOS.md`.
+
+| Original | Autor | Para qué |
+|---|---|---|
+| «Futuristic research laboratory equipment collection» | TurboSquid (licencia de TurboSquid) | Las máquinas del laboratorio: el escáner (Dosia), las dos consolas (Epidos y Chuchómetro) y la cápsula (app de viajes), sin la figura de dentro |
+| «Cartoon satellite dish with waves» | monstersvisual | La antena del final (sin las ondas) |
+| «Purple crystal cluster» | Creasheeps | Racimos de cristales, con instancias, teñidos por copia |
+| «Coral reef» | spacepixelcreative | Corales como planta alienígena (sin las piedras de su peana), con instancias, teñidos por copia |
+| «Solar Energy Pixels» («Pixels of Solar Energy») | PremiumBeat | Música del mundo 3 (opción 1, por defecto) |
+| «Chill Ambient Space» (el archivo: «Maxvic - Atmospheric Calm Rhytm») | trickytwoaudio | Música (opción 2) |
+| «Space Ambient» | alexshulgin | Música (opción 3) |
+| «Cartoon Sci-Fi Power Up» | autor: no figura en el ZIP | Arranque de una máquina |
+| «Futuristic Sci-Fi Energy Beams» | autor: no figura en el ZIP | El rayo de energía |
+| «Futuristic Sci-Fi Machine Hum» | autor: no figura en el ZIP | Zumbido de máquina encendida |
+| «Sci-Fi Lava Planet Background Ambience Loop 1» | autor: no figura en el ZIP | Ambiente del planeta, muy bajo |
+| «Cartoon Jump Boing» | autor: no figura en el ZIP | El salto, muy bajo |
+| «Telemetry Radio Transmission Type Beeps» | autor: no figura en el ZIP | La antena |
+
+Letras de las cartas (Google Fonts, licencia SIL Open Font): Titan One, Nunito, Mystery Quest, Caveat, Fredoka y JetBrains Mono. Se piden a fonts.googleapis.com al entrar en el juego (no con la portada).

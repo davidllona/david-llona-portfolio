@@ -3,7 +3,8 @@
 Actualizado: 21 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
-**En curso: objetivo 25 — una carta distinta por mundo** (`docs/OBJETIVO-25.md`): bloque 1 (muestra) hecho; **parada, pendiente del visto bueno de David**. Ver «Objetivo 25» abajo.
+**En curso: objetivo 26 — cartas aprobadas y baloncesto nuevo** (`docs/OBJETIVO-26.md`): bloque 1 (las tres cartas y el mundo 3) hecho; bloques 2 y 3 en curso. Ver «Objetivo 26» abajo.
+**Objetivo 25** (`docs/OBJETIVO-25.md`): su muestra de cartas no se aprobó; lo sustituye el 26.
 **Objetivo 24 — órbita del mundo 2 y arranque del mundo 3** (`docs/OBJETIVO-24.md`): los dos bloques hechos; **estilo del mundo 3 aprobado por David (21-11-2026)**. Ver «Objetivo 24» abajo.
 **En curso: objetivo 23 — The Twisted Moon: contenido («arranca el reloj y conóceme»)** (`docs/OBJETIVO-23.md`; sustituye al bloque D del objetivo 20): bloques D1 (mecánica) y D2 (las paradas) hechos; **parado tras el D2 por indicación de David: el D3 (cierre) no se ha empezado.** Ver «Objetivo 23» abajo.
 **Objetivo 22 — pulido visual de The Twisted Moon** (`docs/OBJETIVO-22.md`; C2 y C3 del objetivo 21 aprobados como base): los tres bloques hechos (color y luz, piezas que no se leen, órbita); órbita: David eligió la opción B. **Retoque de luz hecho (16-11-2026); parada, pendiente de su visto bueno.** Ver «Objetivo 22» abajo.
@@ -17,7 +18,60 @@ Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
 Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado.
 Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Contents/MacOS/Blender -b` (5.0.1). No hay ffmpeg: el audio también se convierte con Blender.
 
+## Objetivo 26 — Cartas aprobadas en los tres mundos y baloncesto nuevo (con Firebase)
+
+Encargo: `docs/OBJETIVO-26.md` (21-11-2026). **Sustituye al bloque 2 del objetivo 25; las cartas de la muestra del 25 no valen.** Tres bloques, commit y push en cada uno; parada solo al final.
+
+| Bloque | Estado |
+|---|---|
+| 1. Las tres cartas (y lo pendiente del mundo 3) | **Hecho** (21-11-2026). Capturas: `capturas/32-cartas/` |
+| 2. Baloncesto: tiro en suspensión y segundo defensa | En curso |
+| 3. Concurso de triples y tablón de puntuaciones (Firebase) | Sin empezar |
+
+**Bloque 1, lo que hay.** Maquetas de referencia: `docs/referencias/cartas/` (las cuatro estaban; se capturan con `node tests/e2e/maquetas.mjs`).
+
+*Las cartas* (`ui/Modal.jsx` (la base), `ui/cards/Objects.jsx` (los tres objetos), `Parts.jsx` (X, botón), `Markers.jsx` (marcadores dibujados), `styles/cards.css`, `content/cards.js`):
+- **Cada carta es un objeto de su mundo**, con las medidas, colores, sombras, giros y `clip-path` de su maqueta, en px; el objeto entero se encoge a escala para caber en la ventana (en móvil, hasta caber a lo ancho: lo demás se desplaza). Lo común se mantiene: velo sin desenfoque, crece desde el objeto, E o Esc, una sola X, foco atrapado, «reducir movimiento», menú de arriba oculto.
+- **Mundo 1 · cartel de madera**: marco con relieve y tornillos, tablones con vetas, juntas y clavos, dos papeles con chinchetas rojas (−4,5° y +3,8°, el de abajo con la esquina doblada), «PROYECTO n / 4» y placa del año, título en Titan One, separador punteado, plaquitas y el botón «VER PROYECTO». Lo usan los cuatro proyectos, el CV, los tótems del laboratorio, los avisos de viaje y **Contacto** (nuevo: con la E al pie de la antena de la estación; sin imágenes, con el correo, LinkedIn y GitHub como plaquitas y «Escribirme un email»).
+- **Mundo 2 · cartel colgante**: brazo de hierro con espirales, cadenas y farolillo (su llama tiembla), tablón morado irregular, cinta a rayas, clavos, dos polaroids con chinchetas doradas y nota en Caveat, la hoja de bordes rotos con el título en Mystery Quest, el engranaje «n/4» al lateral, la X crema arriba en el centro y «Siguiente parada». Lo usan las cuatro paradas, la casa sobre tronco (sin engranaje), la torre («Mi recorrido», con la línea de tiempo dibujada a mano), el observatorio (su botón: «Viajar a The Cosmic Lab») y los avisos de viaje. **«Siguiente parada» funciona**: cierra, se gana el engranaje y Woody guía a la parada que falte más cerca (con todas, a la torre; desde la torre, al observatorio).
+- **Mundo 3 · máquina**: carcasa lila con relieve, cúpula, antena con bola lima, tubo con burbujas que suben, fila de luces, pantalla morada con líneas de escaneo, dos móviles holográficos sobre sus emisores, etiqueta de estado, título en Fredoka, subtítulo rosa, «› ENERGÍA ENVIADA AL NÚCLEO · n/5» y la X de borde rosa. La usan las cuatro máquinas con contenido, el núcleo y la antena (estas, sin móviles).
+- **En móvil**: el cartel en vertical (como `mundo1-cartel-movil.html`); el colgante, con un gancho en vez de brazo, las polaroids en fila y la hoja debajo; la máquina en vertical, con los móviles arriba, el texto debajo y el tubo hecho una franja fina. (De los mundos 2 y 3 no hay maqueta de móvil: se han hecho según la descripción.)
+- **Nada pendiente a la vista**: se han quitado «Mi papel» y el botón «Abrir la app» (salen solos cuando haya dato); el hito de la empresa actual en «Mi recorrido» sale como «Ahora» (`CURRENT_COMPANY = null` en `content/twisted.js`); la app de viajes se llama «App de viajes» hasta que se confirme su nombre. `cards.mjs` y `cosmic.mjs` comprueban que ninguna carta enseña un «[».
+- **Letras**: las de las maquetas (Titan One, Nunito, Mystery Quest, Caveat, Fredoka, JetBrains Mono), de Google Fonts. Se piden al entrar en el juego, no con la portada, y las del mundo en que se está se dejan descargadas.
+
+*Textos que vienen de las maquetas* (aprobadas por David) y no estaban en el contenido: de Woody, el subtítulo «el guía de esta isla» y las notas «Woody, en casa» y «en el suelo, claro»; de Dosia, el subtítulo «App para enfermería y medicina» y la descripción partida en dos. En las demás paradas, a falta de subtítulo y de notas, van el nombre del sitio y el título de la parada.
+
+**Dónde se pone el material** (todo en `src/content/cards.js`; los archivos, en `public/`):
+
+| Carta | Campo | Qué es |
+|---|---|---|
+| Proyecto | `PROJECT_CARDS[id].images: [arriba, abajo]` | Los dos papeles. Hoy el de arriba usa la captura que el proyecto ya tiene y el de abajo, un boceto dibujado |
+| Proyecto | `PROJECT_CARDS[id].role` | «Mi papel» (sale solo si se rellena) |
+| Parada | `TALE_CARDS[parada].photos: [arriba, abajo]`, `.captions` y `.subtitle` | Las dos polaroids, su nota manuscrita y la línea bajo el título |
+| App | `APP_CARDS[app].screens: [arriba, abajo]` o `.video` | Los dos móviles (el vídeo va en el de arriba, silenciado y en bucle; solo existe con la carta abierta) |
+| App | `APP_CARDS[app].link` y `.status` | «Abrir la app» sale solo si está publicada y hay enlace |
+
+*El mundo 3* (`worlds/cosmic/`: `LabScene.jsx` (rehecho), `useLabModel.js`, `CosmicSounds.jsx`, `soundData.json` (nuevos), `Growth.jsx`, `layout.js`, `models.js`, `Scene.jsx`; `content/cosmic.js`; `tools/assets/cosmic.py`, `cosmic_sounds.py`):
+- **Recursos de Envato integrados**: los trece ZIP estaban en Descargas; movidos a `assets-externos/mundo3/`. Siete modelos (446 kB) y nueve sonidos. Detalle en `docs/RECURSOS.md` y `docs/CREDITOS.md`.
+- **Cinco máquinas distintas**: Dosia, el escáner; Epidos, la consola; Chuchómetro, la consola doble; la app de viajes, la cápsula (sin la figura de dentro); los experimentos 3D, la cápsula hecha a mano, **apagada y sin carta**. Cada una sobre su peana, con su antena (de ahí sale el rayo), su tubo al núcleo y su **luz de estado**: lima si está publicada, ámbar si está en construcción. Las cuatro se encienden igual (secuencia, rayo, testigo, carta); Woody guía de una a la siguiente.
+- **La antena** es el plato de Envato (5.599 triángulos); con la E abre su carta («Está apagada…») y suenan sus pitidos.
+- **Cristales y corales** de Envato, con instancias y teñidos por copia (12 + 11 en el llano, 70 + 46 lejos).
+- **Sonido**: música con `?musica=1/2/3` (solo se descarga la elegida), ambiente muy bajo, arranque y rayo al encender, zumbido con alguna máquina encendida, salto muy bajo y pitidos de la antena. Todo pasa por el botón de silencio.
+- **El núcleo no puede completarse hoy** (máximo 4 de 5): falta el contenido de los experimentos. El arranque del núcleo y «Envía una señal» siguen sin hacer.
+
+*Pendiente de David* (nada de esto se ve en el juego): «Mi papel» de los cuatro proyectos; el enlace de Dosia; el nombre de la app de viajes (¿Nokei?) y el de la empresa actual (¿Adrava?); cuáles son los experimentos 3D; fotos, capturas y vídeos; el PDF del CV (su cartel dice que está pendiente de subir: era así antes); autor de los seis efectos de sonido (no figura en los ZIP).
+
+*Decisiones mías*: (1) en los proyectos, el papel de arriba enseña la captura real que ya había, no un boceto. (2) Los tornillos del cartel van en las cuatro esquinas del marco (en la maqueta los de abajo y la derecha caen dentro de la cara). (3) Los títulos largos van más pequeños que el de la maqueta. (4) En el mundo 3, qué aparato es cada app lo he elegido yo (el escáner médico para Dosia).
+
+*Pruebas*: `cards.mjs` rehecha (42 comprobaciones, contra las medidas de las maquetas: colores del marco, giros, chinchetas, letras cargadas, `clip-path`…); `cosmic.mjs`, 47 (cinco máquinas, luces de estado, segunda máquina, sonido); `twisted-quest.mjs`, 55. **Batería al cerrar el bloque: veinte pruebas, 564 comprobaciones, 0 fallos.** `npm run build` pasa (CSS 48,6 kB; trozo principal 2.042,5 kB; escena del mundo 3, 34,4 kB + datos 9,1 kB); servidor de desarrollo limpio.
+
+*Sin comprobar*: nada visto ni oído por una persona (las animaciones, el sonido del mundo 3 y los volúmenes «muy bajos»); un teléfono de verdad; un lector de pantalla; las cartas con fotos, capturas o vídeo reales; que Google Fonts cargue en la red del visitante (si falla, las cartas caen a Nunito o a la letra del sistema).
+
+Capturas (`capturas/32-cartas/`): `hoja-referencia-mundo1.jpg`, `-mundo1-movil.jpg`, `-mundo2.jpg` y `-mundo3.jpg` (la maqueta a la izquierda, la carta real a la derecha), `hoja-movil.jpg` y las 28 sueltas (22 de escritorio y 6 de móvil); las maquetas, en `referencias/`. Se rehacen con `node tests/e2e/cartas.mjs`.
+
 ## Objetivo 25 — Una carta distinta por mundo y nuevo enfoque del mundo 3
+
+**Superado por el objetivo 26**: las cartas de esta muestra no se aprobaron; lo que sigue se conserva como registro.
 
 Encargo: `docs/OBJETIVO-25.md` (21-11-2026). Dos bloques; parada tras cada uno.
 

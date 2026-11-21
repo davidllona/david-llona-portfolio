@@ -511,108 +511,7 @@
  }
 }
 
-/* ── Ventana de detalle ─────────────────────────────────── */
-
-.modal {
- position: fixed;
- inset: 0;
- z-index: 20;
- display: grid;
- place-items: center;
- padding: 20px;
- background: rgba(6, 5, 14, 0.7);
- backdrop-filter: blur(6px);
- animation: modal-in 0.2s ease-out;
-}
-
-.modal__card {
- position: relative;
- width: min(100%, 560px);
- max-height: min(88vh, 720px);
- overflow-y: auto;
- padding: clamp(22px, 4vw, 36px);
- border: 1px solid rgba(255, 255, 255, 0.12);
- border-radius: 22px;
- background: #14101f;
- box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
- touch-action: pan-y;
-}
-
-.modal__close {
- position: absolute;
- top: 14px;
- right: 14px;
- width: 38px;
- height: 38px;
- border: 0;
- border-radius: 50%;
- background: rgba(255, 255, 255, 0.1);
- color: var(--color-text);
- font-size: 22px;
- line-height: 1;
- cursor: pointer;
-}
-
-.modal__image {
- display: block;
- width: 100%;
- margin-bottom: 20px;
- border-radius: 14px;
-}
-
-.modal__eyebrow {
- font-size: 12px;
- font-weight: 600;
- letter-spacing: 0.28em;
- text-transform: uppercase;
- color: var(--color-primary);
-}
-
-.modal__title {
- margin: 8px 0 14px;
- font-size: clamp(2rem, 6vw, 3.2rem);
- font-weight: 800;
- font-stretch: 75%;
- font-variation-settings: "wdth" 75;
- line-height: 0.95;
- text-transform: uppercase;
-}
-
-.modal__tags {
- display: flex;
- flex-wrap: wrap;
- gap: 8px;
- margin-top: 18px;
-}
-
-.modal__tags li {
- padding: 4px 12px;
- border: 1px solid rgba(255, 255, 255, 0.16);
- border-radius: 999px;
- font-size: 12px;
- font-weight: 600;
- letter-spacing: 0.06em;
- color: #cfcfd8;
-}
-
-.modal__link {
- display: inline-flex;
- gap: 10px;
- margin-top: 22px;
- padding: 12px 22px;
- border-radius: 999px;
- background: var(--color-primary);
- color: #130a05;
- font-weight: 700;
- text-decoration: none;
-}
-
-.modal__text {
- margin-top: 12px;
- font-size: 1.05rem;
- line-height: 1.5;
- color: #cfcfd8;
-}
+/* ── Ventana de detalle: ahora son las cartas (ver cards.css). Queda el fundido que usan otras ventanas. ── */
 
 @keyframes modal-in {
  from {
@@ -1713,11 +1612,6 @@
   animation: none;
  }
 }
-.modal__voyage {
- border: 0;
- cursor: pointer;
- font: inherit;
-}
 
 /* ── The Twisted Moon: contador de engranajes y línea de tiempo ─────────── */
 
@@ -1782,51 +1676,11 @@
  }
 }
 
-.modal__timeline {
- display: grid;
- gap: 10px;
- margin: 6px 0 4px;
- padding: 0 0 0 16px;
- border-left: 2px solid rgba(227, 189, 98, 0.55);
- list-style: none;
-}
 
-.modal__timeline li {
- position: relative;
- display: grid;
- gap: 2px;
-}
 
-.modal__timeline li::before {
- content: "";
- position: absolute;
- top: 7px;
- left: -22px;
- width: 10px;
- height: 10px;
- border-radius: 50%;
- background: #e3bd62;
-}
 
-.modal__timeline b {
- color: #e3bd62;
- font-weight: 600;
-}
 
-.modal__soon {
- opacity: 0.6;
- cursor: not-allowed;
-}
 
-.modal__soon span {
- margin-left: 6px;
- padding: 2px 8px;
- border-radius: 999px;
- background: rgba(255, 255, 255, 0.16);
- font-size: 12px;
- letter-spacing: 0.04em;
- text-transform: uppercase;
-}
 
 /* ── The Twisted Moon: «Sobre mí» entero y la vista por el telescopio ───── */
 
@@ -1856,12 +1710,6 @@
  margin: 0;
 }
 
-.modal__about {
- margin-left: 8px;
- background: transparent;
- border: 1px solid rgba(255, 255, 255, 0.3);
- color: inherit;
-}
 
 /* Lo que se ve por el telescopio: todo negro salvo un círculo en el centro. */
 .scope {

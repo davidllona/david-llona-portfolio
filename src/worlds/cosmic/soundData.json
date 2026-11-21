@@ -1,0 +1,67 @@
+{
+ "musica-1": {
+  "file": "sounds/cosmic/musica-1.mp3",
+  "bytes": 1749203,
+  "duration": 145.7,
+  "loop": [
+   0.25,
+   145.2
+  ]
+ },
+ "musica-2": {
+  "file": "sounds/cosmic/musica-2.mp3",
+  "bytes": 1587766,
+  "duration": 132.245,
+  "loop": [
+   0.25,
+   131.7455
+  ]
+ },
+ "musica-3": {
+  "file": "sounds/cosmic/musica-3.mp3",
+  "bytes": 1334796,
+  "duration": 111.16,
+  "loop": [
+   0.25,
+   110.6602
+  ]
+ },
+ "encendido": {
+  "file": "sounds/cosmic/encendido.mp3",
+  "bytes": 15195,
+  "duration": 1.447
+ },
+ "rayo": {
+  "file": "sounds/cosmic/rayo.mp3",
+  "bytes": 26689,
+  "duration": 2.6
+ },
+ "zumbido": {
+  "file": "sounds/cosmic/zumbido.mp3",
+  "bytes": 78619,
+  "duration": 9.75,
+  "loop": [
+   0.25,
+   9.25
+  ]
+ },
+ "ambiente": {
+  "file": "sounds/cosmic/ambiente.mp3",
+  "bytes": 40585,
+  "duration": 5.01,
+  "loop": [
+   0.25,
+   4.5101
+  ]
+ },
+ "salto": {
+  "file": "sounds/cosmic/salto.mp3",
+  "bytes": 5685,
+  "duration": 0.65
+ },
+ "antena": {
+  "file": "sounds/cosmic/antena.mp3",
+  "bytes": 26165,
+  "duration": 3.2
+ }
+}

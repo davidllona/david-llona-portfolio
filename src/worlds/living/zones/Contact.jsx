@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { CONTACT_LINKS, EMAIL } from "../../../content/contact";
+import { CONTACT_LINKS, EMAIL, contactCard } from "../../../content/contact";
 import { useInteractable } from "../../../experience/interact";
 import { lambert } from "../../../experience/materials";
 import { emit, player } from "../../../experience/state";
@@ -254,6 +254,14 @@ export function Contact() {
   },
   [station, models, deck],
  );
+ // Al pie de la antena, el cartel de Contacto: las tres vías juntas, para leerlas sin ir aparato por aparato.
+ useInteractable({
+  position: { x: CONTACT.antenna.x, z: CONTACT.antenna.z + 1.7 },
+  radius: 2.1,
+  height: 3,
+  hint: "Contacto",
+  action: () => emit("open", { ...contactCard(), at: { x: CONTACT.antenna.x, y: 2.4, z: CONTACT.antenna.z, distance: 0.7 } }),
+ });
  useFrame(({ clock }) => {
   dish.current.rotation.y = clock.elapsedTime * 0.3;
   // Baliza: un destello corto cada par de segundos.

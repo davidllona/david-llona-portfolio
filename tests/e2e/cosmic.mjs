@@ -4,6 +4,7 @@
 // manda su rayo al núcleo, y se vuelve a The Living World.
 //   node tests/e2e/cosmic.mjs
 import { open, check, wait } from "./common.mjs";
+import { APP_STATUS } from "../../src/content/cards.js";
 import { LAB, MACHINES as TEXT, MACHINE_ORDER } from "../../src/content/cosmic.js";
 import cosmic, { CORE, GRAVITY, MACHINES, edge } from "../../src/worlds/cosmic/layout.js";
 
@@ -39,7 +40,7 @@ const loaded = () => t.evaluate(() => performance.getEntriesByType("resource").m
 const modal = () =>
  t.evaluate(() => {
   const card = document.querySelector(".modal__card");
-  return card ? { eyebrow: card.querySelector(".modal__eyebrow")?.textContent ?? null, title: card.querySelector(".modal__title")?.textContent ?? null, text: [...card.querySelectorAll(".modal__text")].map((one) => one.textContent) } : null;
+  return card ? { object: [...card.classList].find((name) => name.startsWith("card--"))?.slice(6), status: card.querySelector(".maquina__status")?.textContent.trim() ?? null, tagline: card.querySelector(".maquina__tagline")?.textContent ?? null, energy: card.querySelector(".maquina__energy")?.textContent ?? null, phones: card.querySelectorAll(".maquina__phone").length, button: card.querySelectorAll(".modal__link").length, title: card.querySelector(".modal__title")?.textContent ?? null, text: [...card.querySelectorAll(".modal__text")].map((one) => one.textContent) } : null;
  });
 const labNow = () => t.evaluate(() => { const l = window.__world.lab; return { on: l.quest.isOn("dosia"), count: l.quest.count(), machine: l.machine, core: l.core, beam: l.beam, lamps: l.lamps, sequence: l.sequence }; });
 
@@ -106,7 +107,7 @@ const dosia = MACHINES.dosia;
 await t.put(dosia.use.x + 0.4, dosia.use.z + 0.9, { settle: 2200 });
 let state0 = await labNow();
 check(!state0.on && state0.machine === 0 && state0.core === 0 && state0.beam === 0, "al llegar, el laboratorio está apagado: la máquina, el rayo y el núcleo");
-check((await t.hint()) === TEXT.dosia.hint, `junto a la máquina: «${await t.hint()}»`);
+check((await t.hint()) === LAB.hintOff(TEXT.dosia.name), `junto a la máquina: «${await t.hint()}»`);
 await t.page.keyboard.press("KeyE");
 await wait(700);
 const mid = await labNow();
@@ -118,21 +119,46 @@ check(lit.on && lit.beam > 0.95 && lit.count === 1, `el rayo de energía llega a
 check(toast.includes(LAB.on(TEXT.dosia.name, 1, MACHINE_ORDER.length)), `aviso: «${toast}»`);
 await t.page.waitForSelector(".modal__card", { timeout: 8000 }).catch(() => {});
 const card = await modal();
-check(card?.title === TEXT.dosia.name && card.eyebrow === TEXT.dosia.place && card.text.join("|") === TEXT.dosia.paragraphs.join("|"), `y se abre su panel con el texto tal cual: «${card?.title}» — «${card?.text[0]}»`);
+check(card?.title === TEXT.dosia.name && card.tagline === TEXT.dosia.tagline && card.text.join("|") === TEXT.dosia.paragraphs.join("|"), `y se abre su carta con el texto tal cual: «${card?.title}» — «${card?.text[0]}»`);
+check(card?.object === "maquina" && card.phones === 2 && card.status === APP_STATUS.published && /1\/5/.test(card.energy ?? "") && card.button === 0, `es una máquina del laboratorio, con sus dos móviles holográficos, «${card?.status}», «${card?.energy}» y sin botón «Abrir la app» (no hay enlace que poner)`);
 await t.page.keyboard.press("Escape");
 await wait(1600);
 const after = await labNow();
 check(after.core > 0.15 && after.core < 0.4 && after.lamps[0] > 0.9 && after.lamps.slice(1).every((one) => one < 0.05), `al núcleo le llega energía (${after.core.toFixed(2)} de 1) y se enciende su testigo, solo el de Dosia`);
-check((await counter()) === `${LAB.counter} 1/${MACHINE_ORDER.length}` && (await t.hint()) === TEXT.dosia.hintOn, `el contador pasa a «${await counter()}» y la E vuelve a abrir «${await t.hint()}»`);
+check((await counter()) === `${LAB.counter} 1/${MACHINE_ORDER.length}` && (await t.hint()) === LAB.hintOn(TEXT.dosia.name), `el contador pasa a «${await counter()}» y la E vuelve a abrir «${await t.hint()}»`);
 check((await t.evaluate(() => JSON.parse(window.localStorage.getItem("planeta-logros") ?? "{}").unlocked?.["mente-inquieta"])) > 0, "logro «Mente inquieta» conseguido");
 check((await t.evaluate(() => JSON.parse(window.sessionStorage.getItem("lab-energia")).on.join())) === "dosia", "queda guardado en la visita");
-// Las otras cuatro solo tienen su sitio: no ofrecen nada.
-const reserved = MACHINES.epidos;
-await t.put(reserved.use.x, reserved.use.z, { withWoody: false, settle: 1200 });
-check((await t.hint()) === null, "las otras cuatro máquinas solo tienen su sitio reservado: junto a ellas no se ofrece nada");
+// El sonido del mundo 3: su arranque y su rayo han sonado, y solo se ha descargado la música elegida.
+const heard = await t.evaluate(() => ({ played: window.__world.audio.played, track: window.__world.cosmicSounds.track, files: performance.getEntriesByType("resource").map((entry) => entry.name).filter((name) => /sounds\/cosmic\//.test(name)).map((name) => name.split("/").pop()) }));
+check(heard.played["muestra:encendido"] >= 1 && heard.played["muestra:rayo"] >= 1 && heard.played["muestra:salto"] >= 1, `al encenderla suenan el arranque y el rayo, y al saltar, su salto (${["encendido", "rayo", "salto"].map((name) => `${name}: ${heard.played["muestra:" + name] ?? 0}`).join(", ")})`);
+check(heard.files.filter((name) => /^musica-/.test(name)).join() === `musica-${heard.track}.mp3` && ["ambiente.mp3", "zumbido.mp3", "antena.mp3"].every((name) => heard.files.includes(name)), `se descargan sus sonidos y, de las tres músicas, solo la elegida (${heard.files.filter((name) => /^musica-/.test(name)).join(", ")})`);
+// Las cinco máquinas: cada una con su luz de estado; la de los experimentos, apagada y sin carta.
+const lights = await t.evaluate(() => {
+ const found = {};
+ window.__world.scene.traverse((node) => {
+  const match = /^luz de estado de (.+): (.+)$/.exec(node.name ?? "");
+  if (match) found[match[1]] = { status: match[2], colour: node.material.color.getHexString() };
+ });
+ return found;
+});
+check(lights.dosia?.status === "published" && ["epidos", "chuchometro", "viajes"].every((id) => lights[id]?.status === "building" && lights[id].colour !== lights.dosia.colour) && !lights.experimentos, `cada máquina enseña su estado en el mundo: Dosia publicada (luz lima); Epidos, Chuchómetro y la app de viajes en construcción (ámbar); la de los experimentos, sin luz`);
+await t.put(MACHINES.experimentos.use.x, MACHINES.experimentos.use.z, { withWoody: false, settle: 1200 });
+check((await t.hint()) === null, "la máquina de los experimentos, sin contenido todavía, queda apagada: junto a ella no se ofrece nada");
+// Otra máquina, en construcción: se enciende igual y su carta lo dice.
+await t.put(MACHINES.epidos.use.x, MACHINES.epidos.use.z, { withWoody: false, settle: 1500 });
+check((await t.hint()) === LAB.hintOff(TEXT.epidos.name), `junto a la de Epidos: «${await t.hint()}»`);
+await t.page.keyboard.press("KeyE");
+await t.page.waitForSelector(".modal__card", { timeout: 9000 }).catch(() => {});
+await wait(500);
+const second = await modal();
+check(second?.title === TEXT.epidos.name && second.status === APP_STATUS.building && second.text.join("|") === TEXT.epidos.paragraphs.join("|") && /2\/5/.test(second.energy ?? "") && second.button === 0 && second.tagline === null, `su carta: «${second?.title}», «${second?.status}», «${second?.text[0]}» y «${second?.energy}»; sin botón ni subtítulo (no los tiene)`);
+check((await t.evaluate(() => document.querySelector(".modal").textContent.includes("["))) === false, "ninguna carta enseña un «[PENDIENTE]»");
+await t.page.keyboard.press("Escape");
+await wait(1200);
+check((await t.evaluate(() => window.__world.lab.all.epidos)).beam > 0.95, "y su rayo llega también al núcleo");
 // El núcleo.
 await t.put(CORE.x, CORE.z + CORE.r + 1.1, { withWoody: false, settle: 1500 });
-check((await t.hint()) === LAB.coreSome(1, MACHINE_ORDER.length), `el núcleo cuenta lo que le falta: «${await t.hint()}»`);
+check((await t.hint()) === LAB.coreSome(2, MACHINE_ORDER.length), `el núcleo cuenta lo que le falta: «${await t.hint()}»`);
 compiled = await hot();
 check(compiled.length === 0, `0 pipelines en caliente en todo el paseo (salto, máquina, rayo, panel)${compiled.length ? ": " + compiled.join(", ") : ""}`);
 

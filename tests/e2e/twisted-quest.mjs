@@ -7,6 +7,7 @@
 //   node tests/e2e/twisted-quest.mjs
 import { open, check, wait } from "./common.mjs";
 import { aboutText } from "../../src/content/about.js";
+import { TALE_CARDS } from "../../src/content/cards.js";
 import { CLOCK, CURRENT_COMPANY, FUTURE, STOPS, STOP_ORDER, TIMELINE } from "../../src/content/twisted.js";
 import { QUEST_STOPS, TELESCOPE, TOWER_DOOR } from "../../src/worlds/twisted/layout.js";
 
@@ -37,6 +38,12 @@ const modal = () =>
   if (!card) return null;
   return {
    eyebrow: card.querySelector(".modal__eyebrow")?.textContent ?? null,
+   // (El cartel colgante: la línea manuscrita bajo el título, el engranaje atornillado y el botón.)
+   subtitle: card.querySelector(".colgante__subtitle")?.textContent ?? null,
+   gear: card.querySelector(".colgante__gear text")?.textContent ?? null,
+   next: card.querySelector(".modal__guide")?.textContent.trim() ?? null,
+   object: [...card.classList].find((name) => name.startsWith("card--"))?.slice(6),
+   photos: card.querySelectorAll(".colgante__polaroid").length,
    title: card.querySelector(".modal__title")?.textContent ?? null,
    text: [...card.querySelectorAll(".modal__text")].map((one) => one.textContent),
    timeline: [...card.querySelectorAll(".modal__timeline li")].map((one) => [one.querySelector("b").textContent, one.querySelector("span").textContent]),
@@ -87,7 +94,8 @@ for (const id of STOP_ORDER) {
  await t.page.waitForSelector(".modal__card", { timeout: 5000 }).catch(() => {});
  const card = await modal();
  const sameText = card && card.text.length === text.paragraphs.length && card.text.every((line, i) => line === text.paragraphs[i]);
- check(hint === text.hint && card?.title === text.title && card?.eyebrow === text.place && sameText, `${text.place}: la E («${hint}») abre «${card?.title}» con su texto tal cual (${card?.text.length} párrafos)`);
+ check(hint === text.hint && card?.title === text.title && sameText, `${text.place}: la E («${hint}») abre «${card?.title}» con su texto tal cual (${card?.text.length} párrafos)`);
+ check(card?.object === "colgante" && card.photos === 2 && card.gear === `${STOP_ORDER.indexOf(id) + 1}/4` && card.next === CLOCK.next && card.subtitle === (TALE_CARDS[id].subtitle ?? text.place), `   es un cartel colgante con sus dos polaroids, su engranaje («${card?.gear}») y el botón «${card?.next}»`);
  const before = await t.evaluate(() => window.__world.quest.count());
  await close();
  have += 1;
@@ -134,7 +142,7 @@ check(state.cogs === 4 && state.level > 0.3 && state.level < 1, `a los ${state.s
 await t.page.waitForSelector(".modal__card", { timeout: 8000 }).catch(() => {});
 let card = await modal();
 check(card?.title === TIMELINE.title && card.timeline.length === 5 && card.timeline.every(([when, what], i) => when === TIMELINE.milestones[i][0] && what === TIMELINE.milestones[i][1]), `al acabar se abre «${card?.title}» con sus cinco hitos: ${card?.timeline.map(([when]) => when).join(" · ")}`);
-check(card?.timeline.some(([when]) => when === CURRENT_COMPANY) && CURRENT_COMPANY.startsWith("[CONFIRMAR"), `el nombre por confirmar se enseña tal cual: «${CURRENT_COMPANY}»`);
+check(card?.timeline.some(([when]) => when === (CURRENT_COMPANY ?? "Ahora")) && !card.timeline.some(([when, what]) => /\[/.test(when + what)), `el nombre de la empresa, por confirmar, no se enseña: ese hito sale como «${CURRENT_COMPANY ?? "Ahora"}»`);
 state = await clock();
 check(state.running && state.level > 0.99 && Math.abs(state.hour - 12) < 0.05 && state.hourAngle % (Math.PI * 2) < 0.03 && state.minuteAngle % (Math.PI * 2) < 0.03, `el reloj anda y marca la hora del visitante (${state.hour.toFixed(2)} h; esferas al ${Math.round(state.level * 100)} %)`);
 await wait(7000);

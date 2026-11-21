@@ -1,138 +1,107 @@
-// Marcadores: lo que enseña el hueco de la imagen o del vídeo de una carta
-// mientras David no aporte el material. Dibujados, a juego con cada mundo: no
-// son recuadros grises ni iconos rotos. (Todo SVG: no se descarga nada.)
+// Marcadores: lo que enseña cada hueco de imagen de una carta mientras David no
+// aporte el material. Dibujados como en las maquetas aprobadas
+// (docs/referencias/cartas/). Todo SVG: no se descarga nada.
 
-// Mundo 1: una ilustración sencilla con el color del proyecto —una ventana de
-// navegador sobre unas lomas, con el sol detrás—.
-export function ProjectMarker({ color = "#ff6b2c", label }) {
+// Mundo 1: un papel con la interfaz del proyecto esbozada —un panel con sus
+// controles y muestras, y al lado la pieza grande, a rayas—, en el color del proyecto.
+export function UiSketch({ color = "#c97a36", label }) {
+ const id = `tx-${color.replace("#", "")}`;
  return (
-  <svg className="marker marker--ficha" viewBox="0 0 640 360" role="img" aria-label={label ? `Ilustración de ${label}` : "Ilustración del proyecto"} preserveAspectRatio="xMidYMid slice">
-   <rect width="640" height="360" fill="#fdeed3" />
-   <circle cx="500" cy="96" r="54" fill={color} opacity="0.22" />
-   <circle cx="500" cy="96" r="34" fill={color} opacity="0.5" />
-   <path d="M0 262 Q120 206 250 250 T470 236 T640 258 V360 H0Z" fill={color} opacity="0.2" />
-   <path d="M0 300 Q160 252 320 292 T640 284 V360 H0Z" fill={color} opacity="0.34" />
-   <g transform="translate(150 78)">
-    <rect width="340" height="214" rx="16" fill="#fffaf0" stroke="#2b1c12" strokeWidth="4" />
-    <path d="M0 40 H340" stroke="#2b1c12" strokeWidth="4" />
-    <circle cx="24" cy="20" r="6" fill={color} />
-    <circle cx="46" cy="20" r="6" fill="#2b1c12" opacity="0.25" />
-    <circle cx="68" cy="20" r="6" fill="#2b1c12" opacity="0.25" />
-    <rect x="24" y="62" width="130" height="126" rx="10" fill={color} opacity="0.85" />
-    <rect x="174" y="64" width="142" height="14" rx="7" fill="#2b1c12" opacity="0.8" />
-    <rect x="174" y="92" width="110" height="10" rx="5" fill="#2b1c12" opacity="0.28" />
-    <rect x="174" y="112" width="128" height="10" rx="5" fill="#2b1c12" opacity="0.28" />
-    <rect x="174" y="132" width="84" height="10" rx="5" fill="#2b1c12" opacity="0.28" />
-    <rect x="174" y="160" width="76" height="28" rx="14" fill={color} />
-   </g>
+  <svg className="marker" role="img" aria-label={label ? `Boceto de ${label}` : "Boceto del proyecto"} viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice">
+   <defs>
+    <pattern id={id} width="6" height="6" patternUnits="userSpaceOnUse">
+     <rect width="6" height="6" fill={color} opacity="0.55" />
+     <rect width="3" height="6" fill={color} opacity="0.85" />
+    </pattern>
+   </defs>
+   <rect width="300" height="150" fill="#ffffff" />
+   <rect x="21" y="22.5" width="30" height="9" rx="3" fill="#2b2b2b" />
+   <rect x="54" y="22.5" width="30" height="9" rx="3" fill="#ececec" />
+   <rect x="21" y="40.5" width="63" height="3" fill="#cfcfcf" />
+   <rect x="21" y="49.5" width="63" height="3" fill="#cfcfcf" />
+   {[0, 1, 2, 3, 4, 5].map((i) => (
+    <rect key={i} x={21 + (i % 3) * 21} y={67.5 + Math.floor(i / 3) * 19.5} width="18" height="15" fill={color} opacity={0.35 + ((i * 7) % 5) * 0.12} />
+   ))}
+   <rect x="21" y="117" width="45" height="9" rx="4.5" fill="#1f1f1f" />
+   <rect x="126" y="21" width="126" height="108" fill="#f1ede6" />
+   <rect x="126" y="21" width="126" height="108" fill={`url(#${id})`} />
   </svg>
  );
 }
 
-// Mundo 2: la silueta dibujada a tinta que va dentro de la polaroid (un perro sentado).
-export function DogSilhouette() {
- return (
-  <svg className="marker marker--hoja" viewBox="0 0 200 200" role="img" aria-label="Silueta de Woody, dibujada">
-   <rect width="200" height="200" fill="#dcd6c6" />
-   <path d="M0 160 Q50 146 100 158 T200 152 V200 H0Z" fill="#c9c2af" />
-   {/* Un perro sentado, de perfil: hocico largo, oreja caída y la cola por detrás. */}
-   <g fill="#1a2444">
-    <path d="M66 176 C56 148 62 118 88 104 L96 84 L122 96 C132 112 136 142 132 176 Z" />
-    <path d="M70 170 C48 168 36 150 40 130 C50 146 60 154 76 156 Z" />
-    <ellipse cx="112" cy="74" rx="24" ry="22" />
-    <path d="M122 62 L160 74 C166 78 166 90 158 92 L124 94 Z" />
-    <circle cx="160" cy="77" r="5" />
-    <ellipse cx="80" cy="177" rx="18" ry="6" />
-    <ellipse cx="124" cy="177" rx="18" ry="6" />
-   </g>
-   <path d="M96 58 C82 62 76 84 84 104 C96 100 104 84 106 64 Z" fill="#33426e" />
-   <circle cx="126" cy="70" r="3.2" fill="#dcd6c6" />
-  </svg>
- );
-}
-
-// Adornos de la hoja de cuento, uno por parada: trazos a tinta.
-const ORNAMENTS = {
- paw: (
-  <g fill="currentColor" stroke="none">
-   <ellipse cx="24" cy="31" rx="10" ry="8" />
-   <circle cx="10" cy="20" r="4.6" />
-   <circle cx="19" cy="12" r="4.8" />
-   <circle cx="30" cy="12" r="4.8" />
-   <circle cx="38" cy="20" r="4.6" />
+// Mundo 2: la silueta dibujada que va en la polaroid. La del perro es la de la maqueta.
+const SHAPES = {
+ dog: (
+  <g transform="translate(55,22)">
+   <ellipse cx="62" cy="80" rx="46" ry="26" />
+   <circle cx="104" cy="44" r="20" />
+   <path d="M96 28l6-20 10 18z" />
+   <path d="M112 30l12-14 2 22z" />
+   <rect x="24" y="92" width="10" height="24" rx="4" />
+   <rect x="84" y="92" width="10" height="24" rx="4" />
+   <path d="M16 72q-18-6-16-26" stroke="#3a2f4a" strokeWidth="8" fill="none" strokeLinecap="round" />
   </g>
  ),
  gear: (
-  <>
-   <circle cx="24" cy="24" r="9" />
-   <circle cx="24" cy="24" r="3" />
-   <path d="M24 6v6M24 36v6M6 24h6M36 24h6M11 11l4.5 4.5M32.5 32.5 37 37M37 11l-4.5 4.5M15.5 32.5 11 37" />
-  </>
- ),
- map: (
-  <>
-   <path d="M6 12l12-5 12 5 12-5v29l-12 5-12-5-12 5z" />
-   <path d="M18 7v29M30 12v29" />
-  </>
+  <g transform="translate(67,22)">
+   <path d="M44 4h8l3 12 9 4 11-6 6 6-6 11 4 9 12 3v8l-12 3-4 9 6 11-6 6-11-6-9 4-3 12h-8l-3-12-9-4-11 6-6-6 6-11-4-9-12-3v-8l12-3 4-9-6-11 6-6 11 6 9-4z" />
+   <circle cx="48" cy="48" r="16" fill="#dcd3c0" />
+  </g>
  ),
  pad: (
-  <>
-   <rect x="5" y="14" width="38" height="22" rx="11" />
-   <path d="M14 21v8M10 25h8" />
-   <circle cx="32" cy="22" r="1.6" fill="currentColor" />
-   <circle cx="36" cy="28" r="1.6" fill="currentColor" />
-  </>
+  <g transform="translate(51,40)">
+   <rect x="0" y="6" width="128" height="62" rx="31" />
+   <rect x="22" y="33" width="26" height="8" rx="3" fill="#dcd3c0" />
+   <rect x="31" y="24" width="8" height="26" rx="3" fill="#dcd3c0" />
+   <circle cx="88" cy="30" r="6" fill="#dcd3c0" />
+   <circle cx="104" cy="44" r="6" fill="#dcd3c0" />
+  </g>
+ ),
+ map: (
+  <g transform="translate(55,28)">
+   <path d="M0 14l40-14 40 14 40-14v84l-40 14-40-14-40 14z" />
+   <path d="M40 0v84M80 14v84" stroke="#dcd3c0" strokeWidth="3" fill="none" />
+   <circle cx="60" cy="46" r="7" fill="#dcd3c0" />
+  </g>
  ),
  clock: (
-  <>
-   <circle cx="24" cy="24" r="17" />
-   <path d="M24 13v11l8 5" />
-  </>
+  <g transform="translate(65,20)">
+   <circle cx="50" cy="50" r="48" />
+   <circle cx="50" cy="50" r="37" fill="#dcd3c0" />
+   <path d="M50 22v28l20 12" stroke="#3a2f4a" strokeWidth="7" fill="none" strokeLinecap="round" />
+  </g>
  ),
- star: <path d="M24 5l5.4 12 13 1.3-9.8 8.7 2.9 12.8L24 33l-11.5 6.8 2.9-12.8-9.8-8.7 13-1.3z" />,
+ star: (
+  <g transform="translate(63,18)">
+   <path d="M52 2l12 32 34 3-26 22 8 34-28-19-28 19 8-34-26-22 34-3z" />
+  </g>
+ ),
+ home: (
+  <g transform="translate(57,20)">
+   <path d="M4 52L58 6l54 46v8H94v40H22V60H4z" />
+   <rect x="48" y="66" width="20" height="34" rx="3" fill="#dcd3c0" />
+  </g>
+ ),
 };
-export function Ornament({ name }) {
+export function Silhouette({ drawing = "star", label }) {
  return (
-  <svg className="hoja__ornament" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-   {ORNAMENTS[name] ?? ORNAMENTS.star}
+  <svg className="marker" role="img" aria-label={label ? `Dibujo: ${label}` : "Dibujo"} viewBox="0 0 230 140" preserveAspectRatio="xMidYMid slice">
+   <rect width="230" height="140" fill="#dcd3c0" />
+   <rect width="230" height="77" fill="#cfc4ad" />
+   <g fill="#3a2f4a">{SHAPES[drawing] ?? SHAPES.star}</g>
   </svg>
  );
 }
 
-// Mundo 3: dentro del móvil holográfico, la interfaz esbozada con líneas que se
-// dibujan solas (app publicada) o un plano en construcción, con su cota y su
-// retícula (app a medio hacer). Una línea de barrido la recorre.
-export function Blueprint({ building }) {
+// Mundo 3: la pantalla del móvil holográfico, esbozada en líneas (como la maqueta).
+export function PhoneSketch({ label }) {
  return (
-  <svg className={`marker marker--holo${building ? " marker--building" : ""}`} viewBox="0 0 180 360" role="img" aria-label={building ? "Plano en construcción" : "Interfaz esbozada"}>
-   <defs>
-    <pattern id="holo-grid" width="18" height="18" patternUnits="userSpaceOnUse">
-     <path d="M18 0H0V18" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.28" />
-    </pattern>
-   </defs>
-   <rect width="180" height="360" fill="url(#holo-grid)" />
-   <g className="holo__lines" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    {building ? (
-     <>
-      <path pathLength="1" d="M26 70 H154 V250 H26 Z" />
-      <path pathLength="1" d="M26 70 L154 250 M154 70 L26 250" />
-      <path pathLength="1" d="M26 276 H154 M26 270 V282 M154 270 V282" />
-      <path pathLength="1" d="M60 300 H120" />
-      <path pathLength="1" d="M90 40 m-12 0 a12 12 0 1 0 24 0 a12 12 0 1 0 -24 0" />
-     </>
-    ) : (
-     <>
-      <path pathLength="1" d="M22 40 H98" />
-      <path pathLength="1" d="M134 40 m-12 0 a12 12 0 1 0 24 0 a12 12 0 1 0 -24 0" />
-      <path pathLength="1" d="M22 74 H158 V150 H22 Z" />
-      <path pathLength="1" d="M36 130 L64 104 L88 122 L116 94 L144 116" />
-      <path pathLength="1" d="M22 172 H84 V228 H22 Z M96 172 H158 V228 H96 Z" />
-      <path pathLength="1" d="M22 252 H158 M22 272 H126 M22 292 H142" />
-      <path pathLength="1" d="M52 318 H128 a10 10 0 0 1 0 20 H52 a10 10 0 0 1 0 -20 Z" />
-     </>
-    )}
-   </g>
-   <rect className="holo__sweep" x="0" y="0" width="180" height="26" fill="currentColor" opacity="0.16" />
+  <svg className="marker" role="img" aria-label={label ? `Pantalla de ${label}, esbozada` : "Pantalla esbozada"} viewBox="0 0 150 250" preserveAspectRatio="none">
+   <rect x="21" y="25" width="67.5" height="17.5" rx="4" fill="#d8ff6a" />
+   {[75, 97.5, 120, 142.5, 165].map((y, i) => (
+    <rect key={y} x="21" y={y} width={i % 2 ? 72 : 108} height="8.75" rx="3" fill="#5ff2d6" opacity="0.6" />
+   ))}
+   <rect x="21" y="205" width="108" height="20" rx="10" fill="#ff7ad9" />
   </svg>
  );
 }

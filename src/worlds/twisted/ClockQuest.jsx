@@ -36,7 +36,16 @@ function lead(node, line) {
 }
 
 // Ficha de una parada: la cámara se acerca a su edificio y se abre el panel.
-const cardOf = (text, spot, extra) => ({ eyebrow: text.place, title: text.title, paragraphs: text.paragraphs, at: { x: spot.focus[0], y: ground(spot.focus[0], spot.focus[2]) + spot.focus[1], z: spot.focus[2], distance: spot.distance ?? 0.85 }, ...extra });
+// (El cartel colgante de la parada: ver content/cards.js y ui/Modal.jsx.)
+const cardOf = (id, text, spot, extra) => ({ ...taleCard(id, text), at: { x: spot.focus[0], y: ground(spot.focus[0], spot.focus[2]) + spot.focus[1], z: spot.focus[2], distance: spot.distance ?? 0.85 }, ...extra });
+// A dónde lleva «Siguiente parada» desde una parada: a la que falte más cerca (sin contar esa) o, con todas, a la torre.
+const nextFrom = (id) => {
+ const left = quest.missing().filter((one) => one !== id);
+ if (!left.length) return "torre";
+ let best = left[0];
+ for (const one of left) if (Math.hypot(QUEST_STOPS[one].x - QUEST_STOPS[id].x, QUEST_STOPS[one].z - QUEST_STOPS[id].z) < Math.hypot(QUEST_STOPS[best].x - QUEST_STOPS[id].x, QUEST_STOPS[best].z - QUEST_STOPS[id].z)) best = one;
+ return QUEST_STOPS[best].node;
+};
 
 function Stop({ id, onOpen }) {
  const spot = QUEST_STOPS[id];
@@ -133,13 +142,13 @@ export function Quest() {
   },
   [],
  );
- // (La de Woody ya es una hoja de cuento —objetivo 25, la muestra—; las demás, la carta sencilla hasta que se apruebe.)
- const open = (id) => present(id, QUEST_STOPS[id], { kind: "stop", stop: id, ...cardOf(STOPS[id], QUEST_STOPS[id]), ...(id === "casita" ? taleCard(id, STOPS[id]) : null) });
+ // (Con su engranaje atornillado al lateral —«3/4»: cuál es de los cuatro— y el botón que lleva a la siguiente.)
+ const open = (id) => present(id, QUEST_STOPS[id], cardOf(id, STOPS[id], QUEST_STOPS[id], { gear: `${GEARS.indexOf(id) + 1}/${quest.total}`, guide: nextFrom(id), guideLabel: CLOCK.next }));
 
  // ── La puerta de la torre ──
  const timeline = () => {
   pending.current = "torre";
-  emit("open", { kind: "stop", stop: "torre", eyebrow: TIMELINE.place, title: TIMELINE.title, timeline: TIMELINE.milestones, at: { x: TOWER_DOOR.focus[0], y: ground(TOWER_DOOR.focus[0], TOWER_DOOR.focus[2]) + TOWER_DOOR.focus[1], z: TOWER_DOOR.focus[2], distance: 1.25 } });
+  emit("open", { ...taleCard("torre", TIMELINE), timeline: TIMELINE.milestones, guide: "luna-observatorio", guideLabel: CLOCK.next, at: { x: TOWER_DOOR.focus[0], y: ground(TOWER_DOOR.focus[0], TOWER_DOOR.focus[2]) + TOWER_DOOR.focus[1], z: TOWER_DOOR.focus[2], distance: 1.25 } });
  };
  const sequence = useRef(null);
  useInteractable({
@@ -201,7 +210,7 @@ export function Quest() {
   hint: FUTURE.hint,
   enabled: () => !ui.open && clockwork.startedAt === null,
   action: () => {
-   present("observatorio", TELESCOPE, { kind: "stop", stop: "observatorio", ...cardOf(FUTURE, TELESCOPE), voyage: FUTURE.goTo, action: FUTURE.go });
+   present("observatorio", TELESCOPE, cardOf("observatorio", FUTURE, TELESCOPE, { voyage: FUTURE.goTo, action: FUTURE.go }));
   },
  });
 

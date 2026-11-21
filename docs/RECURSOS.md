@@ -87,3 +87,29 @@ Originales en `assets-externos/mundo2/` (fuera de git). Conversión de modelos: 
 | «Magic Sparkle Twinkle Shimmer» (AetherFX) | `magic-sparkle-twinkle-shimmer/…/*.wav` (cuatro) | — | `destello-1…4.mp3` (2 s, 21 kB cada uno) | Destello al usar algo y junto a setas y luciérnagas | **en uso** (C3) |
 | «Wooden Bridge Footsteps» (FxProSound) | `wooden-bridge-footsteps/03447 wooden stairs climbing.wav` (12 s, 20 golpes regulares) | — | `pasos-madera.mp3` (diez pasos, uno por casilla de 0,6 s; 61 kB) | Pasos en puentes y pasarelas | **en uso** (C3); **pendiente del oído de David** |
 | «Owl Hoot 1» (HollywoodEdge) | `owl-hoot-1/*.wav` (7 s) | — | `buho.mp3` (3,75 s, 31 kB) | Búho lejano, cada 25–60 s | **en uso** (C3) |
+
+## Mundo 3 · The Cosmic Lab (objetivo 26)
+
+Originales en `assets-externos/mundo3/` (fuera de git; movidos de Descargas el 21-11-2026, cada ZIP con su carpeta). Conversión de modelos: `tools/assets/cosmic.py`; de sonido: `tools/assets/cosmic_sounds.py` (las dos con Blender 5.0; no hay ffmpeg). Vista previa de los modelos: `tools/assets/preview.py`.
+
+| Original | Archivo de partida | Triángulos | Sale | Uso | Estado |
+|---|---|---|---|---|---|
+| «Futuristic research laboratory equipment collection» (TurboSquid) | `[BLEND] sci_fi_medical_scanner` | 16.456 (65.824 con modificadores) | `public/models/cosmic/escaner.glb` (3.600, 67 kB) | Máquina de Dosia | **en uso** |
+| ídem | `[BLEND] sci_fi_control_panel` | 24.697 (88.127) | `consola.glb` (2.434, 62 kB) | Máquina de Epidos | **en uso** |
+| ídem | `[BLEND] sci_fi_control_panel_v2` | 16.554 (55.944) | `consola-doble.glb` (2.393, 65 kB) | Máquina de Chuchómetro | **en uso** |
+| ídem | `[BLEND] sci_fi_speciman_container_full` | 8.948 (34.232), sin la figura ni el cristal | `capsula.glb` (3.000, 74 kB) | Máquina de la app de viajes | **en uso** |
+| ídem | `[BLEND] sci_fi_alien` (la figura suelta) | — | — | — | no se usa |
+| «Cartoon satellite dish with waves» (monstersvisual) | `[8] Satellite Dish Icon.obj` | 286.848 (sin las ondas, 284.928) | `antena.glb` (5.599, 95 kB) | La antena | **en uso** |
+| «Purple crystal cluster» (Creasheeps) | `Diamond.obj` | 4.300 | `cristal.glb` (900, 22 kB) | Cristales: 12 en el llano y 70 lejos, con instancias | **en uso** |
+| «Coral reef» (spacepixelcreative) | `Coral Reef.glb` | 23.792 (13.424 sin las piedras) | `coral.glb` (1.900, 51 kB) | Corales: 11 en el llano y 46 lejos, con instancias | **en uso** |
+| «Solar Energy Pixels» (PremiumBeat) | `pixels-of-solar-energy_main-full.wav` (148 s; trae además bucles, cortes y pistas sueltas) | — | `public/sounds/cosmic/musica-1.mp3` (bucle de 146 s, 1.749 kB) | Música, por defecto (`?musica=1`) | **en uso** |
+| «Chill Ambient Space» (trickytwoaudio) | `Maxvic - Atmospheric Calm Rhytm.wav` (135 s) | — | `musica-2.mp3` (1.588 kB) | `?musica=2` | **en uso** |
+| «Space Ambient» (alexshulgin) | `alexshulgin_space-ambient_main.wav` (114 s) | — | `musica-3.mp3` (1.335 kB) | `?musica=3` | **en uso** |
+| «Cartoon Sci-Fi Power Up» | `Cartoon Sci-Fi Power Up.wav` (1,5 s) | — | `encendido.mp3` (15 kB) | Arranque de una máquina | **en uso** |
+| «Futuristic Sci-Fi Energy Beams» | `EnergyDistort GFX021601.wav` (8,7 s) | — | `rayo.mp3` (los primeros 2,6 s; 27 kB) | El rayo | **en uso** |
+| «Futuristic Sci-Fi Machine Hum» | `el_reactor_hum_09_hpx.wav` (20 s) | — | `zumbido.mp3` (bucle de 9 s, 79 kB) | Zumbido con alguna máquina encendida | **en uso** |
+| «Sci-Fi Lava Planet Background Ambience Loop 1» | `…Loop 1.wav` (6,9 s) | — | `ambiente.mp3` (bucle de 4,3 s, 41 kB) | Ambiente, muy bajo | **en uso** |
+| «Cartoon Jump Boing» | `Jump Sound.wav` (0,7 s) | — | `salto.mp3` (6 kB) | El salto, muy bajo | **en uso** |
+| «Telemetry Radio Transmission Type Beeps» | `…OCP-1447-032.wav` (65 s) | — | `antena.mp3` (los primeros 3,2 s; 26 kB) | Al usar la antena | **en uso** |
+
+Peso: modelos, 446 kB (siete GLB); sonido, 4.865 kB con las tres músicas (de ellas solo se descarga la elegida: con la 1, unos 1,94 MB).

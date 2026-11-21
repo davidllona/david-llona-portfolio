@@ -5,7 +5,9 @@
 
 // ── Pendiente de confirmar por David ────────────────────────────────────────
 // El nombre de la empresa actual. Se enseña tal cual hasta que lo confirme.
-export const CURRENT_COMPANY = "[CONFIRMAR nombre: Adrava]";
+// (Objetivo 26: lo pendiente no se enseña al visitante. Mientras siga en null, ese hito de la línea de
+// tiempo sale como «Ahora». Cuando David lo confirme —¿Adrava?—, se escribe aquí el nombre y sale solo.)
+export const CURRENT_COMPANY = null;
 
 // ── Las paradas que dan engranaje ───────────────────────────────────────────
 // `place`: cómo se llama el sitio (va encima del título); `hint`: lo que pone
@@ -50,7 +52,7 @@ export const TIMELINE = {
   ["2021", "Empiezo a estudiar programación."],
   ["2024", "Termino los estudios."],
   ["BBVA", "Mi primer trabajo serio: cambios en webs y el simulador de hipotecas."],
-  [CURRENT_COMPANY, "Donde estoy ahora."],
+  [CURRENT_COMPANY ?? "Ahora", "Donde estoy ahora."],
   ["Hoy", "Este porfolio."],
  ],
 };
@@ -81,6 +83,8 @@ export const CLOCK = {
  missing: (left) => (left === 1 ? "Falta un engranaje" : `Faltan ${left} engranajes`),
  started: "El reloj vuelve a andar",
  lantern: "Encender el farolillo",
+ // El botón del cartel de cada parada.
+ next: "Siguiente parada",
 };
 
 // ── Lo que dice Woody sobre el reloj ────────────────────────────────────────

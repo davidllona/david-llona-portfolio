@@ -42,11 +42,23 @@ export const SPAWN = { x: 0, z: 6.5 };
 export const PAD = { x: 0, z: 0, padRadius: 4.6, color: "#e6dff0" }; // zona de aterrizaje
 // El núcleo de energía, en el centro, sobre su tarima. `ball`: a qué altura está la esfera.
 export const CORE = { x: 0, z: -15, r: 3.4, solid: 2.3, ball: 3.3 };
-// Las máquinas, en corro alrededor del núcleo, mirándolo. Solo la de Dosia está
-// montada; las demás tienen reservado su sitio (ver content/cosmic.js).
+// Las máquinas, en corro alrededor del núcleo, mirándolo (ver content/cosmic.js
+// y LabScene.jsx). Cada una es un aparato distinto del laboratorio —modelos
+// convertidos de Envato, repintados a la paleta del mundo—: `model` (en
+// public/models/cosmic) y `size`, su lado mayor en metros. La de los
+// experimentos, sin contenido todavía, es la cápsula hecha a mano, apagada.
 const MACHINE_SPOTS = { dosia: [-12.5, -18.5], epidos: [-9, -27.5], chuchometro: [9, -27.5], viajes: [12.5, -18.5], experimentos: [13, -7.5] };
+export const MACHINE_KINDS = {
+ dosia: { model: "escaner", size: 3.5 },
+ epidos: { model: "consola", size: 3.2 },
+ chuchometro: { model: "consola-doble", size: 3.6 },
+ viajes: { model: "capsula", size: 1.9 },
+ experimentos: { model: null },
+};
 // La punta de la antena de una máquina (de ahí sale su rayo), en sus ejes: a un lado y arriba.
-export const MACHINE_TIP = [1.05, 4.25, -0.2];
+export const MACHINE_TIP = [2.0, 4.6, -0.5];
+// Dónde va la luz de estado de cada máquina, en sus ejes: delante, al otro lado.
+export const MACHINE_LAMP = [-1.85, 1.05, 1.25];
 export const MACHINES = Object.fromEntries(
  Object.entries(MACHINE_SPOTS).map(([id, [x, z]]) => {
   // (El frente del modelo es +Z: se gira hacia el núcleo.)
@@ -157,9 +169,11 @@ const hides = (one) => USED.some((spot) => Math.abs(one.x - spot.x) < 6.5 && one
 export const MUSHROOMS = scatter(20261301, 26, { margin: 1.4, spacing: 7, pick: (random) => ({ scale: 1 + random() * 0.9, tint: CAPS[Math.floor(random() * CAPS.length)] }) }).filter((one) => !hides(one)).slice(0, 9);
 // Racimos de cristales.
 export const CRYSTALS = scatter(20261302, 12, { margin: 0.6, spacing: 5, others: MUSHROOMS, pick: from(GEMS) });
+// Corales: plantas alienígenas ramificadas.
+export const CORALS = scatter(20261308, 11, { margin: 0.7, spacing: 5.5, others: [...MUSHROOMS, ...CRYSTALS], pick: from(["#ff7ccf", "#3fe0cc", "#d2f55a", "#b48cf5"]) }).filter((one) => !hides(one));
 // Piedras redondas.
-export const STONES = scatter(20261303, 16, { margin: 0.4, spacing: 3, others: [...MUSHROOMS, ...CRYSTALS] });
-const SOLID = [...MUSHROOMS, ...CRYSTALS, ...STONES];
+export const STONES = scatter(20261303, 16, { margin: 0.4, spacing: 3, others: [...MUSHROOMS, ...CRYSTALS, ...CORALS] });
+const SOLID = [...MUSHROOMS, ...CRYSTALS, ...CORALS, ...STONES];
 // Bulbos que laten, tentáculos que se mecen y brotes menudos.
 export const BULBS = scatter(20261304, 44, { spacing: 1.5, others: SOLID, pick: from(["#dcff72", "#6ff7ea", "#ff93dc"]) });
 export const TENTACLES = scatter(20261305, 30, { spacing: 2, others: SOLID, pick: from(LEAVES) });
@@ -201,20 +215,22 @@ export const FAR = (() => {
  const domes = beyond(20261311, 12, (spot, list) => (dryLand(spot) && spot.y < 3.5 && !list.some((one) => apart(one, spot) < 16) ? { scale: 1.1 + spot.random() * 0.8 } : null));
  const mushrooms = beyond(20261312, 80, (spot, list) => (dryLand(spot) && !domes.items.some((one) => apart(one, spot) < 5) && !list.some((one) => apart(one, spot) < 4.2) ? { scale: 1.1 + spot.random() * 1.5, tint: CAPS[Math.floor(spot.random() * CAPS.length)] } : null));
  const crystals = beyond(20261313, 70, (spot, list) => (dryLand(spot) && !domes.items.some((one) => apart(one, spot) < 4) && !list.some((one) => apart(one, spot) < 4) ? { scale: 1.2 + spot.random() * 1.6, tint: GEMS[Math.floor(spot.random() * GEMS.length)] } : null));
+ const corals = beyond(20261316, 46, (spot, list) => (dryLand(spot) && !domes.items.some((one) => apart(one, spot) < 4) && !list.some((one) => apart(one, spot) < 5) ? { scale: 1.1 + spot.random() * 1.2, tint: ["#ff7ccf", "#3fe0cc", "#d2f55a", "#b48cf5"][Math.floor(spot.random() * 4)] } : null));
  const tentacles = beyond(20261314, 110, (spot, list) => (dryLand(spot) && !list.some((one) => apart(one, spot) < 2.6) ? { scale: 1.3 + spot.random() * 1.2, tint: LEAVES[Math.floor(spot.random() * LEAVES.length)] } : null));
  // (Las que flotan, también sobre los lagos.)
  const floaters = beyond(20261315, 34, (spot, list) => (!list.some((one) => apart(one, spot) < 9) ? { scale: 1 + spot.random() * 1.6, lift: 4 + spot.random() * 5, phase: spot.random() * TAU } : null));
- return { domes, mushrooms, crystals, tentacles, floaters };
+ return { domes, mushrooms, crystals, corals, tentacles, floaters };
 })();
 
 // ── Colisiones ──────────────────────────────────────────────────────────────
 export const shipCollider = { x: PAD.x, z: PAD.z, r: 2.3, active: true };
 export const colliders = [
  { x: CORE.x, z: CORE.z, r: CORE.solid },
- ...Object.values(MACHINES).map((machine) => ({ x: machine.x, z: machine.z, r: machine.id === "dosia" ? 1.6 : 1.25 })),
+ ...Object.values(MACHINES).map((machine) => ({ x: machine.x, z: machine.z, r: 1.95 })),
  { x: ANTENNA.x, z: ANTENNA.z, r: ANTENNA.solid },
  ...MUSHROOMS.map((one) => ({ x: one.x, z: one.z, r: 0.42 * one.scale })),
  ...CRYSTALS.map((one) => ({ x: one.x, z: one.z, r: 0.6 * one.scale })),
+ ...CORALS.map((one) => ({ x: one.x, z: one.z, r: 0.55 * one.scale })),
  ...STONES.map((one) => ({ x: one.x, z: one.z, r: 0.55 * one.scale })),
  shipCollider,
 ];
@@ -280,16 +296,30 @@ const cosmic = {
    "lab-rodeo-norte": [-3.6, -3.6],
    "lab-camino": [0, -6.2],
    "lab-nucleo": [0, -10.4],
-   "lab-dosia": [MACHINES.dosia.use.x, MACHINES.dosia.use.z],
+   // (Alrededor del núcleo, para ir de una máquina a otra sin atravesarlo.)
+   "lab-oeste": [-6.5, -15],
+   "lab-este": [6.5, -15],
+   "lab-norte": [0, -21.5],
+   ...Object.fromEntries(Object.values(MACHINES).map((machine) => [`lab-${machine.id}`, [machine.use.x, machine.use.z]])),
   },
   links: [
    ["cohete", "lab-rodeo-sur"],
    ["lab-rodeo-sur", "lab-rodeo-norte"],
    ["lab-rodeo-norte", "lab-camino"],
    ["lab-camino", "lab-nucleo"],
-   ["lab-nucleo", "lab-dosia"],
+   ["lab-nucleo", "lab-oeste"],
+   ["lab-nucleo", "lab-este"],
+   ["lab-oeste", "lab-norte"],
+   ["lab-este", "lab-norte"],
+   ["lab-oeste", "lab-dosia"],
+   ["lab-oeste", "lab-epidos"],
+   ["lab-norte", "lab-epidos"],
+   ["lab-norte", "lab-chuchometro"],
+   ["lab-este", "lab-chuchometro"],
+   ["lab-este", "lab-viajes"],
+   ["lab-este", "lab-experimentos"],
   ],
-  places: [{ id: "cohete" }, { id: "lab-nucleo" }, { id: "lab-dosia" }],
+  places: [{ id: "cohete" }, { id: "lab-nucleo" }, { id: "lab-dosia" }, { id: "lab-epidos" }, { id: "lab-chuchometro" }, { id: "lab-viajes" }],
  },
  themes: { day: ALIEN, dusk: ALIEN, night: ALIEN },
 };

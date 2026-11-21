@@ -1,86 +1,125 @@
-// LAS CARTAS (objetivo 25). Este es el archivo que se edita para completar lo que
-// enseña la carta que se abre al pulsar E en cada mundo: papel de David en cada
-// proyecto, enlaces, imágenes, vídeos y estado de cada app. Los textos de
-// siempre siguen donde estaban (content/projects.js, twisted.js y cosmic.js);
-// aquí va lo que las cartas nuevas añaden y, sobre todo, DÓNDE SE PONE EL MATERIAL.
+// LAS CARTAS (objetivo 26). Lo que enseña la carta que se abre al pulsar E en
+// cada mundo. Cada carta es un objeto de su mundo (ver ui/Modal.jsx y ui/cards/):
+//  · mundo 1: un cartel de madera con dos papeles clavados;
+//  · mundo 2: un cartel colgante torcido con dos polaroids y una hoja de papel;
+//  · mundo 3: una máquina del laboratorio con dos móviles holográficos.
+// Los textos de siempre siguen donde estaban (content/projects.js, twisted.js y
+// cosmic.js); aquí va lo que las cartas añaden y, sobre todo, DÓNDE SE PONE EL
+// MATERIAL cuando David lo aporte.
 //
-// Lo que falta lleva «[PENDIENTE: David]». No hay nada inventado.
+// REGLA: lo que falta NO se enseña. Un campo en null (o una lista vacía) hace
+// que la carta omita esa parte: sin «Mi papel», sin botón, sin subtítulo. Los
+// huecos de imagen llevan su marcador dibujado. Los pendientes se apuntan en
+// docs/ESTADO.md, nunca en la carta.
 //
 // ── Cómo añadir imágenes o vídeo (sin tocar ningún componente) ──────────────
 //  · Los archivos se dejan en public/ y aquí se escribe su ruta pública:
 //      public/images/projects/…   →  "/images/projects/mi-captura.png"
 //      public/images/sobre-mi/…   →  "/images/sobre-mi/woody.jpg"
+//      public/images/apps/…       →  "/images/apps/dosia-1.png"
 //      public/videos/…            →  "/videos/dosia.mp4"
-//  · Mundo 1 (proyectos): `gallery` (lista de imágenes, en orden) y `video` (un vídeo corto; va el primero).
-//  · Mundo 2 (paradas):   `photo` (una foto: sale como polaroid).
-//  · Mundo 3 (apps):      `video` (silenciado y en bucle, con botón de sonido) o `screens` (capturas que pasan solas).
-//  Mientras un campo esté vacío (null o []), la carta enseña su marcador dibujado.
-export const PENDING = "[PENDIENTE: David]";
-export const isPending = (value) => typeof value === "string" && /^\[(PENDIENTE|CONFIRMAR)/.test(value);
+//  · Cada carta tiene DOS huecos de imagen, en este orden: el de arriba y el de abajo.
+//  · Mundo 1 (proyectos): `images: [arriba, abajo]`. Si es null, el de arriba usa la imagen que el proyecto ya tiene.
+//  · Mundo 2 (paradas):   `photos: [arriba, abajo]` (salen como polaroids) y `captions`, la nota manuscrita de cada una.
+//  · Mundo 3 (apps):      `screens: [arriba, abajo]` (capturas del móvil) o `video` (va en el móvil de arriba, silenciado y en bucle).
 
-// ── Mundo 1 · ficha de proyecto ─────────────────────────────────────────────
-// Por `id` del proyecto (content/projects.js). `role`: «Mi papel», en una frase.
-// `code`: enlace al repositorio, si es público. `gallery`: si es null, usa las
-// imágenes que el proyecto ya tiene (`images` en projects.js).
+// ── Mundo 1 · cartel de madera ──────────────────────────────────────────────
+// Por `id` del proyecto (content/projects.js). `role`: «Mi papel», en una frase
+// (si es null, no sale).
 export const PROJECT_CARDS = {
- 0: { role: PENDING, code: null, gallery: null, video: null },
- 1: { role: PENDING, code: null, gallery: null, video: null },
- 2: { role: PENDING, code: null, gallery: null, video: null },
- 3: { role: PENDING, code: null, gallery: null, video: null },
+ 0: { role: null, images: null },
+ 1: { role: null, images: null },
+ 2: { role: null, images: null },
+ 3: { role: null, images: null },
 };
-export function projectCard(project) {
+// `index` y `total`: «PROYECTO 1 / 4».
+export function projectCard(project, index, total) {
  const extra = PROJECT_CARDS[project.id] ?? {};
+ const images = extra.images ?? project.images ?? [];
  return {
-  variant: "ficha",
+  variant: "cartel",
   kind: "project",
-  eyebrow: "Proyecto",
+  eyebrow: `Proyecto ${index + 1} / ${total}`,
+  badge: project.year,
   title: project.name,
   tagline: project.tagline,
   paragraphs: [project.description],
-  role: extra.role ?? PENDING,
-  year: project.year,
+  role: extra.role ?? null,
   tags: project.tags,
   color: project.color,
-  gallery: extra.gallery ?? project.images ?? [],
-  video: extra.video ?? null,
+  images: [images[0] ?? null, images[1] ?? null],
   link: project.link,
   linkLabel: "Ver proyecto",
-  code: extra.code ?? null,
  };
 }
 
-// ── Mundo 2 · hoja de cuento ────────────────────────────────────────────────
-// Por parada (los textos, en content/twisted.js). `ornament`: el adorno de la
-// hoja (gear, paw, map, pad, clock, star). `photo`: la foto de la polaroid;
-// `caption`: lo que lleva escrito debajo.
+// ── Mundo 2 · cartel colgante ───────────────────────────────────────────────
+// Por parada (los textos, en content/twisted.js). `subtitle`: la línea
+// manuscrita bajo el título (si es null, el nombre del sitio). `photos` y
+// `captions`: las dos polaroids y su nota. `drawing`: qué silueta lleva la
+// polaroid mientras no haya foto (dog, gear, pad, map, clock, star, home).
 export const TALE_CARDS = {
- alquimista: { ornament: "gear", photo: null, caption: null },
- "casa-arbol": { ornament: "pad", photo: null, caption: null },
- casita: { ornament: "paw", photo: null, caption: "Woody" },
- invernadero: { ornament: "map", photo: null, caption: null },
- torre: { ornament: "clock", photo: null, caption: null },
- observatorio: { ornament: "star", photo: null, caption: null },
+ historia: { drawing: "home", subtitle: null, photos: [null, null], captions: [null, null] },
+ alquimista: { drawing: "gear", subtitle: null, photos: [null, null], captions: [null, null] },
+ "casa-arbol": { drawing: "pad", subtitle: null, photos: [null, null], captions: [null, null] },
+ // (Subtítulo y notas, los de la maqueta aprobada por David.)
+ casita: { drawing: "dog", subtitle: "el guía de esta isla", photos: [null, null], captions: ["Woody, en casa", "en el suelo, claro"] },
+ invernadero: { drawing: "map", subtitle: null, photos: [null, null], captions: [null, null] },
+ torre: { drawing: "clock", subtitle: null, photos: [null, null], captions: [null, null] },
+ observatorio: { drawing: "star", subtitle: null, photos: [null, null], captions: [null, null] },
 };
-// `text`: { place, title, paragraphs } de la parada.
+// `text`: { place, title, paragraphs } de la parada. Si hay más de un párrafo,
+// el último va manuscrito (como en la maqueta: «Su manía…»).
 export function taleCard(id, text) {
  const extra = TALE_CARDS[id] ?? {};
- return { variant: "hoja", kind: "stop", stop: id, eyebrow: text.place, title: text.title, paragraphs: text.paragraphs, ornament: extra.ornament ?? "star", photo: extra.photo ?? null, caption: extra.caption ?? null, polaroid: Boolean(extra.caption) };
+ const paragraphs = text.paragraphs ?? [];
+ const note = paragraphs.length > 1 ? paragraphs[paragraphs.length - 1] : null;
+ return {
+  variant: "colgante",
+  kind: "stop",
+  stop: id,
+  title: text.title,
+  subtitle: extra.subtitle ?? text.place ?? null,
+  paragraphs: note ? paragraphs.slice(0, -1) : paragraphs,
+  note,
+  drawing: extra.drawing ?? "star",
+  images: extra.photos ?? [null, null],
+  // (La nota de cada polaroid: la suya o, si no tiene, el sitio y el título de la parada.)
+  captions: [extra.captions?.[0] ?? text.place ?? null, extra.captions?.[1] ?? text.title ?? null],
+ };
 }
 
-// ── Mundo 3 · holograma ─────────────────────────────────────────────────────
+// ── Mundo 3 · máquina del laboratorio ───────────────────────────────────────
 // «Lo que estoy construyendo». Por máquina (los textos, en content/cosmic.js).
 // `status`: "published" (Publicada) o "building" (En construcción). `link`: a
-// dónde lleva «Abrir la app» (solo sale si está publicada).
+// dónde lleva «Abrir la app»: el botón solo sale si está publicada Y hay enlace.
 export const APP_STATUS = { published: "Publicada", building: "En construcción" };
 export const APP_CARDS = {
- dosia: { status: "published", link: null /* PENDIENTE: David */, video: null, screens: [] },
- viajes: { status: "building", link: null, video: null, screens: [] },
- epidos: { status: "building", link: null, video: null, screens: [] },
- chuchometro: { status: "building", link: null, video: null, screens: [] },
- experimentos: { status: "building", link: null, video: null, screens: [] },
+ dosia: { status: "published", link: null, video: null, screens: [null, null] },
+ viajes: { status: "building", link: null, video: null, screens: [null, null] },
+ epidos: { status: "building", link: null, video: null, screens: [null, null] },
+ chuchometro: { status: "building", link: null, video: null, screens: [null, null] },
 };
-// `text`: { place, name, paragraphs } de la máquina.
-export function appCard(id, text) {
+// `text`: { name, tagline, paragraphs } de la máquina. `energy`: [encendidas, total].
+export function appCard(id, text, energy) {
  const extra = APP_CARDS[id] ?? {};
- return { variant: "holo", kind: "machine", machine: id, eyebrow: text.place, title: text.name, paragraphs: text.paragraphs, status: extra.status ?? "building", statusLabel: APP_STATUS[extra.status ?? "building"], link: extra.link ?? null, linkLabel: "Abrir la app", linkPending: PENDING, video: extra.video ?? null, screens: extra.screens ?? [] };
+ const status = extra.status ?? "building";
+ return {
+  variant: "maquina",
+  kind: "machine",
+  machine: id,
+  status,
+  statusLabel: APP_STATUS[status],
+  title: text.name,
+  tagline: text.tagline ?? null,
+  paragraphs: text.paragraphs ?? [],
+  energy: energy ? `Energía enviada al núcleo · ${energy[0]}/${energy[1]}` : null,
+  images: extra.screens ?? [null, null],
+  video: extra.video ?? null,
+  link: status === "published" ? (extra.link ?? null) : null,
+  linkLabel: "Abrir la app",
+ };
 }
+
+// Qué carta le toca a lo que no trae la suya (avisos de viaje, el CV, el núcleo…): la del mundo en que se está.
+export const WORLD_VARIANT = { living: "cartel", twisted: "colgante", cosmic: "maquina" };

@@ -1,39 +1,43 @@
-// Los textos de The Cosmic Lab («lo que estoy construyendo»: un laboratorio es donde están las cosas a
-// medio hacer; el estado de cada app —publicada o en construcción— está en content/cards.js). TODO lo que se lee en ese
-// mundo sale de este archivo: para cambiar una frase, se cambia aquí y nada más.
-// Solo lleva lo que David ha dicho (docs/OBJETIVO-24.md): no hay enlaces,
-// capturas ni datos inventados. Lo que falta está marcado «PENDIENTE».
+// Los textos de The Cosmic Lab («lo que estoy construyendo»: un laboratorio es
+// donde están las cosas a medio hacer). TODO lo que se lee en ese mundo sale de
+// este archivo: para cambiar una frase, se cambia aquí y nada más. El estado de
+// cada app —publicada o en construcción—, su enlace y sus capturas, en
+// content/cards.js.
+// Solo lleva lo que David ha dicho (docs/OBJETIVO-24.md, -25 y -26): no hay
+// datos inventados, y lo que falta no se enseña (los pendientes, en docs/ESTADO.md).
 
 // ── Las máquinas ────────────────────────────────────────────────────────────
-// Cada app o experimento es una máquina del laboratorio. `ready`: ya está
-// montada y se puede encender; las demás solo tienen reservado su sitio.
-// `place`: lo que va encima del título en su panel; `hint`: lo que pone el aviso de la E.
+// Cada app es una máquina del laboratorio. `ready`: tiene contenido y se puede
+// encender; la que no, queda apagada y no abre carta. `tagline`: la línea rosa
+// bajo el nombre (si no hay, no sale).
 export const MACHINES = {
  dosia: {
   ready: true,
   name: "Dosia",
-  place: "The Cosmic Lab · Lo que estoy construyendo",
-  hint: "Encender Dosia",
-  hintOn: "Dosia",
-  paragraphs: ["App para profesionales de enfermería y medicina: preguntas de práctica, calculadoras de dosis, noticias y práctica del examen EIR."],
-  // PENDIENTE (David): enlace, capturas y estado de la app.
+  // (Subtítulo y descripción, como en la maqueta aprobada por David.)
+  tagline: "App para enfermería y medicina",
+  paragraphs: ["Preguntas de práctica, calculadoras de dosis, noticias y práctica del examen EIR."],
  },
  epidos: {
+  ready: true,
   name: "Epidos",
-  // Lo dicho por David: «app de gimnasio, comida, etc.». PENDIENTE (David): el texto de su panel.
+  paragraphs: ["App de gimnasio, comida, etc."],
  },
  chuchometro: {
+  ready: true,
   name: "Chuchómetro",
-  // Lo dicho por David: «mapa para quienes pasean perros, donde se marcan sitios para los demás; con diario del perro y consejos».
+  paragraphs: ["Mapa para quienes pasean perros, donde se marcan sitios para los demás; con diario del perro y consejos."],
  },
  viajes: {
-  // CONFIRMAR (David) el nombre: Nokei.
-  name: "[CONFIRMAR nombre: Nokei]",
-  // Lo dicho por David: «galería de viajes como dioramas 3D: cada lugar es una pieza que se desbloquea al llegar».
+  // El nombre está por confirmar (David: ¿Nokei?). Hasta entonces se enseña como «App de viajes».
+  ready: true,
+  name: "App de viajes",
+  paragraphs: ["Galería de viajes como dioramas 3D: cada lugar es una pieza que se desbloquea al llegar."],
  },
  experimentos: {
+  // Sin contenido todavía (David: cuáles son): su máquina queda apagada y no abre carta.
+  ready: false,
   name: "Experimentos 3D",
-  // Lo dicho por David: «pruebas sueltas de David con Blender y Three.js». PENDIENTE (David): cuáles.
  },
 };
 // En qué orden se cuentan.
@@ -42,19 +46,29 @@ export const MACHINE_ORDER = ["dosia", "epidos", "chuchometro", "viajes", "exper
 // ── El juego: «enciende el laboratorio» ─────────────────────────────────────
 export const LAB = {
  counter: "Energía",
+ // Lo que pone el aviso de la E ante una máquina, apagada y encendida.
+ hintOff: (name) => `Encender ${name}`,
+ hintOn: (name) => name,
  on: (name, have, total) => `${name} encendida · ${have} de ${total}`,
  // Lo que pone el aviso del núcleo.
  coreOff: "El núcleo está apagado",
  coreSome: (have, total) => `El núcleo: ${have} de ${total} máquinas`,
  corePanel: {
-  place: "The Cosmic Lab",
   title: "El núcleo",
   paragraphs: ["El laboratorio está apagado. Cada máquina que se enciende manda su energía aquí.", "Con todas encendidas, el núcleo arranca y se activa la antena."],
+ },
+ // La antena del final: hoy, apagada.
+ antennaHint: "La antena",
+ antennaPanel: {
+  title: "La antena",
+  paragraphs: ["Está apagada.", "Se activa cuando el núcleo arranca, con todas las máquinas encendidas."],
  },
 };
 
 // ── Lo que dice Woody ───────────────────────────────────────────────────────
 export const WOODY_LAB = {
  arrival: ["Esto es The Cosmic Lab. Aquí se pesa poco: prueba a saltar.", "El laboratorio está apagado. Cada máquina que enciendas manda energía al núcleo.", "Ven, te llevo a la primera."],
- afterFirst: "¡Guau! Ya llega energía al núcleo. Las demás máquinas aún no están montadas.",
+ afterFirst: "¡Guau! Ya llega energía al núcleo. Vamos a por la siguiente.",
+ next: "Otra más. Ven, te llevo a la siguiente.",
+ allOn: "Encendidas todas las que hay montadas. Al núcleo aún le falta una.",
 };
