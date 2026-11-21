@@ -66,6 +66,8 @@ export function Modal() {
  const card = useRef(null);
  const inner = useRef(null);
  const shownAt = useRef(0);
+ const sticky = useRef(false); // la E no cierra esta carta (ver content/triples.jsx)
+ sticky.current = Boolean(content?.sticky);
 
  useEffect(() => {
   const onOpen = (event) => {
@@ -136,7 +138,7 @@ export function Modal() {
   focusable()[0]?.focus();
   const typing = (event) => event.target instanceof HTMLElement && /^(INPUT|TEXTAREA)$/.test(event.target.tagName);
   const onKey = (event) => {
-   if (event.code === "KeyE" && !typing(event) && !event.repeat && !event.metaKey && !event.ctrlKey && performance.now() - shownAt.current > E_GUARD) {
+   if (event.code === "KeyE" && !sticky.current && !typing(event) && !event.repeat && !event.metaKey && !event.ctrlKey && performance.now() - shownAt.current > E_GUARD) {
     setContent(null);
     return;
    }

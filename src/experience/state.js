@@ -19,6 +19,8 @@ export const player = {
  hidden: false, // dentro de la nave
  frozen: false, // no responde a los controles
  shot: null, // tiro en suspensión: en qué punto del gesto va (0-1; ver characters/jumpShot.js), o null
+ pinned: false, // no anda (sí salta y tira): el concurso de triples
+ auto: null, // { x, z }: va solo hasta ahí
  gesture: false, // está haciendo un gesto (acariciar, celebrar…) y no se mueve
  act: null, // (clip, opciones) → promesa; lo instala el modelo del astronauta
  sockets: null, // huesos donde enganchar objetos a sus manos
@@ -179,6 +181,6 @@ export function releaseMovement() {
 
 // Ayuda para depurar desde la consola del navegador; no se incluye en producción.
 if (import.meta.env.DEV) {
- window.__world = { input, player, woody, rig, game, interactables, ui3d, voyage };
+ window.__world = { input, player, woody, rig, game, interactables, ui3d, voyage, ui };
  import("../dev/probe.js"); // rayos contra la escena, para las pruebas
 }

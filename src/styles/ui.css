@@ -1741,3 +1741,152 @@
  height: 67vh;
  transform: translate(-50%, -50%);
 }
+
+/* ── Concurso de triples: interfaz mientras se juega ────────────────────── */
+.triples {
+ position: fixed;
+ inset: 0;
+ z-index: 6;
+ pointer-events: none;
+ font-family: var(--font-sans);
+ color: var(--color-text);
+}
+
+.triples__bar {
+ position: absolute;
+ top: calc(env(safe-area-inset-top) + 66px);
+ left: 50%;
+ display: flex;
+ align-items: stretch;
+ gap: 4px;
+ padding: 6px;
+ border: 1px solid rgba(255, 255, 255, 0.2);
+ border-radius: 18px;
+ background: rgba(9, 11, 16, 0.66);
+ backdrop-filter: blur(8px);
+ transform: translateX(-50%);
+}
+
+.triples__cell {
+ display: grid;
+ justify-items: center;
+ align-content: center;
+ min-width: 84px;
+ padding: 4px 12px;
+}
+
+.triples__cell span {
+ font-size: 11px;
+ font-weight: 700;
+ letter-spacing: 0.12em;
+ text-transform: uppercase;
+ opacity: 0.75;
+}
+
+.triples__cell b {
+ font-size: 30px;
+ font-weight: 800;
+ line-height: 1.1;
+ font-variant-numeric: tabular-nums;
+}
+
+.triples__score {
+ color: #ffcf4a;
+}
+
+.triples__time[data-low="1"] {
+ color: #ff7a5c;
+}
+
+.triples__balls {
+ display: flex;
+ gap: 4px;
+ margin-top: 2px;
+}
+
+.triples__balls u {
+ width: 9px;
+ height: 9px;
+ border-radius: 50%;
+ background: #ff8a3d;
+ text-decoration: none;
+}
+
+.triples__balls u[data-money="1"] {
+ background: #4aa3f0;
+}
+
+.triples__balls u[data-on="0"] {
+ background: rgba(255, 255, 255, 0.18);
+}
+
+.triples__exit {
+ pointer-events: auto;
+ align-self: center;
+ height: 36px;
+ margin: 0 4px;
+ padding: 0 14px;
+ border: 0;
+ border-radius: 999px;
+ background: transparent;
+ color: #ffb38a;
+ font: inherit;
+ font-size: 14px;
+ font-weight: 600;
+ cursor: pointer;
+}
+
+.triples__exit:hover,
+.triples__exit:focus-visible {
+ background: rgba(255, 255, 255, 0.14);
+}
+
+.triples__count {
+ position: absolute;
+ top: 34%;
+ left: 50%;
+ font-size: clamp(90px, 18vw, 190px);
+ font-weight: 800;
+ line-height: 1;
+ color: #ffcf4a;
+ text-shadow: 0 6px 0 rgba(20, 10, 0, 0.55), 0 0 40px rgba(0, 0, 0, 0.35);
+ transform: translate(-50%, -50%);
+}
+
+.triples__count--end {
+ font-size: clamp(54px, 10vw, 120px);
+ color: #fff6e8;
+}
+
+.triples__help {
+ position: absolute;
+ bottom: calc(env(safe-area-inset-bottom) + 22px);
+ left: 50%;
+ width: max-content;
+ max-width: calc(100vw - 32px);
+ margin: 0;
+ padding: 8px 16px;
+ border-radius: 999px;
+ background: rgba(9, 11, 16, 0.6);
+ font-size: 14px;
+ font-weight: 600;
+ text-align: center;
+ transform: translateX(-50%);
+}
+
+@media (max-width: 720px) {
+ .triples__cell {
+  min-width: 62px;
+  padding: 2px 8px;
+ }
+
+ .triples__cell b {
+  font-size: 24px;
+ }
+
+ .triples__help {
+  bottom: auto;
+  top: calc(env(safe-area-inset-top) + 150px);
+  font-size: 12px;
+ }
+}

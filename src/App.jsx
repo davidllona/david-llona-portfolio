@@ -12,6 +12,7 @@ import { ErrorBoundary, Fallback } from "./ui/Fallback";
 import { stage } from "./ui/loaderControl";
 import { Modal } from "./ui/Modal";
 import { FootballHud } from "./ui/FootballHud";
+import { TriplesHud } from "./ui/TriplesHud";
 import { QuickMenu } from "./ui/QuickMenu";
 import { SoundToggle } from "./ui/SoundToggle";
 import { StartOverlay } from "./ui/StartOverlay";
@@ -114,6 +115,7 @@ function App() {
     />
     {playing && touch && !football && <TouchControls onPause={() => setActive(false)} />}
     {playing && <FootballHud touch={touch} />}
+    {playing && <TriplesHud />}
     <Sounds active={active} />
     {playing && <ThemeToggle />}
     {playing && <SoundToggle />}

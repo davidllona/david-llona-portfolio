@@ -36,13 +36,19 @@ const MOBILE_UA =
 // Por defecto van apagados: las demás pruebas no esperan a que termine de hablar.
 // `early`: no espera a que el planeta esté listo (para ver la bienvenida mientras se prepara).
 // `headful`: con ventana y sin opciones gráficas forzadas, como el Chrome de un visitante.
-export async function open({ mobile = false, viewport, query = "", uncapped = false, tips = false, early = false, headful = !!process.env.E2E_HEADFUL } = {}) {
+// `firestore`: deja que la página llegue a la base de datos real. Por defecto NO: el
+// nombre del servidor de Firestore no resuelve, así que ninguna prueba puede
+// escribir (ni leer) en ella por descuido, y la capa de puntuaciones cae a su
+// modo local, que es justo lo que se quiere probar. (Solo lo pide
+// tests/e2e/firebase-lectura.mjs, que además corta todo lo que no sea leer.)
+export async function open({ mobile = false, viewport, query = "", uncapped = false, tips = false, early = false, firestore = false, prepare, headful = !!process.env.E2E_HEADFUL } = {}) {
  const browser = await puppeteer.launch({
   executablePath: CHROME,
   headless: headful ? false : "new",
   args: [
    ...(headful ? ["--window-size=1480,1040"] : GPU_ARGS),
    ...(uncapped ? ["--disable-frame-rate-limit", "--disable-gpu-vsync"] : []),
+   ...(firestore ? [] : ["--host-resolver-rules=MAP firestore.googleapis.com ~NOTFOUND"]),
   ],
  });
  const page = await browser.newPage();
@@ -60,6 +66,9 @@ export async function open({ mobile = false, viewport, query = "", uncapped = fa
  });
  const pageErrors = [];
  page.on("pageerror", (error) => pageErrors.push(`${error.message.slice(0, 300)}\n${(error.stack ?? "").split("\n").slice(1, 9).join("\n")}`));
+ // El navegador solo apunta 250 descargas: en desarrollo (un archivo por módulo) se llenaba antes de
+ // que las pruebas miraran qué se ha descargado (los sonidos del mundo 3, Firebase…).
+ await page.evaluateOnNewDocument(() => performance.setResourceTimingBufferSize(5000));
  // Cada prueba parte de cero: sin tema, ajustes ni logros guardados.
  await page.evaluateOnNewDocument((tips) => {
   try {
@@ -72,6 +81,8 @@ export async function open({ mobile = false, viewport, query = "", uncapped = fa
    // Sin almacenamiento no hay nada que limpiar.
   }
  }, tips);
+ // `prepare(page)`: lo que la prueba necesite montar antes de cargar (interceptar peticiones…).
+ await prepare?.(page);
  // El mundo sigue la hora del visitante: las pruebas la fijan (mediodía, salvo que pidan otra) para no depender de cuándo se pasan.
  await page.goto(BASE + (/[?&]hora=/.test(query) ? query : `${query}${query.includes("?") ? "&" : "?"}hora=12:00`), { waitUntil: "load", timeout: 60000 });
  const startedAt = Date.now();

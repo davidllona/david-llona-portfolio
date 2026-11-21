@@ -72,13 +72,26 @@ export function Player({ active }) {
   const waterLevel = world.waterLevel;
 
   // Movimiento relativo a la pantalla: arriba es el norte (-Z), derecha el este (+X).
-  // (Tirando a canasta en suspensión no se anda: se salta en el sitio.)
-  const steering = controllable && player.shot === null;
-  const side = steering ? Number(keys.right) - Number(keys.left) + stick.x : 0;
-  const ahead = steering ? Number(keys.forward) - Number(keys.back) - stick.y : 0;
+  // (Tirando a canasta en suspensión no se anda: se salta en el sitio. Y en el
+  // concurso de triples el astronauta está clavado en su carro: `pinned`.)
+  const steering = controllable && player.shot === null && !player.pinned;
+  let side = steering ? Number(keys.right) - Number(keys.left) + stick.x : 0;
+  let ahead = steering ? Number(keys.forward) - Number(keys.back) - stick.y : 0;
+  let running = keys.run || Math.hypot(stick.x, stick.y) > STICK_RUN_THRESHOLD;
+  // `auto`: va solo, corriendo, hasta un punto (al cambiar de carro en el concurso).
+  if (player.auto && controllable) {
+   const ax = player.auto.x - position.x, az = player.auto.z - position.z;
+   const far = Math.hypot(ax, az);
+   if (far < 0.12) player.auto = null;
+   else {
+    const pace = Math.min(1, far / 0.9 + 0.12);
+    side = (ax / far) * pace;
+    ahead = (-az / far) * pace;
+    running = true;
+   }
+  }
   const length = Math.hypot(side, ahead);
   const inWater = position.y < waterLevel - 0.08;
-  const running = keys.run || Math.hypot(stick.x, stick.y) > STICK_RUN_THRESHOLD;
   const speed = Math.min(length, 1) * (running ? RUN_SPEED : WALK_SPEED) * (inWater ? WATER_DRAG : 1);
   const wishX = length > 0 ? (side / length) * speed : 0;
   const wishZ = length > 0 ? (-ahead / length) * speed : 0;

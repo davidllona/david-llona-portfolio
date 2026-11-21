@@ -285,6 +285,9 @@ export const BASKET = {
 };
 // Valla de la pista: la rodea entera, por fuera del bordillo. La puerta, en el
 // lado norte, donde llega el camino.
+// El cartel que empieza el concurso de triples y el tablón del top 10: dentro de la valla, a los lados de la puerta, de cara al sur.
+export const TRIPLES_SIGN = { x: 2.0, z: COURT.z0 + 0.7 };
+export const TRIPLES_BOARD = { x: -3.2, z: COURT.z0 + 0.7 };
 export const COURT_FENCE = { x0: COURT.x0 - 0.45, x1: COURT.x1 + 0.45, z0: COURT.z0 - 0.45, z1: COURT.z1 + 0.45, height: 3.3, gate: { x: 0, width: 1.9 } };
 // Jardín japonés, al este de la pista de baloncesto (zones/Garden.jsx). No toca
 // el relieve: el estanque es una lámina de agua a ras de suelo.
@@ -1026,6 +1029,9 @@ const colliders = [
  { x: BASKET.hoop.x + 0.38, z: BASKET.hoop.z, r: 0.17 },
  blockerCollider,
  markerCollider,
+ // El cartel del concurso de triples y el tablón del top 10: de poste a poste.
+ { x: TRIPLES_SIGN.x - 0.8, z: TRIPLES_SIGN.z, bx: TRIPLES_SIGN.x + 0.8, bz: TRIPLES_SIGN.z, r: 0.16 },
+ { x: TRIPLES_BOARD.x - 1.2, z: TRIPLES_BOARD.z, bx: TRIPLES_BOARD.x + 1.2, bz: TRIPLES_BOARD.z, r: 0.16 },
  // Postes de la portería.
  ...FOOTBALL_SOLIDS.filter((one) => one.r < 0.2),
  // Barandillas del puente: solo se cruza por el tablero.

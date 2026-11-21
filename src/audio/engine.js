@@ -335,6 +335,10 @@ const SOUNDS = {
  },
  "football-target": (out, t) => [880, 1318.5].forEach((f, i) => tone(out, t + i * 0.07, { from: f, type: "square", peak: 0.08, decay: 0.16 })),
  "football-trophy": (out, t) => [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568].forEach((f, i) => tone(out, t + i * 0.11, { from: f, type: "triangle", peak: 0.13, decay: i === 5 ? 1.2 : 0.3 })),
+ // Concurso de triples: los pitidos de la cuenta atrás, la salida y la bocina del final.
+ "triples-count": (out, t) => tone(out, t, { from: 660, type: "square", peak: 0.09, decay: 0.16 }),
+ "triples-go": (out, t) => tone(out, t, { from: 990, type: "square", peak: 0.1, decay: 0.42 }),
+ "triples-horn": (out, t) => [155.56, 233.08, 311.13].forEach((f) => tone(out, t, { from: f, to: f * 0.985, type: "sawtooth", peak: 0.11, attack: 0.02, decay: 1.25 })),
  // Logro: arpegio corto y brillante.
  achievement: (out, t) => [659.25, 783.99, 987.77, 1318.5].forEach((f, i) => tone(out, t + i * 0.085, { from: f, type: "triangle", peak: 0.14, decay: i === 3 ? 0.7 : 0.22 })),
 };

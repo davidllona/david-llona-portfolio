@@ -3,7 +3,7 @@
 Actualizado: 21 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
-**En curso: objetivo 26 — cartas aprobadas y baloncesto nuevo** (`docs/OBJETIVO-26.md`): bloque 1 (las tres cartas y el mundo 3) hecho; bloques 2 y 3 en curso. Ver «Objetivo 26» abajo.
+**Objetivo 26 — cartas aprobadas y baloncesto nuevo** (`docs/OBJETIVO-26.md`): **hecho** (21-11-2026), los tres bloques. Parado, pendiente de que David lo revise. Ver «Objetivo 26» abajo.
 **Objetivo 25** (`docs/OBJETIVO-25.md`): su muestra de cartas no se aprobó; lo sustituye el 26.
 **Objetivo 24 — órbita del mundo 2 y arranque del mundo 3** (`docs/OBJETIVO-24.md`): los dos bloques hechos; **estilo del mundo 3 aprobado por David (21-11-2026)**. Ver «Objetivo 24» abajo.
 **En curso: objetivo 23 — The Twisted Moon: contenido («arranca el reloj y conóceme»)** (`docs/OBJETIVO-23.md`; sustituye al bloque D del objetivo 20): bloques D1 (mecánica) y D2 (las paradas) hechos; **parado tras el D2 por indicación de David: el D3 (cierre) no se ha empezado.** Ver «Objetivo 23» abajo.
@@ -26,7 +26,7 @@ Encargo: `docs/OBJETIVO-26.md` (21-11-2026). **Sustituye al bloque 2 del objetiv
 |---|---|
 | 1. Las tres cartas (y lo pendiente del mundo 3) | **Hecho** (21-11-2026). Capturas: `capturas/32-cartas/` |
 | 2. Baloncesto: tiro en suspensión y segundo defensa | **Hecho** (21-11-2026). Capturas: `capturas/33-baloncesto/` |
-| 3. Concurso de triples y tablón de puntuaciones (Firebase) | Sin empezar |
+| 3. Concurso de triples y tablón de puntuaciones (Firebase) | **Hecho** (21-11-2026). Capturas: `capturas/33-baloncesto/` |
 
 **Bloque 1, lo que hay.** Maquetas de referencia: `docs/referencias/cartas/` (las cuatro estaban; se capturan con `node tests/e2e/maquetas.mjs`).
 
@@ -69,7 +69,7 @@ Encargo: `docs/OBJETIVO-26.md` (21-11-2026). **Sustituye al bloque 2 del objetiv
 
 Capturas (`capturas/32-cartas/`): `hoja-referencia-mundo1.jpg`, `-mundo1-movil.jpg`, `-mundo2.jpg` y `-mundo3.jpg` (la maqueta a la izquierda, la carta real a la derecha), `hoja-movil.jpg` y las 28 sueltas (22 de escritorio y 6 de móvil); las maquetas, en `referencias/`. Se rehacen con `node tests/e2e/cartas.mjs`.
 
-**Bloque 2, lo que hay** (`worlds/living/Court.jsx`, `courtPlay.js`, `characters/jumpShot.js`):
+**Bloque 2, lo que hay** (`worlds/living/Court.jsx`, `courtPhysics.js`, `characters/jumpShot.js`):
 - **Tiro en suspensión**: con el balón y a tiro, al mantener la E (o el dedo, o el ratón) el astronauta se agacha un instante (0,16 s), **salta con su salto de siempre** (el mismo impulso y el mismo sonido) y sube el balón; al soltar, el balón sale de sus manos. Mientras tira no anda. Si llega al suelo sin soltar, el balón sale tarde y mal.
 - **Animación**: generada por código, como la carrera (los clips de baloncesto del modelo eran de un solo brazo): anticipación, subida con las puntas de los pies hacia abajo, brazos en alto con los codos doblados, golpe de muñeca, acompaña mientras cae y aterriza con las rodillas blandas. No va a su aire: sigue al salto de verdad y al momento en que se suelta. Si entra y el astronauta está quieto, **celebra** (`Astro_CelebrateSmall`).
 - **Medidor**: la barra junto al astronauta sube con el salto; la franja verde del centro es lo más alto. Soltar ahí (margen de unos 160 ms) es **tiro perfecto**: sin desvío, entra (salvo tapón) y lo dice. Antes, se queda corto; después, se pasa; y cuanto peor, más se desvía. Avisos: «Pronto», «Tarde», «Corto: has soltado pronto», «Largo: has soltado tarde».
@@ -84,6 +84,28 @@ Capturas (`capturas/32-cartas/`): `hoja-referencia-mundo1.jpg`, `-mundo1-movil.j
 *Sin comprobar*: cómo se siente el tiro en la mano de una persona (el margen del perfecto, el retraso del defensa) y en un teléfono de verdad.
 
 Capturas (`capturas/33-baloncesto/`): `hoja-tiro.jpg` (los seis fotogramas: anticipación, subida, arriba, suelta, cae, entra) y sus seis sueltas, `defensas.jpg` y `defensas-saltan.jpg`. Se rehacen con `node tests/e2e/tiro.mjs`. (`node tests/e2e/clips.mjs` saca una hoja de poses de cualquier clip del astronauta.)
+
+**Bloque 3, lo que hay** (`worlds/living/Triples.jsx`, `courtPhysics.js` (la física y el estado de la pista, sacados de `Court.jsx`), `game/triples.js`, `game/scores.js`, `game/scoresRemote.js`, `content/triples.jsx`, `ui/cards/Scores.jsx`, `ui/TriplesHud.jsx`; `firestore.rules`, `.env.example`, `docs/FIREBASE.md`):
+- **Concurso de triples**, opcional como el reto de fútbol: cartel «Concurso de triples» dentro de la pista, a la derecha de la puerta; con la E empieza. Los dos defensas se van a la banda. Cinco carros de cinco balones alrededor de la **línea de tres** (nueva: arco de 6,2 m con sus rectas de esquina): las dos esquinas, las dos alas y el centro. Cada canasta, 1 punto; el último balón de cada carro (azul), 2: máximo 30. **60 s**. El tiro es el de siempre (salto y medidor del bloque 2). Al vaciar un carro, el astronauta va solo, corriendo, al siguiente; mientras dura el concurso no anda (sí salta y tira). Puede haber varios balones en el aire a la vez.
+- **Interfaz** arriba en el centro: tiempo (en rojo los últimos 10 s), puntos, carro n/5 con sus cinco balones (el azul al final) y «Salir». Cuenta atrás grande «3, 2, 1» con pitidos y otro de salida; al final, «¡Final!» y **bocina**. Woody mira desde fuera de la línea y **celebra** cada balón de dos y el final. Esc sale del concurso (sin pausar el portfolio); con una carta abierta el reloj se para.
+- **Al acabar**: cartel de madera del mundo 1 con los puntos («29 puntos», placa «29 / 30» y un comentario) y, si se quiere, el nombre: de 3 a 12 caracteres, letras (con tildes y ñ), números y espacios, la misma regla que Firestore, con un mensaje claro si no vale, y un filtro básico de palabrotas. Guardar es opcional; la E no cierra este cartel (se venía pulsando para tirar): se cierra con la X o con Esc.
+- **Tablón 3D** de madera junto a la puerta (a la izquierda), con «TOP 10 · TRIPLES» y las diez mejores escritas en el propio objeto; se repinta al leer y al guardar. Con la E abre el cartel grande con el top 10 (resaltado el del visitante) y su mejor resultado.
+- **Logro «Francotirador»**: 20 puntos o más en el concurso (cambiada su descripción, que hablaba de «3 triples»; ya no sale como «próximamente»).
+- **Firebase** (detalle en `docs/FIREBASE.md`): `npm install firebase` (13.4.0). Solo `firebase/app` y `firebase/firestore/lite`, en `game/scoresRemote.js`, que **se descarga la primera vez que se abre el tablón o se guarda**: **184,8 kB (43,9 kB con gzip)**, en un trozo aparte; el principal no lo lleva. Sin Analytics. Colección `triples`, documentos `{ name, score, createdAt: serverTimestamp() }`; top con `orderBy("score", "desc"), limit(10)` (sin índice compuesto). Reglas copiadas tal cual a `firestore.rules`, **sin desplegar**. Configuración en `.env.local` (fuera de git) y `.env.example`.
+- **Dos modos**: remoto si están las variables; local («Solo en este dispositivo») si no, o si Firestore falla (sin red o más de 7 s sin responder al leer, 10 s al guardar), con un aviso suave. **Contra el abuso**: un envío por partida, botón desactivado mientras guarda, un envío cada 30 s por navegador, puntos redondeados y limitados a 0–30.
+- **Sonido**: la cuenta atrás, la salida y la bocina son nuevos (sintetizados como los demás del motor de audio, sin archivos). Los del balón, aro, red, salto y lanzamiento ya estaban.
+
+*Decisiones mías*: (1) sitio del cartel y del tablón: dentro de la pista, a los lados de la puerta, de cara a quien entra. (2) El balón de 2 puntos es azul. (3) Si se acaban los balones antes del minuto, el concurso termina ahí (no se espera al reloj). (4) Esperas máximas a Firestore: 7 s al leer y 10 s al guardar. (5) El filtro de palabrotas es una lista corta en español e inglés (`BLOCKED` en `game/scores.js`): ampliable. (6) La E no cierra el cartel del final.
+
+*Pruebas*: `triples.mjs` (39 comprobaciones; modo local: cartel, cuenta atrás, carros, puntos, balón de 2, cambio de carro, bocina, 29 puntos y logro, validación del nombre, guardado, tablón 3D y cartel del top, Esc, reloj, 30 s entre envíos, 0 pipelines en caliente, nada pedido a Firebase); `triples-remoto.mjs` (22; con Firestore simulado: lectura, guardado con solo `name` y `score`, botón desactivado, un envío por partida, caída a local; y con el SDK real sin red: se descarga solo al abrir el tablón y cae a local). **Ninguna prueba puede llegar a la base de datos real**: el navegador de las pruebas no resuelve `firestore.googleapis.com` (`tests/e2e/common.mjs`). Las dos, añadidas a `npm run e2e`. Arreglado de paso: las pruebas amplían el registro de descargas del navegador (se llenaba antes de que `cosmic.mjs` mirara los sonidos). **Batería al cerrar: veintitrés pruebas, 660 comprobaciones, 0 fallos.** `npm run build` pasa (trozo principal 2.048,2 kB; antes 2.045,1).
+
+*Comprobación con la base de datos real* (una vez, a mano: `node tests/e2e/firebase-lectura.mjs`, que corta cualquier petición que no sea una consulta): **lee bien**, en 1,3 s, en modo remoto; la colección `triples` está vacía (el tablón dice «Aún no hay puntuaciones. ¡Estrena el tablón!»). No se ha escrito nada.
+
+*Rendimiento* (`node tests/perf/fps-mundos.mjs`, 2880 × 1620 sin límite, este equipo Windows): mundo 1, 110–117 fps (pista 115); mundo 2, 188–226; mundo 3, 253–304. En línea con lo medido antes en este equipo (113–117 en el mundo 1).
+
+*Sin comprobar*: **guardar en la base de datos real** (por las reglas del encargo, ninguna prueba escribe en ella: la primera puntuación de verdad la pondrá un visitante, o David a mano); que las reglas publicadas en la consola sean las de `firestore.rules`; el concurso jugado por una persona (dificultad, ritmo de los 60 s), en un teléfono de verdad y con lector de pantalla.
+
+Capturas (`capturas/33-baloncesto/`): `hoja-concurso.jpg` y sus ocho sueltas: `1-cartel`, `2-cuenta-atras`, `3-partida`, `4-cambio-de-carro`, `5-final-con-nombre`, `6-tablon-3d`, `7-tablon-abierto`, `8-final-tiempo`. Se rehacen con `node tests/e2e/triples.mjs capturas/33-baloncesto`.
 
 ## Objetivo 25 — Una carta distinta por mundo y nuevo enfoque del mundo 3
 

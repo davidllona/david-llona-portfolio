@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { events, player } from "../experience/state";
+import { TRIPLES } from "../game/triples";
 import { world } from "../worlds";
 import { collect, count, isUnlocked, unlock } from "./store";
 
@@ -12,6 +13,8 @@ export function Tracker({ active }) {
    open: (event) => event.detail?.kind === "project" && unlock("primer-contacto"),
    "project-link": () => unlock("primer-contacto"),
    score: () => unlock("primer-enceste"),
+   // Concurso de triples: 20 puntos o más de 30.
+   triples: (event) => event.detail?.type === "end" && event.detail.score >= TRIPLES.goal && unlock("francotirador"),
    pet: () => count("mejor-amigo"),
    ship: (event) => event.detail?.phase === "launch" && unlock("viajero-espacial"),
    // The Twisted Moon: cada engranaje ganado y el arranque del reloj.

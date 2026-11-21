@@ -400,9 +400,9 @@ export function createTextPanelTexture({ eyebrow, headline, paragraphs, color })
 }
 
 // Balón de baloncesto: naranja con las costuras. Proyección equirrectangular.
-export function createBasketballTexture() {
+export function createBasketballTexture(color = "#d9641e") {
  return canvasTexture(512, 256, (ctx, w, h) => {
-  ctx.fillStyle = "#d9641e";
+  ctx.fillStyle = color;
   ctx.fillRect(0, 0, w, h);
   // Granulado de la piel.
   for (let i = 0; i < 2600; i++) {

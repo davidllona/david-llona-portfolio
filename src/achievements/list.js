@@ -8,7 +8,7 @@ export const ACHIEVEMENTS = [
  { id: "explorador", name: "Explorador", description: "Descubre las seis zonas de The Living World.", group: "Exploración", goal: 6, ready: true },
  { id: "primer-contacto", name: "Primer contacto", description: "Abre un proyecto real.", group: "Exploración", ready: true },
  { id: "primer-enceste", name: "Primer enceste", description: "Mete una canasta.", group: "Baloncesto", ready: true },
- { id: "francotirador", name: "Francotirador", description: "Anota 3 triples en el reto de triples.", group: "Baloncesto", goal: 3 },
+ { id: "francotirador", name: "Francotirador", description: "Consigue 20 puntos o más en el concurso de triples.", group: "Baloncesto", ready: true },
  { id: "mano-caliente", name: "Mano caliente", description: "Encadena 5 canastas sin fallar.", group: "Baloncesto", goal: 5 },
  { id: "contra-todo-pronostico", name: "Contra todo pronóstico", description: "Encesta con la barrera defensiva activa.", group: "Baloncesto" },
  { id: "primer-gol", name: "Primer gol", description: "Marca un gol.", group: "Fútbol", ready: true },

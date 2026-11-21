@@ -14,6 +14,7 @@ export default defineConfig({
  // El escaneo de dependencias parte solo de la página del proyecto. Sin esto
  // recorría todos los .html de la carpeta, incluido el de folio-2025-main, y
  // fallaba al no encontrar sus dependencias (gsap, rapier, howler…).
- optimizeDeps: { entries: ["index.html"] },
+ // (Firebase se importa bajo demanda: se prepara de antemano para que el servidor de desarrollo no recargue la página la primera vez.)
+ optimizeDeps: { entries: ["index.html"], include: ["firebase/app", "firebase/firestore/lite"] },
  server: { watch: { ignored: OUTSIDE.map((folder) => `**/${folder}/**`) } },
 });
