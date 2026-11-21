@@ -5,6 +5,7 @@ import App from "./App";
 import { prepareWorld } from "./worlds";
 import "./styles/global.css";
 import "./styles/ui.css";
+import "./styles/cards.css";
 
 const start = () =>
  createRoot(document.getElementById("root")).render(

@@ -2,6 +2,7 @@ import { Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useTexture } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
+import { projectCard } from "../../../content/cards";
 import { PROJECTS } from "../../../content/projects";
 import { Instances } from "../../../experience/Instances";
 import { useInteractable } from "../../../experience/interact";
@@ -94,17 +95,8 @@ function Project({ project, site, models }) {
  const lamp = useRef(null);
 
  const open = () =>
-  emit("open", {
-   kind: "project",
-   at: { x, y: 1.3, z: z - 1.0 }, // la cámara se acerca a la casa antes de abrir la ficha
-   eyebrow: `Proyecto · ${project.year}`,
-   title: project.name,
-   paragraphs: [project.tagline, project.description],
-   tags: project.tags,
-   image: project.images[0],
-   link: project.link,
-   linkLabel: "Ver proyecto",
-  });
+  // (La ficha de proyecto: ver content/cards.js y ui/Modal.jsx. La cámara se acerca a la casa antes de abrirla.)
+  emit("open", { ...projectCard(project), at: { x, y: 1.3, z: z - 1.0 } });
  const click = useInteractable({ position: { x, z: z + 2.4 }, radius: 3.6, hint: `Ver «${project.name}»`, anywhere: true, action: open });
 
  // Al acercarse, la luz de la pantalla se aviva.

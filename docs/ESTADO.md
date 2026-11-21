@@ -1,9 +1,10 @@
 # Estado del universo de tres planetas
 
-Actualizado: 20 de noviembre de 2026 · rama `estacion-espacial`.
+Actualizado: 21 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
-**En curso: objetivo 24 — órbita del mundo 2 y arranque del mundo 3** (`docs/OBJETIVO-24.md`): los dos bloques hechos; **parada tras el bloque 2, pendiente del visto bueno de David al estilo del mundo 3**. Ver «Objetivo 24» abajo.
+**En curso: objetivo 25 — una carta distinta por mundo** (`docs/OBJETIVO-25.md`): bloque 1 (muestra) hecho; **parada, pendiente del visto bueno de David**. Ver «Objetivo 25» abajo.
+**Objetivo 24 — órbita del mundo 2 y arranque del mundo 3** (`docs/OBJETIVO-24.md`): los dos bloques hechos; **parada tras el bloque 2, pendiente del visto bueno de David al estilo del mundo 3**. Ver «Objetivo 24» abajo.
 **En curso: objetivo 23 — The Twisted Moon: contenido («arranca el reloj y conóceme»)** (`docs/OBJETIVO-23.md`; sustituye al bloque D del objetivo 20): bloques D1 (mecánica) y D2 (las paradas) hechos; **parado tras el D2 por indicación de David: el D3 (cierre) no se ha empezado.** Ver «Objetivo 23» abajo.
 **Objetivo 22 — pulido visual de The Twisted Moon** (`docs/OBJETIVO-22.md`; C2 y C3 del objetivo 21 aprobados como base): los tres bloques hechos (color y luz, piezas que no se leen, órbita); órbita: David eligió la opción B. **Retoque de luz hecho (16-11-2026); parada, pendiente de su visto bueno.** Ver «Objetivo 22» abajo.
 **Objetivo 21 — The Twisted Moon, que se parezca a las imágenes de referencia** (`docs/OBJETIVO-21.md`; sustituye al bloque C del objetivo 20): bloques C1 (aprobado), C2 y C3 hechos; **parada del C3, pendiente del visto bueno de David** (informe en «Objetivo 21»). Ver «Objetivo 21».
@@ -15,6 +16,49 @@ Decidido por David el 13-11-2026: los pesos reales de los modelos mandan sobre l
 Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
 Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado.
 Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Contents/MacOS/Blender -b` (5.0.1). No hay ffmpeg: el audio también se convierte con Blender.
+
+## Objetivo 25 — Una carta distinta por mundo y nuevo enfoque del mundo 3
+
+Encargo: `docs/OBJETIVO-25.md` (21-11-2026). Dos bloques; parada tras cada uno.
+
+| Bloque | Estado |
+|---|---|
+| 1. Muestra: una carta de cada tipo | **Hecho. Parada: pendiente del visto bueno de David.** Capturas: `capturas/31-cartas/muestra/` |
+| 2. Aplicarlas a todo, recursos de Envato y sonido del mundo 3, las cinco máquinas con su estado | Sin empezar (**no empezar hasta el visto bueno**) |
+
+**Bloque 1, lo que hay** (`ui/Modal.jsx` (rehecho: el componente base), `ui/cards/Bodies.jsx` (las tres variantes) y `Markers.jsx` (los marcadores dibujados), `styles/cards.css`, `content/cards.js`; `experience/state.js` (`view`), `experience/Player.jsx`, `worlds/living/zones/ProjectVillage.jsx`, `worlds/twisted/ClockQuest.jsx`, `worlds/cosmic/LabScene.jsx`, `content/cosmic.js`; `tests/e2e/cards.mjs` (prueba) y `cartas.mjs` (capturas)):
+
+- **Un componente, tres variantes.** `Modal.jsx` es la base; el evento `open` trae `variant` («ficha», «hoja» u «holo») y los datos. Sin variante, la carta sencilla de antes (avisos de viaje, CV, laboratorio del mundo 1, las otras paradas del mundo 2, el núcleo): **todavía oscura**, pero ya con lo común.
+- **Lo común**: la misma letra y el mismo botón de cerrar; **E o Esc cierran** (la E, pasados 0,3 s de abrirse, y esa pulsación no vuelve a usar el objeto; Esc también cancela mientras la cámara se acerca); **velo suave sin desenfoque** (26–34 %: el mundo se sigue viendo); **la carta sale del objeto usado** (se calcula dónde cae en la pantalla y crece desde ahí); la interfaz de juego (menú, Woody, sonido) se retira mientras está abierta; foco atrapado dentro (Tab no sale) y vuelve a donde estaba; con «reducir movimiento» aparece en su sitio, sin viaje ni parpadeo; en móvil, 95 % del ancho, hasta casi todo el alto, y se desplaza con el dedo.
+- **Mundo 1 · ficha de proyecto** (crema, acentos naranja): arriba la galería (44 % de la carta) con flechas, puntos y ←/→ cuando hay más de una imagen; debajo «Proyecto» y el año, nombre, la línea de qué es, la descripción, «Mi papel», tecnologías como etiquetas y «Ver proyecto» (y «Código» si hay enlace). **Ya la usan los cuatro proyectos** (era el mismo código que hacerla para uno). El de muestra es «Configurador Temyplast»: los cuatro tienen el mismo material (una imagen, enlace, etiquetas y año).
+- **Mundo 2 · hoja de cuento** (solo la parada de Woody): papel hueso de borde irregular, chincheta, se despliega al abrirse; título con subrayado a mano y el adorno de la parada (una huella); tinta azul oscura; la polaroid torcida con la silueta dibujada de un perro y «Woody» debajo. Al cerrarla se sigue ganando el engranaje.
+- **Mundo 3 · holograma** (Dosia): sin caja. Un móvil translúcido de borde turquesa que parpadea, con la interfaz esbozada con líneas que se dibujan solas; al lado, un panel de cristal oscuro (para que se lea sobre cualquier fondo) con el nombre, la etiqueta «PUBLICADA» en lima, su frase y «Abrir la app»; debajo, el haz que sube desde la cúpula de la máquina. «En construcción» sale en ámbar, sin botón y con un plano en construcción dentro del móvil (hecho y probado; lo usarán las otras cuatro en el bloque 2).
+- **Nuevo enfoque del mundo 3**: el rótulo pasa de «App propia» a «Lo que estoy construyendo». El estado de cada app está en `content/cards.js` (`APP_CARDS`). La luz de estado en cada máquina, en el bloque 2.
+
+**Dónde se pone el material cuando David lo aporte** (sin tocar ningún componente): todo en **`src/content/cards.js`**. Los archivos se dejan en `public/` y se escribe su ruta pública.
+
+| Carta | Campo | Dónde dejar el archivo (ejemplo) |
+|---|---|---|
+| Proyecto (mundo 1) | `PROJECT_CARDS[id].gallery` (lista de imágenes) y `.video` (un vídeo corto, va el primero) | `public/images/projects/…` → `"/images/projects/captura.png"`; `public/videos/…` |
+| Proyecto (mundo 1) | `PROJECT_CARDS[id].role` («Mi papel») y `.code` (repositorio) | — |
+| Parada (mundo 2) | `TALE_CARDS[parada].photo` (sale como polaroid) y `.caption` | `public/images/sobre-mi/…` → `"/images/sobre-mi/woody.jpg"` |
+| App (mundo 3) | `APP_CARDS[app].video` (silenciado, en bucle, con botón de sonido) o `.screens` (capturas que pasan solas); `.link` («Abrir la app») y `.status` | `public/videos/…`, `public/images/apps/…` |
+
+Mientras un campo esté vacío, la carta enseña su marcador dibujado. El vídeo solo existe con la carta abierta: no se descarga al entrar en el mundo.
+
+**Pendiente de David** (se enseña tal cual en la carta, marcado con un recuadro de trazos): «Mi papel» de los cuatro proyectos; el enlace de Dosia (el botón «Abrir la app» sale apagado y lo dice). Ojo: **hoy un visitante vería «[PENDIENTE: David]» en esas dos cartas**; hay que rellenarlo u ocultarlo antes de publicar.
+
+**Decisiones mías, por si no convencen**: (1) las capturas de la galería se enseñan enteras (con margen crema), no recortadas: son pantallazos de interfaz. (2) El panel de texto del holograma es un cristal oscuro translúcido, no texto suelto sobre el mundo: sin él no se leía sobre el suelo magenta. (3) La descripción larga del proyecto se mantiene bajo la línea de qué es.
+
+**Lo que NO se ha hecho** (es del bloque 2): CV, contacto, laboratorio del mundo 1 y las demás paradas del mundo 2 (incluida la línea de tiempo dibujada de «Mi recorrido») con su carta; las otras cuatro máquinas y su luz de estado; **los recursos de Envato del mundo 3 (modelos, música y efectos): no se han tocado ni movido de Descargas**.
+
+**Tropiezos**: la prueba nueva cazó dos fallos del propio rediseño antes de cerrar: las cartas sin acercamiento de cámara (las de viaje del menú) no llegaban a abrirse, y Esc dejó de cancelar la carta durante el acercamiento (lo vio `progress.mjs`). Los dos, corregidos.
+
+**Batería al cerrar el bloque**: veinte pruebas (`cards.mjs`, nueva, 32 comprobaciones), 542 comprobaciones, 0 fallos. `npm run build` pasa (el CSS sube de 27,4 a 37,6 kB; el trozo principal, de 2.020,7 a 2.035,8 kB); servidor de desarrollo limpio.
+
+**Sin comprobar**: la animación de apertura en movimiento (solo en fotogramas detenidos); un teléfono de verdad (el desplazamiento con el dedo se ha comprobado por estilos, no arrastrando); un lector de pantalla; la galería con un vídeo real y el holograma con vídeo o capturas reales (los caminos están escritos, sin material con que probarlos).
+
+Capturas (`capturas/31-cartas/muestra/`): **`hoja-antes-despues.jpg`** (arriba las antiguas, abajo las nuevas), `hoja-movil-antes-despues.jpg`, `hoja-apertura.jpg` (tres fotogramas de cada una), `hoja-galeria.jpg` (la galería con varias imágenes —una demostración con imágenes de otros proyectos— y el marcador de cuando no hay ninguna) y las sueltas. Las antiguas, en `capturas/31-cartas/antes/`.
 
 ## Objetivo 24 — Órbita del mundo 2 y arranque del mundo 3 (The Cosmic Lab)
 

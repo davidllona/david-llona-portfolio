@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { attribute, mix, sin, uniform, vec3 } from "three/tsl";
+import { appCard } from "../../content/cards";
 import { LAB, MACHINES as TEXT, MACHINE_ORDER, WOODY_LAB } from "../../content/cosmic";
 import { Instances } from "../../experience/Instances";
 import { useInteractable } from "../../experience/interact";
@@ -101,7 +102,7 @@ export function LabScene() {
  const shown = useRef({ beam: lab.isOn("dosia") ? 1 : 0 });
  const afterPanel = useRef(false);
 
- const panel = () => emit("open", { kind: "machine", machine: "dosia", eyebrow: TEXT.dosia.place, title: TEXT.dosia.name, paragraphs: TEXT.dosia.paragraphs, at: { x: dosia.x, y: base.machine + 2.3, z: dosia.z, distance: 0.9 } });
+ const panel = () => emit("open", { ...appCard("dosia", TEXT.dosia), at: { x: dosia.x, y: base.machine + 2.3, z: dosia.z, distance: 0.9 } });
  const release = () => {
   sequence.current = null;
   ui.open -= 1;

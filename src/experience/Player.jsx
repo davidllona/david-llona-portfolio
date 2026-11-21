@@ -6,7 +6,7 @@ import { world } from "../worlds";
 import { moveAgent } from "../worlds/collision";
 import { dust, splash } from "./effects/pools";
 import { updateSeeThrough } from "./environment/seeThrough";
-import { WELCOME, emit, input, player, rig, ui, welcomePose } from "./state";
+import { WELCOME, emit, input, player, rig, ui, view, welcomePose } from "./state";
 
 const WALK_SPEED = 3.6; // m/s
 const RUN_SPEED = 6.2;
@@ -57,6 +57,7 @@ export function Player({ active }) {
  useEffect(() => {
   camera.fov = CAMERA.fov;
   camera.updateProjectionMatrix();
+  view.camera = camera;
   if (import.meta.env.DEV) window.__world.camera = camera; // para las pruebas automáticas
  }, [camera]);
 

@@ -138,6 +138,10 @@ export const ui3d = {
  speech: null, // { text, age, life }: lo que dice Woody ahora
 };
 
+// La cámara del juego (la apunta Player.jsx): la interfaz la usa para saber dónde cae en la pantalla un
+// punto del mundo (de dónde sale la carta que se abre al usar algo).
+export const view = { camera: null };
+
 // Interfaz: cuántas ventanas (ficha, portfolio…) hay abiertas encima del juego.
 // Con alguna abierta, el astronauta no se mueve ni se usa nada.
 export const ui = { open: 0 };

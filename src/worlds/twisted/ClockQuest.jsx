@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
+import { taleCard } from "../../content/cards";
 import { CLOCK, FUTURE, STOPS, TIMELINE, WOODY_CLOCK } from "../../content/twisted";
 import { useInteractable } from "../../experience/interact";
 import { isSpeaking, say } from "../../experience/speech";
@@ -132,7 +133,8 @@ export function Quest() {
   },
   [],
  );
- const open = (id) => present(id, QUEST_STOPS[id], { kind: "stop", stop: id, ...cardOf(STOPS[id], QUEST_STOPS[id]) });
+ // (La de Woody ya es una hoja de cuento —objetivo 25, la muestra—; las demás, la carta sencilla hasta que se apruebe.)
+ const open = (id) => present(id, QUEST_STOPS[id], { kind: "stop", stop: id, ...cardOf(STOPS[id], QUEST_STOPS[id]), ...(id === "casita" ? taleCard(id, STOPS[id]) : null) });
 
  // ── La puerta de la torre ──
  const timeline = () => {

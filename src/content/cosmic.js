@@ -1,4 +1,5 @@
-// Los textos de The Cosmic Lab («lo que experimento»). TODO lo que se lee en ese
+// Los textos de The Cosmic Lab («lo que estoy construyendo»: un laboratorio es donde están las cosas a
+// medio hacer; el estado de cada app —publicada o en construcción— está en content/cards.js). TODO lo que se lee en ese
 // mundo sale de este archivo: para cambiar una frase, se cambia aquí y nada más.
 // Solo lleva lo que David ha dicho (docs/OBJETIVO-24.md): no hay enlaces,
 // capturas ni datos inventados. Lo que falta está marcado «PENDIENTE».
@@ -11,7 +12,7 @@ export const MACHINES = {
  dosia: {
   ready: true,
   name: "Dosia",
-  place: "The Cosmic Lab · App propia",
+  place: "The Cosmic Lab · Lo que estoy construyendo",
   hint: "Encender Dosia",
   hintOn: "Dosia",
   paragraphs: ["App para profesionales de enfermería y medicina: preguntas de práctica, calculadoras de dosis, noticias y práctica del examen EIR."],
