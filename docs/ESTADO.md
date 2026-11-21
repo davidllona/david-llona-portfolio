@@ -4,7 +4,7 @@ Actualizado: 21 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
 **En curso: objetivo 25 — una carta distinta por mundo** (`docs/OBJETIVO-25.md`): bloque 1 (muestra) hecho; **parada, pendiente del visto bueno de David**. Ver «Objetivo 25» abajo.
-**Objetivo 24 — órbita del mundo 2 y arranque del mundo 3** (`docs/OBJETIVO-24.md`): los dos bloques hechos; **parada tras el bloque 2, pendiente del visto bueno de David al estilo del mundo 3**. Ver «Objetivo 24» abajo.
+**Objetivo 24 — órbita del mundo 2 y arranque del mundo 3** (`docs/OBJETIVO-24.md`): los dos bloques hechos; **estilo del mundo 3 aprobado por David (21-11-2026)**. Ver «Objetivo 24» abajo.
 **En curso: objetivo 23 — The Twisted Moon: contenido («arranca el reloj y conóceme»)** (`docs/OBJETIVO-23.md`; sustituye al bloque D del objetivo 20): bloques D1 (mecánica) y D2 (las paradas) hechos; **parado tras el D2 por indicación de David: el D3 (cierre) no se ha empezado.** Ver «Objetivo 23» abajo.
 **Objetivo 22 — pulido visual de The Twisted Moon** (`docs/OBJETIVO-22.md`; C2 y C3 del objetivo 21 aprobados como base): los tres bloques hechos (color y luz, piezas que no se leen, órbita); órbita: David eligió la opción B. **Retoque de luz hecho (16-11-2026); parada, pendiente de su visto bueno.** Ver «Objetivo 22» abajo.
 **Objetivo 21 — The Twisted Moon, que se parezca a las imágenes de referencia** (`docs/OBJETIVO-21.md`; sustituye al bloque C del objetivo 20): bloques C1 (aprobado), C2 y C3 hechos; **parada del C3, pendiente del visto bueno de David** (informe en «Objetivo 21»). Ver «Objetivo 21».
