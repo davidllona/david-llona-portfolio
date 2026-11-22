@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { PhoneSketch, Silhouette, UiSketch } from "./Markers";
 import { CloseButton, MainAction, Picture, SideAction } from "./Parts";
+import { FitTitle } from "./FitTitle";
 
 // Las tres cartas (objetivo 26). Cada una es un objeto de su mundo, copiado de
 // la maqueta aprobada por David (docs/referencias/cartas/): mismas medidas,
@@ -118,7 +119,7 @@ export function WoodSign({ content, close, act, mobile }) {
        {content.badge && <span className="cartel__badge">{content.badge}</span>}
       </div>
      )}
-     <h2 className="modal__title">{content.title}</h2>
+     <FitTitle className="modal__title">{content.title}</FitTitle>
      {content.tagline && <p className="cartel__tagline">{content.tagline}</p>}
      {(content.tagline || content.rows) && <span className="cartel__rule" aria-hidden="true" />}
      <Paragraphs list={content.paragraphs} />
@@ -234,7 +235,7 @@ export function HangingSign({ content, close, act, mobile }) {
       <span className="colgante__pin colgante__pin--paper" aria-hidden="true" />
       <div className="colgante__text">
        {content.eyebrow && <p className="modal__eyebrow">{content.eyebrow}</p>}
-       <h2 className={titleClass(content.title)}>{content.title}</h2>
+       <FitTitle className={titleClass(content.title)}>{content.title}</FitTitle>
        {content.subtitle && <p className="colgante__subtitle">{content.subtitle}</p>}
        <Paragraphs list={content.paragraphs} />
        {content.note && <p className="modal__text colgante__note">{content.note}</p>}
@@ -315,7 +316,7 @@ export function LabMachine({ content, close, act }) {
        </p>
       )}
       {content.eyebrow && <p className="modal__eyebrow">{content.eyebrow}</p>}
-      <h2 className={titleClass(content.title)}>{content.title}</h2>
+      <FitTitle className={titleClass(content.title)}>{content.title}</FitTitle>
       {content.tagline && <p className="maquina__tagline">{content.tagline}</p>}
       <Paragraphs list={content.paragraphs} />
       <Timeline items={content.timeline} />

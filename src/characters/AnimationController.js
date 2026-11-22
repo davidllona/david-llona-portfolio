@@ -51,10 +51,14 @@ export class AnimationController {
  }
 
  // Pasa al clip `name` con un fundido. Si ya suena ese mismo en bucle, solo
- // ajusta la velocidad. `hold`: al acabar (sin bucle) se queda en la última pose.
+ // ajusta la velocidad. Al acabar (sin bucle) se queda en la última pose hasta
+ // que se pida otro clip. (Antes, con `hold: false`, three apagaba el clip y
+ // durante un fotograma el esqueleto volvía a la pose de reposo antes de que
+ // entrara el siguiente: en Woody se veía como una sacudida de la cabeza al
+ // acabar cada gesto. Objetivo 27, B5. La opción `hold` ya no hace nada.)
  // `phase` (0–1): en qué punto de su ciclo arranca (para pasar de un paso a
  // otro sin cambiar de pie).
- play(name, { fade = 0.2, loop = true, speed = 1, hold = true, phase = 0, onDone } = {}) {
+ play(name, { fade = 0.2, loop = true, speed = 1, phase = 0, onDone } = {}) {
   const action = this.action(name);
   if (!action) {
    if (import.meta.env.DEV) console.warn(`[animación] clip inexistente: ${name}`);
@@ -68,7 +72,7 @@ export class AnimationController {
   action.reset();
   action.time = phase * action.getClip().duration;
   action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Infinity : 1);
-  action.clampWhenFinished = hold;
+  action.clampWhenFinished = true;
   action.timeScale = speed;
   action.enabled = true;
   action.setEffectiveWeight(1);

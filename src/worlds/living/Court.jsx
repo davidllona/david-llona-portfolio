@@ -17,6 +17,7 @@ import { JUMP_SHOT } from "../../characters/jumpShot";
 import { MONEY_COLOR, BALL_GRAVITY, BALL_RADIUS, BOARD, DEFENDER, DIP_TIME, GRAB_DISTANCE, GUARD_ASIDE, GUARD_X, HOME, IDLE_BEFORE_RETURN, MARK_ASIDE, MARK_BLOCK, MARK_GAP, MARK_HOME, MARK_LAG, MARK_SPEED, MAX_DISTANCE, PERFECT, PILLARS, RIM, RIM_RADIUS, SHOOT_RANGE, STAND_TOP, ballStand, center, court, fence, guard, marker, markerReacts, onCourt, play, rim, stepBall } from "./courtPhysics";
 import { BASKET, COURT, COURT_FENCE, WATER_LEVEL, blockerCollider, markerCollider, height as terrainHeight } from "./layout";
 import { fontReady } from "../../ui/fonts";
+import { shotChance, shotWindow, triples } from "../../game/triples";
 import { Triples } from "./Triples";
 import { merge, piece } from "./kit/geometry";
 import { Halos } from "./props/Halos";
@@ -139,13 +140,36 @@ function Ball() {
   // (Sin gesto —pruebas—, sale de encima de la cabeza.)
   if (!b.shot) b.position.set(feet.x, feet.y + 2.05, feet.z);
   const distance = Math.hypot(RIM.x - b.position.x, RIM.z - b.position.z);
-  const off = Math.max(0, Math.abs(timing) - PERFECT) / (1 - PERFECT); // 0 = perfecto … 1 = lo peor
-  const spread = exact || off === 0 ? 0 : (0.04 + off * 0.3) * (0.4 + distance * 0.09);
-  const targetX = RIM.x + (Math.random() - 0.5) * 2 * spread;
-  const targetZ = RIM.z + (Math.random() - 0.5) * 2 * spread;
+  // En el concurso, la ventana es más estrecha (y aún más en las esquinas).
+  const allowed = play.contest ? shotWindow(triples.rack) : PERFECT;
+  const off = Math.max(0, Math.abs(timing) - allowed) / (1 - allowed); // 0 = perfecto … 1 = lo peor
+  let spread = exact || off === 0 ? 0 : (0.04 + off * 0.3) * (0.4 + distance * 0.09);
+  let targetX = RIM.x + (Math.random() - 0.5) * 2 * spread;
+  let targetZ = RIM.z + (Math.random() - 0.5) * 2 * spread;
+  let power = off === 0 ? 1 : 1 + Math.sign(timing) * (0.03 + off * 0.2);
+  if (play.contest) {
+   // Concurso: entra o no según la probabilidad de soltar en ese punto del salto
+   // (game/triples.js). Si entra, va limpio al aro; si no, al hierro o fuera
+   // (a 34–50 cm del centro, hacia donde lleve el error: corto si fue pronto).
+   // (Pruebas —exact—: entra si está dentro de la ventana, sin azar.)
+   const makes = exact ? off === 0 : Math.random() < shotChance(timing, triples.rack);
+   if (import.meta.env.DEV) (window.__world.contestShots ??= []).push({ timing, rack: triples.rack, makes, money: b.money }); // para las pruebas automáticas
+   spread = 0;
+   power = 1;
+   targetX = RIM.x;
+   targetZ = RIM.z;
+   if (!makes) {
+    const toRimX = (RIM.x - b.position.x) / distance, toRimZ = (RIM.z - b.position.z) / distance;
+    const along = timing < 0 ? -1 : timing > 0 ? 1 : Math.sign(Math.random() - 0.5); // pronto, corto; tarde, largo
+    const side = (Math.random() - 0.5) * 1.4;
+    const miss = 0.34 + Math.random() * 0.16;
+    const length = Math.hypot(along, side);
+    targetX += ((toRimX * along - toRimZ * side) / length) * miss;
+    targetZ += ((toRimZ * along + toRimX * side) / length) * miss;
+   }
+  }
   // Parábola alta: cuanto más lejos, más tiempo en el aire.
   const time = THREE.MathUtils.clamp(0.62 + distance * 0.115, 0.85, 1.7);
-  const power = off === 0 ? 1 : 1 + Math.sign(timing) * (0.03 + off * 0.2);
   b.velocity.set((targetX - b.position.x) / time, (RIM.y + 0.03 - b.position.y + 0.5 * BALL_GRAVITY * time * time) / time, (targetZ - b.position.z) / time).multiplyScalar(power);
   faceRim();
   if (play.launch) {
@@ -208,7 +232,7 @@ function Ball() {
   if (import.meta.env.DEV) {
    // Para las pruebas automáticas.
    window.__world.ball = b;
-   window.__world.court = { blocker: guard, marker, rim, play, RIM, fence, perfect: PERFECT, shoot: (timing = 0) => release(timing, true), home: toStand };
+   window.__world.court = { blocker: guard, marker, rim, play, RIM, fence, perfect: PERFECT, shoot: (timing = 0) => release(timing, true), shootLive: (timing = 0) => release(timing), home: toStand };
   }
   return () => {
    window.removeEventListener("keydown", onKeyDown);
@@ -368,7 +392,8 @@ function Ball() {
 
   // Medidor de tiro: una barra junto al astronauta, de cara a la cámara. Sube
   // con el salto; la franja verde del centro es lo más alto: ahí hay que soltar.
-  const aiming = b.mode === "held" && !b.empty && Boolean(b.shot);
+  // (En el concurso de triples no hay barra: se juzga solo por el salto.)
+  const aiming = b.mode === "held" && !b.empty && Boolean(b.shot) && !play.contest;
   meter.current.visible = aiming;
   if (aiming) {
    const level = b.shot.stage === "air" ? (b.timing + 1) / 2 : 0;

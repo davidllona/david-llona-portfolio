@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { boardCard, resultCard } from "../../content/triples";
 import { useInteractable } from "../../experience/interact";
+import { fitText } from "../../experience/fitText";
 import { lambert } from "../../experience/materials";
 import { emit, events, player, rig, ui, woody } from "../../experience/state";
 import { createBasketballTexture } from "../../experience/textures";
@@ -95,12 +96,13 @@ const spaced = (ctx, px) => "letterSpacing" in ctx && (ctx.letterSpacing = `${px
 function createSignFace() {
  return canvasFace(760, 344, (ctx) => {
   ctx.textAlign = "center";
+  // (Margen fijo de 60 px a los lados: cada renglón se reduce si no cabe.)
   ctx.fillStyle = "#ffcf4a";
-  ctx.font = `800 92px ${FONT}`;
   spaced(ctx, 4);
-  ctx.fillText("CONCURSO", 380, 112);
+  fitText(ctx, "CONCURSO", { width: 760 - 120, max: 92, min: 60, lines: 1, font: (px) => `800 ${px}px ${FONT}`, where: "cartel de triples" });
+  ctx.fillText("CONCURSO", 380, 120);
   ctx.fillStyle = "#f4ead8";
-  ctx.font = `800 78px ${FONT}`;
+  fitText(ctx, "DE TRIPLES", { width: 760 - 120, max: 78, min: 52, lines: 1, font: (px) => `800 ${px}px ${FONT}`, where: "cartel de triples" });
   ctx.fillText("DE TRIPLES", 380, 232);
  });
 }
@@ -108,12 +110,14 @@ function createSignFace() {
 function createBoardFace() {
  return canvasFace(1080, 820, (ctx, top) => {
   ctx.textAlign = "center";
+  // El título, con margen fijo (70 px arriba y a los lados): antes iba pegado al
+  // canto de arriba y la viga del tablón lo tapaba por arriba.
   ctx.fillStyle = "#ffcf4a";
-  ctx.font = `800 96px ${FONT}`;
   spaced(ctx, 4);
-  ctx.fillText("TOP 10 · TRIPLES", 540, 96);
+  const title = fitText(ctx, "TOP 10 · TRIPLES", { width: 1080 - 140, height: 96, max: 88, min: 64, lines: 1, font: (px) => `800 ${px}px ${FONT}`, where: "tablón de triples" });
+  ctx.fillText("TOP 10 · TRIPLES", 540, 70 + title.size / 2);
   ctx.fillStyle = "rgba(255, 207, 74, 0.5)";
-  ctx.fillRect(60, 168, 960, 5);
+  ctx.fillRect(70, 184, 940, 5);
   spaced(ctx, 0);
   if (!top || !top.rows.length) {
    ctx.fillStyle = "#f4ead8";
@@ -122,7 +126,7 @@ function createBoardFace() {
    lines.forEach((line, i) => ctx.fillText(line, 540, 400 + i * 84));
   } else {
    top.rows.forEach((row, i) => {
-    const column = i < 5 ? 0 : 1, y = 250 + (i % 5) * 104, x = 50 + column * 510;
+    const column = i < 5 ? 0 : 1, y = 262 + (i % 5) * 100, x = 50 + column * 510;
     ctx.textAlign = "left";
     ctx.fillStyle = i < 3 ? "#ffcf4a" : "#c9a66d";
     ctx.font = `800 54px ${FONT}`;

@@ -6,6 +6,7 @@ import { panelLines } from "../../../game/cloth";
 import { useInteractable } from "../../../experience/interact";
 import { lambert } from "../../../experience/materials";
 import { emit, events, game, player, releaseMovement, rig, woody } from "../../../experience/state";
+import { fitText } from "../../../experience/fitText";
 import { createLabelTexture } from "../../../experience/textures";
 import { Glow } from "../buildings/Glow";
 import { merge, piece } from "../kit/geometry";
@@ -142,8 +143,8 @@ function createScoreboard() {
   ctx.textBaseline = "middle";
   ctx.textAlign = "center";
   ctx.fillStyle = "#ffcf4a";
-  ctx.font = `800 62px ${FONT}`;
   if ("letterSpacing" in ctx) ctx.letterSpacing = "4px";
+  fitText(ctx, MODES[mode].name.toUpperCase(), { width: 768 - 100, max: 62, min: 40, lines: 1, font: (px) => `800 ${px}px ${FONT}`, where: "marcador del fútbol" });
   ctx.fillText(MODES[mode].name.toUpperCase(), 384, 56);
   const cells = [["INTENTOS", stats.attempts], ["GOLES", stats.goals], ["PUNTOS", stats.score], [MODES[mode].time ? "TIEMPO" : "QUEDAN", MODES[mode].time ? `${Math.ceil(stats.time)}s` : MODES[mode].shots ? stats.left : "—"]];
   // Dos filas de dos casillas: el rótulo a la izquierda y su número a la

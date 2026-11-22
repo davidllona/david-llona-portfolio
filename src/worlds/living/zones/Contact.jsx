@@ -202,9 +202,17 @@ function Device({ link, x, z, models }) {
      </group>
     )}
    </group>
-   {/* Plaquita de madera con el nombre, al pie. */}
-   <group position={[0, 0.2, 0.85]} rotation-x={-1.05}>
-    <mesh>
+   {/* Plaquita de madera con el nombre, al pie, sobre dos patas: de pie y algo
+       inclinada hacia atrás, para que se lea. (Antes iba casi tumbada, con el canto
+       de abajo metido en la plataforma.) */}
+   {[-0.62, 0.62].map((side) => (
+    <mesh key={side} position={[side, 0.27, 0.92]} rotation-x={-0.18} castShadow>
+     <boxGeometry args={[0.07, 0.56, 0.07]} />
+     <meshLambertMaterial color={WOOD.dark} flatShading />
+    </mesh>
+   ))}
+   <group position={[0, 0.62, 0.86]} rotation-x={-0.5}>
+    <mesh castShadow>
      <boxGeometry args={[1.5, 0.52, 0.05]} />
      <meshLambertMaterial color={WOOD.dark} flatShading />
     </mesh>

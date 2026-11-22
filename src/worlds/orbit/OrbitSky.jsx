@@ -4,6 +4,7 @@ import { useFrame } from "@react-three/fiber";
 import { uniform, vec3 } from "three/tsl";
 import { clickable } from "../../experience/interact";
 import { celestial, createGlobe, createMoon } from "../../experience/intro/skyModels";
+import { fitText } from "../../experience/fitText";
 import { unlit } from "../../experience/materials";
 import { ORBIT_VIEW, rig, voyage } from "../../experience/state";
 import { fontReady } from "../../ui/fonts";
@@ -61,12 +62,8 @@ function createWorldLabel(name, pill, open) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   if ("letterSpacing" in ctx) ctx.letterSpacing = "6px";
-  // (Se reduce la letra hasta que el nombre quepa con margen.)
-  let size = 118;
-  do {
-   size -= 6;
-   ctx.font = `800 ${size}px "Bricolage Grotesque", system-ui, sans-serif`;
-  } while (ctx.measureText(name).width > 930 && size > 48);
+  // (Margen fijo de 47 px a los lados; la letra se reduce hasta caber.)
+  fitText(ctx, name, { width: 930, height: 150, max: 112, min: 60, lines: 1, font: (px) => `800 ${px}px "Bricolage Grotesque", system-ui, sans-serif`, where: "nombre en la órbita" });
   ctx.fillStyle = "#ffffff";
   ctx.fillText(name, 512, 104);
   if ("letterSpacing" in ctx) ctx.letterSpacing = open ? "7px" : "10px";

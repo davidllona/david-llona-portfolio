@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { drawLines, fitText } from "./fitText";
 import { fontReady } from "../ui/fonts";
 
 // Texturas generadas en canvas: no se descarga ningún archivo.
@@ -49,13 +50,10 @@ export function createLabelTexture(text, color, { plate = false, title = false }
   if ("letterSpacing" in ctx) ctx.letterSpacing = title ? "2px" : "8px";
   if ("fontStretch" in ctx) ctx.fontStretch = title ? "condensed" : "normal";
 
-  // Se reduce la letra hasta que el texto quepa con margen.
-  const room = width - (plate ? 150 : 70);
-  let size = plate ? 150 : title ? 190 : 128;
-  do {
-   ctx.font = `800 ${size}px ${LABEL_FONT}, system-ui, sans-serif`;
-   size -= 6;
-  } while (ctx.measureText(text).width > room && size > 40);
+  // Margen fijo; la letra se reduce hasta caber y, si no cabe legible, dos renglones (fitText).
+  const room = width - (plate ? 150 : 90);
+  const font = (px) => `800 ${px}px ${LABEL_FONT}, system-ui, sans-serif`;
+  const fit = fitText(ctx, text, plate ? { width: room, height: height - 90, max: 150, min: 84, min2: 64, font, lineHeight: 1.0, where: "rótulo" } : title ? { width: room, height: height - 40, max: 190, min: 110, min2: 70, font, lineHeight: 0.92, where: "placa" } : { width: room, height: height - 40, max: 128, min: 84, min2: 72, font, lineHeight: 1.0, where: "rótulo" });
 
   if (plate) {
    ctx.fillStyle = "rgba(9, 11, 16, 0.94)";
@@ -67,38 +65,25 @@ export function createLabelTexture(text, color, { plate = false, title = false }
    ctx.roundRect(8, 20, 30, height - 40, [36, 0, 0, 36]);
    ctx.fill();
    ctx.fillStyle = "#ffffff";
-   ctx.fillText(text, width / 2 + 12, height / 2 + 8);
+   drawLines(fit, width / 2 + 12, height / 2 + 8, (line, x, y) => ctx.fillText(line, x, y));
   } else if (title) {
-   // Los nombres largos van en dos renglones, partidos por el espacio más
-   // cercano al centro: así la letra no se queda diminuta.
-   let lines = [text];
-   const spaces = [...text.matchAll(/ /g)].map((match) => match.index);
-   if (text.length > 13 && spaces.length > 0) {
-    const cut = spaces.reduce((best, at) => (Math.abs(at - text.length / 2) < Math.abs(best - text.length / 2) ? at : best));
-    lines = [text.slice(0, cut), text.slice(cut + 1)];
-    size = 124;
-    do {
-     ctx.font = `800 ${size}px ${LABEL_FONT}, system-ui, sans-serif`;
-     size -= 6;
-    } while (Math.max(...lines.map((line) => ctx.measureText(line).width)) > room && size > 40);
-   }
    // Como pintado sobre la madera: una sombra corta debajo y la letra encima.
-   const step = lines.length > 1 ? 112 : 0;
-   lines.forEach((line, i) => {
-    const y = height / 2 + 10 + (i - (lines.length - 1) / 2) * step;
+   drawLines(fit, width / 2, height / 2 + 10, (line, x, y) => {
     ctx.fillStyle = "rgba(58, 36, 22, 0.55)";
-    ctx.fillText(line, width / 2 + 4, y + 6);
+    ctx.fillText(line, x + 4, y + 6);
     ctx.fillStyle = color;
-    ctx.fillText(line, width / 2, y);
+    ctx.fillText(line, x, y);
    });
   } else {
    // Contorno oscuro: se lee igual sobre paneles claros que sobre el espacio.
    ctx.lineJoin = "round";
    ctx.lineWidth = 18;
    ctx.strokeStyle = "rgba(9, 11, 16, 0.92)";
-   ctx.strokeText(text, width / 2, height / 2 + 6);
    ctx.fillStyle = color;
-   ctx.fillText(text, width / 2, height / 2 + 6);
+   drawLines(fit, width / 2, height / 2 + 6, (line, x, y) => {
+    ctx.strokeText(line, x, y);
+    ctx.fillText(line, x, y);
+   });
   }
   texture.needsUpdate = true;
  };
@@ -315,19 +300,16 @@ export function createSignTexture(text, icon) {
   SIGN_ICONS[icon]?.(g);
   ctx.drawImage(glyph, cx - size / 2, cy - size / 2);
 
-  // Nombre: tan grande como quepa.
-  const left = 64 + size + 40, room = width - left - 52;
+  // Nombre: con margen fijo (40 px tras el icono, 64 al borde y 46 arriba y
+  // abajo), tan grande como quepa; si no cabe legible, en dos renglones.
+  const left = 64 + size + 40, room = width - left - 64;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   if ("letterSpacing" in ctx) ctx.letterSpacing = "2px";
   if ("fontStretch" in ctx) ctx.fontStretch = "condensed";
-  let font = 216;
-  do {
-   font -= 6;
-   ctx.font = `800 ${font}px ${LABEL_FONT}, system-ui, sans-serif`;
-  } while (ctx.measureText(text).width > room && font > 60);
+  const fit = fitText(ctx, text, { width: room, height: height - 92, max: 210, min: 84, min2: 72, font: (px) => `800 ${px}px ${LABEL_FONT}, system-ui, sans-serif`, lineHeight: 0.98, where: "indicador" });
   ctx.fillStyle = "#2b1a10";
-  ctx.fillText(text, left + room / 2, height / 2 + font * 0.06);
+  drawLines(fit, left + room / 2, height / 2 + fit.size * 0.06, (line, x, y) => ctx.fillText(line, x, y));
   texture.needsUpdate = true;
  };
 

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { fitText } from "../fitText";
 
 // Tarjetas de la interfaz 3D, dibujadas en canvas con el estilo del porfolio:
 // papel crema, texto oscuro y la letra estrecha del título. Cada tarjeta tiene
@@ -154,9 +155,10 @@ export function drawAchievement(card, name) {
  if ("letterSpacing" in ctx) ctx.letterSpacing = "6px";
  ctx.fillText(label, x + 206, y + 62);
  ctx.fillStyle = INK;
- ctx.font = `800 84px ${FONT}`;
  if ("letterSpacing" in ctx) ctx.letterSpacing = "1px";
- ctx.fillText(name.toUpperCase(), x + 206, y + 134, w - 250);
+ // (Se reducía apretando las letras; ahora la letra baja hasta caber, como en los carteles.)
+ fitText(ctx, name.toUpperCase(), { width: w - 250, max: 84, min: 50, lines: 1, font: (px) => `800 ${px}px ${FONT}`, where: "logro" });
+ ctx.fillText(name.toUpperCase(), x + 206, y + 134);
  card.box = { w: w / width, h: h / height };
  card.texture.needsUpdate = true;
 }

@@ -1818,3 +1818,10 @@
  opacity: 0;
  pointer-events: none;
 }
+
+/* Títulos que no caben en un renglón (FitTitle): dos, centrados en su caja y
+   equilibrados (objetivo 27, B1). */
+.modal__title[data-lines="2"] {
+ text-align: center;
+ text-wrap: balance;
+}

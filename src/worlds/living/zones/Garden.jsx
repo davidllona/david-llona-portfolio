@@ -10,7 +10,7 @@ import { uniforms } from "../../../experience/theme";
 import { createModelMaterial, preloadModel, useModel } from "../buildings/useModel";
 import { merge, piece } from "../kit/geometry";
 import { WOOD } from "../kit/palette";
-import { BRIDGES, GARDEN, bridgeArc, bridgeSlope, height } from "../layout";
+import { BRIDGES, GARDEN, bridgeArc, bridgeSlope, groundHeight, height } from "../layout";
 import { Halos } from "../props/Halos";
 import { createRock } from "../props/rockModel";
 
@@ -25,6 +25,8 @@ import { createRock } from "../props/rockModel";
 
 const KOI_COLORS = ["#ff7a2e", "#f6f1e8", "#e8452a", "#ffb43a", "#f6f1e8", "#ff8a3d", "#2c2a30"];
 const KOI_LENGTH = 0.62;
+// Altura de la lámina de agua sobre el suelo: los kois caben debajo y el puente pasa por encima.
+const WATER_DEPTH = 0.24;
 const LAMP_SIZE = 0.52; // lado de la base; mide 2,33 veces eso de alto
 const dummy = new THREE.Object3D();
 
@@ -86,7 +88,9 @@ function createPondMaterial() {
 
 function Pond() {
  const { x, z, rx, rz } = GARDEN.pond;
- const y = height(x, z);
+ // (El suelo, sin el puente: con `height` el centro del estanque daba la altura
+ // del tablero y el agua quedaba por encima de él.)
+ const y = groundHeight(x, z);
  const fish = useRef(null);
  const koi = useModel("koi");
  const water = useMemo(createPondMaterial, []);
@@ -129,7 +133,8 @@ function Pond() {
    // Rumbo: la tangente de su vuelta (la cabeza del modelo mira a −x), coleando.
    const heading = Math.atan2(-Math.cos(angle) * rz * Math.sign(one.speed), -Math.sin(angle) * rx * Math.sign(one.speed));
    dummy.rotation.set(0, -heading + Math.PI + Math.sin(time * 5 + one.phase) * 0.22, 0);
-   dummy.scale.setScalar(KOI_LENGTH * one.size);
+   // (Algo aplanados: así nadan enteros bajo la lámina de agua, que es poco honda.)
+   dummy.scale.set(KOI_LENGTH * one.size, KOI_LENGTH * one.size * 0.6, KOI_LENGTH * one.size);
    dummy.updateMatrix();
    fish.current.setMatrixAt(i, dummy.matrix);
   });
@@ -141,7 +146,7 @@ function Pond() {
     <circleGeometry args={[1, 40]} />
    </mesh>
    <instancedMesh ref={fish} name="koi" args={[koi, material.koi, kois.length]} frustumCulled={false} />
-   <mesh position={[x, y + 0.11, z]} rotation-x={-Math.PI / 2} scale={[rx, rz, 1]} material={water} renderOrder={2}>
+   <mesh name="agua del estanque" position={[x, y + WATER_DEPTH, z]} rotation-x={-Math.PI / 2} scale={[rx, rz, 1]} material={water} renderOrder={2}>
     <circleGeometry args={[1, 40]} />
    </mesh>
    {rim.map((items, i) => (

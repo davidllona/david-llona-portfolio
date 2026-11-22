@@ -33,6 +33,20 @@ const parentTurn = new THREE.Quaternion();
 const turnBy = new THREE.Quaternion();
 const petAt = new THREE.Vector3();
 
+// La mirada (objetivo 27, B5). Antes la cabeza apuntaba cada fotograma, sin
+// suavizar, a lo que tocara mirar (el balón en el fútbol): con el balón
+// disparado daba sacudidas, y si pasaba por detrás saltaba de un lado al otro.
+//  · aside: ángulo máximo respecto al cuerpo (rad, entre cuello y cabeza).
+//  · speed: giro máximo (rad/s); spring: lo que tarda en llegar (muelle
+//    amortiguado, sin rebote).
+//  · dead: zona muerta (rad): cambios menores no mueven la cabeza.
+//  · fast (m/s) y far (m): si lo mirado va más deprisa o está más lejos, no lo
+//    sigue: mira al astronauta durante `hold` s como mínimo (o al frente, si el
+//    astronauta le queda detrás).
+//  · behind: más allá de este ángulo, el objetivo está detrás: mira al frente.
+const LOOK = { aside: 1.1, speed: 2.6, spring: 9, dead: 0.06, fast: 4.5, far: 14, hold: 0.8, behind: 1.7 };
+const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+
 // Woody: te sigue a tu paso, descansa cuando te paras, te habla, te guía si se
 // lo pides y se deja acariciar. Su comportamiento está en WoodyBrain.js; aquí
 // se elige el clip, se le pega al terreno y se decide qué dice.
@@ -40,7 +54,7 @@ export function Woody({ active }) {
  const group = useRef(null);
  const brain = useMemo(createBrain, []);
  const idle = useRef({ timer: 0, next: 1 });
- const state = useRef({ gait: "walk", attend: 0, zoneTimer: 0, hop: 0, hopSpeed: 0 });
+ const state = useRef({ gait: "walk", attend: 0, zoneTimer: 0, hop: 0, hopSpeed: 0, look: 0, lookSpeed: 0, goal: 0, applied: 0, seen: null, seenSpeed: 0, ignore: 0 });
  const { scene, controller } = useRiggedModel(URL, {
   palette: WOODY_PALETTE,
   aliases: clipData.aliases,
@@ -58,7 +72,7 @@ export function Woody({ active }) {
   place();
   controller.play("Woody_Idle_Breathe", { fade: 0 });
   events.addEventListener("world", place);
-  if (import.meta.env.DEV) Object.assign(window.__world, { woodyBrain: brain, woodyClip: () => controller.name, woodyRate: () => controller.current?.action.timeScale ?? 0 }); // para las pruebas automáticas
+  if (import.meta.env.DEV) Object.assign(window.__world, { woodyBrain: brain, woodyBody: group.current, woodyClip: () => controller.name, woodyRate: () => controller.current?.action.timeScale ?? 0 }); // para las pruebas automáticas
   return () => events.removeEventListener("world", place);
  }, [brain, controller]);
 
@@ -231,7 +245,9 @@ export function Woody({ active }) {
     // De pie y quieto: respira y, antes de sentarse, olfatea o mira alrededor.
     const pause = idle.current;
     pause.timer += delta;
-    if (pause.timer > pause.next && !speaking) {
+    // (Mientras mira un juego —el fútbol, el concurso— no hace gestos de espera:
+    // olfatear o ladear la cabeza peleaban con la mirada y daban tirones.)
+    if (pause.timer > pause.next && !speaking && !woody.post) {
      pause.timer = 0;
      pause.next = 4 + Math.random() * 4;
      controller.play(IDLE_GESTURES[Math.floor(Math.random() * IDLE_GESTURES.length)], { loop: false, fade: 0.25, hold: false });
@@ -261,13 +277,34 @@ export function Woody({ active }) {
   group.current.rotation.x = brain.posture === "stand" ? brain.pitch : brain.pitch * 0.5;
 
   // Cuando habla, mira al astronauta: gira el cuello y la cabeza hacia él.
-  // (En el fútbol sigue el balón con la cabeza.)
-  const watched = woody.post?.look ?? player.position;
+  // (En el fútbol mira el balón; en el concurso de triples, el aro.) Ver LOOK.
   memo.attend += (((speaking || woody.post) && !brain.moving ? 1 : 0) - memo.attend) * Math.min(1, delta * 5);
-  if (memo.attend > 0.02 && bones.neck && bones.head) {
-   const toward = Math.atan2(-(watched.x - woody.position.x), -(watched.z - woody.position.z));
-   let aside = toward - group.current.rotation.y;
-   aside = Math.max(-1.1, Math.min(1.1, Math.atan2(Math.sin(aside), Math.cos(aside)))) * memo.attend * 0.5;
+  let watched = woody.post?.look ?? player.position;
+  // ¿Va muy deprisa o está muy lejos? Entonces no se le sigue: se mira al astronauta.
+  if (delta > 0) {
+   const moved = memo.seen ? Math.hypot(watched.x - memo.seen.x, watched.z - memo.seen.z) / delta : 0;
+   memo.seenSpeed += (moved - memo.seenSpeed) * Math.min(1, delta * 10);
+   memo.seen = { x: watched.x, z: watched.z };
+  }
+  const away = Math.hypot(watched.x - woody.position.x, watched.z - woody.position.z);
+  if (watched !== player.position && (memo.seenSpeed > LOOK.fast || away > LOOK.far)) memo.ignore = LOOK.hold;
+  memo.ignore = Math.max(0, memo.ignore - delta);
+  if (memo.ignore > 0) watched = player.position;
+  let wanted = wrapAngle(Math.atan2(-(watched.x - woody.position.x), -(watched.z - woody.position.z)) - group.current.rotation.y);
+  // Detrás: al frente (sin dar la vuelta de un lado al otro). Si no, hasta el límite.
+  wanted = Math.abs(wanted) > LOOK.behind ? 0 : Math.max(-LOOK.aside, Math.min(LOOK.aside, wanted));
+  if (memo.attend <= 0.02) wanted = 0;
+  // Zona muerta: los cambios pequeños no mueven la cabeza (no tiembla).
+  if (Math.abs(wanted - memo.goal) > LOOK.dead) memo.goal = wanted;
+  // Muelle amortiguado (sin rebote), con giro máximo por segundo.
+  const pull = LOOK.spring * LOOK.spring * (memo.goal - memo.look) - 2 * LOOK.spring * memo.lookSpeed;
+  memo.lookSpeed = Math.max(-LOOK.speed, Math.min(LOOK.speed, memo.lookSpeed + pull * delta));
+  memo.look += memo.lookSpeed * delta;
+  // Lo que de verdad se aplica (mirada × atención) tampoco pasa del giro máximo: al
+  // empezar o dejar de atender no da un tirón.
+  memo.applied += Math.max(-LOOK.speed * delta, Math.min(LOOK.speed * delta, memo.look * memo.attend - memo.applied));
+  if (Math.abs(memo.applied) > 1e-4 && bones.neck && bones.head) {
+   const aside = memo.applied * 0.5;
    if (import.meta.env.DEV) window.__world.woodyLook = aside; // para las pruebas automáticas
    for (const bone of [bones.neck, bones.head]) {
     // Giro alrededor de la vertical del mundo, expresado en el hueso.

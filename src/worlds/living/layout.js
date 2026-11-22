@@ -108,8 +108,14 @@ export const BRIDGES = [{ from: [19.3, -0.4], to: [26.9, 0.9], width: 2.8, rise:
 // sale del puente sin escalón.
 export const BRIDGE_LIP = 0.04;
 // (Quien dibuja un puente pone su tablero en esta curva: lo que se ve es lo que se pisa.)
-export const bridgeArc = (bridge, t) => BRIDGE_LIP + Math.sin(t * Math.PI) ** 2 * (bridge.rise + 0.08);
-export const bridgeSlope = (bridge, t) => Math.sin(2 * t * Math.PI) * Math.PI * (bridge.rise + 0.08);
+// Perfil del arco: sen(πt) elevado a `arch` (2 por defecto: sube suave desde el
+// suelo; menos de 2, más empinado en los extremos y más alto antes, como el
+// puente rojo del jardín, que tiene que salvar el agua nada más dejar la orilla).
+export const bridgeArc = (bridge, t) => BRIDGE_LIP + Math.sin(t * Math.PI) ** (bridge.arch ?? 2) * (bridge.rise + 0.08);
+export const bridgeSlope = (bridge, t) => {
+ const arch = bridge.arch ?? 2, s = Math.max(1e-4, Math.sin(t * Math.PI));
+ return arch * s ** (arch - 1) * Math.cos(t * Math.PI) * Math.PI * (bridge.rise + 0.08);
+};
 
 function bridgeHeight(x, z) {
  for (const bridge of BRIDGES) {
@@ -294,7 +300,9 @@ export const COURT_FENCE = { x0: COURT.x0 - 0.45, x1: COURT.x1 + 0.45, z0: COURT
 export const GARDEN = {
  x: 19, z: 17,
  pond: { x: 19, z: 17.4, rx: 3.5, rz: 2.5 },
- bridge: { from: [19, 14.6], to: [19, 20.2] }, // cruza el estanque de norte a sur
+ // Cruza el estanque de norte a sur, apoyado en las dos orillas (1,3 m de tierra a
+ // cada lado del agua) y por encima de ella. (Antes era más corto y el agua lo tapaba.)
+ bridge: { from: [19, 13.6], to: [19, 21.2] },
  torii: { x: 15.0, z: 13.5, turn: Math.PI / 4, size: 3.6 }, // la entrada, viniendo de la nave
  teaHouse: { x: 24.4, z: 13.4, turn: -0.35, size: 5.0 },
  bench: { x: 14.6, z: 18.7, turn: 1.25 },
@@ -302,7 +310,7 @@ export const GARDEN = {
  // Cerezos: detrás y a los lados del estanque, nunca al sur (taparían el jardín a la cámara).
  cherries: [[20.6, 10.4, 1.0], [27.5, 17.8, 0.9], [17.4, 10.9, 0.9]],
 };
-BRIDGES.push({ from: GARDEN.bridge.from, to: GARDEN.bridge.to, width: 1.3, rise: 0.6, own: true });
+BRIDGES.push({ from: GARDEN.bridge.from, to: GARDEN.bridge.to, width: 1.3, rise: 0.85, arch: 1.3, own: true });
 export const PITCH = { x0: -33, x1: -14, z0: 17, z1: 29 }; // fútbol
 // Lo que hay plantado en el campo y a su lado (ver football/Football.jsx).
 const FOOTBALL_SOLIDS = [
