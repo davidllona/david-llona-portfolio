@@ -14,6 +14,8 @@ import { BARK, LEAF } from "../worlds/living/kit/palette";
 import { createLamp, LAMP_GLASS } from "../worlds/living/props/lampModel";
 import { WIND, withWind } from "./environment/wind";
 import { Instances } from "./Instances";
+import { aim, keepAbove } from "../characters/bones";
+import { HAMMOCK, HAMMOCK_MID, HAMMOCK_TURN, bedHeight, createHammock, createKnots } from "./intro/hammock";
 import { ISLET, TREE_LANTERNS, createFloater, createIslet, createLanternFrame, createTreeExtras, isletEdge } from "./intro/isletModels";
 import { celestial, createClouds, createGlobe, createMoon, createStreak } from "./intro/skyModels";
 import { sceneLights } from "./lightSources";
@@ -42,8 +44,10 @@ import { createGlowTexture } from "./textures";
 const DESCENT = 2.8; // segundos que dura el viaje al planeta
 const TREE = { position: [-0.55, 0, -0.9], turn: 0.35, scale: 0.9 };
 const LAMP = { position: [2.3, 0, 2.0], scale: 0.86 };
-const ASTRONAUT = [0.4, 0, 1.3];
-const DOG = [1.4, 0, 1.6];
+// Dónde aterriza el astronauta al bajarse de la hamaca y dónde duerme Woody
+// (debajo de la hamaca, un poco hacia la cámara para que se le vea).
+const ASTRONAUT = [0.3, 0, 1.15];
+const DOG = [0.72, 0.03, 0.78]; // (sobre la hierba, como las plantas: la isla no es plana del todo)
 const STAGE = 1.1; // los protagonistas, algo mayores que en el juego: son el centro de la portada
 const ONLY_TREE = ["frondoso"];
 const MOON_DEPTH = -44;
@@ -128,7 +132,7 @@ function createLights() {
 // Copia de un personaje riggeado, con su material facetado y sus clips en
 // bucle. `clips`: [{ name, only?, except? }]; `only` y `except` eligen huesos
 // (expresión regular), para sumar dos clips: sentado + la cola de otro.
-function Poser({ url, palette, clips, position, rotation, scale, lightsNode }) {
+function Poser({ url, palette, clips, position, rotation, scale, lightsNode, onPose }) {
  const { scene, animations } = useGLTF(url);
  const model = useMemo(() => {
   const copy = cloneSkinned(scene);
@@ -155,7 +159,9 @@ function Poser({ url, palette, clips, position, rotation, scale, lightsNode }) {
    const clip = only || except ? new THREE.AnimationClip(`${name}-parte`, found.duration, found.tracks.filter((track) => (only ? only.test(track.name) : !except.test(track.name)))) : found;
    mixer.clipAction(clip).play();
   }
-  return { copy, mixer, materials };
+  const bones = {};
+  copy.traverse((node) => node.isBone && (bones[node.name] = node));
+  return { copy, mixer, materials, bones };
  }, [scene, animations, palette, clips, lightsNode]);
  useEffect(
   () => () => {
@@ -164,12 +170,117 @@ function Poser({ url, palette, clips, position, rotation, scale, lightsNode }) {
   },
   [model],
  );
- useFrame((_, delta) => model.mixer.update(Math.min(delta, 0.05)));
+ useFrame((_, delta) => {
+  model.mixer.update(Math.min(delta, 0.05));
+  if (onPose) {
+   model.copy.updateMatrixWorld(true);
+   onPose(model);
+  }
+ });
  return <primitive object={model.copy} position={position} rotation={rotation} scale={scale} />;
 }
 const ASTRONAUT_CLIPS = [{ name: "Astro_Idle_Breathe" }];
-// Woody, sentado y moviendo la cola.
-const WOODY_CLIPS = [{ name: "Woody_SitIdle", except: /tail/i }, { name: "Woody_TailWag_Happy", only: /tail/i }];
+// Woody, durmiendo en el suelo.
+const WOODY_CLIPS = [{ name: "Woody_Sleep" }];
+
+// ── La hamaca (objetivo 27, A4) ─────────────────────────────────────────────
+// Estado compartido: el balanceo y el salto al pulsar «Haz clic para aterrizar».
+const hammock = { start: -1, hop: 0, swing: 0, lying: true, sleeping: true };
+const HOP_ARC = 0.32; // altura del salto (m)
+// Balanceo en el instante `time` (s): lento; al saltar, un empujón que se apaga.
+function swingAt(time) {
+ let swing = HAMMOCK.swing * Math.sin((time * Math.PI * 2) / HAMMOCK.period);
+ if (hammock.start >= 0) {
+  const since = (performance.now() - hammock.start) / 1000;
+  swing += 0.09 * Math.exp(-since / 1.1) * Math.sin(since * 4.2);
+ }
+ return swing;
+}
+// Marco de la hamaca → isla.
+const frame = { q: new THREE.Quaternion(), turn: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), HAMMOCK_TURN), roll: new THREE.Quaternion(), z: new THREE.Vector3(0, 0, 1) };
+function hammockFrame(swing) {
+ frame.roll.setFromAxisAngle(frame.z, swing);
+ return frame.q.copy(frame.turn).multiply(frame.roll);
+}
+const toIslet = (local, target) => target.copy(local).applyQuaternion(frame.q).add(scratch.mid);
+// El cuerpo tumbado, en el marco de la hamaca: la cabeza hacia el árbol y algo
+// levantada, la cara arriba. Columnas de la base: x del modelo, y (hacia la
+// cabeza), z (hacia donde mira).
+const LYING = (() => {
+ const up = new THREE.Vector3(0, 0.44, -0.9).normalize();
+ const side = new THREE.Vector3(1, 0, 0);
+ const face = new THREE.Vector3().crossVectors(side, up);
+ return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(side, up, face));
+})();
+const STANDING = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -0.12);
+// Piernas en el marco de la hamaca: la izquierda estirada en la tela; la
+// derecha (la del lado de la cámara) por fuera del borde, colgando.
+// Y las manos detrás de la cabeza: el brazo, hacia fuera y hacia la cabeza; el
+// antebrazo, de vuelta por detrás de ella.
+const LEGS = {
+ Thigh_L: new THREE.Vector3(0.06, 0.2, 1),
+ Shin_L: new THREE.Vector3(0.02, 0.06, 1),
+ Thigh_R: new THREE.Vector3(-0.85, 0.05, 0.55),
+ Shin_R: new THREE.Vector3(-0.12, -1, 0.08),
+ UpperArm_L: new THREE.Vector3(0.75, 0.35, -0.55),
+ Forearm_L: new THREE.Vector3(-0.7, 0.3, -0.45),
+ UpperArm_R: new THREE.Vector3(-0.75, 0.35, -0.55),
+ Forearm_R: new THREE.Vector3(0.7, 0.3, -0.45),
+};
+const LEG_CHILD = { Thigh_L: "Shin_L", Shin_L: "Foot_L", Thigh_R: "Shin_R", Shin_R: "Foot_R", UpperArm_L: "Forearm_L", Forearm_L: "Hand_L", UpperArm_R: "Forearm_R", Forearm_R: "Hand_R" };
+const scratch = { mid: new THREE.Vector3(...HAMMOCK_MID), hips: new THREE.Vector3(), target: new THREE.Vector3(), lying: new THREE.Vector3(), dir: new THREE.Vector3(), q: new THREE.Quaternion(), origin: new THREE.Vector3(...WELCOME.origin) };
+const ease = (x) => x * x * (3 - 2 * x);
+
+function poseAstronaut({ copy, bones }) {
+ const swing = hammock.swing;
+ hammockFrame(swing);
+ const e = ease(hammock.hop);
+ // Orientación: de tumbado (con la hamaca) a de pie, de cara a la cámara.
+ scratch.q.copy(frame.q).multiply(LYING).slerp(STANDING, e);
+ copy.quaternion.copy(scratch.q);
+ // Posición: las caderas, sobre la tela; de pie, los pies en el sitio de aterrizaje. Entre medias, un arco.
+ copy.position.set(0, 0, 0);
+ copy.updateMatrixWorld(true);
+ bones.Hips.getWorldPosition(scratch.hips).sub(scratch.origin);
+ toIslet(scratch.target.set(0, bedHeight(0, 0.12) + 0.13, 0.12), scratch.lying).sub(scratch.hips);
+ copy.position.copy(scratch.lying).lerp(scratch.target.set(...ASTRONAUT), e);
+ copy.position.y += 4 * hammock.hop * (1 - hammock.hop) * HOP_ARC;
+ copy.updateMatrixWorld(true);
+ // Las piernas, mientras está en la hamaca (y a medias durante el salto).
+ const weight = 1 - ease(Math.min(1, hammock.hop * 1.6));
+ // La mochila asomaría por debajo de la tela: tumbado, no se ve; vuelve al saltar.
+ bones.Backpack.scale.setScalar(Math.max(0.001, 1 - weight));
+ if (weight <= 0) return;
+ for (const [name, dir] of Object.entries(LEGS)) aim(bones[name], bones[LEG_CHILD[name]], scratch.dir.copy(dir).applyQuaternion(frame.q), weight);
+}
+const WOODY_TAIL = ["tail1", "tail2", "tail3", "tail4", "tail5"];
+function poseWoody({ bones }) {
+ // Nada de la cola por debajo de la hierba (A2): si un tramo baja, se apoya encima.
+ keepAbove(WOODY_TAIL.map((name) => bones[name]), WELCOME.origin[1] + 0.045);
+}
+
+function Hammock({ material }) {
+ const swinging = useRef(null);
+ const models = useMemo(() => ({ hammock: createHammock(), knots: createKnots() }), []);
+ useEffect(() => () => Object.values(models).forEach((one) => one.dispose()), [models]);
+ useEffect(() => {
+  if (import.meta.env.DEV) window.__world.hammock = hammock; // para las pruebas automáticas
+ }, []);
+ useFrame(({ clock }) => {
+  if (hammock.start >= 0) hammock.hop = Math.min(1, (performance.now() - hammock.start) / (HAMMOCK.hop * 1000));
+  hammock.lying = hammock.start < 0;
+  hammock.swing = swingAt(clock.elapsedTime);
+  swinging.current.rotation.z = hammock.swing;
+ });
+ return (
+  <>
+   <group position={HAMMOCK_MID} rotation-y={HAMMOCK_TURN}>
+    <mesh ref={swinging} geometry={models.hammock} material={material} castShadow receiveShadow />
+   </group>
+   <mesh geometry={models.knots} material={material} castShadow />
+  </>
+ );
+}
 
 // Sombra de contacto, muy suave, bajo cada protagonista. Las sombras de verdad
 // son las de la farola y las de la luna.
@@ -468,6 +579,7 @@ function Islet({ onMounted }) {
  const material = useMemo(() => {
   const lit = {
    still: lambert(),
+   cloth: lambert({ side: THREE.DoubleSide }),
    tree: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.tree, power: 2, cap: 7 }),
    blades: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.grass, cap: 0.9 }),
    flowers: withWind(lambert({ side: THREE.DoubleSide }), { flex: WIND.flex.flower, cap: 0.45 }),
@@ -492,7 +604,7 @@ function Islet({ onMounted }) {
   const random = randomFrom(0.83);
   const [tx, , tz] = TREE.position;
   // Nada alto delante de los protagonistas ni tapando las raíces del árbol.
-  const stage = (x, z) => x > ASTRONAUT[0] - 0.75 && x < DOG[0] + 0.75 && z > ASTRONAUT[2] - 0.35;
+  const stage = (x, z) => (x > ASTRONAUT[0] - 0.75 && x < DOG[0] + 0.75 && z > ASTRONAUT[2] - 0.35) || Math.hypot(x - DOG[0], z - DOG[2]) < 0.85 || Math.hypot(x - HAMMOCK_MID[0], z - HAMMOCK_MID[2]) < 0.9;
   const clear = (x, z) => !stage(x, z) && Math.hypot(x - tx, z - tz) > 1.25 && Math.hypot(x - LAMP.position[0], z - LAMP.position[2]) > 0.35;
   const scatter = (count, radius, centre = [0, 0], scale = [0.9, 0.6]) => {
    const list = [];
@@ -513,7 +625,7 @@ function Islet({ onMounted }) {
    bluebell: scatter(6, 0.8, [1.3, -1.9], [1.1, 0.4]),
    tulip: scatter(5, 0.6, [-2.3, -0.3], [1.1, 0.3]),
    ferns: scatter(5, 1.9, [tx - 0.3, tz - 0.4], [0.9, 0.5]),
-   mushrooms: scatter(3, 0.5, [tx + 0.9, tz + 1.5], [1.2, 0.5]),
+   mushrooms: scatter(3, 0.5, [tx - 0.6, tz + 1.5], [1.2, 0.5]), // (al otro lado del tronco: bajo la hamaca duerme Woody)
    // Césped corto donde están los protagonistas: se les ven los pies.
    lawn: Array.from({ length: 22 }, (_, i) => ({ position: [ASTRONAUT[0] - 0.6 + ((i * 0.37) % 1) * (DOG[0] - ASTRONAUT[0] + 0.5), 0.03, ASTRONAUT[2] - 0.2 + ((i * 0.61) % 1) * 1.5], rotation: [0, i * 2.1, 0], scale: [0.9, 0.42, 0.9], color: "#f2ffe6" })).filter((item) => isletEdge(item.position[0], item.position[2]) < 0.93),
    clover: scatter(5, all * 0.7),
@@ -548,7 +660,7 @@ function Islet({ onMounted }) {
   corona.current.position.set(x, y, MOON_DEPTH - 0.6);
  });
  useEffect(() => {
-  if (import.meta.env.DEV) window.__world.moon = moon.current; // para las pruebas automáticas
+  if (import.meta.env.DEV) Object.assign(window.__world, { moon: moon.current, THREE, welcomeOrigin: WELCOME.origin }); // para las pruebas automáticas
  }, []);
 
  const plants = models.plants;
@@ -588,10 +700,11 @@ function Islet({ onMounted }) {
    <Instances geometry={plants.mushrooms[0]} material={material.still} items={items.mushrooms} />
    <Instances geometry={plants.clover} material={material.still} items={items.clover} />
 
-   <Poser url="/models/characters/astronauta.glb" palette={ASTRONAUT_PALETTE} clips={ASTRONAUT_CLIPS} position={ASTRONAUT} rotation={[0, -0.12, 0]} scale={ASTRONAUT_SCALE * STAGE} lightsNode={lighting.node} />
-   <Poser url="/models/characters/woody.glb" palette={WOODY_PALETTE} clips={WOODY_CLIPS} position={DOG} rotation={[0, -1.75, 0]} scale={WOODY_SCALE * STAGE} lightsNode={lighting.node} />
-   <Shade texture={glow} position={[ASTRONAUT[0], 0.04, ASTRONAUT[2]]} size={[0.9, 0.9]} opacity={0.3} />
-   <Shade texture={glow} position={[DOG[0], 0.04, DOG[2]]} size={[0.9, 0.9]} opacity={0.3} />
+   <Hammock material={material.cloth} />
+   <Poser url="/models/characters/astronauta.glb" palette={ASTRONAUT_PALETTE} clips={ASTRONAUT_CLIPS} scale={ASTRONAUT_SCALE * STAGE} lightsNode={lighting.node} onPose={poseAstronaut} />
+   <Poser url="/models/characters/woody.glb" palette={WOODY_PALETTE} clips={WOODY_CLIPS} position={DOG} rotation={[0, -1.1, 0]} scale={WOODY_SCALE * STAGE} lightsNode={lighting.node} onPose={poseWoody} />
+   <Shade texture={glow} position={[HAMMOCK_MID[0], 0.04, HAMMOCK_MID[2]]} size={[0.9, 2.4]} turn={HAMMOCK_TURN} opacity={0.26} />
+   <Shade texture={glow} position={[DOG[0], 0.04, DOG[2]]} size={[1.0, 1.0]} opacity={0.3} />
    <Fireflies />
    <Dust />
    <FallingLeaves lightsNode={lighting.node} />
@@ -628,6 +741,12 @@ export function Welcome({ onMounted }) {
    camera.lookAt(point.set(ox + pose.look[0], oy + pose.look[1], oz + pose.look[2]));
   }
   if (rig.intro === rig.introTarget) return;
+  // Antes de bajar, el astronauta salta de la hamaca (como mucho medio segundo;
+  // con «reducir movimiento», nada: se pone de pie y se va).
+  if (rig.intro === 1) {
+   if (hammock.start < 0) hammock.start = performance.now() - (reduced ? HAMMOCK.hop * 1000 : 0);
+   if (performance.now() - hammock.start < HAMMOCK.hop * 1000) return;
+  }
   // Con «reducir movimiento» no hay viaje: se llega enseguida.
   const step = Math.min(delta, 0.05) / (reduced ? 0.35 : DESCENT);
   rig.intro = Math.max(rig.introTarget, rig.intro - step);

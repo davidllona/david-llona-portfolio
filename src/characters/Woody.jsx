@@ -31,6 +31,7 @@ const UP = new THREE.Vector3(0, 1, 0);
 const point = new THREE.Vector3();
 const parentTurn = new THREE.Quaternion();
 const turnBy = new THREE.Quaternion();
+const petAt = new THREE.Vector3();
 
 // Woody: te sigue a tu paso, descansa cuando te paras, te habla, te guía si se
 // lo pides y se deja acariciar. Su comportamiento está en WoodyBrain.js; aquí
@@ -45,7 +46,7 @@ export function Woody({ active }) {
   aliases: clipData.aliases,
   onEvent: (name) => emit("anim", { who: "woody", name }),
  });
- const bones = useMemo(() => ({ neck: scene.getObjectByName("neck"), head: scene.getObjectByName("head") }), [scene]);
+ const bones = useMemo(() => ({ neck: scene.getObjectByName("neck"), head: scene.getObjectByName("head"), headTop: scene.getObjectByName("SOCKET_head_top"), back: scene.getObjectByName("SOCKET_back") }), [scene]);
 
  // Colocarlo junto al jugador al entrar en un mundo.
  useEffect(() => {
@@ -107,12 +108,28 @@ export function Woody({ active }) {
 
  const pet = () => {
   if (player.gesture || brain.mode === "pet") return;
+  // Sentado o tumbado y al alcance de la mano: no se levanta; el astronauta se
+  // gira hacia él y lo acaricia tal como está (la mano va a donde esté su
+  // cabeza o su lomo: ver Astronaut.jsx).
+  if (brain.posture !== "stand" && !brain.moving) {
+   const spot = petSpot();
+   const toX = spot.x - player.position.x, toZ = spot.z - player.position.z;
+   if (Math.hypot(toX, toZ) < 1.0) {
+    player.facing = Math.atan2(-toX, -toZ);
+    // (Sin clip de reacción: los que hay son de pie; sigue como estaba.)
+    player.act?.("Astro_PetWoody", { fade: 0.15 });
+    emit("pet");
+    return;
+   }
+  }
   // Woody se coloca delante del astronauta, que se gira hacia él.
   const dx = woody.position.x - player.position.x;
   const dz = woody.position.z - player.position.z;
   const length = Math.hypot(dx, dz) || 1;
   player.facing = Math.atan2(-dx, -dz);
-  startPet(brain, { x: player.position.x + (dx / length) * 0.95, z: player.position.z + (dz / length) * 0.95 });
+  // (Con escafandra, más cerca: la mano va a su lomo, no a su cabeza.)
+  const near = world.woodyPetBack ? 0.72 : 0.95;
+  startPet(brain, { x: player.position.x + (dx / length) * near, z: player.position.z + (dz / length) * near });
   brain.posture = "stand";
   player.gesture = true; // el astronauta espera quieto a que llegue
  };
@@ -127,6 +144,18 @@ export function Woody({ active }) {
   enabled: () => !player.hidden && brain.mode !== "pet" && !player.gesture && !isSpeaking(),
   action: pet,
  });
+
+ // Dónde se le acaricia, según su pose: la cabeza de pie o sentado; el lomo
+ // tumbado (la cabeza está en el suelo) o con escafandra.
+ // (Tumbado, el punto del lomo del modelo queda unos 5 cm por encima de la piel.)
+ const petSpot = () => {
+  if (brain.posture === "lie") return bones.back.getWorldPosition(petAt).setY(petAt.y - 0.05);
+  return (world.woodyPetBack ? bones.back : bones.headTop).getWorldPosition(petAt);
+ };
+ useEffect(() => {
+  woody.petAt = petSpot;
+  return () => (woody.petAt = null);
+ }, [brain, bones]); // eslint-disable-line react-hooks/exhaustive-deps -- (petSpot solo lee brain y bones)
 
  useFrame(({ camera }, rawDelta) => {
   const delta = Math.min(rawDelta, 0.05);
@@ -145,6 +174,8 @@ export function Woody({ active }) {
 
   if (out.petReady) {
    woody.facing = Math.atan2(-(player.position.x - woody.position.x), -(player.position.z - woody.position.z));
+   // Con escafandra se le acaricia el lomo: se pone de costado para que llegue la mano.
+   if (world.woodyPetBack) woody.facing += Math.PI / 2;
    controller.play("Woody_PetReact", { loop: false, fade: 0.15 });
    player.act?.("Astro_PetWoody", { fade: 0.15 });
    emit("pet");

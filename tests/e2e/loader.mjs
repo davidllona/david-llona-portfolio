@@ -147,6 +147,29 @@ const measure = (page) =>
  await wait(700);
  const second = await read();
  check(first.every((value, i) => value !== second[i]), "el planeta, los dos ciclos de paso y las nubes se mueven solos");
+ // Nubes low poly (objetivo 27): SVG facetado en línea, de tres profundidades, y ninguna pasa
+ // nunca por delante (ni por detrás) del astronauta, de Woody o del porcentaje: se mira el bucle
+ // entero de la capa más lenta, en 48 instantes.
+ const clouds = await page.evaluate(() => [...document.querySelectorAll(".ld-cloud")].map((cloud) => ({ layer: cloud.parentElement.className.match(/ld-drift--(\w+)/)[1], width: cloud.getBoundingClientRect().width, facets: cloud.querySelector("use") ? document.querySelector(cloud.querySelector("use").getAttribute("href")).querySelectorAll("path").length : 0 })));
+ const widths = Object.fromEntries(["far", "mid", "near"].map((layer) => [layer, Math.max(...clouds.filter((cloud) => cloud.layer === layer).map((cloud) => cloud.width))]));
+ check(clouds.length >= 3 && clouds.length <= 4 && clouds.every((cloud) => cloud.facets >= 10) && widths.far < widths.mid && widths.mid < widths.near, `${clouds.length} nubes facetadas (${clouds.map((cloud) => `${cloud.layer} ${cloud.width.toFixed(0)} px`).join(", ")}): las lejanas, más pequeñas`);
+ let touching = [];
+ for (let i = 0; i < 48; i++) {
+  await freeze(page, (i / 48) * 190000);
+  touching = touching.concat(await page.evaluate(() => {
+   const boxes = { astronauta: ".ld-astro .ld-cell", Woody: ".ld-woody .ld-cell", porcentaje: ".ld-info" };
+   const hits = [];
+   for (const cloud of document.querySelectorAll(".ld-cloud")) {
+    const a = cloud.getBoundingClientRect();
+    for (const [name, selector] of Object.entries(boxes)) {
+     const b = document.querySelector(selector).getBoundingClientRect();
+     if (a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) hits.push(name);
+    }
+   }
+   return hits;
+  }));
+ }
+ check(touching.length === 0, `en todo el bucle (190 s, 48 instantes) ninguna nube toca al astronauta, a Woody ni al porcentaje${touching.length ? ` (toca: ${[...new Set(touching)].join(", ")})` : ""}`);
  await page.close();
 }
 

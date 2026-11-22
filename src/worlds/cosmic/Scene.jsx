@@ -11,6 +11,8 @@ import { Terrain } from "./Terrain";
 // En este mundo Woody lleva una escafandra. (Se apunta aquí, y no en los datos
 // del mundo, para que estos sigan siendo solo datos: los leen también las pruebas.)
 cosmic.woodyWears = Helmet;
+// Con la escafandra, la caricia va al lomo: la cabeza está dentro de la burbuja.
+cosmic.woodyPetBack = true;
 
 // Mundo 3 · The Cosmic Lab. Lo común (jugador, Woody, cohete y objetos sueltos)
 // lo monta Experience.jsx.

@@ -3,7 +3,9 @@
 //    modo que al verse la portada ya se puede entrar;
 //  · la indicación de entrada (texto y flecha de galones, sin botón), y que se
 //    entra con un clic en ella, en cualquier parte y con Enter;
-//  · el tiempo entre el clic y el inicio del descenso (objetivo: < 100 ms);
+//  · el tiempo entre el clic y la respuesta (objetivo: < 100 ms): desde el
+//    objetivo 27, el astronauta salta primero de la hamaca y el descenso empieza
+//    al acabar el salto (la entrada se alarga, como mucho, medio segundo);
 //  · la luna (mayor, gira), el planeta de destino (gira), luciérnagas, polvo y
 //    estrellas fugaces cada 4–8 s.
 // Y saca capturas: escritorio, móvil, ocho fotogramas seguidos con flecha,
@@ -59,7 +61,7 @@ async function open(viewport, { watch = true } = {}) {
 const armLatency = (page) =>
  page.evaluate(() => {
   const w = window.__world;
-  const result = (window.__latency = { event: null, moved: null, frames: [], tasks: [] });
+  const result = (window.__latency = { event: null, moved: null, descent: null, frames: [], tasks: [] });
   // Las tareas largas se anotan todas: el navegador las comunica con retraso.
   new PerformanceObserver((list) => list.getEntries().forEach((entry) => result.tasks.push([entry.startTime, entry.duration]))).observe({ entryTypes: ["longtask"] });
   const onGesture = (event) => {
@@ -70,8 +72,10 @@ const armLatency = (page) =>
    const frame = () => {
     const now = performance.now();
     result.frames.push(now);
-    if (result.moved === null && w.rig.intro < 1) result.moved = now;
-    if (result.frames.length < 40) requestAnimationFrame(frame);
+    // Responde: el astronauta salta de la hamaca (o, sin hamaca, la cámara baja).
+    if (result.moved === null && (w.rig.intro < 1 || w.hammock?.lying === false)) result.moved = now;
+    if (result.descent === null && w.rig.intro < 1) result.descent = now;
+    if (result.frames.length < 40 || result.descent === null) requestAnimationFrame(frame);
    };
    requestAnimationFrame(frame);
   };
@@ -82,7 +86,7 @@ const armLatency = (page) =>
 // larga (si la hay) que cae antes de ese fotograma; y, ya en pleno descenso, el
 // mayor hueco entre fotogramas y la mayor tarea del primer medio segundo.
 async function latency(page) {
- await page.waitForFunction(() => window.__latency.frames.length >= 40, { timeout: 8000 });
+ await page.waitForFunction(() => window.__latency.frames.length >= 40 && window.__latency.descent !== null, { timeout: 8000 });
  await wait(300);
  return page.evaluate(() => {
   const { event, moved, frames, tasks } = window.__latency;
@@ -90,10 +94,10 @@ async function latency(page) {
   const after = tasks.filter(([start]) => start >= moved && start < event + 500).map(([start, duration]) => `${duration.toFixed(0)} ms a los ${(start - event).toFixed(0)}`);
   let gap = 0;
   for (let i = 1; i < frames.length; i++) if (frames[i] < event + 500) gap = Math.max(gap, frames[i] - frames[i - 1]);
-  return { ms: moved - event, blocking: Math.max(0, ...before), after, gap };
+  return { ms: moved - event, descent: window.__latency.descent - event, blocking: Math.max(0, ...before), after, gap };
  });
 }
-const told = (r) => `${r.ms.toFixed(0)} ms (ninguna tarea larga antes de ese fotograma: ${r.blocking === 0}; después, mayor hueco entre fotogramas en el primer medio segundo: ${r.gap.toFixed(0)} ms${r.after.length ? `; tareas largas ya en descenso: ${r.after.join(", ")}` : ""})`;
+const told = (r) => `${r.ms.toFixed(0)} ms; el descenso, a los ${r.descent.toFixed(0)} (ninguna tarea larga antes de ese fotograma: ${r.blocking === 0}; después, mayor hueco entre fotogramas en el primer medio segundo: ${r.gap.toFixed(0)} ms${r.after.length ? `; tareas largas ya en descenso: ${r.after.join(", ")}` : ""})`;
 
 // ── Escritorio: la carga espera al planeta; la indicación; el cielo ──────────
 {
@@ -192,7 +196,7 @@ const told = (r) => `${r.ms.toFixed(0)} ms (ninguna tarea larga antes de ese fot
  await armLatency(page);
  await page.click(".overlay__enter", { delay: 90 });
  const clicked = await latency(page);
- check(clicked.ms < 100, `clic en la indicación → inicio del descenso: ${told(clicked)}`);
+ check(clicked.ms < 100 && clicked.descent <= 560, `clic en la indicación → el astronauta salta de la hamaca: ${told(clicked)}`);
  await page.close();
 }
 
@@ -214,10 +218,10 @@ for (const [how, act] of [
  await act(page);
  const result = await latency(page);
  times.push(result.ms);
- check(result.ms < 100, `${how} → inicio del descenso: ${told(result)}`);
+ check(result.ms < 100 && result.descent <= 560, `${how} → salta de la hamaca: ${told(result)}`);
  await page.close();
 }
-console.log(`     tiempos medidos entre el gesto y el inicio del descenso: ${times.map((ms) => ms.toFixed(0)).join(", ")} ms`);
+console.log(`     tiempos medidos entre el gesto y la respuesta (salto de la hamaca): ${times.map((ms) => ms.toFixed(0)).join(", ")} ms`);
 
 // ── Móvil vertical ───────────────────────────────────────────────────────────
 {

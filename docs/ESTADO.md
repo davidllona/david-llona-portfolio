@@ -1,8 +1,9 @@
 # Estado del universo de tres planetas
 
-Actualizado: 21 de noviembre de 2026 · rama `estacion-espacial`.
+Actualizado: 22 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
+**En curso: objetivo 27 — pulido: carga, entrada, mundo 1 y contacto al mundo 3** (`docs/OBJETIVO-27.md`): ver «Objetivo 27» abajo.
 **Objetivo 26 — cartas aprobadas y baloncesto nuevo** (`docs/OBJETIVO-26.md`): **hecho** (21-11-2026), los tres bloques. Parado, pendiente de que David lo revise. Ver «Objetivo 26» abajo.
 **Objetivo 25** (`docs/OBJETIVO-25.md`): su muestra de cartas no se aprobó; lo sustituye el 26.
 **Objetivo 24 — órbita del mundo 2 y arranque del mundo 3** (`docs/OBJETIVO-24.md`): los dos bloques hechos; **estilo del mundo 3 aprobado por David (21-11-2026)**. Ver «Objetivo 24» abajo.
@@ -17,6 +18,28 @@ Decidido por David el 13-11-2026: los pesos reales de los modelos mandan sobre l
 Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
 Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado.
 Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Contents/MacOS/Blender -b` (5.0.1). No hay ffmpeg: el audio también se convierte con Blender.
+
+## Objetivo 27 — Pulido: pantalla de carga, entrada, mundo 1 y contacto al mundo 3
+
+Encargo: `docs/OBJETIVO-27.md` (22-11-2026). Tres bloques, commit y push en cada uno; parada solo al final. Capturas antes/después de cada punto, en el mismo encuadre: `capturas/34-pulido/`.
+
+| Bloque | Estado |
+|---|---|
+| A. Pantalla de carga y entrada (A1–A4) | **Hecho** (22-11-2026) |
+| B. Mundo 1 (B1–B5) | Sin empezar |
+| C. El contacto pasa al mundo 3 | Sin empezar |
+
+**Bloque A, lo que hay:**
+- **A1 · Nubes de la carga** (`index.html`): las píldoras pasan a **nubes low poly de SVG en línea** (sin descargas): bolas facetadas unidas como las copas, cada faceta con uno de seis tonos según hacia dónde mira (arriba melocotón, abajo sombra morada) y la base recortada en plano. Dos formas (`<symbol>`), cuatro nubes en tres profundidades: dos lejanas (0,95 y 0,72 m, más claras y en la capa de 190 s), una media (1,5 m, 120 s) y una cercana (2,3 m, 70 s). Las genera un script (bolas → triángulos → tono por normal y altura); el SVG pesa 13,9 kB sin comprimir. Siempre por encima de las cabezas: `loader.mjs` comprueba en 48 instantes del bucle entero que ninguna toca al astronauta, a Woody ni al porcentaje.
+- **A2 · Woody en la isla** (`experience/Welcome.jsx`): su cola bajaba 10 cm bajo la hierba (medido en los vértices deformados). Ahora duerme (A4) y un retoque de huesos (`keepAbove`, `characters/bones.js`) apoya la cola sobre la hierba si algún tramo bajara; Woody, 3 cm más alto (como las plantas). Nada de Woody ni del astronauta atraviesa la isla (`isla.mjs` lo mira en todos los vértices durante 3,5 s).
+- **A3 · Caricia** (`characters/Astronaut.jsx`, `Woody.jsx`, `bones.js`): el clip bajaba la mano a 0,37 m del suelo, dentro de Woody. Encima del clip, **cinemática inversa de dos huesos** (brazo → antebrazo → palma) lleva la palma a donde está de verdad **su cabeza** (de pie o sentado) o **su lomo** (tumbado, o en The Cosmic Lab, donde la cabeza va dentro de la escafandra), según su pose en cada fotograma; del clip quedan el ir y venir y las palmaditas. Si Woody está sentado o tumbado y a mano, **ya no se levanta**: se le acaricia como está. En The Cosmic Lab se pone de costado y más cerca (0,72 m) para que llegue al lomo.
+- **A4 · Hamaca** (`experience/intro/hammock.js`, `Welcome.jsx`): hamaca a rayas (naranja, crema y verde azulado) colgada del tronco y del poste de la farola, con barras de madera y cuerdas, que se balancea muy despacio (±0,035 rad, 5,2 s). El astronauta, tumbado con las manos tras la cabeza y la pierna derecha colgando por el lado de la cámara (la mochila se oculta mientras está tumbado: asomaba bajo la tela); Woody duerme debajo, en el suelo. Al pulsar, **salta de la hamaca en 0,42 s** (arco de 32 cm, se endereza de cara a la cámara, la hamaca da un vaivén) y entonces empieza el descenso. Con «reducir movimiento», sin salto. Las setas se han movido al otro lado del tronco (bajo la hamaca duerme Woody; si se quedaban sin sitio, su malla con 0 copias daba un aviso de WebGPU).
+
+*Decisiones mías*: (1) la caricia sentado o tumbado solo se da si Woody está a menos de 1 m; si no, se levanta y viene, como antes. (2) Sentado o tumbado no hace la reacción de la caricia (los clips que hay son de pie). (3) Colores de la hamaca: el naranja del traje, el crema de los carteles y un verde azulado.
+
+*Pruebas nuevas*: `isla.mjs` (8: nada atraviesa la isla, hamaca y sueño, balanceo, salto antes del descenso y ≤ 0,5 s) y `caricia.mjs` (24: palma entre 3 y 11 cm sobre la cabeza o el lomo en todas las lecturas, en los tres mundos, de pie, sentado y tumbado; en The Twisted Moon Woody no se tumba nunca); las dos, en `npm run e2e`. `loader.mjs` (nubes) y `welcome.mjs` (el clic responde en 18–63 ms con el salto; el descenso empieza a los 433–465 ms), al día. **Batería al cerrar el bloque: veinticinco pruebas, 692 comprobaciones, 0 fallos.** `npm run build` pasa.
+
+*Sin comprobar*: cómo se ve la hamaca en un teléfono (solo emulado en las pruebas de siempre); la caricia jugada a mano (las pruebas colocan a Woody).
 
 ## Objetivo 26 — Cartas aprobadas en los tres mundos y baloncesto nuevo (con Firebase)
 

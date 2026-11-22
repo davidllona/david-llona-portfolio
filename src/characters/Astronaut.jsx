@@ -2,7 +2,8 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { emit, player } from "../experience/state";
+import { emit, player, woody } from "../experience/state";
+import { reach } from "./bones";
 import eventData from "./data/anim_events.json";
 import clipData from "./data/astronauta_clips.json";
 import { GAITS, createGaitClip, gaitEvents } from "./gait";
@@ -18,6 +19,17 @@ const RUN_CLIP_SPEED = GAITS.run.speed * ASTRONAUT_SCALE;
 const JOG_FROM = 1.7; // m/s a partir de los cuales trota en vez de andar
 const RUN_FROM = 4.9; // y a partir de los cuales corre
 const GAIT_CLIPS = [createGaitClip(GAITS.jog), createGaitClip(GAITS.run), createJumpShotClip()];
+// La caricia (objetivo 27, A3): el clip baja la mano derecha a una altura fija
+// (unos 0,37 m del suelo, 0,4 m por delante) y se metía en Woody o por debajo.
+// Encima del clip, la mano va a donde de verdad está su cabeza o su lomo
+// (`woody.petAt`, según su pose) con cinemática inversa de dos huesos; de la
+// animación se conserva el ir y volver y las palmaditas.
+const PET = { clip: "Astro_PetWoody", reach: [0.05, 0.2], leave: [0.8, 0.95], restY: 0.385, palm: 0.04 };
+const smooth = (from, to, x) => {
+ const k = Math.min(1, Math.max(0, (x - from) / (to - from)));
+ return k * k * (3 - 2 * k);
+};
+const petTarget = new THREE.Vector3(), wrist = new THREE.Vector3(), fingers = new THREE.Vector3(), start = new THREE.Vector3();
 const GAIT_EVENTS = [...eventData.events.filter((event) => event.clip !== GAITS.run.name), ...gaitEvents(GAITS.jog), ...gaitEvents(GAITS.run)];
 
 
@@ -121,7 +133,27 @@ export function Astronaut() {
   }
   wasGrounded.current = player.grounded;
   controller.update(delta);
+  if (controller.name === PET.clip && woody.petAt) petHand();
  });
+
+ // La mano de la caricia, sobre Woody.
+ const arm = useRef(null);
+ function petHand() {
+  arm.current ??= Object.fromEntries(["UpperArm_R", "Forearm_R", "Hand_R", "Fingers_R"].map((name) => [name, scene.getObjectByName(name)]));
+  const { UpperArm_R: upper, Forearm_R: lower, Hand_R: hand, Fingers_R: palm } = arm.current;
+  const action = controller.current.action;
+  const t = action.time / action.getClip().duration;
+  const weight = smooth(...PET.reach, t) * (1 - smooth(...PET.leave, t));
+  if (weight <= 0) return;
+  palm.getWorldPosition(start);
+  // Las palmaditas del clip: lo que sube la mano respecto a su altura media.
+  hand.getWorldPosition(wrist);
+  const pat = Math.max(0, Math.min(0.05, wrist.y - player.position.y - PET.restY));
+  // La palma (no la muñeca) se lleva justo encima: la cadena es brazo → antebrazo → palma.
+  petTarget.set(0, PET.palm + pat, 0).add(woody.petAt());
+  reach(upper, lower, palm, start.lerp(petTarget, weight));
+  if (import.meta.env.DEV) window.__world.petHand = { weight, target: petTarget.toArray(), palm: palm.getWorldPosition(fingers).toArray() };
+ }
 
  // El frente del modelo es +Z; el del jugador, -Z.
  return (
