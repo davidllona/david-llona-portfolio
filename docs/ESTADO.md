@@ -3,7 +3,7 @@
 Actualizado: 22 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
-**En curso: objetivo 27 — pulido: carga, entrada, mundo 1 y contacto al mundo 3** (`docs/OBJETIVO-27.md`): ver «Objetivo 27» abajo.
+**Objetivo 27 — pulido: carga, entrada, mundo 1 y contacto al mundo 3** (`docs/OBJETIVO-27.md`): **hecho** (22-11-2026), los tres bloques. Parado, pendiente de que David lo revise. Ver «Objetivo 27» abajo.
 **Objetivo 26 — cartas aprobadas y baloncesto nuevo** (`docs/OBJETIVO-26.md`): **hecho** (21-11-2026), los tres bloques. Parado, pendiente de que David lo revise. Ver «Objetivo 26» abajo.
 **Objetivo 25** (`docs/OBJETIVO-25.md`): su muestra de cartas no se aprobó; lo sustituye el 26.
 **Objetivo 24 — órbita del mundo 2 y arranque del mundo 3** (`docs/OBJETIVO-24.md`): los dos bloques hechos; **estilo del mundo 3 aprobado por David (21-11-2026)**. Ver «Objetivo 24» abajo.
@@ -62,6 +62,11 @@ Encargo: `docs/OBJETIVO-27.md` (22-11-2026). Tres bloques, commit y push en cada
 *Pruebas*: `contacto.mjs` (nueva, 18: menú en los tres mundos, la casita ya no está, el poste y su cartel, la antena y los tres terminales con todo apagado, la activación con todas encendidas, Woody sabe llevar); `cards.mjs`, `living.mjs`, `portfolio.mjs` y `buildings.mjs`, al día (la antena es el contacto; en el mundo 1 queda el poste; «Contacto» ya no guía). **Batería al cerrar el bloque: treinta pruebas, 751 comprobaciones, 0 fallos.** `npm run build` pasa.
 
 *Sin comprobar*: los enlaces abiertos de verdad (las pruebas leen el `href`, no salen a LinkedIn ni a GitHub); cómo se ve la onda de luz jugando (solo en capturas fijas).
+
+**Cierre.**
+- *Hoja final*: `capturas/34-pulido/hoja-final.jpg` (todos los antes y después, en el mismo encuadre) y las sueltas de cada punto (`A1-…` a `C-…`). Se rehacen con las pruebas: `loader.mjs`, `isla.mjs`, `caricia.mjs … capturas`, `carteles.mjs <etiqueta> solo-capturas`, `concurso.mjs <etiqueta> solo-captura`, `puente.mjs`, `pulido.mjs … contacto bajo dia`, `mirada.mjs` + `grafica-mirada.mjs`, `contacto.mjs` (el «antes» se sacó con el código anterior apartado con `git stash`).
+- *Primer pintado de la carga* (`node tests/perf/primer-pintado.mjs cargas=21`, nuevo: sin el código del juego, mediana de 20 cargas, servidor de desarrollo): **con las píldoras, 200 ms; con las nubes nuevas, 204 y 208 ms** (dos tandas), dentro de la variación entre cargas (184–232 ms). La primera versión de las nubes (estilos en línea, 14 kB) daba 212–216: se dejaron en clases (9 kB) y entran con un fundido al arrancar la animación. (El «menos de 100 ms» de `loader.mjs` ya no se cumplía antes en este equipo: 152–160 ms.)
+- *Rendimiento* (`node tests/perf/fps-mundos.mjs`, 2880 × 1620 sin límite, este equipo Windows; medido el mismo día con el código de antes del objetivo, `6abfe63`, y con el de ahora): **mundo 1**, antes 96–102 fps, ahora 103–110; **mundo 2**, antes 161–196, ahora 159–195; **mundo 3**, antes 206–237, ahora 201–232. Sin cambios fuera del ruido. (Hoy el equipo da menos que el día del objetivo 26: 110–117 / 188–226 / 253–304.)
 
 ## Objetivo 26 — Cartas aprobadas en los tres mundos y baloncesto nuevo (con Firebase)
 
