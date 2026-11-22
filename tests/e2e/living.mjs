@@ -114,11 +114,9 @@ await t.shot("living-noche-meseta");
 await use();
 await wait(600);
 check((await t.evaluate(() => document.documentElement.dataset.momento)) === "day", "y otra vez devuelve el día");
-// Contacto: tres terminales con su enlace.
-for (const [i, name] of ["LinkedIn", "GitHub", "Email"].entries()) {
- await t.put(CONTACT.terminals[i].x, CONTACT.terminals[i].z + 1.5, { withWoody: false, settle: 400 });
- check((await prompt()).toLowerCase().includes(name.toLowerCase()), `terminal ${i + 1}: "${await prompt()}"`);
-}
+// Contacto: desde el objetivo 27 vive en The Cosmic Lab; aquí queda su poste (ver contacto.mjs).
+await t.put(CONTACT.post.x, CONTACT.post.z + 1.3, { withWoody: false, settle: 400 });
+check(/contacto/i.test(await prompt()), `el poste de contacto: "${await prompt()}"`);
 // Carillón: despierta al bosque.
 await t.put(WIND_CHIME.x, WIND_CHIME.z + 1.3, { withWoody: false, settle: 500 });
 const before = await t.evaluate(() => window.__world.gusts ?? 0);

@@ -310,3 +310,24 @@ export function createRingedPlanet() {
  rings.computeVertexNormals();
  return { body, rings };
 }
+
+// Terminal de contacto (objetivo 27): peana redonda, columna y una cabeza en
+// forma de cápsula con su aro de luz del color del canal (turquesa, magenta o
+// lima) alrededor de la pantalla, y una antenita con bola. Mira a +z. La
+// pantalla con el icono va aparte (ver Signal.jsx): centro en TERMINAL_SCREEN.
+export const TERMINAL_SCREEN = { y: 1.28, z: 0.3, r: 0.3 };
+export function createTerminal(color) {
+ const { y, z, r } = TERMINAL_SCREEN;
+ const solid = [
+  piece(drum(0.5, 0.6, 0.14, 14), { bottom: SHELL.dark, top: SHELL.mid, vary: 0.05, seed: 81 }),
+  piece(drum(0.19, 0.27, 0.8, 12), { bottom: SHELL.mid, top: SHELL.light, vary: 0.04, seed: 82, position: [0, 0.14, 0] }),
+  piece(ball(0.5, 1), { bottom: SHELL.mid, top: SHELL.light, vary: 0.05, seed: 83, position: [0, y, -0.02], scale: [1, 0.92, 0.6] }),
+  piece(drum(0.022, 0.03, 0.4, 6), { color: METAL.mid, position: [0.24, y + 0.32, -0.04] }),
+ ];
+ const lit = [
+  piece(new THREE.TorusGeometry(r + 0.04, 0.045, 6, 18), { color, position: [0, y, z - 0.01] }),
+  piece(ball(0.075, 1), { color, position: [0.24, y + 0.76, -0.04] }),
+  piece(drum(0.62, 0.62, 0.03, 14), { color, position: [0, 0.14, 0] }),
+ ];
+ return withLit(solid, lit);
+}

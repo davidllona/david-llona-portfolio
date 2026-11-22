@@ -327,6 +327,17 @@ export function LabMachine({ content, close, act }) {
         ))}
        </ul>
       )}
+      {content.links && (
+       <ul className="modal__tags maquina__links">
+        {content.links.map((link) => (
+         <li key={link.href}>
+          <a href={link.href} target="_blank" rel="noopener noreferrer">
+           {link.label}
+          </a>
+         </li>
+        ))}
+       </ul>
+      )}
       {content.energy && <p className="maquina__energy">› {content.energy}</p>}
       <div className="maquina__actions">
        <MainAction content={content} act={act} />

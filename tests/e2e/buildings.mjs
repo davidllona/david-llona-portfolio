@@ -5,7 +5,7 @@
 //   node tests/e2e/buildings.mjs [etiqueta] [filtro de nombre]     («medida» como filtro: solo los números)
 //   (las capturas van a E2E_SHOTS, con la etiqueta como sufijo)
 import { open, wait } from "./common.mjs";
-import { CONTACT, LAB_TOTEMS, PAD, PLAZA, PROJECT_CABINS, TREEHOUSE } from "../../src/worlds/living/layout.js";
+import { LAB_TOTEMS, PAD, PLAZA, PROJECT_CABINS, TREEHOUSE } from "../../src/worlds/living/layout.js";
 
 const tag = process.argv[2] ?? "ahora";
 const only = process.argv[3];
@@ -13,7 +13,6 @@ const only = process.argv[3];
 const spots = [
  ...PROJECT_CABINS.map((c, i) => [`proyecto-${i}`, c.x, c.z - 1.6, 0.4, 5.6, 0.8, 2.2]),
  ["cartel-proyectos", PLAZA.x, PLAZA.z - 7.2, 0, 4, 0.5, 1.8],
- ["contacto", CONTACT.x, CONTACT.z - 2.6, 0, 6.2, 0.7, 2],
  ["casa-arbol", TREEHOUSE.x, TREEHOUSE.z - 0.9, 0, 5.5, 0.8, 3],
  ...LAB_TOTEMS.map((totem, i) => [`laboratorio-${i}`, totem.x, totem.z, 0, 3.2, 0.42, 1.3]),
  // La casa de referencia junto al cohete.

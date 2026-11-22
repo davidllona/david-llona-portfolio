@@ -13,7 +13,7 @@ export const WELCOME = [
 export const ZONE_LINES = {
  proyectos: "Esta es la aldea de proyectos: cada casa guarda uno. Acércate a su escaparate.",
  "casa-arbol": "La casa del árbol. Buen sitio para sentarse un rato y mirar la isla.",
- contacto: "Desde aquí se le escribe: LinkedIn, GitHub y el buzón del correo.",
+ contacto: "Aquí estaba el contacto. Ahora está en The Cosmic Lab, en la antena; el poste te lleva y te dice su correo.",
  cv: "En este atril está su currículum.",
  observatorio: "El observatorio. Con el telescopio se hace de noche… y otra vez de día.",
  pistas: "¡Las pistas! Coge el balón y prueba a encestar.",
@@ -25,6 +25,7 @@ export const ZONE_LINES = {
  // The Cosmic Lab.
  "lab-nave": "Esto es The Cosmic Lab. Aquí se pesa poco: prueba a saltar.",
  "lab-nucleo": "El núcleo. Cada máquina encendida le manda su energía.",
+ "lab-antena": "La antena del laboratorio: desde aquí se le envía una señal. LinkedIn, GitHub o un correo.",
 };
 
 // Menú del botón «Woody»: a dónde sabe llevar y cómo se le pide.
@@ -32,6 +33,7 @@ export const MENU = [
  { place: "proyectos", ask: "Muéstrame proyectos" },
  { place: "cohete", ask: "Llévame al cohete" },
  { place: "contacto", ask: "¿Dónde está Contacto?" },
+ { place: "lab-antena", ask: "Llévame a la antena (contacto)" },
  // The Twisted Moon.
  { place: "casa-tronco", ask: "Llévame a su historia" },
  { place: "torre", ask: "Súbeme a la torre del reloj" },
@@ -57,7 +59,7 @@ export const GUIDE = {
  arrive: {
   proyectos: "Aquí están los proyectos.",
   cohete: "El cohete.",
-  contacto: "Contacto, al otro lado del río.",
+  contacto: "El contacto está en The Cosmic Lab. Este poste te lleva; y aquí tienes su correo.",
   cv: "Aquí tienes el CV.",
   "casa-tronco": "La casa del tronco. Aquí empieza su historia.",
   torre: "La torre del reloj. Mira qué luna.",
@@ -68,5 +70,6 @@ export const GUIDE = {
   "luna-observatorio": "El observatorio. Asómate al telescopio.",
   "lab-nucleo": "El núcleo. Está esperando energía.",
   "lab-dosia": "La máquina de Dosia. Enciéndela con la E.",
+  "lab-antena": "La antena. Envía una señal desde cualquiera de los tres terminales.",
  },
 };

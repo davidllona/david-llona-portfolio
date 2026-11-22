@@ -6,7 +6,7 @@
 //   node tests/e2e/cards.mjs
 import { open, check, wait } from "./common.mjs";
 import { TALE_CARDS } from "../../src/content/cards.js";
-import { CONTACT_LINKS, EMAIL } from "../../src/content/contact.js";
+import { CONTACT_LINKS, EMAIL, signalCard } from "../../src/content/contact.js";
 import { LAB } from "../../src/content/cosmic.js";
 import { PROJECTS } from "../../src/content/projects.js";
 import { CLOCK, STOPS, TIMELINE } from "../../src/content/twisted.js";
@@ -108,7 +108,10 @@ await useIt(t, [CV_KIOSK.x, CV_KIOSK.z + 1]);
 const cv = await read(t);
 check(cv?.object === "cartel" && (await count(t, ".cartel__paper")) === 0 && cv.closes === 1 && !cv.pending, `el CV usa el mismo cartel, sin imágenes («${cv?.title}»)`);
 await close(t);
-await useIt(t, [CONTACT.antenna.x, CONTACT.antenna.z + 1.7]);
+// (Desde el objetivo 27 el contacto vive en The Cosmic Lab; aquí se abre desde el menú.)
+await t.evaluate(() => [...document.querySelectorAll(".quick button")].find((one) => one.textContent === "Contacto").click());
+await t.page.waitForSelector(".modal__card", { timeout: 6000 }).catch(() => {});
+await wait(700);
 const contact = await read(t);
 const links = await t.evaluate(() => [...document.querySelectorAll(".cartel__links a")].map((one) => one.getAttribute("href")));
 check(contact?.object === "cartel" && (await count(t, ".cartel__paper")) === 0 && contact.text.join() === EMAIL && links.join() === CONTACT_LINKS.filter((one) => !one.href.startsWith("mailto:")).map((one) => one.href).join() && contact.buttons.length === 1, `Contacto, también: el correo, sus enlaces (${links.length}) y un solo botón («${contact?.buttons[0]}»)`);
@@ -209,7 +212,7 @@ check(core?.object === "maquina" && core.title === LAB.corePanel.title && (await
 await close(t);
 await useIt(t, [ANTENNA.x, ANTENNA.z + 2.2], 1600);
 const dish = await read(t);
-check(dish?.object === "maquina" && dish.title === LAB.antennaPanel.title && dish.text.join("|") === LAB.antennaPanel.paragraphs.join("|"), `y la antena, también («${dish?.title}»: ${dish?.text[0]})`);
+check(dish?.object === "maquina" && dish.title === signalCard().title && dish.text.join("|") === signalCard().paragraphs.join("|"), `y la antena (el contacto), también («${dish?.title}»: ${dish?.text[0]})`);
 await close(t);
 await t.done();
 

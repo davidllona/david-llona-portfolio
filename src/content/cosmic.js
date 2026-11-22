@@ -55,14 +55,10 @@ export const LAB = {
  coreSome: (have, total) => `El núcleo: ${have} de ${total} máquinas`,
  corePanel: {
   title: "El núcleo",
-  paragraphs: ["El laboratorio está apagado. Cada máquina que se enciende manda su energía aquí.", "Con todas encendidas, el núcleo arranca y se activa la antena."],
+  paragraphs: ["El laboratorio está apagado. Cada máquina que se enciende manda su energía aquí.", "Con todas encendidas, se activa la antena del fondo. (La antena es el contacto: funciona siempre.)"],
  },
- // La antena del final: hoy, apagada.
- antennaHint: "La antena",
- antennaPanel: {
-  title: "La antena",
-  paragraphs: ["Está apagada.", "Se activa cuando el núcleo arranca, con todas las máquinas encendidas."],
- },
+ // La antena del fondo: el contacto (su carta, en content/contact.js). Funciona siempre.
+ antennaHint: "Envía una señal",
 };
 
 // ── Lo que dice Woody ───────────────────────────────────────────────────────
@@ -70,5 +66,7 @@ export const WOODY_LAB = {
  arrival: ["Esto es The Cosmic Lab. Aquí se pesa poco: prueba a saltar.", "El laboratorio está apagado. Cada máquina que enciendas manda energía al núcleo.", "Ven, te llevo a la primera."],
  afterFirst: "¡Guau! Ya llega energía al núcleo. Vamos a por la siguiente.",
  next: "Otra más. Ven, te llevo a la siguiente.",
- allOn: "Encendidas todas las que hay montadas. Al núcleo aún le falta una.",
+ allOn: "Encendidas todas las que hay montadas. ¡Mira la antena del fondo! Desde ahí se le envía una señal a David.",
+ // En la antena (el contacto).
+ antenna: "La antena. Desde aquí se le envía una señal: LinkedIn, GitHub o un correo, en esos tres terminales.",
 };

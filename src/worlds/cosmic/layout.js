@@ -67,8 +67,19 @@ export const MACHINES = Object.fromEntries(
   return [id, { id, x, z, turn, use: { x: x + ux * 2.5, z: z + uz * 2.5 }, tip: [x + tx * Math.cos(turn) + tz * Math.sin(turn), ty, z - tx * Math.sin(turn) + tz * Math.cos(turn)] }];
  }),
 );
-// La antena, al fondo, sobre una loma: se activa al final («Envía una señal»). Hoy, apagada.
+// La antena, al fondo, sobre una loma: es el contacto («Envía una señal»; objetivo 27).
+// Funciona siempre; con todas las máquinas encendidas, además, se activa.
 export const ANTENNA = { x: 0, z: -35.5, solid: 1.1 };
+// Los tres terminales de contacto, en arco delante de la antena (a 4,2 m), de cara al sur.
+export const TERMINALS = [
+ { id: "LinkedIn", color: "#62f6e6" },
+ { id: "GitHub", color: "#ff4fb0" },
+ { id: "Email", color: "#d8ff5c" },
+].map((one, i) => {
+ const angle = ((i - 1) * 40 * Math.PI) / 180;
+ const x = ANTENNA.x + Math.sin(angle) * 4.2, z = ANTENNA.z + Math.cos(angle) * 4.2;
+ return { ...one, x, z, turn: angle, use: { x: x + Math.sin(angle) * 1.3, z: z + Math.cos(angle) * 1.3 } };
+});
 // Charcas de líquido brillante: se vadean.
 export const POOLS = [
  { x: -14.5, z: -5.5, r: 3.6 },
@@ -162,17 +173,19 @@ function scatter(seed, count, { margin = 0, spacing = 0, others = [], pick } = {
 }
 const from = (list) => (random) => ({ tint: list[Math.floor(random() * list.length)] });
 const CAPS = ["#2fe0cc", "#ff66c4", "#d2f55a"], GEMS = ["#6ff7ea", "#dcff72", "#ff93dc"], LEAVES = ["#25c2b2", "#7d55d6", "#38d6a4"];
+// (Nada encima de los terminales de contacto ni de su sitio de uso.)
+const awayFromTerminals = (one) => TERMINALS.every((spot) => Math.hypot(one.x - spot.x, one.z - spot.z) > 1.9 && Math.hypot(one.x - spot.use.x, one.z - spot.use.z) > 1.6);
 // Hongos gigantes: pocos y grandes. (Lejos del camino de la plataforma al núcleo: no tapan la cámara.)
 // Tampoco delante de un sitio de uso —entre él y la cámara, que mira desde el sur—: lo taparían.
 const USED = [...Object.values(MACHINES).map((machine) => machine.use), { x: CORE.x, z: CORE.z + CORE.r }, { x: ANTENNA.x, z: ANTENNA.z + 3 }, { x: 0, z: -6 }];
 const hides = (one) => USED.some((spot) => Math.abs(one.x - spot.x) < 6.5 && one.z > spot.z - 4.5 && one.z < spot.z + 15);
-export const MUSHROOMS = scatter(20261301, 26, { margin: 1.4, spacing: 7, pick: (random) => ({ scale: 1 + random() * 0.9, tint: CAPS[Math.floor(random() * CAPS.length)] }) }).filter((one) => !hides(one)).slice(0, 9);
+export const MUSHROOMS = scatter(20261301, 26, { margin: 1.4, spacing: 7, pick: (random) => ({ scale: 1 + random() * 0.9, tint: CAPS[Math.floor(random() * CAPS.length)] }) }).filter((one) => !hides(one)).slice(0, 9).filter(awayFromTerminals);
 // Racimos de cristales.
-export const CRYSTALS = scatter(20261302, 12, { margin: 0.6, spacing: 5, others: MUSHROOMS, pick: from(GEMS) });
+export const CRYSTALS = scatter(20261302, 12, { margin: 0.6, spacing: 5, others: MUSHROOMS, pick: from(GEMS) }).filter(awayFromTerminals);
 // Corales: plantas alienígenas ramificadas.
-export const CORALS = scatter(20261308, 11, { margin: 0.7, spacing: 5.5, others: [...MUSHROOMS, ...CRYSTALS], pick: from(["#ff7ccf", "#3fe0cc", "#d2f55a", "#b48cf5"]) }).filter((one) => !hides(one));
+export const CORALS = scatter(20261308, 11, { margin: 0.7, spacing: 5.5, others: [...MUSHROOMS, ...CRYSTALS], pick: from(["#ff7ccf", "#3fe0cc", "#d2f55a", "#b48cf5"]) }).filter((one) => !hides(one)).filter(awayFromTerminals);
 // Piedras redondas.
-export const STONES = scatter(20261303, 16, { margin: 0.4, spacing: 3, others: [...MUSHROOMS, ...CRYSTALS, ...CORALS] });
+export const STONES = scatter(20261303, 16, { margin: 0.4, spacing: 3, others: [...MUSHROOMS, ...CRYSTALS, ...CORALS] }).filter(awayFromTerminals);
 const SOLID = [...MUSHROOMS, ...CRYSTALS, ...CORALS, ...STONES];
 // Bulbos que laten, tentáculos que se mecen y brotes menudos.
 export const BULBS = scatter(20261304, 44, { spacing: 1.5, others: SOLID, pick: from(["#dcff72", "#6ff7ea", "#ff93dc"]) });
@@ -228,6 +241,7 @@ export const colliders = [
  { x: CORE.x, z: CORE.z, r: CORE.solid },
  ...Object.values(MACHINES).map((machine) => ({ x: machine.x, z: machine.z, r: 1.95 })),
  { x: ANTENNA.x, z: ANTENNA.z, r: ANTENNA.solid },
+ ...TERMINALS.map((one) => ({ x: one.x, z: one.z, r: 0.55 })),
  ...MUSHROOMS.map((one) => ({ x: one.x, z: one.z, r: 0.42 * one.scale })),
  ...CRYSTALS.map((one) => ({ x: one.x, z: one.z, r: 0.6 * one.scale })),
  ...CORALS.map((one) => ({ x: one.x, z: one.z, r: 0.55 * one.scale })),
@@ -280,6 +294,7 @@ const cosmic = {
  // Zonas de las que Woody dice algo la primera vez que se entra (content/woody.js).
  zones: [
   { id: "lab-nave", x: PAD.x, z: PAD.z, r: PAD.padRadius + 1.4 },
+  { id: "lab-antena", x: ANTENNA.x, z: ANTENNA.z + 4, r: 4.6 },
   { id: "lab-nucleo", x: CORE.x, z: CORE.z, r: CORE.r + 2.2 },
  ],
  areas: [],
@@ -300,6 +315,8 @@ const cosmic = {
    "lab-oeste": [-6.5, -15],
    "lab-este": [6.5, -15],
    "lab-norte": [0, -21.5],
+   // (La antena y sus terminales: el contacto.)
+   "lab-antena": [0, -29.4],
    ...Object.fromEntries(Object.values(MACHINES).map((machine) => [`lab-${machine.id}`, [machine.use.x, machine.use.z]])),
   },
   links: [
@@ -318,8 +335,9 @@ const cosmic = {
    ["lab-este", "lab-chuchometro"],
    ["lab-este", "lab-viajes"],
    ["lab-este", "lab-experimentos"],
+   ["lab-norte", "lab-antena"],
   ],
-  places: [{ id: "cohete" }, { id: "lab-nucleo" }, { id: "lab-dosia" }, { id: "lab-epidos" }, { id: "lab-chuchometro" }, { id: "lab-viajes" }],
+  places: [{ id: "cohete" }, { id: "lab-nucleo" }, { id: "lab-dosia" }, { id: "lab-epidos" }, { id: "lab-chuchometro" }, { id: "lab-viajes" }, { id: "lab-antena" }],
  },
  themes: { day: ALIEN, dusk: ALIEN, night: ALIEN },
 };

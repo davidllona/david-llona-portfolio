@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { contactCard } from "../content/contact";
 import { CV } from "../content/cv";
 import { SECTIONS, TRAVEL_OFFER } from "../content/sections";
 import { LAB } from "../content/cosmic";
@@ -12,9 +13,11 @@ import { AchievementsButton } from "./Achievements";
 
 // Menú superior, siempre a la vista mientras se explora. Cada botón lleva a su
 // sitio: si está en este mundo, Woody va delante y te espera; si está en otro
-// («Sobre mí» vive en The Twisted Moon; proyectos, CV y contacto, en The Living
-// World), se ofrece viajar hasta allí en el cohete. No abre ninguna página
-// aparte. El CV, además, se puede descargar desde aquí sin moverse.
+// («Sobre mí» vive en The Twisted Moon; proyectos y CV, en The Living World),
+// se ofrece viajar hasta allí en el cohete. No abre ninguna página aparte. El
+// CV, además, se puede descargar desde aquí sin moverse. «Contacto» (que vive
+// en The Cosmic Lab, en la antena) abre su carta directamente, en cualquier
+// mundo: quien tenga prisa no tiene que viajar.
 export function QuickMenu({ onAchievements }) {
  // (Se vuelve a pintar al cambiar de mundo: cambia a dónde lleva cada botón.)
  const [, refresh] = useState(0);
@@ -39,7 +42,8 @@ export function QuickMenu({ onAchievements }) {
  const here = (section) => section.world === world.id;
  const go = (event, section) => {
   event.currentTarget.blur();
-  if (section.id === "sobre-mi" && here(section)) setAbout(true);
+  if (section.direct) emit("open", contactCard(world.id));
+  else if (section.id === "sobre-mi" && here(section)) setAbout(true);
   else if (here(section)) emit("guide", { to: section.place, asked: true });
   else emit("open", { kind: "travel", eyebrow: section.label, ...TRAVEL_OFFER[section.world], voyage: section.world });
  };
@@ -48,7 +52,7 @@ export function QuickMenu({ onAchievements }) {
   <nav className="quick" aria-label="Ir a cada zona del planeta">
    {SECTIONS.map((section) => (
     <span key={section.id} className="quick__item">
-     <button type="button" title={section.id === "sobre-mi" && here(section) ? "Sobre mí: leerlo todo" : here(section) ? `Ir a ${section.label} con Woody` : `${section.label}: viajar a su mundo`} onClick={(event) => go(event, section)}>
+     <button type="button" title={section.direct ? `${section.label}: abrirlo aquí` : section.id === "sobre-mi" && here(section) ? "Sobre mí: leerlo todo" : here(section) ? `Ir a ${section.label} con Woody` : `${section.label}: viajar a su mundo`} onClick={(event) => go(event, section)}>
       {section.label}
      </button>
      {section.id === "cv" && CV.file && (

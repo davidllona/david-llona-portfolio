@@ -14,7 +14,7 @@ import { addWarmSource } from "../../experience/lightSources";
 import { Observatory } from "./buildings/Observatory";
 import { Football } from "./football/Football";
 import { Treehouse } from "./zones/Treehouse";
-import { Contact } from "./zones/Contact";
+import { ContactPost } from "./zones/ContactPost";
 import { ProjectVillage } from "./zones/ProjectVillage";
 import { SignFace, Signposts } from "./props/Signpost";
 import { Garden } from "./zones/Garden";
@@ -272,7 +272,7 @@ export function Zones() {
    <CvKiosk />
    <Treehouse />
    <Observatory />
-   <Contact />
+   <ContactPost />
    <WindChime />
    <Pitch />
    <Football />

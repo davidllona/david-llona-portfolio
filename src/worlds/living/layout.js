@@ -282,7 +282,9 @@ export const LAB_TOTEMS = [
 export const CV_KIOSK = { x: 6.6, z: 6.4 };
 export const TREEHOUSE = { x: 1.5, z: -27 }; // la casa del árbol, en la meseta: un rincón decorativo («Sobre mí» irá en el mundo 2)
 export const OBSERVATORY = { x: 19, z: -25.5 };
-export const CONTACT = { x: 34, z: -2.5, antenna: { x: 37.5, z: -6.5 }, terminals: [-2.6, 0, 2.6].map((dx) => ({ x: 34 + dx, z: -0.8 })) };
+// Contacto: desde el objetivo 27 vive en The Cosmic Lab (la antena del laboratorio).
+// Aquí, donde estaba su casita, queda un poste indicador que ofrece el viaje y da el correo.
+export const CONTACT = { x: 34, z: -2.5, post: { x: 34, z: -0.9, turn: -0.15 } };
 export const COURT = { x0: -5, x1: 11, z0: 20, z1: 30.4 }; // baloncesto
 export const BASKET = {
  center: { x: (COURT.x0 + COURT.x1) / 2, z: (COURT.z0 + COURT.z1) / 2 },
@@ -579,9 +581,7 @@ const FOOTPRINTS = [
  { x: TREEHOUSE.x, z: TREEHOUSE.z - 1.6, r: 1.7 },
  { x: TREEHOUSE.x + 2.6, z: TREEHOUSE.z + 1.2, r: 1.6 },
  { x: OBSERVATORY.x, z: OBSERVATORY.z - 1.2, r: 4.6 },
- { x: CONTACT.x, z: CONTACT.z - 2.6, r: 2.6 },
- { ...CONTACT.antenna, r: 1.5 },
- ...CONTACT.terminals.map((t) => ({ ...t, r: 0.8 })),
+ { x: CONTACT.post.x, z: CONTACT.post.z, r: 0.25 },
  { ...WIND_CHIME, r: 0.5 },
  { x: PITCH.x0 + 6.2, z: PITCH.z0 - 1.9, r: 1.5 },
  ...[...signPosts.slice(0, 10), ...postsOf(FORMER_SIGNS.slice(0, 1)), ...signPosts.slice(10), ...postsOf(FORMER_SIGNS.slice(1))].map((s) => ({ x: s.x, z: s.z, r: 0.3 })),
@@ -589,8 +589,7 @@ const FOOTPRINTS = [
  ...LAB_TOTEMS.flatMap((t) => [-0.8, 0.8].map((dx) => ({ x: t.x + dx, z: t.z + 1.5, r: 0.8 }))),
  { x: TREEHOUSE.x, z: TREEHOUSE.z - 0.9, r: 3.0 },
  { x: TREEHOUSE.x - 3.9, z: TREEHOUSE.z - 0.2, r: 1.6 },
- { x: CONTACT.x, z: CONTACT.z + 0.4, r: 4.4 },
- ...CONTACT.terminals.map((t) => ({ x: t.x, z: t.z + 1.3, r: 0.9 })),
+ { x: CONTACT.post.x, z: CONTACT.post.z, r: 0.9 },
 ];
 const built = (x, z) => FOOTPRINTS.some((f) => (f.x - x) ** 2 + (f.z - z) ** 2 < f.r * f.r);
 
@@ -1014,10 +1013,9 @@ const colliders = [
  ...lanterns.map((l) => ({ x: l.x, z: l.z, r: 0.14 })),
  // Carteles: de poste a poste (el tablón queda a la altura del cuerpo).
  ...SIGNPOSTS.map((s, i) => ({ x: signPosts[i * 2].x, z: signPosts[i * 2].z, bx: signPosts[i * 2 + 1].x, bz: signPosts[i * 2 + 1].z, r: 0.16 })),
- // Farolas de la plaza y de Contacto (ver ProjectVillage.jsx y Contact.jsx).
+ // Farolas de la plaza (ver ProjectVillage.jsx).
  { x: PLAZA.x + PLAZA.r + 0.9, z: 2.2, r: 0.14 },
  { x: PLAZA.x - PLAZA.r - 0.2, z: 1.7, r: 0.14 },
- { x: CONTACT.x - 4.3, z: CONTACT.z + 2.6, r: 0.14 },
  // La cortina de agua de la cascada (es una lámina casi vertical: no deja huella).
  { x: WATERFALL.x - 1.5, z: WATERFALL.z + 1.75, bx: WATERFALL.x + 1.5, bz: WATERFALL.z + 1.75, r: 0.55 },
  // Valla de la pista de baloncesto: los cuatro lados, con el hueco de la puerta.

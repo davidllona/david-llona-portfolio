@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { attribute, mix, sin, uniform, vec3 } from "three/tsl";
 import { APP_CARDS, appCard } from "../../content/cards";
+import { signalCard } from "../../content/contact";
 import { LAB, MACHINES as TEXT, MACHINE_ORDER, WOODY_LAB } from "../../content/cosmic";
 import { Instances } from "../../experience/Instances";
 import { useInteractable } from "../../experience/interact";
@@ -15,6 +16,7 @@ import { lab } from "../../game/labQuest";
 import { ANTENNA, CORE, MACHINES, MACHINE_KINDS, MACHINE_LAMP, MACHINE_TIP, SLABS, SPAWN, TUBES, ground } from "./layout";
 import { beam, flowing, glassy, powered, solid } from "./materials";
 import { ENERGY, createCore, createCoreLamp, createMachine, createMachineBase, createPipe, createSlab, createStatusPost } from "./models";
+import { Signal } from "./Signal";
 import { preloadLabModel, useLabModel } from "./useLabModel";
 
 // El laboratorio: el núcleo en el centro y, en corro, las cinco máquinas —cada
@@ -57,7 +59,8 @@ function createPowers() {
 
 export function LabScene() {
  const base = useMemo(() => ({ core: ground(CORE.x, CORE.z), ...Object.fromEntries(MACHINE_ORDER.map((id) => [id, ground(MACHINES[id].x, MACHINES[id].z)])) }), []);
- const power = useMemo(() => ({ ...createPowers(), core: uniform(coreLevel(lab.count())), zero: uniform(0) }), []);
+ // (`antenna`: la antena se enciende con todas las máquinas que hay montadas; ver Signal.jsx.)
+ const power = useMemo(() => ({ ...createPowers(), core: uniform(coreLevel(lab.count())), zero: uniform(0), antenna: uniform(READY.every((id) => lab.isOn(id)) ? 1 : 0) }), []);
  const models = useMemo(
   () => ({
    base: createMachineBase(MACHINE_TIP),
@@ -91,6 +94,7 @@ export function LabScene() {
    frame: powered(power.core, { gain: 2.2 }),
    ball,
    off: powered(power.zero),
+   antenna: powered(power.antenna, { gain: 2.4 }),
   };
  }, [power]);
  useEffect(
@@ -152,7 +156,7 @@ export function LabScene() {
  // (Si se sale del mundo a media secuencia, no se queda nada a medias.)
  useEffect(() => () => void (sequence.current && release()), []);
 
- // El núcleo: cuenta qué le falta. Y la antena, apagada hasta el final.
+ // El núcleo: cuenta qué le falta. Y la antena: el contacto, siempre a mano.
  useInteractable({
   position: { x: CORE.x, z: CORE.z + CORE.r + 0.8 },
   radius: 2.3,
@@ -170,7 +174,7 @@ export function LabScene() {
   enabled: () => !ui.open && sequence.current === null,
   action: () => {
    emit("lab", { type: "antenna" });
-   emit("open", { kind: "antenna", title: LAB.antennaPanel.title, paragraphs: LAB.antennaPanel.paragraphs, at: { x: ANTENNA.x, y: antennaY + 3, z: ANTENNA.z, distance: 1.1 } });
+   emit("open", { ...signalCard(), at: { x: ANTENNA.x, y: antennaY + 3, z: ANTENNA.z, distance: 1.1 } });
   },
  });
 
@@ -255,6 +259,8 @@ export function LabScene() {
   }
   // El núcleo sigue a lo encendido, sin saltos; sus aros giran con la energía que haya (apagado, casi parados).
   power.core.value += (coreLevel(lab.count()) - power.core.value) * ease;
+  // La antena, con todas las máquinas montadas encendidas: despacio, como quien arranca algo grande.
+  power.antenna.value += ((READY.every((id) => lab.isOn(id)) ? 1 : 0) - power.antenna.value) * Math.min(1, delta * 1.2);
   const spin = clock.elapsedTime * (0.08 + power.core.value * 1.6);
   if (rings.current[0]) rings.current[0].rotation.set(0.5, spin, 0.2);
   if (rings.current[1]) rings.current[1].rotation.set(-0.7, -spin * 0.7, 1.1);
@@ -320,8 +326,9 @@ export function LabScene() {
      ))}
     </group>
    ))}
-   {/* La antena, al fondo: apagada hasta el final. */}
-   <mesh name="antena" geometry={antenna} material={material.off} position={[ANTENNA.x, antennaY - 0.05, ANTENNA.z]} rotation-y={-0.35} scale={3.6} castShadow />
+   {/* La antena, al fondo: el contacto. Se enciende con todas las máquinas; sus terminales, delante. */}
+   <mesh name="antena" geometry={antenna} material={material.antenna} position={[ANTENNA.x, antennaY - 0.05, ANTENNA.z]} rotation-y={-0.35} scale={3.6} castShadow />
+   <Signal level={() => power.antenna.value} top={[ANTENNA.x, antennaY + 4.2, ANTENNA.z]} />
    <Instances name="losa" rests={0} geometry={models.slab} material={material.solid} items={slabs} receiveShadow />
   </>
  );

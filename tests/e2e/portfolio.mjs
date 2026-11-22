@@ -18,7 +18,8 @@ const labels = await t.evaluate(() => [...document.querySelectorAll(".quick butt
 check(labels.join("|").startsWith("Proyectos|Sobre mí|CV|Contacto|Logros"), `menú superior: ${labels.join(" · ")}`);
 
 // Cada botón pide a Woody que guíe hasta su zona; siguiéndole, se llega.
-const PLACES = [["Proyectos", "proyectos"], ["CV", "cv"], ["Contacto", "contacto"]];
+// («Contacto», no: lo abre aquí mismo, en cualquier mundo; ver contacto.mjs.)
+const PLACES = [["Proyectos", "proyectos"], ["CV", "cv"]];
 for (const [label, place] of PLACES) {
  await t.put(0, 7.5, { settle: 900 });
  await press(t, label);
