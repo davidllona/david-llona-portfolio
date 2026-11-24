@@ -617,49 +617,6 @@ export function createWaterStones(spring, run, falls, heightAt) {
  return merge(parts);
 }
 
-// ── Invernadero de cristal ──────────────────────────────────────────────────
-// Zócalo de piedra, armazón de hierro a dos aguas y, aparte, los paños de
-// cristal (`glass`), que dejan ver lo que brilla dentro. Fachada hacia +Z.
-export function createGreenhouse({ width, depth }) {
- const wall = 1.9, ridge = 3.3, w = width / 2, d = depth / 2;
- const frame = [piece(box(width + 0.3, 0.36, depth + 0.3), { bottom: STONE.dark, top: STONE.mid, jitter: 0.02, position: [0, 0.18, 0] })];
- const bar = (from, to, thick = 0.07) => {
-  const a = new THREE.Vector3(...from), b = new THREE.Vector3(...to), length = a.distanceTo(b);
-  const made = piece(box(thick, length, thick), { color: IRON });
-  made.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()));
-  made.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
-  return made;
- };
- const BAYS = 4;
- for (let i = 0; i <= BAYS; i++) {
-  const z = -d + (depth * i) / BAYS;
-  frame.push(bar([-w, 0.3, z], [-w, wall, z]), bar([w, 0.3, z], [w, wall, z]), bar([-w, wall, z], [0, ridge, z]), bar([w, wall, z], [0, ridge, z]));
- }
- for (const x of [-w, w]) frame.push(bar([x, wall, -d], [x, wall, d]), bar([x, 1.1, -d], [x, 1.1, d], 0.045));
- frame.push(bar([0, ridge, -d], [0, ridge, d], 0.09), bar([-w / 2, (wall + ridge) / 2, -d], [-w / 2, (wall + ridge) / 2, d], 0.045), bar([w / 2, (wall + ridge) / 2, -d], [w / 2, (wall + ridge) / 2, d], 0.045));
- // Testeros: travesaño, parteluz y, delante, el hueco de la puerta.
- for (const z of [-d, d]) frame.push(bar([-w, wall, z], [w, wall, z]), bar([0, wall, z], [0, ridge, z], 0.045), bar([-0.6, 0.3, z], [-0.6, wall, z], 0.05), bar([0.6, 0.3, z], [0.6, wall, z], 0.05));
- // Remate en la cumbrera: un rizo de hierro.
- frame.push(piece(tube([[0, ridge, d], [0, ridge + 0.3, d + 0.1], [0, ridge + 0.5, d - 0.1], [0, ridge + 0.4, d - 0.26], [0, ridge + 0.28, d - 0.16]], (t) => 0.035 - t * 0.02, { sides: 4, segments: 8 }), { color: IRON }));
- // Cristal: paredes, testeros y las dos aguas.
- const pane = (corners) => {
-  const geometry = new THREE.BufferGeometry();
-  const [a, b, c, e] = corners;
-  geometry.setAttribute("position", new THREE.Float32BufferAttribute([...a, ...b, ...c, ...a, ...c, ...e], 3));
-  return piece(geometry, {});
- };
- const glass = [
-  pane([[-w, 0.36, -d], [-w, 0.36, d], [-w, wall, d], [-w, wall, -d]]),
-  pane([[w, 0.36, d], [w, 0.36, -d], [w, wall, -d], [w, wall, d]]),
-  pane([[-w, wall, d], [0, ridge, d], [0, ridge, -d], [-w, wall, -d]]),
-  pane([[w, wall, -d], [0, ridge, -d], [0, ridge, d], [w, wall, d]]),
-  pane([[-w, 0.36, -d], [w, 0.36, -d], [w, wall, -d], [-w, wall, -d]]),
-  pane([[-w, wall, -d], [w, wall, -d], [0, ridge, -d], [0, ridge, -d]]),
-  pane([[-w, wall, d], [w, wall, d], [0, ridge, d], [0, ridge, d]]),
- ];
- return { frame: merge(frame), glass: merge(glass) };
-}
-
 // ── Farolillo de Woody ──────────────────────────────────────────────────────
 // Pequeño, colgado del cuello: un sombrerete, cuatro montantes y la base. El cristal va aparte.
 export function createCollarLantern() {

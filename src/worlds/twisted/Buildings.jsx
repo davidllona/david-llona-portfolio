@@ -17,9 +17,10 @@ import { clock, registerGlow, uniforms } from "../../experience/theme";
 import { clockwork, GEAR_IN, SPIN_AT } from "./clockwork";
 import { Smoke } from "./Details";
 import { quest } from "../../game/moonQuest";
-import { BUILDINGS, GREENHOUSE, HOUSE, QUEST_STOPS, STORY_DOOR, ground } from "./layout";
+import { Greenhouse } from "./Greenhouse";
+import { BUILDINGS, HOUSE, QUEST_STOPS, STORY_DOOR, ground } from "./layout";
 import { glass, moonlit, pool, solid } from "./materials";
-import { STONE, WARM, createGear, createGreenhouse } from "./models";
+import { STONE, WARM, createGear } from "./models";
 import { TOWER, createTower } from "./tower";
 import { Halos } from "../living/props/Halos";
 import { merge, piece } from "../living/kit/geometry";
@@ -306,65 +307,6 @@ function Chimney({ site, material }) {
  }, [site]);
  useEffect(() => () => model.dispose(), [model]);
  return <mesh name="chimenea de la casita" geometry={model} material={material} castShadow />;
-}
-
-// ── El invernadero ──────────────────────────────────────────────────────────
-// Armazón de hierro y cristal violeta; dentro, dos bancales con plantas que
-// brillan en violeta y turquesa, y el resplandor que sale y cae al suelo.
-function Greenhouse() {
- const model = useMemo(() => createGreenhouse(GREENHOUSE), []);
- const plants = useMemo(() => {
-  const parts = [];
-  const d = GREENHOUSE.depth / 2 - 0.5;
-  for (const side of [-1, 1]) {
-   for (let i = 0; i < 5; i++) {
-    const z = -d + (i / 4) * d * 2, x = side * (GREENHOUSE.width / 2 - 0.65), tall = 0.5 + ((i * 7 + side * 3) % 5) * 0.12;
-    // (Una de cada tres, turquesa en vez de violeta.)
-    parts.push(piece(new THREE.IcosahedronGeometry(0.2 + tall * 0.18, 0), { color: i % 3 === 1 ? "#3fe0ff" : i % 2 ? "#ffffff" : "#e3c8ff", position: [x, 0.95 + tall, z], scale: [1, 1.3, 1] }));
-    parts.push(piece(new THREE.ConeGeometry(0.06, tall, 4).translate(0, tall / 2, 0), { color: "#ffffff", position: [x, 0.9, z] }));
-   }
-  }
-  return merge(parts);
- }, []);
- const benches = useMemo(() => {
-  const parts = [];
-  for (const side of [-1, 1]) parts.push(piece(new THREE.BoxGeometry(0.9, 0.5, GREENHOUSE.depth - 0.7), { bottom: "#2a1f33", top: "#4a3a52", position: [side * (GREENHOUSE.width / 2 - 0.65), 0.65, 0] }));
-  return merge(parts);
- }, []);
- const material = useMemo(
-  () => ({
-   frame: solid(),
-   glass: new THREE.MeshBasicMaterial({ color: "#8f6cff", transparent: true, opacity: 0.15, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, toneMapped: false }),
-   // Las plantas, por encima del umbral del resplandor: brillan.
-   glow: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.62, 0.26, 1.3), vertexColors: true, toneMapped: false }),
-   spill: pool("#a873ff", 0.45),
-  }),
-  [],
- );
- const y = ground(GREENHOUSE.x, GREENHOUSE.z);
- const plane = useMemo(() => new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), []);
- useEffect(() => {
-  const stop = addWarmSource({ x: GREENHOUSE.x, y: y + 1.4, z: GREENHOUSE.z, power: 1.0, reach: 8, flicker: 0.03, color: "#a070ff" });
-  return () => {
-   stop();
-   [model.frame, model.glass, plants, benches, plane].forEach((one) => one.dispose());
-   material.frame.dispose();
-   material.glass.dispose();
-   material.glow.dispose();
-   material.spill.dispose();
-  };
- }, [model, plants, benches, plane, material, y]);
- return (
-  <>
-   <group name="invernadero" userData={{ rests: 0 }} position={[GREENHOUSE.x, y - 0.04, GREENHOUSE.z]} rotation-y={GREENHOUSE.turn}>
-    <mesh geometry={model.frame} material={material.frame} castShadow receiveShadow />
-    <mesh geometry={benches} material={material.frame} receiveShadow />
-    <mesh name="plantas del invernadero" geometry={plants} material={material.glow} />
-    <mesh geometry={model.glass} material={material.glass} renderOrder={2} />
-   </group>
-   <mesh geometry={plane} material={material.spill.material} position={[GREENHOUSE.x, y + 0.06, GREENHOUSE.z]} scale={[GREENHOUSE.width + 4, 1, GREENHOUSE.depth + 4]} rotation-y={GREENHOUSE.turn} renderOrder={2} />
-  </>
- );
 }
 
 // La chimenea de la casa del alquimista (la casa torcida, a su escala; ver House.jsx y `createHouse`).

@@ -1,8 +1,9 @@
 # Estado del universo de tres planetas
 
-Actualizado: 22 de noviembre de 2026 · rama `estacion-espacial`.
+Actualizado: 24 de noviembre de 2026 · rama `estacion-espacial`.
 
 Encargo completo: `Porfolio_3D_David_Llona/01_PROMPTS/03_CLAUDE_CODE_PORFOLIO_3D_COMPLETO.txt` (carpeta fuera de git). Texto íntegro del objetivo 16: `docs/OBJETIVO-16.md`.
+**Objetivo 28 — pulido del mundo 2: cinco detalles** (`docs/OBJETIVO-28.md`): **hecho** (24-11-2026), los cinco puntos. Parado, pendiente de que David lo revise. Ver «Objetivo 28» abajo.
 **Objetivo 27 — pulido: carga, entrada, mundo 1 y contacto al mundo 3** (`docs/OBJETIVO-27.md`): **hecho** (22-11-2026), los tres bloques. Parado, pendiente de que David lo revise. Ver «Objetivo 27» abajo.
 **Objetivo 26 — cartas aprobadas y baloncesto nuevo** (`docs/OBJETIVO-26.md`): **hecho** (21-11-2026), los tres bloques. Parado, pendiente de que David lo revise. Ver «Objetivo 26» abajo.
 **Objetivo 25** (`docs/OBJETIVO-25.md`): su muestra de cartas no se aprobó; lo sustituye el 26.
@@ -18,6 +19,49 @@ Decidido por David el 13-11-2026: los pesos reales de los modelos mandan sobre l
 Inventario de recursos descargados y su estado: `docs/RECURSOS.md`.
 Árboles de slabdsgn: aceptados (13-11-2026, commit `4e53c5e`). Objetivo 8 (fútbol jugable) cerrado.
 Blender: no está en el PATH del Mac; se llama con `/Applications/Blender.app/Contents/MacOS/Blender -b` (5.0.1). No hay ffmpeg: el audio también se convierte con Blender.
+
+## Objetivo 28 — Pulido de The Twisted Moon: cinco detalles
+
+Encargo: `docs/OBJETIVO-28.md` (24-11-2026). Cinco puntos, commit y push en cada uno; parada solo al final. Solo mundo 2. Capturas antes/después con el mismo encuadre: `capturas/35-pulido-mundo2/` (`antes/`, `despues/` y `hoja-final.jpg`); las saca `node tests/e2e/pulido2.mjs <carpeta> [1,2,3,4,5,nave,postal]` y la hoja, `node tests/e2e/hoja28.mjs`.
+
+| Punto | Estado |
+|---|---|
+| 1. La luna | **Hecho** (24-11-2026) |
+| 2. La torre del reloj | **Hecho** (24-11-2026) |
+| 3. Los puentes | **Hecho** (24-11-2026) |
+| 4. Las cascadas | **Hecho** (24-11-2026) |
+| 5. El invernadero y la parada «Aventurero» | **Hecho** (24-11-2026) |
+
+**1 · La luna** (`worlds/twisted/Night.jsx`): ya no es una esfera con terminador. Es **un plano que mira a la cámara** y el creciente lo dibuja el sombreador con **dos círculos** (el disco y otro de 0,92 radios, apartado 0,36, que lo muerde): borde limpio, 0,44 radios en lo más ancho, abierto hacia la torre como antes. Blanco hueso con un punto de azul; dentro, ocho cráteres suaves y manchas de onda larga. El halo es otro plano, que suma luz según la **distancia exacta al creciente** (a su arco de fuera, al de dentro o al cuerno más cercano) más un velo ancho: no dibuja disco alguno. (El «disco fantasma» era doble: la esfera facetada y, en mi primera versión del halo, una distancia mal calculada que encendía el borde del círculo que muerde.) Mismo tamaño (5,8° de radio) y mismo sitio; se ve en los tres miradores y al bajar con la nave; el camino de luz sobre el mar no depende de la malla de la luna y sigue igual.
+
+**2 · La torre del reloj** (`worlds/twisted/tower.js`, `Buildings.jsx`):
+- **Tejado**: era negro porque la pizarra estaba pintada casi en negro (`#2b2942`…) y la luna le da por detrás. Ahora, morado grisáceo (`#5d5779`–`#7a7399`), con un **caballete claro en cada arista** y material propio con luz de luna de relleno y de canto (`moonlit`). La piedra lleva lo mismo, más suave.
+- **Buhardillas**: cuerpo de piedra clara, tejadillo a dos aguas con su caballete y ventana con marco, alféizar y cruceta.
+- **Halos**: los de ventanas, buhardillas y esferas eran manchas de cara a la cámara colocadas 28 cm por delante del cristal: las de las caras laterales asomaban por los lados de la torre como bolas naranjas sueltas. Ahora son **planos pegados a cada cristal y a cada esfera**, mirando hacia fuera: de canto no se ven. El único halo de cara a la cámara que queda es el del farol de la puerta.
+- **Engranajes**: en un **hueco de la fachada** bajo la esfera (marco de piedra, fondo de tablones con dos pletinas), cada uno en **su eje de hierro con tuerca de latón**. Dos están siempre (el central y un piñón); los otros cuatro ejes esperan vacíos a los que se recogen. Con el reloj en marcha **giran engranados** (cada uno al revés que el central y más deprisa cuanto menor es). La ventana que había a esa altura baja un metro.
+- **El bloque oscuro del lateral** era el engranaje de la cara este visto de canto (un disco de latón de 84 cm pegado a la piedra, a 7,3 m, sin eje), junto a la buhardilla de ese lado, que de perfil era una caja negra sin ventana a la vista. El engranaje se ha quitado; la buhardilla, rehecha.
+
+**3 · Los puentes** (`worlds/twisted/layout.js`, `models.js`):
+- **Colgantes**: se combaban de extremo a extremo, y sus extremos están metidos en tierra firme: los primeros tablones bajaban por debajo del suelo de la terraza. Ahora solo se comban **sobre el vacío** (`bridge.span`, calculado del terreno: del 14 al 89 % en el del observatorio; del 29 al 84 % en el de la casa del árbol) y sobre tierra el tablero va a ras de suelo. **Postes gruesos con pie de piedra en el borde del cortado**; maromas, pasamanos y tirantes van de poste a poste; antes de ellos, dos tablones de umbral.
+- **El del este** arrancaba encima de los primeros peldaños de la escalera de la cima (la piedra subía 85 cm sobre el tablero). Ahora sale de una **repisa propia** junto al pie de la escalera (un disco más en la segunda terraza); su extremo pasa de 5,5 · −29,9 a 6,7 · −29,4, con su camino y su nudo de la red de Woody.
+- **Plantas**: helechos, setas, flores, enredaderas y matojos no nacen bajo ningún puente ni a menos de 1,1–1,5 m de su eje (se quitan después de repartir: el resto de la isla no cambia).
+- **Pasarelas** (río y arroyo): revisadas con el mismo criterio; no atravesaban nada. Hay una tercera, nueva, sobre el reguero del manantial (punto 4).
+- `twisted-walk.mjs` comprueba los cinco: que el suelo no sube más de 13 cm sobre el canto bajo de las tablas (medido: 7–9 cm, que es estar posado), que no pisan una escalera, que nada crece debajo, la comba y que al cruzarlos la altura no da saltos (el mayor, 10 cm en la entrada del del observatorio, el mismo de antes: el tablero va 6 cm sobre el suelo).
+
+**4 · Las cascadas** (`worlds/twisted/layout.js`, `falls.js`, `Terrain.jsx`, `models.js`, `Scene.jsx`): cada una nace ahora del agua de arriba (`createCascades`): las tiras empiezan **tendidas sobre el arroyo**, 70 cm antes del borde, se curvan en el **labio** (espuma) y caen en parábola, separándose lo justo para salvar el cortado (que avanza un metro al bajar), hasta el agua de abajo, donde siguen la espuma, la niebla y las gotas. Debajo va una lámina entera para que el agua no se corte al doblar. Dos piedras flanquean cada labio.
+- **A (del macizo a la poza)**: no había agua arriba. Ahora hay un **manantial** entre piedras al pie de la pared de la cima (agua turquesa con luz propia y borbotones), y su reguero cruza el camino **bajo una pasarela nueva** y llega al borde. La farola que estaba ahí pasa al otro lado del camino. Abajo, el agua corre hasta la poza.
+- **B (de la terraza al río)**: el arroyo acababa 40 cm antes del borde; ahora llega a él. Abajo, corre hasta su poza.
+- **C (del río al mar)**: estaba mal puesta: el río seguía **dos metros en el aire** más allá del cortado y la cascada colgaba de su punta. Ahora el río acaba en el borde y cae desde él.
+
+**5 · El invernadero y la parada «Aventurero»** (`worlds/twisted/glasshouse.js` y `Greenhouse.jsx` (nuevos), `stops.js`, `StopsScene.jsx`, `layout.js`):
+- **Invernadero**, a mano (el «Greenhouse» de spacepixelcreative ya se probó en el objetivo 21: caja opaca sin plantas; ver `docs/RECURSOS.md`): murete de sillares con albardilla, armazón de hierro con un **arquillo en cada paño**, tejado a dos aguas con **linterna y crestería**, rizos en las puntas, **puerta en arco con la hoja entreabierta**. Cristal casi transparente (un velo verdoso que se ve más de refilón y lleva bandas de brillo), con **nueve paños empañados y tres rotos** (queda el pico de cristal, y hay añicos al pie del lado este).
+- **Dentro**: dos bancales de madera con tierra y, plantado, rosetas de hojas, helechos de fronda dentada, varas con campanillas y matas con brotes; un platanero al fondo en su macetón; cuatro macetas; tres enredaderas por el armazón y dos cestas colgadas. Lo que brilla (violeta y turquesa) son flores y brotes pequeños, no bolas. Un farol cálido cuelga del techo: sale **luz cálida por delante y violeta por detrás**, con su charco en el suelo.
+- **El rincón del explorador**, en un **porche pegado al costado oeste** (tarima de tablas que se pisa —7 cm, pasos de madera—, pérgola abierta de dos pies derechos y vigas hasta el alero, banderines, alfombra): **mesa de trabajo** sobre caballetes con el **mapa desplegado** (cinco chinchetas, la del este la mayor, e **hilo rojo** de una a otra), **brújula** de latón con la tapa levantada, **globo terráqueo** pequeño, libros, un mapa enrollado, lupa y lápiz; **maleta abierta sobre un baúl** con pegatinas de viaje (formas y colores, sin nombres ni marcas) por el frente y por dentro de la tapa, ropa y un sombrero; cajas con mapas enrollados y una maceta; y el **farolillo de papel** en su poste, apagado hasta que se enciende con la E.
+- **La parada** se pulsa ahora ante la mesa (10,4 · −0,9; antes, 11,8 · −3,7, al otro lado): el aviso «E Aventurero» sale ahí y la cámara de juego enseña la mesa con el invernadero detrás. El camino al invernadero se ha rehecho hasta el porche, y la red de Woody llega por un nudo nuevo (`senda-porche`).
+
+*Decisiones mías*: (1) el porche no lleva techo (una pérgola abierta): con techo, la cámara de juego, que mira desde arriba, no vería la mesa. (2) La cascada A se queda, con manantial y pasarela nuevos, en vez de quitarla. (3) El puente del este se acorta (5,9 m en vez de 7,2) al salir de su repisa. (4) Los dos engranajes fijos del hueco de la torre son de adorno: el juego sigue siendo de cuatro.
+
+*Sin comprobar*: nada de esto en un teléfono real ni en el preview de Vercel (solo en Chrome sin ventana, en este Mac); el giro de los engranajes y la caída del agua se han visto en capturas sucesivas, no en movimiento; el cruce de los puentes lo hacen las pruebas (andando con teclas el del observatorio y la pasarela del río; los demás, por cálculo sobre el plano), no una persona.
 
 ## Objetivo 27 — Pulido: pantalla de carga, entrada, mundo 1 y contacto al mundo 3
 
@@ -1121,6 +1165,8 @@ node tests/e2e/twisted.mjs     # mundo 2: noche fija, luna creciente, edificios 
 node tests/e2e/twisted-sound.mjs # mundo 2: música (?musica=1, 2, 3), grillos propios, mar y cascada, destello, pasos de madera, campanadas, silencio y fundido al irse (incluida en e2e)
 "C:/Program Files/Blender Foundation/Blender 5.0/blender.exe" -b -P tools/assets/twisted_sounds.py   # convierte los sonidos del mundo 2 (assets-externos/mundo2/ → public/sounds/twisted/)
 node tests/e2e/twisted-walk.mjs # mundo 2, sin navegador: desde la llegada se alcanza andando cada sitio de la isla; «mapa» la dibuja en texto (incluida en e2e)
+node tests/e2e/pulido2.mjs     # objetivo 28: las capturas de cada punto del pulido del mundo 2 (luna, torre, puentes, cascadas, invernadero), siempre con el mismo encuadre; no comprueba nada
+node tests/e2e/hoja28.mjs      # objetivo 28: monta la hoja final (antes y después, y la postal junto a las referencias)
 node tests/e2e/luna.mjs        # capturas del mundo 2: la vista postal (como las referencias), cada punto con la cámara de juego y desde arriba, y la órbita; no comprueba nada
 "C:/Program Files/Blender Foundation/Blender 5.0/blender.exe" -b -P tools/assets/twisted.py   # convierte los modelos del mundo 2 (assets-externos/mundo2/ → public/models/twisted/); «-- mirar» solo dice qué trae cada uno
 node tests/e2e/hora.mjs        # la hora del mundo: cada hora su momento, atardecer propio, franjas por mes, cambio gradual, botón y tecla N; «capturas» saca la misma vista a cuatro horas

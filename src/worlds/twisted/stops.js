@@ -204,45 +204,214 @@ export function drawSilhouette(ctx, w, h) {
  ctx.fill();
 }
 
-// ── Invernadero: el mapa, la maleta y el farolillo de papel ─────────────────
-// El mapa, desplegado sobre un cajón: papel con sus dobleces, manchas de tierra
-// (sin fronteras ni nombres), chinchetas y un hilo que las une.
+// ── Invernadero: el rincón del explorador (objetivo 28) ─────────────────────
+// En el porche pegado al invernadero: una mesa de trabajo con el mapa
+// desplegado —chinchetas en los destinos e hilo rojo de una a otra—, una
+// brújula de latón, un globo terráqueo pequeño, libros y una lupa; al lado, la
+// maleta abierta sobre un baúl, con sus pegatinas de viaje; y el farolillo de
+// papel, apagado hasta que el visitante lo enciende.
+const BRASS = { dark: "#8a6427", mid: "#c1933f", light: "#e3bd62" };
+const RED_THREAD = "#d23a4c";
+
+// La mesa: tablero sobre dos caballetes. A lo largo de X (1,8 m); se mira desde +Z.
+export const EXPLORER_TABLE = { long: 1.8, deep: 0.9, top: 0.8 };
 export function createMapTable() {
- const parts = [piece(box(1.5, 0.5, 1.0), { bottom: TIMBER.dark, top: TIMBER.mid, jitter: 0.012, position: [0, 0.25, 0] }), piece(box(1.56, 0.05, 1.06), { color: TIMBER.light, position: [0, 0.52, 0] })];
- // Tendido algo ladeado: se lee desde la cámara.
- const lay = (geometry, options, dx, dz, dy = 0) => {
-  const made = piece(geometry, { ...options, position: [dx, dy, dz] });
-  made.applyMatrix4(new THREE.Matrix4().makeRotationX(0.16)).applyMatrix4(new THREE.Matrix4().makeRotationY(-0.1)).translate(0, 0.6, -0.02);
+ const { long, deep, top } = EXPLORER_TABLE;
+ const parts = [
+  piece(box(long, 0.06, deep), { bottom: TIMBER.mid, top: TIMBER.light, vary: 0.08, jitter: 0.008, position: [0, top - 0.03, 0] }),
+  piece(box(long - 0.5, 0.07, 0.07), { color: TIMBER.dark, position: [0, 0.3, 0] }),
+ ];
+ // (Tres tablas: dos juntas a la vista.)
+ for (const z of [-deep / 6, deep / 6]) parts.push(piece(box(long, 0.004, 0.012), { color: TIMBER.dark, position: [0, top + 0.001, z] }));
+ const strut = (from, to, thick = 0.07) => {
+  const a = new THREE.Vector3(...from), b = new THREE.Vector3(...to), made = piece(box(thick, a.distanceTo(b), thick), { bottom: TIMBER.dark, top: TIMBER.mid });
+  made.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()));
+  made.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
   return made;
  };
- parts.push(lay(box(1.36, 0.012, 0.9), { color: PAPER }, 0, 0));
- for (const x of [-0.34, 0, 0.34]) parts.push(lay(box(0.012, 0.004, 0.9), { color: "#cbbf9f" }, x, 0, 0.009));
- parts.push(lay(box(1.36, 0.004, 0.012), { color: "#cbbf9f" }, 0, 0, 0.009));
- // Tierra: manchas de varios lados.
- for (const [x, z, r, squash, sides] of [[-0.42, -0.14, 0.2, 0.7, 7], [-0.3, 0.2, 0.13, 1.1, 6], [0.02, -0.1, 0.17, 0.8, 8], [0.12, 0.2, 0.12, 0.9, 6], [0.4, -0.16, 0.2, 0.75, 7], [0.5, 0.2, 0.1, 1.2, 5]]) {
-  parts.push(lay(new THREE.CylinderGeometry(r, r, 0.006, sides), { color: "#8fae7c", vary: 0.1, seed: Math.round(x * 50 + 60), scale: [1, 1, squash] }, x, z, 0.011));
+ for (const x of [-long / 2 + 0.22, long / 2 - 0.22]) parts.push(strut([x, 0, -deep / 2 + 0.06], [x, top - 0.06, -0.1]), strut([x, 0, deep / 2 - 0.06], [x, top - 0.06, 0.1]), strut([x, 0.3, -0.3], [x, 0.3, 0.3], 0.05));
+ const y = top + 0.004;
+ // El mapa: papel con sus dobleces, tierras (sin fronteras ni nombres), una rosa de los vientos y los cantos algo levantados.
+ const map = (geometry, options, x, z, lift = 0) => {
+  const made = piece(geometry, { ...options, position: [x, lift, z] });
+  made.rotateY(0.07).translate(-0.2, y, 0.02);
+  return made;
+ };
+ parts.push(map(box(1.18, 0.012, 0.76), { color: PAPER, vary: 0.03 }, 0, 0));
+ for (const x of [-0.295, 0, 0.295]) parts.push(map(box(0.01, 0.004, 0.76), { color: "#c9bc9a" }, x, 0, 0.008));
+ parts.push(map(box(1.18, 0.004, 0.01), { color: "#c9bc9a" }, 0, 0, 0.008));
+ parts.push(map(box(0.2, 0.012, 0.16), { color: "#f6efdf", rotation: [0.25, 0, 0.3] }, 0.52, -0.33, 0.02));
+ for (const [x, z, r, squash, sides, tone] of [[-0.4, -0.12, 0.17, 0.7, 7, "#8fae7c"], [-0.3, 0.19, 0.11, 1.1, 6, "#a3b888"], [0.0, -0.1, 0.15, 0.8, 8, "#8fae7c"], [0.1, 0.2, 0.1, 0.9, 6, "#b7b07c"], [0.36, -0.15, 0.16, 0.75, 7, "#8fae7c"], [0.44, 0.2, 0.08, 1.2, 5, "#a3b888"]]) {
+  parts.push(map(new THREE.CylinderGeometry(r, r, 0.005, sides), { color: tone, vary: 0.1, seed: Math.round(x * 50 + 60), scale: [1, 1, squash] }, x, z, 0.01));
  }
- // Chinchetas (la del este, más grande: la primera de la lista) y el hilo entre ellas.
- const pins = [[-0.4, -0.12, 0.022, "#3fb6c8"], [0.02, -0.08, 0.022, "#e3bd62"], [0.5, -0.2, 0.036, "#e0445a"]];
- for (const [x, z, r, tone] of pins) parts.push(lay(new THREE.SphereGeometry(r, 6, 5), { color: tone }, x, z, 0.05), lay(new THREE.CylinderGeometry(0.004, 0.004, 0.05, 4), { color: IRON }, x, z, 0.03));
- parts.push(lay(tube([[-0.4, 0.045, -0.12], [-0.18, 0.06, -0.14], [0.02, 0.045, -0.08], [0.26, 0.065, -0.18], [0.5, 0.05, -0.2]], () => 0.005, { sides: 3, segments: 10 }), { color: "#c2475a" }, 0, 0));
+ for (const turn of [0, Math.PI / 4]) parts.push(map(box(0.16, 0.004, 0.022), { color: "#7a5a46", rotation: [0, turn, 0] }, -0.48, 0.27, 0.011), map(box(0.022, 0.004, 0.16), { color: "#7a5a46", rotation: [0, turn, 0] }, -0.48, 0.27, 0.011));
+ // Chinchetas en los destinos (la del este, la mayor) e hilo rojo de una a otra, tenso y algo levantado del papel.
+ const pins = [[-0.42, -0.1, 0.024, "#3fb6c8"], [-0.28, 0.2, 0.022, "#e3bd62"], [0.0, -0.08, 0.024, "#9b6cff"], [0.12, 0.2, 0.022, "#3fb6c8"], [0.4, -0.16, 0.038, "#e0445a"]];
+ for (const [x, z, r, tone] of pins) parts.push(map(new THREE.SphereGeometry(r, 6, 5), { color: tone }, x, z, 0.062), map(new THREE.CylinderGeometry(0.005, 0.005, 0.06, 4), { color: IRON }, x, z, 0.035));
+ for (let i = 0; i < pins.length - 1; i++) {
+  const [ax, az] = pins[i], [bx, bz] = pins[i + 1];
+  parts.push(map(tube([[ax, 0.052, az], [(ax + bx) / 2, 0.046, (az + bz) / 2], [bx, 0.052, bz]], () => 0.007, { sides: 3, segments: 3 }), { color: RED_THREAD }, 0, 0));
+ }
+ // La brújula: caja de latón con la tapa levantada, esfera clara y aguja roja y negra.
+ {
+  const x = 0.56, z = 0.26;
+  parts.push(
+   piece(new THREE.CylinderGeometry(0.095, 0.095, 0.04, 10), { bottom: BRASS.dark, top: BRASS.light, position: [x, y + 0.02, z] }),
+   piece(new THREE.CylinderGeometry(0.078, 0.078, 0.006, 10), { color: "#f1ead6", position: [x, y + 0.043, z] }),
+   piece(box(0.07, 0.006, 0.02), { color: "#d23a4c", position: [x + 0.03, y + 0.05, z - 0.012], rotation: [0, 0.4, 0] }),
+   piece(box(0.07, 0.006, 0.02), { color: INK, position: [x - 0.03, y + 0.05, z + 0.012], rotation: [0, 0.4, 0] }),
+   piece(new THREE.CylinderGeometry(0.095, 0.095, 0.012, 10), { bottom: BRASS.dark, top: BRASS.mid, position: [x, y + 0.1, z - 0.12], rotation: [1.15, 0, 0] }),
+  );
+ }
+ // El globo terráqueo: peana, arco de latón y la bola, inclinada, con sus tierras.
+ {
+  const x = 0.66, z = -0.2, r = 0.155, cy = y + 0.27;
+  parts.push(
+   piece(new THREE.CylinderGeometry(0.1, 0.12, 0.035, 8), { bottom: TIMBER.dark, top: TIMBER.mid, position: [x, y + 0.018, z] }),
+   piece(new THREE.CylinderGeometry(0.016, 0.022, 0.1, 5), { color: BRASS.mid, position: [x, y + 0.08, z] }),
+   piece(new THREE.TorusGeometry(r + 0.022, 0.011, 4, 12, Math.PI * 1.15), { bottom: BRASS.dark, top: BRASS.light, position: [x, cy, z], rotation: [0, 0.5, -2.05] }),
+   piece(new THREE.IcosahedronGeometry(r, 1), { bottom: "#2a6a94", top: "#49a2c4", vary: 0.07, seed: 4, position: [x, cy, z] }),
+  );
+  for (const [lat, lon, size] of [[0.5, 0.4, 0.075], [0.1, 1.2, 0.06], [-0.4, 0.9, 0.05], [0.6, 2.6, 0.065], [-0.2, 3.4, 0.07], [0.2, 4.6, 0.08], [-0.6, 5.3, 0.045], [0.95, 5.6, 0.05]]) {
+   const at = new THREE.Vector3(Math.cos(lat) * Math.cos(lon), Math.sin(lat), Math.cos(lat) * Math.sin(lon)), land = piece(new THREE.IcosahedronGeometry(size, 0), { color: lat > 0.9 ? "#e9e6da" : "#8fbf7c", vary: 0.12, seed: Math.round(lon * 10), scale: [1, 0.3, 1] });
+   land.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), at)).translate(x + at.x * r * 0.97, cy + at.y * r * 0.97, z + at.z * r * 0.97);
+   parts.push(land);
+  }
+ }
+ // Libros, un mapa enrollado, la lupa y un lápiz.
+ parts.push(
+  piece(box(0.3, 0.055, 0.22), { bottom: "#4a2f5e", top: "#6b4a86", position: [-0.68, y + 0.028, -0.3], rotation: [0, 0.2, 0] }),
+  piece(box(0.26, 0.045, 0.19), { bottom: "#1f5b5a", top: "#2f8580", position: [-0.67, y + 0.078, -0.3], rotation: [0, -0.15, 0] }),
+  piece(box(0.24, 0.012, 0.17), { color: PAPER, position: [-0.665, y + 0.078, -0.295], rotation: [0, -0.15, 0], scale: [1.02, 2.6, 1.02] }),
+  piece(new THREE.CylinderGeometry(0.04, 0.04, 0.62, 7).rotateZ(Math.PI / 2), { bottom: "#d8ceb2", top: PAPER, position: [0.05, y + 0.04, -0.39], rotation: [0, 0.06, 0] }),
+  piece(new THREE.TorusGeometry(0.03, 0.008, 3, 6).rotateY(Math.PI / 2), { color: RED_THREAD, position: [-0.1, y + 0.04, -0.39] }),
+  piece(new THREE.TorusGeometry(0.062, 0.012, 4, 10).rotateX(Math.PI / 2), { bottom: BRASS.dark, top: BRASS.light, position: [0.28, y + 0.03, 0.31] }),
+  piece(box(0.16, 0.022, 0.028), { color: TIMBER.dark, position: [0.4, y + 0.02, 0.37], rotation: [0, -0.5, 0] }),
+  piece(box(0.17, 0.012, 0.012), { color: "#e0b040", position: [-0.72, y + 0.008, 0.3], rotation: [0, 0.7, 0] }),
+ );
  return merge(parts);
 }
-// La maleta, a medio hacer: abierta, con ropa doblada asomando y una prenda colgando del borde.
+
+// La maleta, abierta sobre un baúl: cuero, cantoneras de latón, correas, la ropa asomando y un sombrero;
+// pegatinas de viaje por el frente y por dentro de la tapa (formas y colores: ni nombres ni marcas).
 export function createSuitcase() {
- return merge([
-  piece(box(1.0, 0.26, 0.66), { bottom: "#5a3a26", top: "#8a5c38", jitter: 0.01, position: [0, 0.13, 0] }),
-  piece(box(1.0, 0.1, 0.66), { bottom: "#6b4630", top: "#8a5c38", position: [0, 0.62, -0.37], rotation: [1.25, 0, 0] }),
-  piece(box(0.06, 0.27, 0.68), { color: "#3a261a", position: [-0.3, 0.13, 0] }),
-  piece(box(0.06, 0.27, 0.68), { color: "#3a261a", position: [0.3, 0.13, 0] }),
-  piece(new THREE.TorusGeometry(0.09, 0.02, 4, 8, Math.PI), { color: "#3a261a", position: [0, 0.14, 0.34], rotation: [0, 0, 0] }),
-  // Ropa.
-  piece(box(0.4, 0.09, 0.28), { color: "#3f7f78", position: [-0.22, 0.3, 0.1], rotation: [0, 0.1, 0] }),
-  piece(box(0.38, 0.08, 0.3), { color: "#e9dfc8", position: [-0.2, 0.38, 0.08], rotation: [0, -0.12, 0.03] }),
-  piece(box(0.36, 0.1, 0.3), { color: "#7c5aa8", position: [0.24, 0.3, -0.08], rotation: [0, -0.2, 0] }),
-  piece(box(0.3, 0.02, 0.5), { color: "#c2475a", position: [0.3, 0.26, 0.36], rotation: [0.5, 0.1, 0] }),
-  piece(box(0.3, 0.02, 0.26), { color: "#c2475a", position: [0.31, 0.12, 0.5], rotation: [1.5, 0.1, 0] }),
- ]);
+ const TRUNK = 0.42, parts = [
+  piece(box(1.02, TRUNK, 0.64), { bottom: TIMBER.dark, top: TIMBER.mid, vary: 0.1, jitter: 0.01, position: [0, TRUNK / 2, 0] }),
+  piece(box(1.06, 0.05, 0.68), { color: TIMBER.light, position: [0, TRUNK, 0] }),
+ ];
+ for (const x of [-0.36, 0, 0.36]) parts.push(piece(box(0.07, TRUNK, 0.66), { color: "#201a26", position: [x, TRUNK / 2, 0] }));
+ const y = TRUNK + 0.025, wide = 0.92, deep = 0.58, tall = 0.24;
+ parts.push(
+  piece(box(wide, tall, deep), { bottom: "#6b4128", top: "#9a683c", vary: 0.06, jitter: 0.008, position: [0, y + tall / 2, 0] }),
+  piece(box(wide - 0.07, 0.02, deep - 0.07), { color: "#3a2c2e", position: [0, y + tall + 0.002, 0] }),
+  piece(new THREE.TorusGeometry(0.085, 0.018, 4, 8, Math.PI), { color: "#3a261a", position: [0, y + tall * 0.55, deep / 2 + 0.005] }),
+ );
+ for (const x of [-0.27, 0.27]) parts.push(piece(box(0.065, tall + 0.012, deep + 0.012), { color: "#3a261a", position: [x, y + tall / 2, 0] }), piece(box(0.05, 0.05, 0.02), { color: BRASS.light, position: [x, y + tall * 0.62, deep / 2 + 0.012] }));
+ for (const sx of [-1, 1]) for (const sz of [-1, 1]) parts.push(piece(box(0.075, 0.075, 0.075), { bottom: BRASS.dark, top: BRASS.light, position: [sx * (wide / 2 - 0.03), y + 0.04, sz * (deep / 2 - 0.03)] }));
+ // La tapa, abierta hacia atrás (105°), con su forro. Lo que va en ella se coloca como si estuviera cerrada y gira con ella.
+ const OPEN = -1.833, hinge = [0, y + tall, -deep / 2];
+ const onLid = (geometry, options, u, v, under = 0) => {
+  const made = piece(geometry, { ...options, position: [u, -under, v] });
+  made.rotateX(OPEN).translate(...hinge);
+  return made;
+ };
+ parts.push(onLid(box(wide, 0.1, deep), { bottom: "#6b4128", top: "#9a683c", vary: 0.06 }, 0, deep / 2, -0.05), onLid(box(wide - 0.08, 0.012, deep - 0.08), { color: "#c9b48c" }, 0, deep / 2, 0.006));
+ for (const x of [-0.27, 0.27]) parts.push(onLid(box(0.065, 0.11, deep + 0.01), { color: "#3a261a" }, x, deep / 2, -0.05));
+ // Pegatinas: dos capas (fondo y motivo). `kind`: redonda, rectangular o rombo.
+ const sticker = (place, kind, size, back, motif, turn = 0) => {
+  const shape = (s, thick) => (kind === "round" ? new THREE.CylinderGeometry(s, s, thick, 10) : new THREE.BoxGeometry(s * 2, thick, s * 1.4));
+  const spin = kind === "diamond" ? Math.PI / 4 + turn : turn;
+  return [place(shape(size, 0.006), { color: back, rotation: [0, spin, 0] }, 0), place(kind === "diamond" ? new THREE.BoxGeometry(size * 0.9, 0.006, size * 0.9) : shape(size * 0.55, 0.006), { color: motif, rotation: [0, spin, 0] }, 0.004)];
+ };
+ const lid = (u, v) => (geometry, options, lift) => onLid(geometry, options, u, v, 0.014 + lift);
+ parts.push(
+  ...sticker(lid(-0.28, 0.17), "round", 0.085, "#e0445a", "#f4ead2"),
+  ...sticker(lid(-0.02, 0.36), "box", 0.1, "#2f9aa0", "#f4ead2", 0.2),
+  ...sticker(lid(0.27, 0.2), "diamond", 0.09, "#e3b23c", "#3a2c2e"),
+  ...sticker(lid(0.1, 0.13), "round", 0.055, "#8a5fd0", "#f4ead2"),
+  ...sticker(lid(-0.26, 0.42), "box", 0.075, "#e8843a", "#3a2c2e", -0.25),
+ );
+ // Y por el frente de la maleta.
+ const front = (u, v) => (geometry, options, lift) => {
+  const made = piece(geometry, options);
+  made.rotateX(Math.PI / 2).translate(u, y + v, deep / 2 + 0.006 + lift);
+  return made;
+ };
+ parts.push(...sticker(front(-0.4, 0.13), "round", 0.06, "#2f9aa0", "#f4ead2"), ...sticker(front(0.4, 0.11), "box", 0.065, "#e0445a", "#f4ead2", 0.15), ...sticker(front(0.13, 0.07), "diamond", 0.05, "#8a5fd0", "#f4ead2"), ...sticker(front(-0.13, 0.16), "box", 0.05, "#e3b23c", "#3a2c2e", -0.2));
+ // Dentro: ropa doblada, un mapa enrollado y el sombrero; una prenda cuelga del borde.
+ const top = y + tall;
+ parts.push(
+  piece(box(0.36, 0.09, 0.28), { color: "#3f7f78", position: [-0.24, top + 0.03, 0.08], rotation: [0, 0.1, 0] }),
+  piece(box(0.34, 0.08, 0.3), { color: "#e9dfc8", position: [-0.22, top + 0.1, 0.06], rotation: [0, -0.12, 0.03] }),
+  piece(box(0.34, 0.1, 0.28), { color: "#7c5aa8", position: [0.24, top + 0.03, -0.08], rotation: [0, -0.2, 0] }),
+  piece(new THREE.CylinderGeometry(0.035, 0.035, 0.5, 6).rotateZ(Math.PI / 2), { bottom: "#d8ceb2", top: PAPER, position: [0.05, top + 0.05, -0.2], rotation: [0, 0.2, 0.12] }),
+  piece(new THREE.CylinderGeometry(0.2, 0.21, 0.016, 10), { color: "#d9c9a0", position: [0.22, top + 0.1, 0.1], rotation: [0.08, 0, -0.06] }),
+  piece(new THREE.CylinderGeometry(0.1, 0.12, 0.1, 8), { bottom: "#c9b88e", top: "#e2d4ae", position: [0.22, top + 0.155, 0.1], rotation: [0.08, 0, -0.06] }),
+  piece(new THREE.CylinderGeometry(0.122, 0.122, 0.025, 8), { color: "#a3413a", position: [0.22, top + 0.12, 0.1], rotation: [0.08, 0, -0.06] }),
+  piece(box(0.2, 0.02, 0.24), { color: "#2f9aa0", position: [-0.3, top - 0.01, 0.34], rotation: [1.0, 0.1, 0] }),
+ );
+ return merge(parts);
+}
+
+// El porche: tarima de tablas, dos pies derechos con sus vigas hasta el alero del invernadero (una pérgola
+// abierta: desde arriba no tapa la mesa), banderines, la alfombra, y unas cajas con mapas enrollados y una maceta.
+// En los ejes del invernadero (`porch`: de dónde a dónde llega; `deck`: alto de la tarima; `eave`: alto del alero).
+export function createExplorerPorch(porch, deck, eave) {
+ const [x0, x1] = porch.x, [z0, z1] = porch.z, random = randomFrom(0.377);
+ const parts = [];
+ const beam = (from, to, thick, tones = [TIMBER.dark, TIMBER.mid]) => {
+  const a = new THREE.Vector3(...from), b = new THREE.Vector3(...to), made = piece(box(thick, a.distanceTo(b), thick), { bottom: tones[0], top: tones[1], vary: 0.08 });
+  made.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()));
+  made.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+  return made;
+ };
+ // Tarima: tablas a lo ancho, cada una de su tono, sobre un marco.
+ const BOARDS = 12, deep = (z1 - z0) / BOARDS;
+ for (let i = 0; i < BOARDS; i++) parts.push(piece(box(x1 - x0 - 0.04, deck, deep - 0.025), { bottom: TIMBER.dark, top: i % 3 === 1 ? "#5a4860" : i % 3 ? TIMBER.mid : "#514056", vary: 0.1, jitter: 0.006, seed: i + 2, position: [(x0 + x1) / 2 + (random() - 0.5) * 0.03, deck / 2, z0 + deep * (i + 0.5)] }));
+ parts.push(piece(box(0.1, deck + 0.02, z1 - z0 + 0.1), { color: TIMBER.dark, position: [x0 - 0.03, deck / 2, (z0 + z1) / 2] }), piece(box(x1 - x0 + 0.1, deck + 0.02, 0.1), { color: TIMBER.dark, position: [(x0 + x1) / 2, deck / 2, z1 + 0.03] }), piece(box(x1 - x0 + 0.1, deck + 0.02, 0.1), { color: TIMBER.dark, position: [(x0 + x1) / 2, deck / 2, z0 - 0.03] }));
+ // Pérgola: dos pies derechos fuera, vigas hasta el alero y tres pares finos.
+ const high = eave + 0.02, px = x0 + 0.08;
+ for (const z of [z0 + 0.08, z1 - 0.08]) {
+  parts.push(beam([px, 0, z], [px + (random() - 0.5) * 0.06, high, z], 0.13), beam([px - 0.2, high, z], [x1, high, z], 0.1), beam([px, high - 0.55, z], [px + 0.5, high, z], 0.06));
+  parts.push(piece(new THREE.DodecahedronGeometry(0.2, 0), { bottom: "#3a3752", top: "#807a9c", jitter: 0.02, vary: 0.12, position: [px, deck + 0.02, z], scale: [1, 0.5, 1] }));
+ }
+ parts.push(beam([px, high + 0.09, z0 - 0.15], [px, high + 0.09, z1 + 0.15], 0.1));
+ for (const z of [z0 + 0.95, (z0 + z1) / 2, z1 - 0.95]) parts.push(beam([px - 0.15, high + 0.16, z], [x1, high + 0.16, z], 0.055));
+ // Banderines en la viga de delante.
+ {
+  const z = z1 - 0.08, FLAGS = 9, tones = ["#2f9aa0", "#f4ead2", "#e0445a", "#8a5fd0", "#e8843a"];
+  const at = (t) => [px + 0.1 + (x1 - px - 0.2) * t, high - 0.1 - Math.sin(t * Math.PI) * 0.22, z + 0.07];
+  parts.push(piece(tube(Array.from({ length: 7 }, (_, k) => at(k / 6)), () => 0.01, { sides: 3, segments: 12 }), { color: "#b9a27a" }));
+  for (let k = 0; k < FLAGS; k++) {
+   const [x, y, zz] = at((k + 0.5) / FLAGS), flag = new THREE.BufferGeometry();
+   // (Por las dos caras.)
+   flag.setAttribute("position", new THREE.Float32BufferAttribute([x - 0.075, y, zz, x + 0.075, y, zz, x, y - 0.16, zz + 0.02, x + 0.075, y, zz, x - 0.075, y, zz, x, y - 0.16, zz + 0.02], 3));
+   parts.push(piece(flag, { color: tones[k % tones.length] }));
+  }
+ }
+ // Alfombra bajo la mesa: fondo granate, cenefa clara y dos franjas.
+ {
+  const cx = -3.1, cz = 1.15, y = deck + 0.006;
+  parts.push(piece(box(2.5, 0.012, 1.7), { color: "#54283e", vary: 0.05, position: [cx, y, cz] }), piece(box(2.3, 0.004, 1.5), { color: "#d9c79c", position: [cx, y + 0.007, cz] }), piece(box(2.16, 0.004, 1.36), { color: "#643048", vary: 0.06, position: [cx, y + 0.01, cz] }));
+  for (const dz of [-0.45, 0.45]) parts.push(piece(box(2.16, 0.004, 0.07), { color: "#2f9aa0", position: [cx, y + 0.013, cz + dz] }));
+ }
+ // Junto al cristal: dos cajas, mapas enrollados asomando y una maceta con su helecho.
+ {
+  const cx = -2.35, cz = -0.2, y = deck;
+  parts.push(
+   piece(box(0.66, 0.5, 0.6), { bottom: TIMBER.dark, top: TIMBER.mid, vary: 0.12, jitter: 0.01, position: [cx, y + 0.25, cz], rotation: [0, 0.12, 0] }),
+   piece(box(0.7, 0.05, 0.08), { color: TIMBER.light, position: [cx, y + 0.42, cz + 0.3], rotation: [0, 0.12, 0] }),
+   piece(box(0.46, 0.36, 0.42), { bottom: "#3a2c3c", top: "#5e4a62", vary: 0.12, jitter: 0.01, position: [cx + 0.05, y + 0.68, cz - 0.03], rotation: [0, -0.3, 0] }),
+  );
+  for (const [dx, dz, lean, tall] of [[-0.06, 0.04, 0.22, 0.62], [0.1, -0.06, -0.18, 0.7], [0.14, 0.1, 0.1, 0.55]]) parts.push(piece(new THREE.CylinderGeometry(0.04, 0.04, tall, 6), { bottom: "#cfc4a6", top: PAPER, position: [cx + 0.05 + dx, y + 0.86 + tall / 2 - 0.2, cz - 0.03 + dz], rotation: [lean, 0, lean * 0.7] }));
+  const px2 = cx + 0.1, pz2 = cz + 0.95;
+  parts.push(piece(new THREE.CylinderGeometry(0.2, 0.15, 0.3, 7), { bottom: "#5c3836", top: "#8f5a4c", vary: 0.1, position: [px2, y + 0.15, pz2] }));
+  for (let k = 0; k < 7; k++) {
+   const a = (k / 7) * Math.PI * 2 + 0.3, reach = 0.42 + (k % 3) * 0.08;
+   parts.push(piece(tube([[px2, y + 0.3, pz2], [px2 + Math.cos(a) * reach * 0.5, y + 0.62, pz2 + Math.sin(a) * reach * 0.5], [px2 + Math.cos(a) * reach, y + 0.45, pz2 + Math.sin(a) * reach]], (t) => 0.05 * (1 - t) + 0.006, { sides: 3, segments: 5 }), { bottom: "#2a5f5c", top: k % 3 ? "#3f8f78" : "#58a88c", scale: [1, 1, 1] }));
+  }
+ }
+ return merge(parts);
 }
 // El farolillo de papel: un poste con su gancho y, colgando, el farol (aparte: se enciende).
 export const PAPER_LANTERN = [0.42, 1.52, 0];

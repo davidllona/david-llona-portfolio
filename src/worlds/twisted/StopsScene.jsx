@@ -9,9 +9,10 @@ import { events, player, woody } from "../../experience/state";
 import { quest } from "../../game/moonQuest";
 import { createAlienWorld } from "../orbit/worldModels";
 import { Glows } from "./Details";
-import { QUEST_STOPS, STOP_PROPS, height } from "./layout";
+import { GLASSHOUSE } from "./glasshouse";
+import { GREENHOUSE, LEVELS, PORCH, PORCH_DECK, QUEST_STOPS, STOP_PROPS, height } from "./layout";
 import { glass, pool, solid } from "./materials";
-import { BOARD, PAPER_LANTERN, PHOTO, createBoard, createConsole, createDogBed, createHollow, createMapTable, createNote, createPaperLantern, createPortraitStand, createShelf, createSketchTable, createSuitcase, drawSilhouette, noteLayout, scopeStars } from "./stops";
+import { BOARD, PAPER_LANTERN, PHOTO, createBoard, createConsole, createDogBed, createHollow, createExplorerPorch, createMapTable, createNote, createPaperLantern, createPortraitStand, createShelf, createSketchTable, createSuitcase, drawSilhouette, noteLayout, scopeStars } from "./stops";
 
 // Lo que se ve en cada parada (objetivo 23, bloque D2) y lo que pasa al usarla:
 //  · Casa del alquimista: una mesa con bocetos y un tablón de notas revueltas
@@ -20,8 +21,10 @@ import { BOARD, PAPER_LANTERN, PHOTO, createBoard, createConsole, createDogBed, 
 //    consola con la pantalla encendida.
 //  · Casita de cuento: la cama de Woody, sin estrenar; el hueco del suelo donde
 //    se tumba de verdad cuando llegas; y su retrato.
-//  · Invernadero: un mapa con chinchetas, una maleta a medio hacer y un
-//    farolillo de papel que se enciende con la E.
+//  · Invernadero: el rincón del explorador, en un porche pegado a su costado:
+//    la mesa con el mapa (chinchetas e hilo rojo), la brújula y el globo; la
+//    maleta abierta con sus pegatinas; y el farolillo de papel, que se
+//    enciende con la E.
 //  · Observatorio: con la E, lo que se ve por el telescopio: The Cosmic Lab.
 // ClockQuest.jsx avisa de que se usa una parada con el evento "stop-use"; todo
 // está montado desde el principio (lo que cambia lo llevan uniformes y
@@ -39,7 +42,7 @@ const NOTES_TIME = 1.25; // s que tardan las notas en ordenarse
 const SCOPE_AWAY = 6; // m de la cámara a lo que se ve por el telescopio
 
 export function Stops() {
- const models = useMemo(() => ({ board: createBoard(), note: createNote(), table: createSketchTable(), shelf: createShelf(), console: createConsole(), bed: createDogBed(), hollow: createHollow(), stand: createPortraitStand(), map: createMapTable(), suitcase: createSuitcase(), lantern: createPaperLantern(), planet: createAlienWorld(), plane: new THREE.PlaneGeometry(1, 1), disc: new THREE.CircleGeometry(1, 40), floor: new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2) }), []);
+ const models = useMemo(() => ({ board: createBoard(), note: createNote(), table: createSketchTable(), shelf: createShelf(), console: createConsole(), bed: createDogBed(), hollow: createHollow(), stand: createPortraitStand(), map: createMapTable(), suitcase: createSuitcase(), porch: createExplorerPorch(PORCH, PORCH_DECK, GLASSHOUSE.eave), lantern: createPaperLantern(), planet: createAlienWorld(), plane: new THREE.PlaneGeometry(1, 1), disc: new THREE.CircleGeometry(1, 40), floor: new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2) }), []);
  const live = useMemo(() => ({ lantern: uniform(quest.flag("lantern") ? 1 : 0), scope: uniform(0), lanternGlow: [{ value: 0 }] }), []);
  const material = useMemo(() => {
   // El papel del farolillo: apagado, gris hueso; encendido, cálido y por encima del umbral del resplandor.
@@ -208,7 +211,8 @@ export function Stops() {
     <mesh geometry={models.stand} material={material.solid} castShadow />
     <mesh name={HAS_PHOTO ? "foto de Woody" : "silueta de Woody"} geometry={models.plane} material={photo.material} position={PHOTO.at} rotation-x={PHOTO.tilt} scale={[PHOTO.width, PHOTO.height, 1]} />
    </group>
-   {/* Invernadero. */}
+   {/* Invernadero: el porche del explorador (tarima, pérgola, banderines, alfombra y cajas), y sobre él la mesa, la maleta y el farolillo. */}
+   <mesh name="porche del explorador" userData={{ rests: 0 }} geometry={models.porch} material={material.solid} position={[GREENHOUSE.x, LEVELS[0], GREENHOUSE.z]} rotation-y={GREENHOUSE.turn} castShadow receiveShadow />
    <mesh name="mapa con chinchetas" userData={{ rests: 0 }} geometry={models.map} material={material.solid} {...placed(P.map)} castShadow receiveShadow />
    <mesh name="maleta" userData={{ rests: 0 }} geometry={models.suitcase} material={material.solid} {...placed(P.suitcase)} castShadow receiveShadow />
    <group name="farolillo de papel" userData={{ rests: 0 }} {...placed(P.paperLantern)}>

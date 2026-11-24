@@ -290,7 +290,10 @@ export function bridgeAt(x, z) {
 
 // Altura que pisan los personajes.
 export function height(x, z) {
- return bridgeAt(x, z)?.y ?? ground(x, z);
+ const deck = bridgeAt(x, z);
+ if (deck) return deck.y;
+ // (La tarima del porche del invernadero.)
+ return onPorch({ x, z }, 0) ? Math.max(ground(x, z), LEVELS[0] + PORCH_DECK) : ground(x, z);
 }
 
 // ¿Está vedado este punto? Lo están el mar, los acantilados (cualquier punto en
@@ -330,6 +333,19 @@ export const BUILDINGS = {
 export const HOUSE = { x: -18, z: -18.2, turn: 0.5, scale: 0.62, width: 5.2, depth: 4.6 };
 // El invernadero de cristal, abajo, al este.
 export const GREENHOUSE = { x: 14.2, z: -2.6, turn: -0.3, width: 3.6, depth: 5.2 };
+// Un punto dado en los ejes del invernadero (x a lo ancho, z hacia su puerta), en el mundo.
+const beside = (px, pz) => ({ x: GREENHOUSE.x + px * Math.cos(GREENHOUSE.turn) + pz * Math.sin(GREENHOUSE.turn), z: GREENHOUSE.z - px * Math.sin(GREENHOUSE.turn) + pz * Math.cos(GREENHOUSE.turn) });
+// El porche del explorador (objetivo 28): pegado al costado oeste del invernadero, del lado del camino.
+// En los ejes del invernadero: de dónde a dónde llega, a lo ancho y a lo largo.
+export const PORCH = { x: [-4.75, -1.8], z: [-0.75, 3.0] };
+export const PORCH_DECK = 0.07; // alto de su tarima sobre el suelo
+// Sus dos pies derechos (chocan).
+const PORCH_POSTS = [beside(PORCH.x[0] + 0.08, PORCH.z[0] + 0.08), beside(PORCH.x[0] + 0.08, PORCH.z[1] - 0.08)];
+const onPorch = (one, margin = 0.3) => {
+ const dx = one.x - GREENHOUSE.x, dz = one.z - GREENHOUSE.z, c = Math.cos(GREENHOUSE.turn), s = Math.sin(GREENHOUSE.turn);
+ const px = dx * c - dz * s, pz = dx * s + dz * c;
+ return px > PORCH.x[0] - margin && px < PORCH.x[1] + margin && pz > PORCH.z[0] - margin && pz < PORCH.z[1] + margin;
+};
 const front = (site, away) => ({ x: site.x + Math.sin(site.turn) * away, z: site.z + Math.cos(site.turn) * away });
 // Ante la puerta de la casa sobre tronco (donde se lee su historia).
 export const STORY_DOOR = front(BUILDINGS["casa-tronco"], 3.5);
@@ -345,9 +361,13 @@ export const STOP_PROPS = {
  bed: { x: -11.7, z: -8.5, turn: 0.3, solid: 0.55 },
  hollow: { x: -12.6, z: -7.4 },
  portrait: { x: -10.7, z: -8.9, turn: -0.35, solid: 0.35 },
- map: { x: 10.2, z: -0.6, turn: 0.4, solid: 0.8 },
- suitcase: { x: 11.3, z: 0.6, turn: -0.3, solid: 0.55 },
- paperLantern: { x: 10.2, z: -2.2, turn: 0.7, solid: 0.12 },
+ // El rincón del explorador, en el porche del invernadero: la mesa de trabajo (con el mapa, la brújula y el
+ // globo), la maleta abierta sobre su baúl, el farolillo de papel en su poste y unas cajas con mapas enrollados.
+ // (`thick`: medio grosor de lo que choca como un tramo.)
+ map: { ...beside(-3.1, 1.0), turn: GREENHOUSE.turn, long: 0.62, thick: 0.5 },
+ suitcase: { ...beside(-4.2, 2.2), turn: GREENHOUSE.turn + 0.5, solid: 0.56 },
+ paperLantern: { ...beside(-4.3, 0.3), turn: GREENHOUSE.turn + 0.2, solid: 0.12 },
+ crates: { ...beside(-2.35, -0.2), turn: GREENHOUSE.turn, solid: 0.5 },
 };
 // Lo menudo (helechos, setas, flores…) no nace encima de esos objetos, ni debajo de un puente ni pegado a él
 // (objetivo 28: desde arriba asomaba entre las tablas). El margen cubre lo que abre un helecho.
@@ -357,7 +377,7 @@ const underBridge = (one) =>
   const along = px * bridge.ux + pz * bridge.uz, across = Math.abs(-px * bridge.uz + pz * bridge.ux);
   return along > -1 && along < bridge.length + 1 && across < bridge.width / 2 + (bridge.rope ? 1.5 : 1.1);
  });
-const clearOfProps = (one) => !Object.values(STOP_PROPS).some((prop) => Math.hypot(one.x - prop.x, one.z - prop.z) < 1.15) && !underBridge(one);
+const clearOfProps = (one) => !Object.values(STOP_PROPS).some((prop) => Math.hypot(one.x - prop.x, one.z - prop.z) < 1.15) && !underBridge(one) && !onPorch(one, 0.5);
 
 // Las paradas del juego del reloj (objetivo 23; ver ClockQuest.jsx). De cada una:
 // dónde se pulsa la E (`x`, `z`: en el camino, ante su puerta), dónde flota su
@@ -368,7 +388,8 @@ export const QUEST_STOPS = {
  alquimista: { x: HOUSE_DOOR.x + 0.5, z: HOUSE_DOOR.z + 0.1, gear: [HOUSE_DOOR.x - 0.5, HOUSE_DOOR.z + 0.9], focus: [STOP_PROPS.board.x, 1.6, STOP_PROPS.board.z], node: "luna-alquimista", distance: 0.6, show: 1700 },
  "casa-arbol": { x: 14.3, z: -26.2, gear: [13.4, -25.1], focus: [14.6, 1.1, -29.2], node: "luna-casa-arbol", distance: 0.55 },
  casita: { x: -13.6, z: -9.3, gear: [-14.6, -10.4], focus: [-11.9, 0.7, -8.2], node: "luna-casita", distance: 0.55 },
- invernadero: { x: 11.8, z: -3.7, gear: [12.6, -5.4], focus: [10.6, 0.9, -0.8], node: "luna-invernadero", distance: 0.62, show: 1100 },
+ // (Ante la mesa del explorador: ahí sale el aviso. La cámara, al abrir, mira a la mesa.)
+ invernadero: { ...beside(-3.1, 2.75), gear: [beside(-1.75, 3.6).x, beside(-1.75, 3.6).z], focus: [beside(-3.1, 1.0).x, 0.95, beside(-3.1, 1.0).z], node: "luna-invernadero", distance: 0.6, show: 1100 },
 };
 // La puerta de la torre (donde se arranca el reloj) y el pie del telescopio (el final).
 export const TOWER_DOOR = { x: 0.3, z: -33.3, focus: [BUILDINGS.torre.x, 5.4, BUILDINGS.torre.z] };
@@ -392,7 +413,8 @@ const TRAILS = [
  { width: 1.4, through: [[-9, -11.2], [-12, -10.6], [-14.6, -8.4]] },
  // De la plataforma al invernadero y a la escalera del este.
  { width: 1.7, through: [[4.4, -1.4], [7.4, -2.6], [9.6, -5.2], [11.4, -9]] },
- { width: 1.4, through: [[9, -4], [11.8, -3.6]] },
+ // (Al porche del explorador, junto al invernadero.)
+ { width: 1.4, through: [[6.2, -2.0], [8.5, -0.8], [beside(-3.1, 2.9).x, beside(-3.1, 2.9).z]] },
  // Al sur, hasta la punta de la isla.
  { width: 1.6, through: [[0.2, 4.6], [0.8, 7.2], [-0.2, 9.4]] },
  // Primera terraza: de la escalera del oeste a la casa del alquimista, a la escalera del pico y a la del macizo.
@@ -455,7 +477,7 @@ export function slopeAt(x, z, e = 0.3) {
 }
 // Qué se pisa en (x, z), para el sonido de los pasos.
 export function surface(x, z) {
- if (bridgeAt(x, z)) return "wood";
+ if (bridgeAt(x, z) || onPorch({ x, z }, 0)) return "wood";
  if (stairHeight(x, z) !== null || Math.hypot(x - PAD.x, z - PAD.z) < PAD.padRadius) return "stone";
  if (waterBed(x, z) > 0.6) return "water";
  if (pathEdge(x, z) < 0) return "path";
@@ -597,14 +619,14 @@ export const PUMPKINS = [
  [10.6, -5.6],
 ]
  .map(([x, z]) => near(x, z, 0.15))
- .filter(Boolean)
+ .filter((spot) => spot && !onPorch({ x: spot[0], z: spot[1] }, 0.6))
  .map(([x, z], i) => ({ x, z, scale: 0.8 + (i % 3) * 0.15, turn: i % 2 ? 0.4 : -0.3 }));
 // Farolillos: al principio y al final de cada puente y, cada nueve metros, a un lado de los caminos.
 export const LANTERNS = (() => {
  const spots = [];
  const keep = (x, z, turn) => {
   const free = near(x, z, 0.15);
-  if (!free || [...spots, ...LAMPS].some((one) => Math.hypot(one.x - free[0], one.z - free[1]) < 3)) return;
+  if (!free || onPorch({ x: free[0], z: free[1] }, 0.7) || [...spots, ...LAMPS].some((one) => Math.hypot(one.x - free[0], one.z - free[1]) < 3)) return;
   spots.push({ x: free[0], z: free[1], turn });
  };
  for (const bridge of BRIDGES) {
@@ -691,8 +713,9 @@ export const colliders = [
    return { x: bridge.from[0] + ox + bridge.ux * inset, z: bridge.from[1] + oz + bridge.uz * inset, bx: bridge.to[0] + ox - bridge.ux * inset, bz: bridge.to[1] + oz - bridge.uz * inset, r: 0.1 };
   }),
  ),
+ ...PORCH_POSTS.map((post) => ({ x: post.x, z: post.z, r: 0.14 })),
  // Lo que hay en las paradas (objetivo 23).
- ...Object.values(STOP_PROPS).flatMap((prop) => (prop.long ? [{ x: prop.x - Math.cos(prop.turn) * prop.long, z: prop.z + Math.sin(prop.turn) * prop.long, bx: prop.x + Math.cos(prop.turn) * prop.long, bz: prop.z - Math.sin(prop.turn) * prop.long, r: 0.16 }] : prop.solid ? [{ x: prop.x, z: prop.z, r: prop.solid }] : [])),
+ ...Object.values(STOP_PROPS).flatMap((prop) => (prop.long ? [{ x: prop.x - Math.cos(prop.turn) * prop.long, z: prop.z + Math.sin(prop.turn) * prop.long, bx: prop.x + Math.cos(prop.turn) * prop.long, bz: prop.z - Math.sin(prop.turn) * prop.long, r: prop.thick ?? 0.16 }] : prop.solid ? [{ x: prop.x, z: prop.z, r: prop.solid }] : [])),
  shipCollider,
 ];
 
@@ -786,6 +809,7 @@ const twisted = {
    "senda-casita": [-12, -10.6],
    "luna-casita": [QUEST_STOPS.casita.x, QUEST_STOPS.casita.z],
    "luna-invernadero": [QUEST_STOPS.invernadero.x, QUEST_STOPS.invernadero.z],
+   "senda-porche": [8.5, -0.7],
    "puente-oeste-a": [-5.4, -29.7],
    "puente-oeste-b": [-12.4, -27.2],
    "luna-observatorio": [TELESCOPE.x, TELESCOPE.z],
@@ -820,7 +844,8 @@ const twisted = {
    ["terraza-oeste", "luna-alquimista"],
    ["pasarela-norte", "senda-casita"],
    ["senda-casita", "luna-casita"],
-   ["invernadero", "luna-invernadero"],
+   ["cruce-este", "senda-porche"],
+   ["senda-porche", "luna-invernadero"],
    ["macizo-alto", "puente-oeste-a"],
    ["puente-oeste-a", "puente-oeste-b"],
    ["puente-oeste-b", "luna-observatorio"],

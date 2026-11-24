@@ -5,7 +5,7 @@
 // cada sitio: puertas, miradores, extremos de escaleras y puentes y todos los
 // puntos por los que guía Woody. También que los acantilados no se trepan.
 //   node tests/e2e/twisted-walk.mjs [mapa]     «mapa» dibuja la isla en texto
-import twisted, { BRIDGES, BUILDINGS, FERNS, FLOWERS, HOUSE_DOOR, LEVELS, MUSHROOMS, STAIRS, STORY_DOOR, TUFTS, VIEWPOINTS, VINES, GREENHOUSE, bridgeDeck, ground, height, stairHeight } from "../../src/worlds/twisted/layout.js";
+import twisted, { BRIDGES, BUILDINGS, FERNS, FLOWERS, HOUSE_DOOR, LEVELS, MUSHROOMS, QUEST_STOPS, STAIRS, STORY_DOOR, TUFTS, VIEWPOINTS, VINES, GREENHOUSE, bridgeDeck, ground, height, stairHeight } from "../../src/worlds/twisted/layout.js";
 import { distanceTo } from "../../src/worlds/collision.js";
 
 let failures = 0;
@@ -61,7 +61,8 @@ const places = [
  ["el observatorio", BUILDINGS.observatorio.x + 2.4, BUILDINGS.observatorio.z + 2.6, LEVELS[2]],
  ["la casa del árbol", BUILDINGS["casa-arbol"].x - 2.2, BUILDINGS["casa-arbol"].z + 2, LEVELS[2]],
  ["la casita", BUILDINGS.casita.x + 2.6, BUILDINGS.casita.z + 2.6, LEVELS[0]],
- ["el invernadero", GREENHOUSE.x - 3, GREENHOUSE.z + 0.4, LEVELS[0]],
+ ["el invernadero (la mesa del explorador, en su porche)", QUEST_STOPS.invernadero.x, QUEST_STOPS.invernadero.z, LEVELS[0]],
+ ["la puerta del invernadero", GREENHOUSE.x + Math.sin(GREENHOUSE.turn) * (GREENHOUSE.depth / 2 + 1.4) + 0.9, GREENHOUSE.z + Math.cos(GREENHOUSE.turn) * (GREENHOUSE.depth / 2 + 1.4), LEVELS[0]],
  ...VIEWPOINTS.map((spot) => [`el mirador «${spot.id}»`, spot.x, spot.z, null]),
  ...STAIRS.flatMap((stair) => [[`el pie de la escalera «${stair.id}»`, ...stair.through[0], stair.from], [`lo alto de la escalera «${stair.id}»`, ...stair.through[stair.through.length - 1], stair.to]]),
  ...BRIDGES.flatMap((bridge) => [[`un extremo del puente «${bridge.id}»`, ...bridge.from, bridge.y], [`el otro extremo del puente «${bridge.id}»`, ...bridge.to, bridge.y], [`el centro del puente «${bridge.id}»`, (bridge.from[0] + bridge.to[0]) / 2, (bridge.from[1] + bridge.to[1]) / 2, null]]),

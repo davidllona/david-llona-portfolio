@@ -7,11 +7,11 @@
 // miran a `focus` (x, altura absoluta, z) con `distance`, `lift`, `yaw` y `tilt`.
 import fs from "node:fs";
 import { open, wait } from "./common.mjs";
-import { BUILDINGS, GREENHOUSE, LEVELS, QUEST_STOPS, STOP_PROPS, WATER_LEVEL } from "../../src/worlds/twisted/layout.js";
+import { BUILDINGS, GREENHOUSE, LEVELS, WATER_LEVEL } from "../../src/worlds/twisted/layout.js";
 
 const T = BUILDINGS.torre, top = LEVELS[3];
 const tower = (name, yaw, y = 8.4, distance = 1.75, lift = 0.5) => ({ name, at: [2.6, -32.4], view: { focus: [T.x, top + y, T.z], distance, lift, yaw } });
-const stop = QUEST_STOPS.invernadero;
+const PARADA = [10.43, -0.89];
 const SHOTS = [
  // 1 · La luna: desde los miradores, de cerca (recorte), y sobre el mar.
  { name: "1-luna-mirador-plataforma", at: [0, 3] },
@@ -54,13 +54,21 @@ const SHOTS = [
  { name: "4-cascada-c-arriba", at: [-24.4, 2.6] },
  { name: "4-cascada-c-lado", at: [-24.4, 2.6], view: { focus: [-27.6, (WATER_LEVEL + 0) / 2, 3.0], distance: 0.85, lift: 0.3, yaw: -2.2 } },
  { name: "4-cascada-c-frente", at: [-24.4, 2.6], view: { focus: [-27.6, (WATER_LEVEL + 0) / 2, 3.0], distance: 0.95, lift: 0.35, yaw: -1.05 } },
- // 5 · El invernadero y la parada «Aventurero».
+ // 5 · El invernadero y la parada «Aventurero». (Los puntos van escritos, no leídos del plano: así el «antes»,
+ // sacado con el código anterior, lleva el mismo encuadre. La parada estaba en 11,8 · −3,7; ahora, ante la mesa.)
  { name: "5-invernadero-juego", at: [9.8, -4.6] },
- { name: "5-invernadero-parada", at: [stop.x, stop.z] },
+ { name: "5-invernadero-acercandose", at: [8.5, -0.7] },
+ { name: "5-invernadero-parada", at: PARADA },
  { name: "5-invernadero-cerca", at: [9.8, -4.6], view: { focus: [GREENHOUSE.x - 1.2, 1.3, GREENHOUSE.z + 0.6], distance: 0.5, lift: 0.45, yaw: -0.5 } },
+ { name: "5-invernadero-frente", at: PARADA, view: { focus: [GREENHOUSE.x - 0.4, 1.5, GREENHOUSE.z + 1.2], distance: 0.62, lift: 0.5, yaw: -0.25 } },
  { name: "5-invernadero-este", at: [9.8, -4.6], view: { focus: [GREENHOUSE.x, 1.3, GREENHOUSE.z], distance: 0.6, lift: 0.5, yaw: 1.3 } },
- { name: "5-mesa", at: [stop.x, stop.z], view: { focus: [STOP_PROPS.map.x, 0.9, STOP_PROPS.map.z], distance: 0.3, lift: 0.5, yaw: -0.5 } },
- { name: "5-farolillo-encendido", at: [stop.x, stop.z], use: 2600 },
+ { name: "5-rincon", at: PARADA, view: { focus: [10.6, 1.0, -2.2], distance: 0.5, lift: 0.62, yaw: -0.85 } },
+ // (De cerca, con el astronauta apartado: que no tape.)
+ { name: "5-mesa", at: [8.9, 0.9], woody: [8.2, 2.2], view: { focus: [10.94, 0.9, -2.5], distance: 0.2, lift: 1.05, yaw: -0.2 } },
+ { name: "5-maleta", at: [8.9, 0.9], woody: [8.2, 2.2], view: { focus: [9.56, 0.75, -1.7], distance: 0.17, lift: 0.85, yaw: 0.3 } },
+ // El farolillo, recién encendido con la E (antes de que se abra el cartel), y la mesa ya alumbrada.
+ { name: "5-farolillo-encendido", at: PARADA, use: 980 },
+ { name: "5-mesa-encendida", at: [8.9, 0.9], woody: [8.2, 2.2], view: { focus: [10.6, 1.0, -2.6], distance: 0.3, lift: 0.95, yaw: -0.25 } },
 ];
 
 const folder = (process.argv[2] ?? "capturas/35-pulido-mundo2/despues") + "/";
@@ -119,8 +127,10 @@ if (shots.length || wanted("nave")) {
    await t.page.keyboard.press("KeyE");
    await wait(one.use);
    await shot(t, one.name);
+   // (Se espera al cartel y se cierra.)
+   await wait(1900);
    await t.page.keyboard.press("Escape");
-   await wait(700);
+   await wait(900);
    continue;
   }
   let clip;
