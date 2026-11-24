@@ -529,7 +529,9 @@ export function createStairs(stairs) {
 
 // ── Puentes ─────────────────────────────────────────────────────────────────
 // Los colgantes: tablas sueltas sobre dos maromas, pasamanos de cuerda que se
-// comban y cuatro postes torcidos. Las pasarelas: tablones sobre dos vigas,
+// comban y cuatro postes gruesos, cada uno con su pie de piedra, clavados en
+// el borde del cortado (donde el tablero deja la tierra: `bridge.span`); el
+// puente cuelga de poste a poste y, antes de ellos, dos tablones hacen de umbral. Las pasarelas: tablones sobre dos vigas,
 // con una baranda baja. `deck(bridge, t)`: la altura del tablero (layout.js).
 const ROPE = "#b9a27a";
 export function createBridges(bridges, deck) {
@@ -539,16 +541,20 @@ export function createBridges(bridges, deck) {
   const yaw = Math.atan2(bridge.ux, bridge.uz);
   const at = (t, side = 0, lift = 0) => [bridge.from[0] + bridge.ux * bridge.length * t - bridge.uz * side, deck(bridge, t) + lift, bridge.from[1] + bridge.uz * bridge.length * t + bridge.ux * side];
   const planks = Math.round(bridge.length / (bridge.rope ? 0.36 : 0.42));
+  const [hangs, lands] = bridge.span, threshold = 0.75 / bridge.length;
   for (let i = 0; i < planks; i++) {
    const t = (i + 0.5) / planks, [x, y, z] = at(t);
+   // (Sobre tierra firme no hay tablas: se pisa el camino. Solo el umbral, ante los postes.)
+   if (bridge.rope && (t < hangs - threshold || t > lands + threshold)) continue;
    const slope = Math.atan2(deck(bridge, t + 0.02) - deck(bridge, t - 0.02), bridge.length * 0.04);
    parts.push(piece(box(bridge.width + (bridge.rope ? 0.1 : 0.3), bridge.rope ? 0.06 : 0.1, bridge.rope ? 0.27 : 0.36), { color: i % 3 ? WOOD.mid : "#4a3b50", vary: 0.14, seed: i + 3, position: [x, y - 0.05, z], rotation: [-slope + (random() - 0.5) * 0.05, yaw + (random() - 0.5) * (bridge.rope ? 0.1 : 0.04), (random() - 0.5) * (bridge.rope ? 0.07 : 0.02)] }));
   }
   const half = bridge.width / 2 + 0.06;
   for (const side of [-half, half]) {
+   // (De poste a poste en los colgantes; de extremo a extremo en las pasarelas.)
    const line = (lift, sag) => Array.from({ length: 9 }, (_, k) => {
-    const t = k / 8, [x, y, z] = at(t, side, lift);
-    return [x, y - Math.sin(t * Math.PI) * sag, z];
+    const [x, y, z] = at(hangs + (lands - hangs) * (k / 8), side, lift);
+    return [x, y - Math.sin((k / 8) * Math.PI) * sag, z];
    });
    if (bridge.rope) {
     // Maroma bajo las tablas y pasamanos de cuerda, que se comba más que el tablero.
@@ -556,13 +562,21 @@ export function createBridges(bridges, deck) {
     parts.push(piece(tube(line(1.02, 0.34), () => 0.028, { sides: 4, segments: 10 }), { color: ROPE }));
     // Tirantes del pasamanos al tablero.
     for (let k = 1; k < 8; k++) {
-     const t = k / 8, [x, y, z] = at(t, side), high = 1.02 - Math.sin(t * Math.PI) * 0.34;
+     const [x, y, z] = at(hangs + (lands - hangs) * (k / 8), side), high = 1.02 - Math.sin((k / 8) * Math.PI) * 0.34;
      parts.push(piece(box(0.018, high, 0.018), { color: ROPE, position: [x, y + high / 2, z] }));
     }
-    // Postes en los extremos, cada uno vencido a su manera.
-    for (const end of [0, 1]) {
-     const [x, y, z] = at(end ? 1.02 : -0.02, side);
-     parts.push(piece(tube([[0, -0.5, 0], [(random() - 0.5) * 0.14, 0.5, (random() - 0.5) * 0.14], [(random() - 0.5) * 0.3, 1.36, (random() - 0.5) * 0.3]], (t) => 0.085 - t * 0.03, { sides: 5, segments: 4 }), { bottom: WOOD.dark, top: WOOD.mid, position: [x, y, z] }));
+    // Postes en el borde del cortado, cada uno algo vencido: tronco grueso hincado un metro,
+    // pie de piedra, y la maroma atada con dos vueltas.
+    for (const end of [hangs, lands]) {
+     const [x, , z] = at(end, side * 1.06), y = bridge.y + 0.04;
+     const lean = [(random() - 0.5) * 0.12, (random() - 0.5) * 0.12];
+     parts.push(
+      piece(tube([[0, -1.0, 0], [lean[0] * 0.4, 0.5, lean[1] * 0.4], [lean[0], 1.5, lean[1]]], (t) => 0.13 - t * 0.035, { sides: 6, segments: 4 }), { bottom: WOOD.dark, top: "#5a4658", vary: 0.1, position: [x, y, z] }),
+      piece(new THREE.CylinderGeometry(0.11, 0.13, 0.07, 6), { color: WOOD.dark, position: [x + lean[0], y + 1.53, z + lean[1]] }),
+      piece(new THREE.TorusGeometry(0.115, 0.03, 4, 7).rotateX(Math.PI / 2), { color: ROPE, position: [x + lean[0] * 0.7, y + 1.04, z + lean[1] * 0.7] }),
+      piece(new THREE.TorusGeometry(0.12, 0.03, 4, 7).rotateX(Math.PI / 2), { color: ROPE, position: [x + lean[0] * 0.65, y + 0.96, z + lean[1] * 0.65] }),
+      piece(new THREE.DodecahedronGeometry(0.3, 0), { bottom: STONE.dark, top: STONE.light, jitter: 0.03, vary: 0.12, seed: 7, position: [x, y - 0.06, z], scale: [1, 0.55, 1] }),
+     );
     }
    } else {
     // Viga bajo los tablones y baranda baja sobre montantes.

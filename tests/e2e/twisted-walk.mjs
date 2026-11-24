@@ -5,7 +5,7 @@
 // cada sitio: puertas, miradores, extremos de escaleras y puentes y todos los
 // puntos por los que guía Woody. También que los acantilados no se trepan.
 //   node tests/e2e/twisted-walk.mjs [mapa]     «mapa» dibuja la isla en texto
-import twisted, { BRIDGES, BUILDINGS, HOUSE_DOOR, LEVELS, STAIRS, STORY_DOOR, VIEWPOINTS, GREENHOUSE, height, stairHeight } from "../../src/worlds/twisted/layout.js";
+import twisted, { BRIDGES, BUILDINGS, FERNS, FLOWERS, HOUSE_DOOR, LEVELS, MUSHROOMS, STAIRS, STORY_DOOR, TUFTS, VIEWPOINTS, VINES, GREENHOUSE, bridgeDeck, ground, height, stairHeight } from "../../src/worlds/twisted/layout.js";
 import { distanceTo } from "../../src/worlds/collision.js";
 
 let failures = 0;
@@ -126,6 +126,43 @@ for (const [from, to] of twisted.guide.links) {
  if (!ok) hops.push(`${from} → ${to}`);
 }
 check(hops.length === 0, `los ${twisted.guide.links.length} tramos de la red de guía de Woody están despejados${hops.length ? ": cortados " + hops.join(", ") : ""}`);
+
+// ── Puentes (objetivo 28) ───────────────────────────────────────────────────
+// Ninguno atraviesa el terreno ni las escaleras: los colgantes solo se comban sobre
+// el vacío, y donde hay tierra debajo el tablero va a ras de ella. Nada crece debajo
+// ni pegado. Y se entra y se sale sin saltos de altura.
+for (const bridge of BRIDGES) {
+ const point = (d, side = 0) => [bridge.from[0] + bridge.ux * d - bridge.uz * side, bridge.from[1] + bridge.uz * d + bridge.ux * side];
+ // Lo más que el suelo sube sobre el canto bajo de las tablas (12 cm bajo el tablero), en el eje y a los dos lados.
+ let pierced = -Infinity, onStair = false;
+ for (let d = 0; d <= bridge.length; d += 0.1) {
+  for (const side of [-bridge.width / 2 - 0.1, 0, bridge.width / 2 + 0.1]) {
+   const [x, z] = point(d, side);
+   pierced = Math.max(pierced, ground(x, z) - (bridgeDeck(bridge, d / bridge.length) - 0.12));
+   onStair ||= stairHeight(x, z) !== null;
+  }
+ }
+ // (Sobre tierra firme las tablas del umbral se apoyan en el suelo: hasta 13 cm es estar posado, no atravesar.)
+ check(pierced < 0.13 && !onStair, `el puente «${bridge.id}» no atraviesa el terreno ni pisa una escalera (el suelo sube como mucho ${(pierced * 100).toFixed(0)} cm sobre el canto bajo de las tablas)`);
+ if (bridge.rope) {
+  const [a, b] = bridge.span, low = Math.min(...Array.from({ length: 21 }, (_, k) => bridgeDeck(bridge, a + ((b - a) * k) / 20)));
+  check(a > 0.05 && b < 0.95 && Math.abs(bridgeDeck(bridge, a) - bridge.y - 0.06) < 0.001 && bridge.y - low > 0.3, `«${bridge.id}» cuelga de poste a poste (del ${(a * 100).toFixed(0)} al ${(b * 100).toFixed(0)} % de su recorrido), con ${(bridge.y + 0.06 - low).toFixed(2)} m de comba, y va a ras de suelo sobre tierra firme`);
+ }
+ const under = [...FERNS, ...MUSHROOMS, ...FLOWERS, ...VINES, ...TUFTS].filter((one) => {
+  const px = one.x - bridge.from[0], pz = one.z - bridge.from[1];
+  const along = px * bridge.ux + pz * bridge.uz, across = Math.abs(-px * bridge.uz + pz * bridge.ux);
+  return along > -0.9 && along < bridge.length + 0.9 && across < bridge.width / 2 + 1;
+ });
+ check(under.length === 0, `nada crece debajo de «${bridge.id}» ni pegado a él (${under.length} plantas)`);
+ // Andando por su eje, desde 1,2 m antes hasta 1,2 m después: la altura no da saltos.
+ let jump = 0, before = height(...point(-1.2));
+ for (let d = -1.15; d <= bridge.length + 1.2; d += 0.05) {
+  const y = height(...point(d));
+  if (!(bridge.id === "casa-arbol" && d < 0)) jump = Math.max(jump, Math.abs(y - before));
+  before = y;
+ }
+ check(jump < 0.11 && twisted.surface(...point(bridge.length / 2)) === "wood", `«${bridge.id}» se cruza sin saltos de altura (el mayor, ${(jump * 100).toFixed(0)} cm cada 5 cm andados) y se pisa madera`);
+}
 
 if (process.argv.includes("mapa")) {
  const STEP = 4;

@@ -50,7 +50,9 @@ const TERRACES = [
  // Primera: la mitad de atrás de la isla, en tres bloques.
  [[-13, -23, 9.5], [0, -29, 12.5], [13, -23, 9.5]],
  // Segunda: un pico a cada lado (observatorio y casa del árbol) y el macizo central.
- [[-16.5, -26.5, 5], [16.5, -27, 5], [0, -33, 6.8]],
+ // (Y una repisa al este del macizo, junto al pie de la escalera de la cima: ahí se ancla el puente
+ // colgante de la casa del árbol. Objetivo 28: antes arrancaba encima de los primeros peldaños.)
+ [[-16.5, -26.5, 5], [16.5, -27, 5], [0, -33, 6.8], [6.2, -29.3, 2.0]],
  // Tercera: la cima, con la torre del reloj.
  [[0, -35, 4.3]],
 ];
@@ -213,17 +215,36 @@ function island(x, z) {
 // ── Puentes ─────────────────────────────────────────────────────────────────
 // Colgantes, de cuerda y tablas, entre los picos; y pasarelas de tablones
 // sobre el agua. `sag`: lo que se comba el colgante en el centro (negativo: se arquea).
+// Los colgantes solo se comban sobre el vacío (`span`: de qué a qué parte de su
+// recorrido cuelgan, de poste a poste): sobre tierra firme el tablero va a ras
+// del suelo. (Objetivo 28: se combaban de extremo a extremo y los primeros
+// tablones se hundían en la roca del borde.)
 export const BRIDGES = [
  { id: "observatorio", rope: true, from: [-12.4, -27.2], to: [-5.4, -29.7], y: LEVELS[2], width: 1.5, sag: 0.55 },
- { id: "casa-arbol", rope: true, from: [5.5, -29.9], to: [12.4, -27.8], y: LEVELS[2], width: 1.5, sag: 0.55 },
+ { id: "casa-arbol", rope: true, from: [6.7, -29.4], to: [12.4, -27.8], y: LEVELS[2], width: 1.5, sag: 0.55 },
  { id: "rio", from: [-7.1, -5.9], to: [-8.6, -10.2], y: LEVELS[0], width: 1.9, sag: -0.42 },
  { id: "arroyo", from: [0.1, -19], to: [4.3, -19.1], y: LEVELS[1], width: 1.7, sag: -0.22 },
 ].map((bridge) => {
  const dx = bridge.to[0] - bridge.from[0], dz = bridge.to[1] - bridge.from[1], length = Math.hypot(dx, dz);
- return { ...bridge, length, ux: dx / length, uz: dz / length };
+ const made = { ...bridge, length, ux: dx / length, uz: dz / length, span: [0, 1] };
+ if (bridge.rope) {
+  // ¿Hay tierra bajo el tablero (en su eje o a sus lados) a esta altura del recorrido?
+  const land = (t) => [-1, 0, 1].some((side) => ground(bridge.from[0] + dx * t - made.uz * side * (bridge.width / 2 + 0.4), bridge.from[1] + dz * t + made.ux * side * (bridge.width / 2 + 0.4)) > bridge.y - 0.7);
+  // El último punto con tierra desde cada extremo, y 35 cm más (la malla del terreno va a medio metro).
+  const edge = (from, step) => {
+   let t = from;
+   while (Math.abs(t - from) < 0.4 && land(t + step)) t += step;
+   return t + step + (0.35 / length) * Math.sign(step);
+  };
+  made.span = [edge(0, 0.01), edge(1, -0.01)];
+ }
+ return made;
 });
 // Altura del tablero en lo que va de recorrido `t` (0 a 1).
-export const bridgeDeck = (bridge, t) => bridge.y + 0.06 - Math.sin(Math.min(1, Math.max(0, t)) * Math.PI) * bridge.sag;
+export function bridgeDeck(bridge, t) {
+ const [a, b] = bridge.span, u = Math.min(1, Math.max(0, (t - a) / (b - a)));
+ return bridge.y + 0.06 - Math.sin(u * Math.PI) * bridge.sag;
+}
 // El puente que hay en (x, z) y su altura ahí, o null.
 export function bridgeAt(x, z) {
  for (const bridge of BRIDGES) {
@@ -296,8 +317,15 @@ export const STOP_PROPS = {
  suitcase: { x: 11.3, z: 0.6, turn: -0.3, solid: 0.55 },
  paperLantern: { x: 10.2, z: -2.2, turn: 0.7, solid: 0.12 },
 };
-// Lo menudo (helechos, setas, flores…) no nace encima de esos objetos.
-const clearOfProps = (one) => !Object.values(STOP_PROPS).some((prop) => Math.hypot(one.x - prop.x, one.z - prop.z) < 1.15);
+// Lo menudo (helechos, setas, flores…) no nace encima de esos objetos, ni debajo de un puente ni pegado a él
+// (objetivo 28: desde arriba asomaba entre las tablas). El margen cubre lo que abre un helecho.
+const underBridge = (one) =>
+ BRIDGES.some((bridge) => {
+  const px = one.x - bridge.from[0], pz = one.z - bridge.from[1];
+  const along = px * bridge.ux + pz * bridge.uz, across = Math.abs(-px * bridge.uz + pz * bridge.ux);
+  return along > -1 && along < bridge.length + 1 && across < bridge.width / 2 + (bridge.rope ? 1.5 : 1.1);
+ });
+const clearOfProps = (one) => !Object.values(STOP_PROPS).some((prop) => Math.hypot(one.x - prop.x, one.z - prop.z) < 1.15) && !underBridge(one);
 
 // Las paradas del juego del reloj (objetivo 23; ver ClockQuest.jsx). De cada una:
 // dónde se pulsa la E (`x`, `z`: en el camino, ante su puerta), dónde flota su
@@ -346,7 +374,7 @@ const TRAILS = [
  // Arriba: de la escalera a los dos puentes y a la escalera de la cima.
  { width: 1.5, through: [[-2.6, -27.8], [-3.6, -29], [-5.4, -29.7]] },
  { width: 1.5, through: [[-2.6, -27.8], [1.4, -28.8], [4.6, -29.3]] },
- { width: 1.4, through: [[4.6, -29.3], [5.5, -29.9]] },
+ { width: 1.4, through: [[4.6, -29.3], [5.7, -29.2], [6.7, -29.4]] },
  // En los picos y en la cima.
  { width: 1.4, through: [[-12.4, -27.2], [-14.4, -26.2], [-15.2, -25]] },
  { width: 1.4, through: [[12.4, -27.8], [14.2, -26.2]] },
@@ -727,7 +755,7 @@ const twisted = {
    "puente-oeste-a": [-5.4, -29.7],
    "puente-oeste-b": [-12.4, -27.2],
    "luna-observatorio": [TELESCOPE.x, TELESCOPE.z],
-   "puente-este-a": [5.5, -29.9],
+   "puente-este-a": [6.7, -29.4],
    "puente-este-b": [12.4, -27.8],
    "luna-casa-arbol": [QUEST_STOPS["casa-arbol"].x, QUEST_STOPS["casa-arbol"].z],
   },
