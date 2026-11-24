@@ -592,6 +592,31 @@ export function createBridges(bridges, deck) {
  return merge(parts);
 }
 
+// ── Piedras del agua ────────────────────────────────────────────────────────
+// Las que cercan el manantial del macizo (menos por donde sale el reguero) y
+// las dos que flanquean el labio de cada cascada: el agua rebosa entre ellas.
+export function createWaterStones(spring, run, falls, heightAt) {
+ const random = randomFrom(0.512);
+ const parts = [];
+ const stone = (x, z, r, sink = 0.35) => parts.push(piece(new THREE.DodecahedronGeometry(r, 0), { bottom: STONE.dark, top: STONE.light, jitter: r * 0.12, vary: 0.14, seed: 1 + Math.floor(random() * 90), position: [x, heightAt(x, z) + r * (0.62 - sink), z], rotation: [random() * 3, random() * 3, random() * 3], scale: [1, 0.62 + random() * 0.2, 1] }));
+ const outlet = Math.atan2(run[1][1] - run[0][1], run[1][0] - run[0][0]);
+ for (let k = 0; k < 11; k++) {
+  const angle = (k / 11) * Math.PI * 2 + 0.2;
+  // (Por donde sale el agua no hay piedra.)
+  if (Math.abs(Math.atan2(Math.sin(angle - outlet), Math.cos(angle - outlet))) < 0.75) continue;
+  const away = spring.r + 0.12 + random() * 0.18;
+  stone(spring.x + Math.cos(angle) * away, spring.z + Math.sin(angle) * away, 0.24 + random() * 0.2);
+ }
+ for (const fall of falls) {
+  const side = [Math.cos(fall.turn), -Math.sin(fall.turn)], out = [Math.sin(fall.turn), Math.cos(fall.turn)];
+  for (const s of [-1, 1]) {
+   const away = fall.width / 2 + 0.3;
+   stone(fall.lip[0] + side[0] * away * s - out[0] * 0.35, fall.lip[1] + side[1] * away * s - out[1] * 0.35, 0.3 + random() * 0.14, 0.2);
+  }
+ }
+ return merge(parts);
+}
+
 // ── Invernadero de cristal ──────────────────────────────────────────────────
 // Zócalo de piedra, armazón de hierro a dos aguas y, aparte, los paños de
 // cristal (`glass`), que dejan ver lo que brilla dentro. Fachada hacia +Z.

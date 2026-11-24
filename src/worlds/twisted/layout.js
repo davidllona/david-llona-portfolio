@@ -110,15 +110,39 @@ export function stairHeight(x, z) {
 // borde, cae otra vez y baja en río, por delante, hasta saltar al mar por el oeste.
 export const POND = { x: 2, z: -23, r: 2.7, level: 1 }; // poza de la primera terraza
 export const POOL = { x: 2.7, z: -13.4, r: 2.3, level: 0 }; // poza al pie de la segunda cascada
-export const STREAM = [[2, -21], [2.5, -17.2]]; // arroyo de la poza al borde de la terraza
+export const STREAM = [[2, -21], [2.5, -17.2], [2.6, -16.8]]; // arroyo de la poza al borde mismo de la terraza
+// El manantial del macizo (objetivo 28: la cascada de arriba salía de la pared, sin agua encima):
+// una poza entre piedras al pie de la pared de la cima, y su reguero, que cruza el camino
+// bajo una pasarela de tablones y llega al borde.
+export const SPRING = { x: 2.7, z: -30.05, r: 0.9, level: 2 };
+export const SPRING_RUN = curve([[2.7, -30.0], [2.3, -28.9], [1.95, -27.8], [1.9, -26.95]], 4);
+// Al pie de cada cascada de tierra, el agua corre hasta su poza: [de dónde, a dónde, nivel].
+export const TAILS = [
+ { level: 1, points: [[1.9, -26.1], [1.95, -25.2]] },
+ { level: 0, points: [[2.6, -16.0], [2.7, -15.0]] },
+];
 // (El río serpentea: pasa bajo la pasarela de tablones y salta al mar por el oeste.)
 export const RIVER = curve([[2.7, -12.4], [1.2, -10.2], [-1.8, -10.8], [-4.6, -8.6], [-7.85, -8.05], [-10.8, -6.2], [-13.2, -3.4], [-16.6, -3.6], [-19.6, -1.2], [-23.6, 0.6], [-26.6, 2.2]], 4);
 const DEPTH = 0.42; // lo que se hunde el cauce
+// Cascadas. Cada una nace del agua de arriba y cae por el borde: `lip` es el
+// punto del borde por donde rebosa (donde el terreno empieza a caer), `turn`
+// hacia dónde cae, `reach` lo que se separa del borde al llegar abajo (la roca
+// del cortado avanza un metro al bajar: el agua la salva). `from` y `to`: la
+// altura del agua arriba y abajo. `x`, `z`: dónde bate (para la espuma y el sonido).
 export const WATERFALLS = [
- { x: 1.9, z: -25.9, top: LEVELS[2], bottom: LEVELS[1], width: 2.4, turn: 0 }, // del macizo a la poza
- { x: 2.6, z: -15.9, top: LEVELS[1], bottom: LEVELS[0], width: 2.2, turn: 0 }, // de la terraza al río
- { x: -27.2, z: 2.6, top: LEVELS[0], bottom: WATER_LEVEL, width: 2.4, turn: -1.05 }, // del río al mar
-];
+ { lip: [1.9, -26.95], top: LEVELS[2], bottom: LEVELS[1], width: 1.5, turn: 0, reach: 1.2 }, // del manantial del macizo a la poza
+ { lip: [2.6, -16.8], top: LEVELS[1], bottom: LEVELS[0], width: 1.7, turn: 0, reach: 1.15 }, // del arroyo de la terraza al río
+ { lip: [-24.95, 1.3], top: LEVELS[0], bottom: WATER_LEVEL, width: 2.0, turn: -1.05, reach: 0.95, sea: true }, // del río al mar
+].map((fall) => ({ ...fall, from: fall.top - 0.14, to: fall.sea ? fall.bottom : fall.bottom - 0.16, x: fall.lip[0] + Math.sin(fall.turn) * fall.reach, z: fall.lip[1] + Math.cos(fall.turn) * fall.reach }));
+// El río que se ve: hasta el borde por el que salta al mar (el cauce sigue excavado hasta fuera).
+export const RIVER_SEEN = (() => {
+ const fall = WATERFALLS[2], points = [];
+ for (const point of RIVER) {
+  if ((point[0] - fall.lip[0]) * Math.sin(fall.turn) + (point[1] - fall.lip[1]) * Math.cos(fall.turn) > -0.1) break;
+  points.push(point);
+ }
+ return [...points, fall.lip];
+})();
 function toLine(x, z, points) {
  let best = Infinity;
  for (let i = 0; i < points.length - 1; i++) best = Math.min(best, toSegment(x, z, points[i][0], points[i][1], points[i + 1][0], points[i + 1][1]).d);
@@ -130,7 +154,13 @@ export function waterBed(x, z) {
  const stream = 1 - smooth(0.4, 1.1, toLine(x, z, STREAM));
  const pond = 1 - smooth(POND.r - 0.9, POND.r, Math.hypot(x - POND.x, z - POND.z));
  const pool = 1 - smooth(POOL.r - 0.9, POOL.r, Math.hypot(x - POOL.x, z - POOL.z));
- return Math.max(river, stream, pond, pool);
+ // (Solo cerca del agua de las cascadas: el manantial, su reguero y el pie de cada salto.)
+ let falls = 0;
+ if (Math.abs(x - 2.2) < 3 && z > -31.5 && z < -14) {
+  falls = Math.max(1 - smooth(SPRING.r - 0.55, SPRING.r, Math.hypot(x - SPRING.x, z - SPRING.z)), 1 - smooth(0.4, 1.0, toLine(x, z, SPRING_RUN)));
+  for (const tail of TAILS) falls = Math.max(falls, 1 - smooth(0.4, 1.0, toLine(x, z, tail.points)));
+ }
+ return Math.max(river, stream, pond, pool, falls);
 }
 
 // Peñascos: agujas de roca que salen del mar pegadas al cortado, detrás y a
@@ -224,6 +254,8 @@ export const BRIDGES = [
  { id: "casa-arbol", rope: true, from: [6.7, -29.4], to: [12.4, -27.8], y: LEVELS[2], width: 1.5, sag: 0.55 },
  { id: "rio", from: [-7.1, -5.9], to: [-8.6, -10.2], y: LEVELS[0], width: 1.9, sag: -0.42 },
  { id: "arroyo", from: [0.1, -19], to: [4.3, -19.1], y: LEVELS[1], width: 1.7, sag: -0.22 },
+ // Sobre el reguero del manantial, en el camino del macizo.
+ { id: "manantial", from: [0.85, -28.68], to: [3.65, -29.12], y: LEVELS[2], width: 1.7, sag: -0.14 },
 ].map((bridge) => {
  const dx = bridge.to[0] - bridge.from[0], dz = bridge.to[1] - bridge.from[1], length = Math.hypot(dx, dz);
  const made = { ...bridge, length, ux: dx / length, uz: dz / length, span: [0, 1] };
@@ -373,7 +405,8 @@ const TRAILS = [
  { width: 1.5, through: [[11, -17.8], [13, -19], [STORY_DOOR.x, STORY_DOOR.z]] },
  // Arriba: de la escalera a los dos puentes y a la escalera de la cima.
  { width: 1.5, through: [[-2.6, -27.8], [-3.6, -29], [-5.4, -29.7]] },
- { width: 1.5, through: [[-2.6, -27.8], [1.4, -28.8], [4.6, -29.3]] },
+ { width: 1.5, through: [[-2.6, -27.8], [-0.6, -28.4], [0.85, -28.68]] },
+ { width: 1.5, through: [[3.65, -29.12], [4.6, -29.3]] },
  { width: 1.4, through: [[4.6, -29.3], [5.7, -29.2], [6.7, -29.4]] },
  // En los picos y en la cima.
  { width: 1.4, through: [[-12.4, -27.2], [-14.4, -26.2], [-15.2, -25]] },
@@ -458,7 +491,8 @@ export const LAMPS = [
  { x: 8.6, z: -6.6, turn: 2.6 },
  { x: -8.2, z: -19.6, turn: 4.4 },
  { x: 9.4, z: -16.6, turn: 1.2 },
- { x: 1.8, z: -30.6, turn: 5.2 },
+ // (Objetivo 28: estaba en 1,8 · −30,6, donde ahora brota el manantial; pasa al otro lado del camino.)
+ { x: -1.7, z: -29.9, turn: 5.6 },
 ];
 // Verja de hierro desigual: tramos entre dos puntos.
 export const FENCES = [

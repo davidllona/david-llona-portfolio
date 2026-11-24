@@ -7,10 +7,10 @@ import { uClosed } from "../../experience/environment/bend";
 import { noiseTexture } from "../../experience/environment/noise";
 import { unlit } from "../../experience/materials";
 import { uniforms } from "../../experience/theme";
-import { createFallMaterial, createFalls } from "./falls";
+import { createCascades, createFallMaterial } from "./falls";
 import { CENTRE, EDGE_RANGE, SPAN, createGround, groundData } from "./ground";
 import { SEA_ROCKS } from "./farland";
-import { LEVELS, POND, POOL, RIVER, SEA_BED, STREAM, WATERFALLS, WATER_LEVEL, cragEdge, islandEdge } from "./layout";
+import { LEVELS, POND, POOL, RIVER_SEEN, SEA_BED, SPRING, SPRING_RUN, STREAM, TAILS, WATER_LEVEL, cragEdge, islandEdge } from "./layout";
 
 const COARSE = { coarse: true }; // (ya viene en anillos: no hay que partirlo más para curvarlo)
 // Turquesa que brilla: el agua dulce, las cascadas y la espuma de la orilla.
@@ -193,7 +193,12 @@ function disc(pool, y) {
 const surface = (level) => LEVELS[level] - 0.16;
 const flat = (list) => mergeGeometries(list.map((one) => (one.index ? one.toNonIndexed() : one)).map((one) => (one.deleteAttribute("normal"), one)));
 function createFreshWater() {
- return flat([ribbon(dense(RIVER), 2.1, surface(0)), ribbon(dense(STREAM), 1.5, surface(1))]);
+ // (El río, hasta el borde por el que salta al mar; el arroyo, hasta el suyo; el reguero del manantial y el pie de cada cascada.)
+ return flat([ribbon(dense(RIVER_SEEN), 2.1, surface(0)), ribbon(dense(STREAM), 1.5, surface(1)), ...TAILS.map((tail) => ribbon(dense(tail.points, 0.4), 1.9, surface(tail.level)))]);
+}
+// El manantial del macizo y su reguero: agua que brota con luz propia (es poca y va entre faroles: si no, no se vería).
+function createSpring() {
+ return flat([disc({ ...SPRING, r: SPRING.r + 0.2 }, surface(2) - 0.01), ribbon(dense(SPRING_RUN, 0.3), 1.5, surface(2))]);
 }
 function createPools() {
  return flat([disc(POND, surface(1)), disc(POOL, surface(0))]);
@@ -201,7 +206,7 @@ function createPools() {
 // El agua dulce, quieta o corriendo: turquesa oscuro, casi verde azulado. Los
 // brillos son finos y pocos: hilos de corriente y una línea rota junto a cada
 // orilla. (`speed`: lo que corre; en las pozas, casi nada.)
-function createRiverMaterial(speed) {
+function createRiverMaterial(speed, bright = 0) {
  const { uTime } = uniforms;
  const material = unlit({ transparent: true, depthWrite: false, side: THREE.DoubleSide });
  const at = uv();
@@ -213,7 +218,8 @@ function createRiverMaterial(speed) {
  // Junto a las orillas, una línea de brillo que se rompe.
  const lap = texture(noiseTexture, vec2(at.x.mul(1.1).add(0.3), at.y.mul(0.33).add(uTime.mul(speed * 0.5)))).g;
  const rim = smoothstep(0.5, 0.6, across).mul(smoothstep(0.78, 0.68, across)).mul(smoothstep(0.52, 0.6, lap));
- material.colorNode = body.add(vec3(0.2, 0.72, 0.68).mul(thread.mul(0.34).add(rim.mul(0.5))));
+ // (`bright`: el agua del manantial, turquesa encendido.)
+ material.colorNode = body.mul(1 + bright * 3).add(vec3(0.03, 0.2, 0.2).mul(bright)).add(vec3(0.2, 0.72, 0.68).mul(thread.mul(0.34 + bright * 0.5).add(rim.mul(0.5 + bright * 0.4))));
  // Hacia los bordes de la cinta se deshace.
  material.opacityNode = smoothstep(0, 0.16, at.x).mul(smoothstep(1, 0.84, at.x)).mul(0.93);
  return material;
@@ -225,8 +231,9 @@ export function Terrain() {
  const seaMaterial = useMemo(createSeaMaterial, []);
  const fresh = useMemo(createFreshWater, []);
  const pools = useMemo(createPools, []);
- const falls = useMemo(() => createFalls(), []);
- const flow = useMemo(() => ({ river: createRiverMaterial(0.16), pool: createRiverMaterial(0.02), fall: createFallMaterial() }), []);
+ const spring = useMemo(createSpring, []);
+ const falls = useMemo(() => createCascades(), []);
+ const flow = useMemo(() => ({ river: createRiverMaterial(0.16), pool: createRiverMaterial(0.02), spring: createRiverMaterial(0.2, 1), fall: createFallMaterial() }), []);
  // Fondo del mar: cierra el planeta por debajo.
  const bed = useMemo(() => new THREE.RingGeometry(0.3, WATER_REACH, 96, 30).rotateX(-Math.PI / 2), []);
  const bedMaterial = useMemo(() => {
@@ -236,9 +243,9 @@ export function Terrain() {
  }, []);
  useEffect(
   () => () => {
-   for (const one of [ground, soil, sea, seaMaterial, fresh, pools, falls, flow.river, flow.pool, flow.fall, bed, bedMaterial]) one.dispose();
+   for (const one of [ground, soil, sea, seaMaterial, fresh, pools, spring, falls, flow.river, flow.pool, flow.spring, flow.fall, bed, bedMaterial]) one.dispose();
   },
-  [ground, soil, sea, seaMaterial, fresh, pools, falls, flow, bed, bedMaterial],
+  [ground, soil, sea, seaMaterial, fresh, pools, spring, falls, flow, bed, bedMaterial],
  );
  return (
   <>
@@ -247,6 +254,7 @@ export function Terrain() {
    <mesh name="mar" geometry={sea} material={seaMaterial} position-y={WATER_LEVEL} frustumCulled={false} userData={COARSE} />
    <mesh name="río" geometry={fresh} material={flow.river} renderOrder={1} />
    <mesh name="pozas" geometry={pools} material={flow.pool} renderOrder={1} />
+   <mesh name="manantial" geometry={spring} material={flow.spring} renderOrder={1} />
    <mesh name="cascadas" geometry={falls} material={flow.fall} renderOrder={2} />
   </>
  );

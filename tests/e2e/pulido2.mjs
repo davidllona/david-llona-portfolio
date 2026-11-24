@@ -46,7 +46,8 @@ const SHOTS = [
  // 4 · Cascadas: A (del macizo a la poza), B (de la terraza al río) y C (del río al mar); desde abajo, de lado y desde arriba.
  { name: "4-cascada-a-abajo", at: [3.6, -21.4] },
  { name: "4-cascada-a-lado", at: [3.6, -21.4], view: { focus: [1.9, LEVELS[1] + 2.2, -25.2], distance: 0.6, lift: 0.3, yaw: 1.0 } },
- { name: "4-cascada-a-arriba", at: [-0.4, -28.2] },
+ { name: "4-cascada-a-arriba", at: [-0.4, -28.2], woody: [-1.6, -27.4] },
+ { name: "4-cascada-a-manantial", at: [-0.4, -28.2], woody: [-1.6, -27.4], view: { focus: [2.3, LEVELS[2] + 0.3, -28.6], distance: 0.55, lift: 1.25, yaw: -0.35 } },
  { name: "4-cascada-b-abajo", at: [4.4, -12.6] },
  { name: "4-cascada-b-lado", at: [4.4, -12.6], view: { focus: [2.6, 2.2, -15.2], distance: 0.6, lift: 0.3, yaw: 1.0 } },
  { name: "4-cascada-b-arriba", at: [4.6, -18.2] },
@@ -92,7 +93,12 @@ if (shots.length || wanted("nave")) {
  // (Que se vaya el aviso del logro «Primeros pasos».)
  await wait(6500);
  for (const one of shots) {
-  await t.put(one.at[0], one.at[1], { settle: 500 });
+  await t.put(one.at[0], one.at[1], { settle: one.woody ? 100 : 500 });
+  // (Woody, donde no tape lo que se mira.)
+  if (one.woody) {
+   await t.evaluate(([x, z]) => window.__world.woody.position.set(x, window.__world.world().height(x, z), z), one.woody);
+   await wait(400);
+  }
   await t.evaluate((view) => {
    const rig = window.__world.rig;
    Object.assign(rig, view ? { focus: { x: view.focus[0], y: view.focus[1], z: view.focus[2] }, distance: view.distance ?? 1, lift: view.lift ?? 1, yaw: view.yaw ?? 0, tilt: view.tilt ?? 0 } : { focus: null, lift: 1, distance: 1, yaw: 0, tilt: 0 });
