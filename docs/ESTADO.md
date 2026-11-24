@@ -63,6 +63,12 @@ Encargo: `docs/OBJETIVO-28.md` (24-11-2026). Cinco puntos, commit y push en cada
 
 *Sin comprobar*: nada de esto en un teléfono real ni en el preview de Vercel (solo en Chrome sin ventana, en este Mac); el giro de los engranajes y la caída del agua se han visto en capturas sucesivas, no en movimiento; el cruce de los puentes lo hacen las pruebas (andando con teclas el del observatorio y la pasarela del río; los demás, por cálculo sobre el plano), no una persona.
 
+**Cierre** (24-11-2026, en el Mac, Chrome sin ventana sobre Metal; servidor de desarrollo reiniciado en limpio).
+- *Hoja final*: `capturas/35-pulido-mundo2/hoja-final.jpg` (los cinco puntos, antes y después con el mismo encuadre, las capturas extra y la postal junto a las tres referencias). El «antes» se sacó con el código de `2ebe1ff` (`git checkout 2ebe1ff -- src`, capturas, y vuelta).
+- *Batería* (`npm run e2e`, pasada por tandas): **treinta pruebas, 754 comprobaciones bien**. Fallos, ninguno del mundo 2: (1) `triples-remoto`, 14: el `.env.local` de este Mac no tiene las claves de Firebase (`VITE_FIREBASE_*`); es de entorno. (2) `concurso`, «lo decidido al soltar es lo que pasa»: intermitente (una canasta de 25 que la física resuelve distinto: falló en dos pasadas de tres). (3) `cosmic`, «0 pipelines en caliente al volver»: intermitente (falló una vez y repetida pasó; con el código anterior falla más: dos comprobaciones). Lo cambiado en este objetivo está todo en `src/worlds/twisted/`.
+- `npm run build` pasa; `eslint`, sin errores.
+- *Rendimiento del mundo 2*: `tests/perf/fps-mundos.mjs` (sin límite de fps) **no llega a cargar en Chrome sin ventana en este Mac** (se queda en la pantalla de carga con `--disable-frame-rate-limit`), así que no hay cifra sin límite. Con el límite de 60, a 2880 × 1620: **60 fps clavados en siete puntos** (llegada, río, terraza, historia, cima, invernadero y torre), antes y después. Al pie de la torre: de 179 a **191 llamadas de dibujo** y de 521.802 a **524.272 triángulos**. Falta la medida sin límite en el equipo Windows (la del objetivo 27 daba 159–195 fps).
+
 ## Objetivo 27 — Pulido: pantalla de carga, entrada, mundo 1 y contacto al mundo 3
 
 Encargo: `docs/OBJETIVO-27.md` (22-11-2026). Tres bloques, commit y push en cada uno; parada solo al final. Capturas antes/después de cada punto, en el mismo encuadre: `capturas/34-pulido/`.
