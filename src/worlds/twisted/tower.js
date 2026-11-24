@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { merge, piece, randomFrom, tube } from "../living/kit/geometry";
 import { INK, IRON } from "./models";
 
@@ -8,14 +9,23 @@ import { INK, IRON } from "./models";
 // núcleo oscuro que hace de junta—, cornisa, el cuerpo del reloj con una
 // esfera encendida en cada cara, y un tejado de pizarra alto y puntiagudo que
 // se retuerce al subir, con una buhardilla en cada faldón y la punta en rizo.
-// Ventanas con marco de piedra clara y arco, puerta con su farol de forja y
-// dos engranajes de latón bajo la esfera. Ejes: fachada hacia +Z, metros.
-// Devuelve lo macizo (`body`), los cristales cálidos (`warm`), las esferas
-// (`dial`) y dónde van las agujas (`faces`) y los halos (`glows`).
+// Ventanas con marco de piedra clara y arco, puerta con su farol de forja y,
+// bajo la esfera de la fachada, un hueco en la piedra con la maquinaria: los
+// ejes a la vista, dos engranajes que ya están y los cuatro sitios de los que
+// se recogen por la isla. Ejes: fachada hacia +Z, metros.
+// Devuelve lo macizo (`body`), el tejado (`roof`), los cristales cálidos
+// (`warm`), las esferas (`dial`), dónde van las agujas (`faces`), los
+// engranajes (`gears`, `slots`) y los resplandores, que son planos pegados a
+// cada cristal y a cada esfera (`glow`): de canto no se ven, así que ninguno
+// asoma por el lado de la torre como una bola suelta (objetivo 28).
 const SLATE = ["#7f7b98", "#908ca8", "#6d6986", "#a09cb8", "#5f5c76"];
 const JOINT = "#262338";
 const FRAME = "#b9b5cc"; // piedra clara de marcos y cornisas
-const TILES = ["#2b2942", "#35324f", "#403c5e", "#262439"];
+// Pizarra: morado grisáceo (objetivo 28: antes era casi negra y el tejado salía en silueta).
+const TILES = ["#5d5779", "#6b6489", "#7a7399", "#524c6d"];
+const RIDGE = "#a9a4c6"; // caballetes y cantos, donde da la luna
+// El hueco de la maquinaria, en la fachada: medio ancho y de qué altura a cuál.
+const NICHE = { half: 1.1, y0: 5.9, y1: 7.84, deep: 0.3 };
 const BRASS = { dark: "#8a6427", mid: "#c1933f", light: "#e3bd62" };
 const WOOD = "#2f2536";
 
@@ -26,7 +36,10 @@ const on = (yaw, u, y, out) => [u * Math.cos(yaw) + out * Math.sin(yaw), y, -u *
 
 export function createTower() {
  const random = randomFrom(0.347);
- const body = [], warm = [], dial = [], glows = [];
+ const body = [], roof = [], warm = [], dial = [];
+ // Resplandores: un plano con la mancha de luz, pegado al cristal y mirando hacia fuera.
+ const glow = { warm: [], dial: [] };
+ const shine = (kind, yaw, u, y, out, size) => glow[kind].push(new THREE.PlaneGeometry(size, size).rotateY(yaw).translate(...on(yaw, u, y, out)));
  const pick = (list) => list[Math.floor(random() * list.length)];
  const { base, shaftTop, clockY, clockR, stageTop } = TOWER;
  // Medio ancho del fuste a cada altura: se estrecha al subir.
@@ -46,6 +59,9 @@ export function createTower() {
   while (y < y1 - 0.02) {
    let tall = 0.44 + random() * 0.28;
    if (y1 - (y + tall) < 0.3) tall = y1 - y;
+   // (Las hiladas casan con el borde del hueco de la maquinaria.)
+   for (const stop of [NICHE.y0, NICHE.y1]) if (y < stop - 0.02 && y + tall > stop - 0.3 && stop < y1) tall = stop - y;
+   const open = y > NICHE.y0 - 0.03 && y + tall < NICHE.y1 + 0.03;
    for (const yaw of YAWS) {
     const h = halfAt(y + tall / 2);
     let left = -h;
@@ -53,18 +69,24 @@ export function createTower() {
      let wide = 0.5 + random() * 0.66;
      if (h - (left + wide) < 0.34) wide = h - left;
      const deep = 0.3, proud = random() * 0.075;
-     body.push(put(yaw, new THREE.BoxGeometry(wide - 0.055, tall - 0.055, deep), { color: pick(SLATE), vary: 0.12, jitter: 0.014, seed: 1 + Math.floor(random() * 900) }, left + wide / 2, y + tall / 2, h - deep / 2 + proud, (random() - 0.5) * 0.025));
+     // En la fachada, a la altura del hueco, los bloques se cortan en sus jambas.
+     const spans = open && yaw === 0 ? [[left, Math.min(left + wide, -NICHE.half)], [Math.max(left, NICHE.half), left + wide]] : [[left, left + wide]];
+     for (const [from, to] of spans) {
+      if (to - from < 0.09) continue;
+      body.push(put(yaw, new THREE.BoxGeometry(to - from - 0.055, tall - 0.055, deep), { color: pick(SLATE), vary: 0.12, jitter: 0.014, seed: 1 + Math.floor(random() * 900) }, (from + to) / 2, y + tall / 2, h - deep / 2 + proud, (random() - 0.5) * 0.025));
+     }
      left += wide;
     }
    }
    y += tall;
   }
  };
- body.push(core(base, shaftTop, shaft(base), shaft(shaftTop)));
+ // (El núcleo del fuste queda al fondo de los bloques: es también el fondo del hueco.)
+ body.push(core(base, shaftTop, shaft(base) - NICHE.deep + 0.12, shaft(shaftTop) - NICHE.deep + 0.12));
  blocks(base, shaftTop, shaft);
  // Cornisa y ménsulas bajo el cuerpo del reloj.
  body.push(piece(new THREE.BoxGeometry(STAGE * 2 + 0.5, 0.22, STAGE * 2 + 0.5), { bottom: SLATE[2], top: FRAME, jitter: 0.015, position: [0, shaftTop + 0.11, 0] }));
- for (const yaw of YAWS) for (const u of [-1.0, 0, 1.0]) body.push(put(yaw, new THREE.ConeGeometry(0.2, 0.5, 4).rotateX(Math.PI), { color: SLATE[4] }, u, shaftTop - 0.26, shaft(shaftTop) + 0.14));
+ for (const yaw of YAWS) for (const u of yaw === 0 ? [-1.25, 1.25] : [-1.0, 0, 1.0]) body.push(put(yaw, new THREE.ConeGeometry(0.2, 0.5, 4).rotateX(Math.PI), { color: SLATE[4] }, u, shaftTop - 0.26, shaft(shaftTop) + 0.14));
  body.push(core(shaftTop + 0.22, stageTop - 0.2, STAGE, STAGE));
  blocks(shaftTop + 0.22, stageTop - 0.2, () => STAGE);
  body.push(piece(new THREE.BoxGeometry(STAGE * 2 + 0.7, 0.2, STAGE * 2 + 0.7), { bottom: SLATE[2], top: FRAME, jitter: 0.015, position: [0, stageTop - 0.1, 0], rotation: [0, 0.03, 0] }));
@@ -78,7 +100,7 @@ export function createTower() {
    const angle = (k / 12) * Math.PI * 2, long = k % 3 ? 0.14 : 0.24, r = clockR - 0.1 - long / 2;
    body.push(put(yaw, new THREE.BoxGeometry(k % 3 ? 0.045 : 0.07, long, 0.03), { color: INK }, Math.sin(angle) * r, clockY + Math.cos(angle) * r, out + 0.02, -angle));
   }
-  glows.push({ at: on(yaw, 0, clockY, out + 0.06), size: 3.4, tint: "dial" });
+  shine("dial", yaw, 0, clockY, out + 0.14, 3.3);
   return { position: on(yaw, 0, clockY, out + 0.03), yaw };
  });
 
@@ -100,10 +122,10 @@ export function createTower() {
    inner(new THREE.BoxGeometry(0.04, h + w / 2, 0.04), { color: IRON }, 0, w / 4, 0.02),
    inner(new THREE.BoxGeometry(w, 0.04, 0.04), { color: IRON }, 0, h * 0.16, 0.02),
   );
-  glows.push({ at: on(yaw, u, y + 0.1, out + 0.08), size: 1.9, tint: "warm" });
+  shine("warm", yaw, u, y + 0.1, out + 0.11, 1.9);
  };
  window(0, -0.62, 3.5, 0.56, 0.86, shaft, 0.03);
- window(0, 0.5, 5.9, 0.5, 0.8, shaft, -0.04);
+ window(0, 0.5, 4.85, 0.5, 0.8, shaft, -0.04);
  window(Math.PI / 2, 0.1, 4.4, 0.54, 0.84, shaft, 0.03);
  window(-Math.PI / 2, -0.15, 6.3, 0.5, 0.8, shaft, -0.03);
  window(-Math.PI / 2, 0.3, 2.9, 0.5, 0.8, shaft, 0.04);
@@ -132,22 +154,37 @@ export function createTower() {
    piece(new THREE.CylinderGeometry(0.11, 0.07, 0.05, 5), { color: IRON, position: [1.02, base + 1.94, out + 0.66] }),
   );
   warm.push(piece(new THREE.BoxGeometry(0.18, 0.26, 0.18), { position: [1.02, base + 2.08, out + 0.66] }));
-  glows.push({ at: [1.02, base + 2.08, out + 0.72], size: 1.5, tint: "warm" }, { at: [0, base + h + 0.2, out + 0.1], size: 1.6, tint: "warm" });
+  shine("warm", 0, 0, base + h + 0.2, out + 0.16, 1.7);
  }
 
- // ── Engranajes de latón bajo la esfera, medio asomados de la piedra ──
- const gear = (yaw, u, y, r, teeth, tone, turn) => {
-  const out = shaft(y) + 0.1;
-  body.push(put(yaw, new THREE.CylinderGeometry(r, r, 0.12, teeth * 2).rotateX(Math.PI / 2), { bottom: tone.dark, top: tone.light, vary: 0.06 }, u, y, out));
-  body.push(put(yaw, new THREE.CylinderGeometry(r * 0.3, r * 0.3, 0.2, 8).rotateX(Math.PI / 2), { color: tone.dark }, u, y, out + 0.02));
-  for (let k = 0; k < teeth; k++) {
-   const angle = (k / teeth) * Math.PI * 2 + turn;
-   body.push(put(yaw, new THREE.BoxGeometry(r * 0.3, r * 0.3, 0.12), { color: tone.mid }, u + Math.sin(angle) * (r + r * 0.1), y + Math.cos(angle) * (r + r * 0.1), out, -angle));
+ // ── La maquinaria: un hueco en la fachada, bajo la esfera, con los ejes a la vista ──
+ // Marco de piedra clara, fondo oscuro y un eje de hierro con su tuerca de latón por
+ // engranaje. Dos engranajes están siempre (el central y un piñón, de bronce viejo);
+ // los otros cuatro ejes esperan vacíos a los que se recogen por la isla.
+ // [a lo ancho, altura, radio, dientes, sentido de giro]
+ const MACHINE = { fixed: [[0, 6.9, 0.34, 9, 1], [0.02, 6.26, 0.2, 7, -1]], slots: [[-0.6, 7.38, 0.3, 9, -1], [0.6, 7.38, 0.3, 9, -1], [0.68, 6.6, 0.27, 9, -1], [-0.68, 6.6, 0.27, 9, -1]] };
+ {
+  const { half, y0, y1, deep } = NICHE, tall = y1 - y0, mid = (y0 + y1) / 2, out = shaft(mid);
+  body.push(
+   put(0, new THREE.BoxGeometry(0.2, tall + 0.1, 0.24), { bottom: SLATE[1], top: FRAME, vary: 0.05 }, -half - 0.07, mid, out - 0.02),
+   put(0, new THREE.BoxGeometry(0.2, tall + 0.1, 0.24), { bottom: SLATE[1], top: FRAME, vary: 0.05 }, half + 0.07, mid, out - 0.02),
+   put(0, new THREE.BoxGeometry(half * 2 + 0.62, 0.2, 0.3), { bottom: SLATE[1], top: FRAME, jitter: 0.012 }, 0, y1 + 0.09, shaft(y1)),
+   put(0, new THREE.BoxGeometry(half * 2 + 0.7, 0.16, 0.36), { bottom: SLATE[2], top: FRAME, jitter: 0.012 }, 0, y0 - 0.07, shaft(y0) + 0.03),
+   // Fondo de tablones oscuros, con dos pletinas de hierro.
+   put(0, new THREE.BoxGeometry(half * 2, tall, 0.04), { bottom: "#1c1826", top: "#2a2436", vary: 0.1 }, 0, mid, out - deep + 0.03),
+   put(0, new THREE.BoxGeometry(half * 2, 0.07, 0.03), { color: IRON }, 0, y0 + 0.3, out - deep + 0.06),
+   put(0, new THREE.BoxGeometry(half * 2, 0.07, 0.03), { color: IRON }, 0, y1 - 0.16, out - deep + 0.06),
+  );
+  for (const [u, y, r] of [...MACHINE.fixed, ...MACHINE.slots]) {
+   body.push(
+    put(0, new THREE.CylinderGeometry(0.05, 0.05, deep - 0.06, 6).rotateX(Math.PI / 2), { color: IRON }, u, y, shaft(y) - deep / 2 - 0.02),
+    put(0, new THREE.CylinderGeometry(0.085, 0.085, 0.05, 6).rotateX(Math.PI / 2), { bottom: BRASS.dark, top: BRASS.light }, u, y, shaft(y) - 0.07),
+    // (La arandela contra el fondo, del tamaño del cubo del engranaje.)
+    put(0, new THREE.CylinderGeometry(r * 0.42, r * 0.42, 0.03, 8).rotateX(Math.PI / 2), { color: "#3a3346" }, u, y, shaft(y) - deep + 0.07),
+   );
   }
- };
- gear(0, -0.72, 7.25, 0.52, 9, BRASS, 0);
- gear(0, 0.14, 6.92, 0.33, 7, { dark: "#5d4a2a", mid: "#8c7036", light: "#a8894a" }, 0.3);
- gear(Math.PI / 2, 0.5, 7.3, 0.42, 8, BRASS, 0.2);
+ }
+ const seat = ([u, y, r, teeth, dir]) => ({ at: on(0, u, y, shaft(y) - NICHE.deep + 0.14), r, teeth, dir });
 
  // ── Tejado de pizarra: alto, puntiagudo y retorcido ──
  // Secciones cuadradas [altura, medio ancho, giro, desplazamiento]: cada una gira algo más y se vence hacia el este.
@@ -173,7 +210,7 @@ export function createTower() {
    const low = ring(rows[i]), high = ring(rows[i + 1]);
    for (let side = 0; side < 4; side++) {
     const next = (side + 1) % 4;
-    tone.set(TILES[(i + side) % TILES.length]).multiplyScalar(0.9 + random() * 0.24);
+    tone.set(TILES[(i + side) % TILES.length]).multiplyScalar(0.92 + random() * 0.18);
     // (Por fuera: el recorrido de las esquinas va en el sentido de las agujas visto desde arriba.)
     for (const point of [low[side], high[next], low[next], low[side], high[side], high[next]]) {
      positions.push(...point);
@@ -181,31 +218,46 @@ export function createTower() {
     }
    }
   }
-  const roof = new THREE.BufferGeometry();
-  roof.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  roof.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-  body.push(roof);
-  // Alero oscuro y punta en rizo, con su bola de latón.
-  body.push(piece(new THREE.BoxGeometry(4.5, 0.12, 4.5), { color: TILES[3], position: [0, stageTop + 0.02, 0] }));
+  const slates = new THREE.BufferGeometry();
+  slates.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  slates.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  roof.push(slates);
+  // Caballetes: un cordón claro por cada arista del tejado, donde da la luna.
+  for (let corner = 0; corner < 4; corner++) roof.push(piece(tube(SECTIONS.map((section) => ring(section)[corner]), (t) => 0.075 * (1 - t) + 0.03, { sides: 4, segments: 20 }), { color: RIDGE, vary: 0.06 }));
+  // Alero y punta en rizo, con su bola de latón.
+  roof.push(piece(new THREE.BoxGeometry(4.5, 0.12, 4.5), { bottom: TILES[3], top: RIDGE, position: [0, stageTop + 0.02, 0] }));
   const tip = [[0.62, 16.62, 0], [0.8, 17.0, 0.02], [1.12, 17.2, 0.06], [1.42, 17.02, 0.08], [1.4, 16.74, 0.08], [1.24, 16.7, 0.07]];
-  body.push(piece(tube(tip, (t) => 0.13 * (1 - t) + 0.03, { sides: 5, segments: 12 }), { color: TILES[1], vary: 0.08 }));
-  body.push(piece(new THREE.OctahedronGeometry(0.12, 0), { color: BRASS.light, position: [1.22, 16.62, 0.07] }));
+  roof.push(piece(tube(tip, (t) => 0.13 * (1 - t) + 0.03, { sides: 5, segments: 12 }), { color: TILES[2], vary: 0.08 }));
+  roof.push(piece(new THREE.OctahedronGeometry(0.12, 0), { color: BRASS.light, position: [1.22, 16.62, 0.07] }));
  }
- // Buhardillas: una en cada faldón, a distinta altura, cada una con su ventanita encendida y su gorro.
+ // Buhardillas: una en cada faldón, a distinta altura. Cuerpo de piedra clara, tejadillo
+ // de pizarra a dos aguas con su caballete, y la ventana encendida, con marco y cruceta.
  YAWS.forEach((yaw, i) => {
-  const y = 11.75 + (i % 2) * 0.55, out = 1.86 - (y - 11.5) * 0.47 + 0.1, lean = (i % 2 ? -1 : 1) * 0.07;
-  const u = (i % 2 ? 0.2 : -0.15);
-  body.push(
-   put(yaw, new THREE.BoxGeometry(0.86, 0.8, 0.9), { bottom: SLATE[2], top: SLATE[1], vary: 0.1, seed: 40 + i }, u, y, out - 0.25, lean),
-   put(yaw, new THREE.ConeGeometry(0.78, 0.78, 4).rotateY(Math.PI / 4), { bottom: TILES[0], top: TILES[2], vary: 0.1, seed: 50 + i }, u - lean * 0.6, y + 0.78, out - 0.25, lean * 1.6),
-   put(yaw, new THREE.BoxGeometry(0.6, 0.07, 0.12), { color: FRAME }, u, y - 0.3, out + 0.22, lean),
-   put(yaw, new THREE.BoxGeometry(0.035, 0.5, 0.03), { color: IRON }, u, y, out + 0.22, lean),
+  const y = 11.75 + (i % 2) * 0.55, out = 1.86 - (y - 11.5) * 0.47 + 0.1, lean = (i % 2 ? -1 : 1) * 0.05;
+  const u = i % 2 ? 0.2 : -0.15, front = out + 0.2;
+  // (Prisma de tres caras tumbado: el hastial mira hacia fuera.)
+  const gable = (r, depth) => new THREE.CylinderGeometry(r, r, depth, 3).rotateX(-Math.PI / 2);
+  roof.push(
+   put(yaw, new THREE.BoxGeometry(0.84, 0.8, 0.9), { bottom: SLATE[0], top: SLATE[3], vary: 0.08, seed: 40 + i }, u, y, out - 0.25, lean),
+   put(yaw, gable(0.66, 1.04), { bottom: TILES[0], top: TILES[2], vary: 0.1, seed: 50 + i }, u - lean * 0.5, y + 0.4 + 0.3, out - 0.27, lean),
+   put(yaw, new THREE.BoxGeometry(0.07, 0.07, 1.1), { color: RIDGE }, u - lean * 0.9, y + 0.4 + 0.63, out - 0.27, lean),
+   // Marco, alféizar y cruceta.
+   put(yaw, new THREE.BoxGeometry(0.07, 0.6, 0.06), { color: FRAME }, u - 0.27, y - 0.02, front, lean),
+   put(yaw, new THREE.BoxGeometry(0.07, 0.6, 0.06), { color: FRAME }, u + 0.27, y - 0.02, front, lean),
+   put(yaw, new THREE.BoxGeometry(0.61, 0.07, 0.06), { color: FRAME }, u, y + 0.28, front, lean),
+   put(yaw, new THREE.BoxGeometry(0.72, 0.08, 0.16), { color: FRAME }, u, y - 0.33, front + 0.03, lean),
+   put(yaw, new THREE.BoxGeometry(0.035, 0.54, 0.03), { color: IRON }, u, y - 0.02, front + 0.02, lean),
+   put(yaw, new THREE.BoxGeometry(0.48, 0.035, 0.03), { color: IRON }, u, y + 0.02, front + 0.02, lean),
   );
-  warm.push(put(yaw, new THREE.PlaneGeometry(0.46, 0.5), {}, u, y, out + 0.205, lean));
-  glows.push({ at: on(yaw, u, y, out + 0.28), size: 1.4, tint: "warm" });
+  warm.push(put(yaw, new THREE.PlaneGeometry(0.48, 0.54), {}, u, y - 0.02, front + 0.006, lean));
+  shine("warm", yaw, u, y, front + 0.05, 1.15);
  });
 
- // Dónde encajan, al arrancar el reloj, los cuatro engranajes que se recogen por la isla: [x, y, z, radio].
- const slots = [[-0.02, 7.86, 0.3], [0.78, 7.36, 0.34], [0.86, 6.42, 0.27], [-0.86, 6.36, 0.3]].map(([u, y, r]) => [...on(0, u, y, shaft(y) + 0.2), r]);
- return { body: merge(body), warm: merge(warm), dial: merge(dial), faces, glows, slots };
+ // Los engranajes: los dos que están siempre y dónde encajan, al arrancar el reloj, los cuatro que se recogen por la isla.
+ const flat = (list) => {
+  const made = mergeGeometries(list);
+  list.forEach((one) => one.dispose());
+  return made;
+ };
+ return { body: merge(body), roof: merge(roof), warm: merge(warm), dial: merge(dial), faces, glow: { warm: flat(glow.warm), dial: flat(glow.dial) }, gears: MACHINE.fixed.map(seat), slots: MACHINE.slots.map(seat), lamp: [1.02, base + 2.08, shaft(base + 1) + 0.1 + 0.72] };
 }

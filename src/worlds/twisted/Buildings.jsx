@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { attribute, float, mix, vec3 } from "three/tsl";
+import { MeshBasicNodeMaterial } from "three/webgpu";
 import { aboutCard } from "../../content/about";
 import { taleCard } from "../../content/cards";
 import { CLOCK, STORY } from "../../content/twisted";
@@ -11,12 +12,13 @@ import { useInteractable } from "../../experience/interact";
 import { addWarmSource } from "../../experience/lightSources";
 import { lambert, unlit } from "../../experience/materials";
 import { emit } from "../../experience/state";
-import { clock, uniforms } from "../../experience/theme";
+import { createGlowTexture } from "../../experience/textures";
+import { clock, registerGlow, uniforms } from "../../experience/theme";
 import { clockwork, GEAR_IN, SPIN_AT } from "./clockwork";
-import { Glows, Smoke } from "./Details";
+import { Smoke } from "./Details";
 import { quest } from "../../game/moonQuest";
 import { BUILDINGS, GREENHOUSE, HOUSE, QUEST_STOPS, STORY_DOOR, ground } from "./layout";
-import { glass, pool, solid } from "./materials";
+import { glass, moonlit, pool, solid } from "./materials";
 import { STONE, WARM, createGear, createGreenhouse } from "./models";
 import { TOWER, createTower } from "./tower";
 import { Halos } from "../living/props/Halos";
@@ -92,7 +94,7 @@ function Building({ name, site, material, children }) {
 // fija) y desde entonces la marcan. El compás de todo eso, en clockwork.js.
 const LEAN = [-0.035, 0, 0.05];
 const STOPPED = 10 + 10 / 60; // la hora en que se quedó parado
-function Tower({ site, material }) {
+function Tower({ site }) {
  const model = useMemo(createTower, []);
  const hands = useRef([]);
  const cogs = useRef([]);
@@ -100,7 +102,15 @@ function Tower({ site, material }) {
   // Las esferas: su luz la lleva el reloj (apagadas a medias si está parado).
   const dial = unlit({ toneMapped: false });
   dial.colorNode = vec3(1.0, 0.8, 0.5).mul(clockwork.dial);
-  return { warm: glass(WARM), dial, spill: pool("#ff9a3c", 0.55) };
+  // Piedra y tejado: lo de siempre, más la luz de luna de relleno y de canto (el tejado, algo más).
+  const stone = moonlit(solid({ side: THREE.DoubleSide }), 0.05, 0.18), slate = moonlit(solid({ side: THREE.DoubleSide }), 0.16, 0.6);
+  // Resplandores pegados a los cristales (se encienden con la noche) y a las esferas (con el reloj).
+  const map = createGlowTexture();
+  const flare = (color) => new MeshBasicNodeMaterial({ map, color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, fog: false });
+  const windows = flare("#ffa24e"), dials = flare("#ffc27a");
+  dials.opacityNode = clockwork.glow.mul(0.34);
+  const stop = registerGlow(windows, 0, 0.5, "opacity");
+  return { warm: glass(WARM), dial, spill: pool("#ff9a3c", 0.55), stone, slate, windows, dials, map: { dispose: () => (stop(), map.dispose()) } };
  }, []);
  const handGeometry = useMemo(() => {
   const r = TOWER.clockR;
@@ -109,6 +119,8 @@ function Tower({ site, material }) {
  }, []);
  const handMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: "#1b1228" }), []);
  const cog = useMemo(() => createGear(9), []);
+ const pinion = useMemo(() => createGear(7), []);
+ const wheels = useRef([]);
  const y = ground(site.x, site.z) - 0.05;
  // De los ejes de la torre (ya inclinada) a los del mundo.
  const placed = useMemo(() => {
@@ -116,26 +128,26 @@ function Tower({ site, material }) {
   const toWorld = (at) => new THREE.Vector3(...at).applyEuler(lean).applyAxisAngle(up, site.turn).add(new THREE.Vector3(site.x, y, site.z)).toArray();
   const door = toWorld([0.3, 0, 3.1]);
   return {
-   warm: model.glows.filter((one) => one.tint === "warm").map((one) => toWorld(one.at)),
-   dials: model.glows.filter((one) => one.tint === "dial").map((one) => toWorld(one.at)),
+   dial: toWorld(model.faces[0].position),
    door,
    lamp: toWorld([1.02, 2.8, 2.5]),
+   lantern: [toWorld(model.lamp)],
   };
  }, [model, site, y]);
  const dialLight = useRef(null);
  useEffect(() => {
-  const dial = addWarmSource({ x: placed.dials[0][0], y: placed.dials[0][1] - 1.2, z: placed.dials[0][2] + 1.4, power: 0, reach: 9, flicker: 0.02, color: "#ffc27a" });
+  const dial = addWarmSource({ x: placed.dial[0], y: placed.dial[1] - 1.2, z: placed.dial[2] + 1.4, power: 0, reach: 9, flicker: 0.02, color: "#ffc27a" });
   dialLight.current = dial.source;
   const stop = [addWarmSource({ x: placed.lamp[0], y: placed.lamp[1], z: placed.lamp[2], power: 1.0, reach: 7.5, flicker: 0.06, color: "#ffa552" }), dial];
   return () => stop.forEach((off) => off());
  }, [placed]);
  useEffect(
   () => () => {
-   [model.body, model.warm, model.dial, cog, ...Object.values(handGeometry)].forEach((one) => one.dispose());
+   [model.body, model.roof, model.warm, model.dial, model.glow.warm, model.glow.dial, cog, pinion, ...Object.values(handGeometry)].forEach((one) => one.dispose());
    Object.values(lit).forEach((one) => one.dispose());
    handMaterial.dispose();
   },
-  [model, lit, handGeometry, handMaterial, cog],
+  [model, lit, handGeometry, handMaterial, cog, pinion],
  );
  const plane = useMemo(() => new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), []);
  useEffect(() => () => plane.dispose(), [plane]);
@@ -156,15 +168,18 @@ function Tower({ site, material }) {
   }
   if (dialLight.current) dialLight.current.power = 0.8 * clockwork.level;
   // Los engranajes de la fachada: cada uno encaja a su tiempo (llega creciendo, con un rebote) y luego giran todos, engranados.
-  model.slots.forEach(([, , , r], i) => {
-   const mesh = cogs.current[i];
+  const spinning = t > SPIN_AT ? Math.min(1, (t - SPIN_AT) / 0.8) : 0;
+  // (Engranados: cada uno gira al revés que el central, y más deprisa cuanto menor es.)
+  const turn = (one, i) => one.dir * time.elapsedTime * 0.7 * (0.34 / one.r) * spinning + i * 0.37;
+  model.gears.forEach((one, i) => wheels.current[i] && (wheels.current[i].rotation.z = turn(one, i + 4)));
+  model.slots.forEach((one, i) => {
+   const mesh = cogs.current[i], r = one.r;
    if (!mesh) return;
    const into = Math.min(1, Math.max(0, (t - GEAR_IN(i)) / 0.45));
    const pop = into <= 0 ? 0 : into < 1 ? 1 + Math.sin(into * Math.PI) * 0.35 * (1 - into) - (1 - into) ** 2 : 1;
    mesh.visible = pop > 0.001;
    mesh.scale.setScalar(Math.max(0.001, pop) * r);
-   const spinning = t > SPIN_AT ? Math.min(1, (t - SPIN_AT) / 0.8) : 0;
-   mesh.rotation.z = (i % 2 ? -1 : 1) * time.elapsedTime * 0.7 * spinning + i;
+   mesh.rotation.z = turn(one, i);
   });
   if (import.meta.env.DEV) window.__world.towerClock = { hour, hourAngle: hours, minuteAngle: minute, running: quest.running(), level: clockwork.level, sequence: t, cogs: cogs.current.filter((mesh) => mesh?.visible).length }; // para las pruebas automáticas
  });
@@ -172,7 +187,11 @@ function Tower({ site, material }) {
   <>
    <group name="torre" userData={{ rests: 0 }} position={[site.x, y, site.z]} rotation-y={site.turn}>
     <group rotation={LEAN}>
-     <mesh name="torre: piedra, tejado y buhardillas" geometry={model.body} material={material} castShadow receiveShadow />
+     <mesh name="torre: piedra, tejado y buhardillas" geometry={model.body} material={lit.stone} castShadow receiveShadow />
+     <mesh name="tejado de la torre" geometry={model.roof} material={lit.slate} castShadow receiveShadow />
+     {/* Resplandores: planos pegados a cada cristal y a cada esfera (de canto no se ven). */}
+     <mesh name="resplandor de las ventanas de la torre" geometry={model.glow.warm} material={lit.windows} renderOrder={3} />
+     <mesh name="halo de las esferas" geometry={model.glow.dial} material={lit.dials} renderOrder={3} />
      <mesh geometry={model.warm} material={lit.warm.material} />
      <mesh name="esferas del reloj" geometry={model.dial} material={lit.dial} />
      {/* Agujas, sobre cada esfera. */}
@@ -184,15 +203,19 @@ function Tower({ site, material }) {
       </group>
      ))}
      {/* Los cuatro engranajes recogidos, en su sitio de la fachada (no se ven hasta que encajan). */}
-     {model.slots.map(([x, sy, z], i) => (
-      <mesh key={i} ref={(node) => (cogs.current[i] = node)} name="engranaje de la torre" geometry={cog} material={material} position={[x, sy, z]} castShadow />
+     {model.slots.map((one, i) => (
+      <mesh key={i} ref={(node) => (cogs.current[i] = node)} name="engranaje de la torre" geometry={cog} material={lit.stone} position={one.at} castShadow />
+     ))}
+     {/* Los dos que están siempre en el hueco, en su eje: giran con los demás cuando el reloj anda. */}
+     {model.gears.map((one, i) => (
+      <mesh key={i} ref={(node) => (wheels.current[i] = node)} name="maquinaria de la torre" geometry={one.teeth === 7 ? pinion : cog} material={lit.stone} position={one.at} scale={one.r} castShadow />
      ))}
     </group>
    </group>
    <mesh geometry={plane} material={lit.spill.material} position={[placed.door[0], ground(placed.door[0], placed.door[2]) + 0.07, placed.door[2]]} scale={4.4} renderOrder={2} />
    {/* (Pequeños y pegados al cristal: un resplandor en la ventana, no una bola.) */}
-   <Halos points={placed.warm} size={0.95} color="#ffa24e" night={0.42} />
-   <Glows name="halo de las esferas" points={placed.dials} size={2.5} color="#ffc27a" power={clockwork.glow} strength={0.3} />
+   {/* (El único halo de cara a la cámara es el del farol de la puerta: es una bola de luz de verdad.) */}
+   <Halos points={placed.lantern} size={0.9} color="#ffa24e" night={0.42} />
   </>
  );
 }
@@ -386,7 +409,7 @@ export function Buildings() {
   <>
    {Object.entries(BUILDINGS).map(([name, site]) =>
     name === "torre" ? (
-     <Tower key={name} site={site} material={material.plain} />
+     <Tower key={name} site={site} />
     ) : (
      <Building key={name} name={name} site={site} material={site.painted ? material.plain : material[`velo ${site.saturation ?? 0.42}`]} />
     ),

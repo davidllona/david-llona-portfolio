@@ -29,6 +29,10 @@ const SHOTS = [
  tower("2-torre-tejado", 0.5, 12.6, 0.8, 0.42),
  tower("2-torre-tejado-oeste", -1.1, 12.6, 0.8, 0.42),
  tower("2-torre-engranajes", 0.35, 7.2, 0.5, 0.3),
+ // Con el reloj en marcha (los cuatro engranajes recogidos): dos capturas seguidas, para ver que giran.
+ { ...tower("2-torre-en-marcha-a", 0.35, 7.2, 0.5, 0.3), running: true },
+ { ...tower("2-torre-en-marcha-b", 0.35, 7.2, 0.5, 0.3), running: true, last: true },
+ { ...tower("2-torre-en-marcha-sur", 0), running: true, last: true, final: true },
  // 3 · Puentes: los dos colgantes y las dos pasarelas, con la cámara de juego y de lado.
  { name: "3-colgante-oeste-juego", at: [-8.9, -28.45] },
  { name: "3-colgante-oeste-lado", at: [-8.9, -28.45], view: { focus: [-8.9, LEVELS[2] + 0.4, -28.45], distance: 0.62, lift: 0.3, yaw: 0.34 } },
@@ -93,7 +97,17 @@ if (shots.length || wanted("nave")) {
    const rig = window.__world.rig;
    Object.assign(rig, view ? { focus: { x: view.focus[0], y: view.focus[1], z: view.focus[2] }, distance: view.distance ?? 1, lift: view.lift ?? 1, yaw: view.yaw ?? 0, tilt: view.tilt ?? 0 } : { focus: null, lift: 1, distance: 1, yaw: 0, tilt: 0 });
   }, one.view ?? null);
-  await wait(one.view ? 2200 : 3400);
+  if (one.running) {
+   const started = await t.evaluate(() => {
+    const q = window.__world.quest;
+    if (q.running()) return false;
+    ["alquimista", "casa-arbol", "casita", "invernadero"].forEach((id) => q.collect(id));
+    return q.start();
+   });
+   // (Arrancado así no hay secuencia ni panel: el reloj ya anda.)
+   if (started) await wait(1500);
+  }
+  await wait(one.last && !one.final ? 700 : one.view ? 2200 : 3400);
   // Con la E (el farolillo): se pulsa, se espera a que pase lo que pasa y se cierra el panel si se abre.
   if (one.use) {
    await t.page.keyboard.press("KeyE");
@@ -114,6 +128,7 @@ if (shots.length || wanted("nave")) {
    clip = { x, y, width: one.moon * 2, height: one.moon * 2 };
   }
   await shot(t, one.name, clip);
+  if (one.final) await t.evaluate(() => window.__world.quest.reset());
  }
  await t.evaluate(() => Object.assign(window.__world.rig, { focus: null, lift: 1, distance: 1 }));
  if (wanted("nave")) {
